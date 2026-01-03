@@ -56,3 +56,8 @@ internal/mocks/**/*
 # Development artifacts
 prof.cpu
 prof.mem
+
+# TCR Jail - AI restriction files (DO NOT TRACK - local only)
+# These prevent AI from escaping the TCR jail
+.claude/settings.local.json
+.claudeignore
