@@ -1,0 +1,90 @@
+# .golangci.yml - Strict linting configuration for centralized-docs
+
+linters:
+  enable:
+    # Code quality
+    - errcheck
+    - gosimple
+    - govet
+    - staticcheck
+    - unused
+
+    # Code style
+    - gofmt
+    - goimports
+
+    # Complexity
+    - cyclop
+    - dupl
+
+    # Naming
+    - stylecheck
+    - varnamelen
+
+    # Documentation
+    - godoc
+
+    # Best practices
+    - errname
+    - errorlint
+    - forbidigo
+    - noctx
+    - nolintlint
+    - revive
+
+  disable:
+    - execinquery
+    - maligned
+
+output:
+  format: colored-line-number
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Allow error shadowing in specific contexts
+    - linters:
+        - shadowed
+      text: "shadowed by"
+
+linters-settings:
+  cyclop:
+    max-complexity: 10
+
+  dupl:
+    threshold: 100
+
+  varnamelen:
+    min-name-length: 2
+    ignore-names:
+      - i
+      - j
+      - k
+      - id
+      - ok
+      - x
+      - y
+      - z
+      - op
+
+  stylecheck:
+    # ST1000: at least one file in a package should have a package comment
+    checks:
+      - all
+      - -ST1000
+
+  forbidigo:
+    # Forbid fmt.Print* functions in all files
+    forbid:
+      - p: ^fmt\.Print(f|ln)?$
+        msg: "Use ctx.Logger instead of fmt.Print*"
+
+run:
+  timeout: 5m
+  skip-files:
+    - ".*_test.go$"
+    - ".*_mock.go$"
+
+# Minimum Go version
+output-path: lint-report.json

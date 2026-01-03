@@ -1,0 +1,39 @@
+# Moon workspace configuration for centralized-docs
+workspace:
+  # Inherit from moon's built-in Go toolchain
+  extends: go
+
+  # VCS configuration
+  vcs:
+    manager: git
+    ignoreUnknownFiles: false
+
+  # Project root
+  root: .
+
+projects:
+  # This project
+  docmgr:
+    root: .
+    type: go
+    language: go
+
+# Task configuration defaults
+tasks:
+  # Output tracking for cache invalidation
+  outputs:
+    - coverage.out
+    - bin/
+    - dist/
+
+  # Aggressive caching strategy
+  cacheStrategy: content
+
+  # Run independent tasks in parallel
+  runInParallel: true
+
+  # Inherit environment variables
+  env:
+    GOFLAGS: -mod=mod
+    GOCACHE: ./.moon/cache/go-build
+    GOMODCACHE: ./.moon/cache/go-mod
