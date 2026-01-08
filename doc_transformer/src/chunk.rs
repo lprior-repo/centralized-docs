@@ -14,6 +14,7 @@ pub struct Chunk {
     pub content: String,
     pub token_count: usize,
     pub heading: Option<String>,
+    pub chunk_type: String,
     pub previous_chunk_id: Option<String>,
     pub next_chunk_id: Option<String>,
     pub related_chunk_ids: Vec<String>,
@@ -53,9 +54,10 @@ pub fn chunk_all(analyses: &[Analysis], output_dir: &Path) -> Result<ChunksResul
         let chunk_file = chunks_dir.join(&chunk_filename);
 
         let frontmatter = format!(
-            "---\ndoc_id: {}\nchunk_id: {}\nheading: {}\ntoken_count: {}\nsummary: {}\n---\n",
+            "---\ndoc_id: {}\nchunk_id: {}\nchunk_type: {}\nheading: {}\ntoken_count: {}\nsummary: {}\n---\n",
             chunk.doc_id,
             chunk.chunk_id,
+            chunk.chunk_type,
             chunk.heading.as_ref().unwrap_or(&"Introduction".to_string()),
             chunk.token_count,
             escape_frontmatter(&chunk.summary)
@@ -102,6 +104,7 @@ fn create_chunks_smart(
                 let chunk_id = format!("{}#{}", doc_id, chunk_index);
                 let summary = create_summary(&current_chunk);
                 let token_count = estimate_tokens(&current_chunk);
+                let chunk_type = detect_chunk_type(&current_chunk);
 
                 chunks.push(Chunk {
                     chunk_id,
@@ -111,6 +114,7 @@ fn create_chunks_smart(
                     content: current_chunk.clone(),
                     token_count,
                     heading: current_heading.clone(),
+                    chunk_type,
                     previous_chunk_id: if chunk_index > 0 {
                         Some(format!("{}#{}", doc_id, chunk_index - 1))
                     } else {
@@ -155,6 +159,7 @@ fn create_chunks_smart(
         let chunk_id = format!("{}#{}", doc_id, chunk_index);
         let summary = create_summary(&current_chunk);
         let token_count = estimate_tokens(&current_chunk);
+        let chunk_type = detect_chunk_type(&current_chunk);
 
         chunks.push(Chunk {
             chunk_id,
@@ -164,6 +169,7 @@ fn create_chunks_smart(
             content: current_chunk,
             token_count,
             heading: current_heading,
+            chunk_type,
             previous_chunk_id: if chunk_index > 0 {
                 Some(format!("{}#{}", doc_id, chunk_index - 1))
             } else {
@@ -180,6 +186,7 @@ fn create_chunks_smart(
         let chunk_id = format!("{}#0", doc_id);
         let summary = create_summary(content);
         let token_count = estimate_tokens(content);
+        let chunk_type = detect_chunk_type(content);
 
         chunks.push(Chunk {
             chunk_id,
@@ -189,6 +196,7 @@ fn create_chunks_smart(
             content: content.to_string(),
             token_count,
             heading: None,
+            chunk_type,
             previous_chunk_id: None,
             next_chunk_id: None,
             related_chunk_ids: Vec::new(),
@@ -249,4 +257,18 @@ fn escape_frontmatter(text: &str) -> String {
         .chars()
         .take(100)
         .collect()
+}
+
+/// Detect chunk type: code, table, or prose
+fn detect_chunk_type(content: &str) -> String {
+    let code_block_count = content.matches("```").count() / 2;
+    let has_table = content.contains('|') && Regex::new(r"\|.*\|").unwrap().is_match(content);
+
+    if code_block_count > 5 {
+        "code".to_string()
+    } else if has_table {
+        "table".to_string()
+    } else {
+        "prose".to_string()
+    }
 }
