@@ -89,8 +89,7 @@ fn extract_title(content: &str, filename: &str) -> String {
         .unwrap()
         .to_string_lossy();
     let title = stem
-        .replace('-', " ")
-        .replace('_', " ")
+        .replace(['-', '_'], " ")
         .trim()
         .to_string();
 

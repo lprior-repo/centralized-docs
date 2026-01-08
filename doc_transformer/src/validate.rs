@@ -1,7 +1,6 @@
 use anyhow::Result;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::fs;
 use std::path::Path;
 
@@ -34,7 +33,7 @@ pub fn validate_all(output_dir: &Path) -> Result<ValidationResult> {
         let entry = entry?;
         let path = entry.path();
 
-        if path.extension().map_or(false, |ext| ext == "md") {
+        if path.extension().is_some_and(|ext| ext == "md") {
             files_checked += 1;
             if let Ok(content) = fs::read_to_string(&path) {
                 let (errors, warnings) = validate_file(&content);

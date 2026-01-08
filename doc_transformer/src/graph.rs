@@ -1,0 +1,378 @@
+use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::algo::toposort;
+use petgraph::visit::EdgeRef;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+
+/// Node in the knowledge graph - represents a document or chunk
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+pub struct GraphNode {
+    pub id: String,
+    pub node_type: NodeType,
+    pub title: String,
+    pub category: Option<String>,
+}
+
+/// Type of graph node
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum NodeType {
+    Document,
+    Chunk,
+}
+
+/// Edge in the knowledge graph - represents a relationship
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphEdge {
+    pub from: String,
+    pub to: String,
+    pub edge_type: EdgeType,
+    pub weight: f32, // 0.0-1.0, higher = stronger relationship
+}
+
+/// Types of edges in the graph
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum EdgeType {
+    Sequential,      // Next chunk in document (natural order)
+    Parent,          // Document contains chunk
+    Hierarchical,    // Higher-level organization
+    Related,         // Topically related (semantic similarity)
+    References,      // Explicit link in document
+    ReferencedBy,    // Document links to this one
+    CoAuthored,      // Share tags or category
+}
+
+impl ToString for EdgeType {
+    fn to_string(&self) -> String {
+        match self {
+            EdgeType::Sequential => "sequential".to_string(),
+            EdgeType::Parent => "parent".to_string(),
+            EdgeType::Hierarchical => "hierarchical".to_string(),
+            EdgeType::Related => "related".to_string(),
+            EdgeType::References => "references".to_string(),
+            EdgeType::ReferencedBy => "referenced_by".to_string(),
+            EdgeType::CoAuthored => "co_authored".to_string(),
+        }
+    }
+}
+
+/// Directed Acyclic Graph for knowledge representation using petgraph
+pub struct KnowledgeDAG {
+    graph: DiGraph<GraphNode, GraphEdgeData>,
+    node_map: HashMap<String, NodeIndex>,
+    pub nodes_vec: Vec<GraphNode>,
+    pub edges_vec: Vec<GraphEdge>,
+}
+
+/// Edge data for petgraph
+#[derive(Debug, Clone)]
+struct GraphEdgeData {
+    edge_type: EdgeType,
+    weight: f32,
+}
+
+impl KnowledgeDAG {
+    /// Create a new empty DAG
+    pub fn new() -> Self {
+        Self {
+            graph: DiGraph::new(),
+            node_map: HashMap::new(),
+            nodes_vec: Vec::new(),
+            edges_vec: Vec::new(),
+        }
+    }
+
+    /// Add a node to the graph
+    pub fn add_node(&mut self, node: GraphNode) {
+        let idx = self.graph.add_node(node.clone());
+        self.node_map.insert(node.id.clone(), idx);
+        self.nodes_vec.push(node);
+    }
+
+    /// Add an edge to the graph
+    pub fn add_edge(&mut self, edge: GraphEdge) {
+        if let (Some(&from_idx), Some(&to_idx)) =
+            (self.node_map.get(&edge.from), self.node_map.get(&edge.to))
+        {
+            self.graph.add_edge(
+                from_idx,
+                to_idx,
+                GraphEdgeData {
+                    edge_type: edge.edge_type.clone(),
+                    weight: edge.weight,
+                },
+            );
+            self.edges_vec.push(edge);
+        }
+    }
+
+    /// Get all edges of a specific type
+    pub fn edges_by_type(&self, edge_type: &EdgeType) -> Vec<&GraphEdge> {
+        self.edges_vec
+            .iter()
+            .filter(|e| &e.edge_type == edge_type)
+            .collect()
+    }
+
+    /// Find related chunks for a given chunk (via semantic links)
+    pub fn get_related_chunks(&self, chunk_id: &str) -> Vec<(String, f32)> {
+        let mut related = Vec::new();
+
+        for edge in &self.edges_vec {
+            if edge.from == chunk_id && edge.edge_type == EdgeType::Related {
+                related.push((edge.to.clone(), edge.weight));
+            }
+        }
+
+        // Sort by weight (strength) descending
+        related.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        related
+    }
+
+    /// Get topologically sorted nodes (respects dependencies)
+    pub fn topological_order(&self) -> Vec<String> {
+        match toposort(&self.graph, None) {
+            Ok(sorted) => sorted
+                .into_iter()
+                .filter_map(|idx| {
+                    self.graph
+                        .node_weight(idx)
+                        .map(|node| node.id.clone())
+                })
+                .collect(),
+            Err(_) => Vec::new(), // Graph has cycles (shouldn't happen in valid DAG)
+        }
+    }
+
+    /// Get all nodes reachable from a given node (transitive closure)
+    pub fn reachable_from(&self, node_id: &str) -> HashSet<String> {
+        let mut visited = HashSet::new();
+        if let Some(&start_idx) = self.node_map.get(node_id) {
+            self._dfs_reachable(start_idx, &mut visited);
+        }
+        visited
+    }
+
+    fn _dfs_reachable(&self, idx: NodeIndex, visited: &mut HashSet<String>) {
+        if let Some(node) = self.graph.node_weight(idx) {
+            if !visited.insert(node.id.clone()) {
+                return; // Already visited
+            }
+
+            for edge in self.graph.edges(idx) {
+                let target_idx = edge.target();
+                self._dfs_reachable(target_idx, visited);
+            }
+        }
+    }
+
+    /// Calculate graph statistics
+    pub fn statistics(&self) -> GraphStatistics {
+        let document_count = self
+            .nodes_vec
+            .iter()
+            .filter(|n| n.node_type == NodeType::Document)
+            .count();
+
+        let chunk_count = self
+            .nodes_vec
+            .iter()
+            .filter(|n| n.node_type == NodeType::Chunk)
+            .count();
+
+        let sequential_edges = self.edges_by_type(&EdgeType::Sequential).len();
+        let related_edges = self.edges_by_type(&EdgeType::Related).len();
+        let reference_edges = self.edges_by_type(&EdgeType::References).len();
+
+        GraphStatistics {
+            node_count: self.nodes_vec.len(),
+            document_count,
+            chunk_count,
+            edge_count: self.edges_vec.len(),
+            sequential_edges,
+            related_edges,
+            reference_edges,
+        }
+    }
+
+    /// Get nodes as vector for serialization
+    pub fn nodes(&self) -> &[GraphNode] {
+        &self.nodes_vec
+    }
+
+    /// Get edges as vector for serialization
+    pub fn edges(&self) -> &[GraphEdge] {
+        &self.edges_vec
+    }
+}
+
+impl Default for KnowledgeDAG {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Statistics about the graph
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphStatistics {
+    pub node_count: usize,
+    pub document_count: usize,
+    pub chunk_count: usize,
+    pub edge_count: usize,
+    pub sequential_edges: usize,
+    pub related_edges: usize,
+    pub reference_edges: usize,
+}
+
+/// Relationship suggestion between chunks based on common tags/categories
+pub struct RelationshipDetector {
+    pub min_similarity: f32,
+}
+
+impl RelationshipDetector {
+    pub fn new(min_similarity: f32) -> Self {
+        Self { min_similarity }
+    }
+
+    /// Calculate Jaccard similarity between two tag sets
+    pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
+        if tags1.is_empty() && tags2.is_empty() {
+            return 1.0;
+        }
+
+        let set1: HashSet<_> = tags1.iter().collect();
+        let set2: HashSet<_> = tags2.iter().collect();
+
+        let intersection = set1.intersection(&set2).count() as f32;
+        let union = set1.union(&set2).count() as f32;
+
+        if union == 0.0 {
+            0.0
+        } else {
+            intersection / union
+        }
+    }
+
+    /// Detect relationships between chunks based on metadata
+    pub fn detect_relationships(
+        &self,
+        chunk_id: &str,
+        chunk_tags: &[String],
+        chunk_category: &str,
+        all_chunks: &[(String, Vec<String>, String)],
+    ) -> Vec<(String, f32)> {
+        all_chunks
+            .iter()
+            .filter(|(id, _, _)| id != chunk_id) // Don't self-reference
+            .filter_map(|(id, tags, category)| {
+                let tag_similarity = Self::jaccard_similarity(chunk_tags, tags);
+                let category_match = if category == chunk_category { 0.3 } else { 0.0 };
+
+                let combined_similarity = (tag_similarity * 0.7) + category_match;
+
+                if combined_similarity >= self.min_similarity {
+                    Some((id.clone(), combined_similarity))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dag_creation() {
+        let mut dag = KnowledgeDAG::new();
+
+        let node1 = GraphNode {
+            id: "doc1".to_string(),
+            node_type: NodeType::Document,
+            title: "Document 1".to_string(),
+            category: Some("tutorial".to_string()),
+        };
+
+        dag.add_node(node1);
+        assert_eq!(dag.nodes_vec.len(), 1);
+    }
+
+    #[test]
+    fn test_edge_addition() {
+        let mut dag = KnowledgeDAG::new();
+
+        let node1 = GraphNode {
+            id: "chunk1".to_string(),
+            node_type: NodeType::Chunk,
+            title: "Chunk 1".to_string(),
+            category: None,
+        };
+
+        let node2 = GraphNode {
+            id: "chunk2".to_string(),
+            node_type: NodeType::Chunk,
+            title: "Chunk 2".to_string(),
+            category: None,
+        };
+
+        dag.add_node(node1);
+        dag.add_node(node2);
+
+        let edge = GraphEdge {
+            from: "chunk1".to_string(),
+            to: "chunk2".to_string(),
+            edge_type: EdgeType::Sequential,
+            weight: 1.0,
+        };
+
+        dag.add_edge(edge);
+        assert_eq!(dag.edges_vec.len(), 1);
+    }
+
+    #[test]
+    fn test_jaccard_similarity() {
+        let tags1 = vec!["rust".to_string(), "cue".to_string()];
+        let tags2 = vec!["rust".to_string(), "tour".to_string()];
+
+        let similarity = RelationshipDetector::jaccard_similarity(&tags1, &tags2);
+        // Intersection: ["rust"] = 1
+        // Union: ["rust", "cue", "tour"] = 3
+        // Jaccard = 1/3 ≈ 0.333
+        assert!((similarity - 0.333).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_topological_sort() {
+        let mut dag = KnowledgeDAG::new();
+
+        for i in 1..=3 {
+            dag.add_node(GraphNode {
+                id: format!("node{}", i),
+                node_type: NodeType::Chunk,
+                title: format!("Node {}", i),
+                category: None,
+            });
+        }
+
+        dag.add_edge(GraphEdge {
+            from: "node1".to_string(),
+            to: "node2".to_string(),
+            edge_type: EdgeType::Sequential,
+            weight: 1.0,
+        });
+
+        dag.add_edge(GraphEdge {
+            from: "node2".to_string(),
+            to: "node3".to_string(),
+            edge_type: EdgeType::Sequential,
+            weight: 1.0,
+        });
+
+        let topo_order = dag.topological_order();
+        assert_eq!(topo_order.len(), 3);
+        assert_eq!(topo_order[0], "node1");
+    }
+}

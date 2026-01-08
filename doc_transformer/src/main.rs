@@ -3,6 +3,7 @@ mod analyze;
 mod assign;
 mod transform;
 mod chunk;
+mod graph;
 mod index;
 mod validate;
 
@@ -28,7 +29,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     println!("\n{}", "=".repeat(70));
-    println!("DOC_TRANSFORMER v4.2");
+    println!("DOC_TRANSFORMER v4.3 (Knowledge DAG)");
     println!("{}\n", "=".repeat(70));
 
     // STEP 1: DISCOVER
