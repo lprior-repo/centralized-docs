@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
 
     // STEP 1: DISCOVER
     println!("[STEP 1] DISCOVER");
-    let (files, discover_manifest) = discover::discover_files(&args.source_dir)?;
+    let (files, _discover_manifest) = discover::discover_files(&args.source_dir)?;
     println!("  DISCOVER: Found {} files\n", files.len());
 
     // STEP 2: ANALYZE

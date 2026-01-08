@@ -50,7 +50,7 @@ pub fn chunk_all(analyses: &[Analysis], output_dir: &Path) -> Result<ChunksResul
 
     // Write chunks to disk
     for chunk in &all_chunks {
-        let chunk_filename = format!("{}.md", chunk.chunk_id.replace('/', "-").replace('#', "-"));
+        let chunk_filename = format!("{}.md", chunk.chunk_id.replace(['/', '#'], "-"));
         let chunk_file = chunks_dir.join(&chunk_filename);
 
         let frontmatter = format!(
@@ -84,10 +84,9 @@ fn create_chunks_smart(
     content: &str,
     doc_id: &str,
     doc_title: &str,
-    source_path: &str,
+    _source_path: &str,
 ) -> Vec<Chunk> {
     let h2_regex = Regex::new(r"^## (.+)$").unwrap();
-    let h1_regex = Regex::new(r"^# (.+)$").unwrap();
 
     let mut chunks = Vec::new();
     let mut current_chunk = String::new();
@@ -97,7 +96,7 @@ fn create_chunks_smart(
 
     let lines: Vec<&str> = content.lines().collect();
 
-    for (i, line) in lines.iter().enumerate() {
+    for (_i, line) in lines.iter().enumerate() {
         // Check for H2 heading (new chunk boundary)
         if let Some(caps) = h2_regex.captures(line) {
             if !current_chunk.is_empty() {
@@ -224,7 +223,7 @@ fn estimate_tokens(text: &str) -> usize {
 /// Create a summary of chunk content (first 2 sentences or 50 words)
 fn create_summary(content: &str) -> String {
     let sentences: Vec<&str> = content
-        .split(|c| c == '.' || c == '\n')
+        .split(['.', '\n'])
         .filter(|s| s.trim().len() > 10)
         .take(2)
         .collect();
