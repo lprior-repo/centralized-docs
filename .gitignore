@@ -61,3 +61,14 @@ prof.mem
 # These prevent AI from escaping the TCR jail
 .claude/settings.local.json
 .claudeignore
+
+
+# Added by cargo
+
+/target
+Cargo.lock
+Cargo.toml
+doc_transformer/target/
+node_modules/
+package-lock.json
+package.json
