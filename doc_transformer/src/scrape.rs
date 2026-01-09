@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use spider::website::Website;
-use spider_transformations::transformation::content::{self, ReturnFormat, TransformConfig};
+use spider_transformations::transformation::content::{self, ReturnFormat, SelectorConfiguration, TransformConfig};
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
@@ -182,11 +182,29 @@ fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: b
     let mut transform_config = TransformConfig::default();
     transform_config.return_format = ReturnFormat::Markdown;
 
-    // Transform HTML to Markdown using spider_transformations
-    // Args: page, config, url_selector, ignore_selectors, clean_selectors
-    let mut markdown = content::transform_content(page, &transform_config, &None, &None, &None);
+    // Build selector configuration for HTML filtering (nav, footer, aside, etc.)
+    let selector_config = if enable_filtering {
+        Some(SelectorConfiguration {
+            root_selector: None,
+            exclude_selector: Some(
+                "nav, footer, aside, header, .sidebar, .navigation, .menu, .breadcrumb, .toc, .table-of-contents, #sidebar, #nav, #footer".to_string()
+            ),
+        })
+    } else {
+        None
+    };
 
-    // Apply content filtering if enabled
+    // Transform HTML to Markdown using spider_transformations
+    // Args: page, config, url_selector, selector_config, clean_selectors
+    let mut markdown = content::transform_content(
+        page,
+        &transform_config,
+        &None,
+        &selector_config,
+        &None,
+    );
+
+    // Apply additional markdown-level content filtering
     let filtered = if enable_filtering {
         let filter_config = FilterConfig::default();
         markdown = filter_markdown(&markdown, &filter_config);

@@ -67,6 +67,7 @@ pub struct KnowledgeDAG {
 
 /// Edge data for petgraph
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct GraphEdgeData {
     edge_type: EdgeType,
     weight: f32,

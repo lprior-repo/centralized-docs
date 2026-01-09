@@ -138,6 +138,17 @@ pub fn build_and_write_index(
     // Compute topological order for traversal
     let topo_order = dag.topological_order();
 
+    // Compute reachability from each document node (transitive closure)
+    let mut reachability: HashMap<String, Vec<String>> = HashMap::new();
+    for doc in &documents {
+        let reachable = dag.reachable_from(&doc.id);
+        let mut reachable_list: Vec<String> = reachable.into_iter()
+            .filter(|id| id != &doc.id)  // Exclude self
+            .collect();
+        reachable_list.sort();
+        reachability.insert(doc.id.clone(), reachable_list);
+    }
+
     let index = json!({
         "version": "5.0",
         "generated": chrono::Utc::now().to_rfc3339(),
@@ -164,6 +175,7 @@ pub fn build_and_write_index(
             "nodes": dag.nodes(),
             "edges": dag.edges(),
             "topological_order": topo_order,
+            "reachability": reachability,
             "statistics": dag_stats
         },
         "navigation": {

@@ -57,6 +57,21 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Search indexed documentation using BM25
+    Search {
+        /// Query string to search for
+        #[arg(value_name = "QUERY")]
+        query: String,
+
+        /// Directory containing INDEX.json
+        #[arg(short, long, value_name = "DIR", default_value = ".")]
+        index_dir: PathBuf,
+
+        /// Maximum number of results to return
+        #[arg(short = 'n', long, default_value = "10")]
+        limit: usize,
+    },
+
     /// Scrape a documentation website to local markdown files
     Scrape {
         /// URL of the documentation site to scrape
@@ -132,6 +147,14 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Some(Commands::Search {
+            query,
+            index_dir,
+            limit,
+        }) => {
+            run_search(&query, &index_dir, limit)
+        }
+
         Some(Commands::Scrape {
             url,
             output,
@@ -399,6 +422,88 @@ async fn run_ingest(
         &name,
         &format!("Documentation scraped from {}", url),
     )?;
+
+    Ok(())
+}
+
+/// Run the search command using BM25 ranking
+fn run_search(query: &str, index_dir: &PathBuf, limit: usize) -> Result<()> {
+    use serde_json::Value;
+
+    let index_path = index_dir.join("INDEX.json");
+    if !index_path.exists() {
+        anyhow::bail!("INDEX.json not found in {}", index_dir.display());
+    }
+
+    let index_content = std::fs::read_to_string(&index_path)?;
+    let index: Value = serde_json::from_str(&index_content)?;
+
+    // Extract documents and chunks for searching
+    let documents = index["documents"].as_array()
+        .ok_or_else(|| anyhow::anyhow!("Invalid INDEX.json: missing documents array"))?;
+
+    let chunks = index["chunks"].as_array()
+        .ok_or_else(|| anyhow::anyhow!("Invalid INDEX.json: missing chunks array"))?;
+
+    println!("\n{}", "=".repeat(70));
+    println!("DOC_TRANSFORMER SEARCH - BM25");
+    println!("{}\n", "=".repeat(70));
+    println!("Query: \"{}\"", query);
+    println!("Searching {} documents, {} chunks...\n", documents.len(), chunks.len());
+
+    // Calculate average document length for BM25
+    let total_words: usize = documents.iter()
+        .filter_map(|d| d["word_count"].as_u64())
+        .map(|c| c as usize)
+        .sum();
+    let avg_doc_length = if !documents.is_empty() {
+        total_words as f32 / documents.len() as f32
+    } else {
+        100.0
+    };
+
+    // Score each document
+    let mut results: Vec<(f32, &Value)> = documents.iter()
+        .map(|doc| {
+            let title = doc["title"].as_str().unwrap_or("");
+            let summary = doc["summary"].as_str().unwrap_or("");
+            let searchable = format!("{} {}", title, summary);
+            let score = filter::bm25_score(&searchable, query, avg_doc_length);
+            (score, doc)
+        })
+        .filter(|(score, _)| *score > 0.0)
+        .collect();
+
+    // Sort by score descending
+    results.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Display results
+    if results.is_empty() {
+        println!("No results found for \"{}\"", query);
+    } else {
+        println!("Results:\n");
+        for (i, (score, doc)) in results.iter().take(limit).enumerate() {
+            let title = doc["title"].as_str().unwrap_or("Untitled");
+            let path = doc["path"].as_str().unwrap_or("");
+            let category = doc["category"].as_str().unwrap_or("");
+            let summary = doc["summary"].as_str().unwrap_or("");
+
+            // Truncate summary
+            let summary_short = if summary.len() > 80 {
+                format!("{}...", &summary[..80])
+            } else {
+                summary.to_string()
+            };
+
+            println!("{}. [{}] {} (score: {:.2})", i + 1, category, title, score);
+            println!("   Path: {}", path);
+            println!("   {}\n", summary_short);
+        }
+
+        println!("{}", "=".repeat(70));
+        println!("Showing {} of {} results", results.len().min(limit), results.len());
+        println!("{}\n", "=".repeat(70));
+    }
 
     Ok(())
 }

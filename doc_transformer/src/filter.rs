@@ -11,6 +11,7 @@ use scraper::{Html, Selector};
 
 /// Configuration for content filtering
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct FilterConfig {
     /// Minimum text density threshold (0.0 - 1.0)
     pub density_threshold: f32,
@@ -53,6 +54,7 @@ impl Default for FilterConfig {
 
 /// Result of content filtering
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct FilterResult {
     /// Cleaned HTML content
     pub html: String,
@@ -69,6 +71,7 @@ pub struct FilterResult {
 /// 2. Removes elements with navigation-related classes/IDs
 /// 3. Scores remaining content by text density
 /// 4. Keeps only sections above the density threshold
+#[allow(dead_code)]
 pub fn prune_html(html: &str, _config: &FilterConfig) -> FilterResult {
     let document = Html::parse_document(html);
     let removed_count = 0;
@@ -105,6 +108,7 @@ pub fn prune_html(html: &str, _config: &FilterConfig) -> FilterResult {
 /// 3. Element with role="main"
 /// 4. Common content class names
 /// 5. Falls back to <body>
+#[allow(dead_code)]
 fn extract_main_content(document: &Html) -> String {
     // Priority list of content selectors
     let selectors = [

@@ -82,7 +82,16 @@ pub fn chunk_all(analyses: &[Analysis], output_dir: &Path) -> Result<ChunksResul
     for analysis in analyses {
         let doc_id = slugify(&analysis.source_path);
 
-        // Create chunks at standard level (primary) with context prefixes
+        // Create chunks at ALL THREE levels for hierarchical retrieval
+        // Summary level: quick overview (~128 tokens)
+        let summary = create_chunks_at_level(
+            &analysis.content,
+            &doc_id,
+            &analysis.title,
+            ChunkLevel::Summary,
+        );
+
+        // Standard level: balanced detail (~512 tokens)
         let standard = create_chunks_at_level(
             &analysis.content,
             &doc_id,
@@ -90,13 +99,44 @@ pub fn chunk_all(analyses: &[Analysis], output_dir: &Path) -> Result<ChunksResul
             ChunkLevel::Standard,
         );
 
-        // Track parent-child relationships for hierarchical navigation
-        for chunk in standard {
-            match chunk.chunk_level {
-                ChunkLevel::Summary => summary_chunks += 1,
-                ChunkLevel::Standard => standard_chunks += 1,
-                ChunkLevel::Detailed => detailed_chunks += 1,
+        // Detailed level: full context (~1024 tokens)
+        let detailed = create_chunks_at_level(
+            &analysis.content,
+            &doc_id,
+            &analysis.title,
+            ChunkLevel::Detailed,
+        );
+
+        // Link parent-child relationships between levels
+        // Standard chunks are children of Summary, Detailed are children of Standard
+        let summary_ids: Vec<String> = summary.iter().map(|c| c.chunk_id.clone()).collect();
+        let standard_ids: Vec<String> = standard.iter().map(|c| c.chunk_id.clone()).collect();
+        let detailed_ids: Vec<String> = detailed.iter().map(|c| c.chunk_id.clone()).collect();
+
+        // Add all chunks with proper relationships
+        for mut chunk in summary {
+            // Summary chunks have standard chunks as children
+            chunk.child_chunk_ids = standard_ids.clone();
+            summary_chunks += 1;
+            all_chunks.push(chunk);
+        }
+
+        for mut chunk in standard {
+            // Standard chunks have summary as parent, detailed as children
+            if !summary_ids.is_empty() {
+                chunk.parent_chunk_id = Some(summary_ids[0].clone());
             }
+            chunk.child_chunk_ids = detailed_ids.clone();
+            standard_chunks += 1;
+            all_chunks.push(chunk);
+        }
+
+        for mut chunk in detailed {
+            // Detailed chunks have standard as parent
+            if !standard_ids.is_empty() {
+                chunk.parent_chunk_id = Some(standard_ids[0].clone());
+            }
+            detailed_chunks += 1;
             all_chunks.push(chunk);
         }
     }
@@ -299,10 +339,13 @@ fn get_context_tail(content: &str, max_tokens: usize) -> String {
     result.join("\n")
 }
 
-/// Link chunks together: set next_chunk_id pointers
+/// Link chunks together: set next_chunk_id pointers (same level, same doc only)
 fn link_chunks(chunks: &mut [Chunk]) {
     for i in 0..chunks.len() {
-        if i + 1 < chunks.len() && chunks[i].doc_id == chunks[i + 1].doc_id {
+        if i + 1 < chunks.len()
+            && chunks[i].doc_id == chunks[i + 1].doc_id
+            && chunks[i].chunk_level == chunks[i + 1].chunk_level
+        {
             chunks[i].next_chunk_id = Some(chunks[i + 1].chunk_id.clone());
         }
     }
