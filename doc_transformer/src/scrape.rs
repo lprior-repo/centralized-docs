@@ -3,7 +3,7 @@
 //! Provides sequential scraping of documentation sites with HTML-to-Markdown conversion.
 //! Designed for AI agent consumption - no complex concurrency, predictable output.
 
-use crate::filter::{filter_markdown, FilterConfig};
+use crate::filter::{filter_markdown, prune_html, FilterConfig, FilterResult};
 use anyhow::{Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -65,6 +65,10 @@ pub struct ScrapedPage {
     pub slug: String,
     /// Whether content filtering was applied
     pub filtered: bool,
+    /// Number of HTML elements removed by pruning
+    pub elements_removed: usize,
+    /// Content density score (0.0 - 1.0)
+    pub density_score: f32,
 }
 
 /// A header extracted from the page
@@ -177,18 +181,35 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
 /// Transform a spider page into our ScrapedPage format
 fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: bool) -> Result<ScrapedPage> {
     let url = page.get_url().to_string();
+    let filter_config = FilterConfig::default();
+
+    // Apply HTML-level pruning to analyze content quality
+    let raw_html = page.get_html();
+    let prune_result: FilterResult = if enable_filtering {
+        prune_html(&raw_html, &filter_config)
+    } else {
+        FilterResult {
+            html: raw_html.clone(),
+            removed_count: 0,
+            density_score: 1.0,
+        }
+    };
 
     // Configure transformation for markdown output
     let mut transform_config = TransformConfig::default();
     transform_config.return_format = ReturnFormat::Markdown;
 
     // Build selector configuration for HTML filtering (nav, footer, aside, etc.)
+    // Uses the same patterns from FilterConfig for consistency
     let selector_config = if enable_filtering {
+        let mut exclude_tags: Vec<String> = filter_config.remove_tags.clone();
+        for pattern in &filter_config.nav_patterns {
+            exclude_tags.push(format!(".{}", pattern));
+            exclude_tags.push(format!("#{}", pattern));
+        }
         Some(SelectorConfiguration {
             root_selector: None,
-            exclude_selector: Some(
-                "nav, footer, aside, header, .sidebar, .navigation, .menu, .breadcrumb, .toc, .table-of-contents, #sidebar, #nav, #footer".to_string()
-            ),
+            exclude_selector: Some(exclude_tags.join(", ")),
         })
     } else {
         None
@@ -206,7 +227,6 @@ fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: b
 
     // Apply additional markdown-level content filtering
     let filtered = if enable_filtering {
-        let filter_config = FilterConfig::default();
         markdown = filter_markdown(&markdown, &filter_config);
         true
     } else {
@@ -237,6 +257,8 @@ fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: b
         word_count,
         slug,
         filtered,
+        elements_removed: prune_result.removed_count,
+        density_score: prune_result.density_score,
     })
 }
 
@@ -332,8 +354,8 @@ pub fn write_scraped_pages(result: &ScrapeResult, output_dir: &Path) -> Result<(
 
         // Write markdown with metadata header
         let content = format!(
-            "---\nurl: {}\ntitle: {}\nword_count: {}\nfiltered: {}\n---\n\n{}",
-            page.url, page.title, page.word_count, page.filtered, page.markdown
+            "---\nurl: {}\ntitle: {}\nword_count: {}\nfiltered: {}\nelements_removed: {}\ndensity_score: {:.2}\n---\n\n{}",
+            page.url, page.title, page.word_count, page.filtered, page.elements_removed, page.density_score, page.markdown
         );
 
         fs::write(&filepath, content)?;

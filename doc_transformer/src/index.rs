@@ -140,6 +140,7 @@ pub fn build_and_write_index(
 
     // Compute reachability from each document node (transitive closure)
     let mut reachability: HashMap<String, Vec<String>> = HashMap::new();
+    let mut node_importance: HashMap<String, f32> = HashMap::new();
     for doc in &documents {
         let reachable = dag.reachable_from(&doc.id);
         let mut reachable_list: Vec<String> = reachable.into_iter()
@@ -147,6 +148,9 @@ pub fn build_and_write_index(
             .collect();
         reachable_list.sort();
         reachability.insert(doc.id.clone(), reachable_list);
+
+        // Compute node importance (sum of outgoing edge weights)
+        node_importance.insert(doc.id.clone(), dag.node_importance(&doc.id));
     }
 
     let index = json!({
@@ -176,6 +180,7 @@ pub fn build_and_write_index(
             "edges": dag.edges(),
             "topological_order": topo_order,
             "reachability": reachability,
+            "node_importance": node_importance,
             "statistics": dag_stats
         },
         "navigation": {

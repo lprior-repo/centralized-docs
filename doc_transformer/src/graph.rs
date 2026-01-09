@@ -67,7 +67,6 @@ pub struct KnowledgeDAG {
 
 /// Edge data for petgraph
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct GraphEdgeData {
     edge_type: EdgeType,
     weight: f32,
@@ -114,6 +113,33 @@ impl KnowledgeDAG {
             .iter()
             .filter(|e| &e.edge_type == edge_type)
             .collect()
+    }
+
+    /// Get edge properties between two nodes from the petgraph
+    /// Returns (edge_type, weight) if edge exists
+    pub fn get_edge_data(&self, from: &str, to: &str) -> Option<(EdgeType, f32)> {
+        let from_idx = self.node_map.get(from)?;
+        let to_idx = self.node_map.get(to)?;
+
+        // Find edge in petgraph
+        for edge in self.graph.edges(*from_idx) {
+            if edge.target() == *to_idx {
+                let data = edge.weight();
+                return Some((data.edge_type.clone(), data.weight));
+            }
+        }
+        None
+    }
+
+    /// Get total edge weight for a node (sum of outgoing edge weights)
+    pub fn node_importance(&self, node_id: &str) -> f32 {
+        if let Some(&idx) = self.node_map.get(node_id) {
+            self.graph.edges(idx)
+                .map(|e| e.weight().weight)
+                .sum()
+        } else {
+            0.0
+        }
     }
 
     /// Find related chunks for a given chunk (via semantic links)
@@ -375,5 +401,74 @@ mod tests {
         let topo_order = dag.topological_order();
         assert_eq!(topo_order.len(), 3);
         assert_eq!(topo_order[0], "node1");
+    }
+
+    #[test]
+    fn test_get_edge_data() {
+        let mut dag = KnowledgeDAG::new();
+
+        dag.add_node(GraphNode {
+            id: "a".to_string(),
+            node_type: NodeType::Chunk,
+            title: "A".to_string(),
+            category: None,
+        });
+
+        dag.add_node(GraphNode {
+            id: "b".to_string(),
+            node_type: NodeType::Chunk,
+            title: "B".to_string(),
+            category: None,
+        });
+
+        dag.add_edge(GraphEdge {
+            from: "a".to_string(),
+            to: "b".to_string(),
+            edge_type: EdgeType::Related,
+            weight: 0.75,
+        });
+
+        let edge_data = dag.get_edge_data("a", "b");
+        assert!(edge_data.is_some());
+        let (edge_type, weight) = edge_data.unwrap();
+        assert_eq!(edge_type, EdgeType::Related);
+        assert!((weight - 0.75).abs() < 0.001);
+
+        // Non-existent edge
+        assert!(dag.get_edge_data("b", "a").is_none());
+    }
+
+    #[test]
+    fn test_node_importance() {
+        let mut dag = KnowledgeDAG::new();
+
+        dag.add_node(GraphNode {
+            id: "hub".to_string(),
+            node_type: NodeType::Document,
+            title: "Hub".to_string(),
+            category: None,
+        });
+
+        for i in 1..=3 {
+            dag.add_node(GraphNode {
+                id: format!("spoke{}", i),
+                node_type: NodeType::Chunk,
+                title: format!("Spoke {}", i),
+                category: None,
+            });
+
+            dag.add_edge(GraphEdge {
+                from: "hub".to_string(),
+                to: format!("spoke{}", i),
+                edge_type: EdgeType::Parent,
+                weight: 0.5,
+            });
+        }
+
+        let importance = dag.node_importance("hub");
+        assert!((importance - 1.5).abs() < 0.001); // 3 edges * 0.5 weight
+
+        let no_importance = dag.node_importance("nonexistent");
+        assert_eq!(no_importance, 0.0);
     }
 }
