@@ -312,32 +312,23 @@ let context_buffer = take_while(|l| estimate_tokens(l) < 100)
 let h2_regex = Regex::new(r"^## (.+)$").unwrap();
 ```
 
-## Limitations & Future Work
+## Current Implementation Status
 
-### Current Limitations
-- Simple token counting (4 chars = 1 token) vs. BPE tokenizer
-- No vector embeddings (can be added via external API)
-- No semantic similarity scoring between chunks
-- Validation rules are basic
+### ✅ Complete Features
+- Document discovery and scanning
+- Metadata extraction (titles, headings, links, categories)
+- Semantic chunking with context prefixes
+- YAML frontmatter generation with tags
+- Full-text index (INDEX.json)
+- Knowledge Graph DAG with similarity scoring
+- Navigation guide (COMPASS.md)
+- Document validation
 
-### Future Enhancements
-1. **Vector Embeddings**
-   - Generate embeddings for semantic search
-   - Build vector index for similarity matching
-
-2. **Advanced Tokenization**
-   - Use BPE tokenizer for accurate token counts
-   - Respect token limits per chunk
-
-3. **Cross-document Linking**
-   - Auto-detect related chunks
-   - Build knowledge graph
-   - Recommend "See Also" sections
-
-4. **Language Support**
-   - Detect language
-   - Split on language-specific boundaries
-   - Support non-Latin scripts
+### 🔮 Possible Future Enhancements
+1. **Vector Embeddings** - Add embedding vectors for semantic similarity beyond Jaccard
+2. **Advanced Tokenization** - BPE tokenizer for accurate token counts
+3. **Cross-repository Linking** - Link chunks across different documentation sets
+4. **Incremental Updates** - Track changed files and only re-process deltas
 
 ## Building & Testing
 
@@ -358,27 +349,47 @@ cat indexed_output/INDEX.json | jq .    # Inspect index
 head indexed_output/chunks/*.md         # Sample chunks
 ```
 
+## Knowledge Graph (v4.3)
+
+The transformer also builds a **Knowledge DAG** (Directed Acyclic Graph) using petgraph:
+
+```rust
+// DAG structure
+pub struct KnowledgeDAG {
+    graph: DiGraph<String, GraphEdgeData>,
+    nodes_by_id: HashMap<String, NodeIndex>,
+}
+
+// Edge types
+enum EdgeType {
+    References,      // Chunk A references Chunk B
+    Related,         // Semantic similarity
+    Sequence,        // Navigation (A → B in same doc)
+}
+```
+
+**Benefits:**
+- Find all related chunks via graph traversal
+- Topological ordering for dependency resolution
+- Jaccard similarity for semantic relationships (0.0-1.0)
+- Reachability analysis for context expansion
+
 ## Integration Points
 
-### With main.rs (Go CLI)
-- Could call doc_transformer as subprocess
-- Or embed as Rust library via FFI
-- Import INDEX.json for searching
-
 ### With AI Agents
-- Load INDEX.json
-- Query by keyword
-- Stream chunks with context
-- Build conversation history
+- Load INDEX.json for keyword search
+- Use KnowledgeDAG for semantic relationships
+- Stream chunks with contextual prefixes
+- Build multi-turn conversations with related content
 
-### With Vector Database
-- Generate embeddings per chunk
-- Store in vector DB
-- Use semantic similarity for search
-- Fall back to keyword search
+### With Search Systems
+- Keyword search via INDEX.json
+- Similarity-based search via DAG edges
+- Ranked results by relevance
+- Context prefixes for each result
 
 ---
 
-**Status:** Complete for CUE documentation
-**Version:** 4.2 (Anthropic Contextual Retrieval pattern)
-**Next:** Add vector embeddings and semantic search
+**Status:** Complete for CUE documentation (36 docs, 156 chunks tested)
+**Version:** 4.3 (Knowledge DAG + Anthropic Contextual Retrieval)
+**Implementation:** Pure Rust with petgraph, tokio, serde
