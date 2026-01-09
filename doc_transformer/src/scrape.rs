@@ -3,6 +3,7 @@
 //! Provides sequential scraping of documentation sites with HTML-to-Markdown conversion.
 //! Designed for AI agent consumption - no complex concurrency, predictable output.
 
+use crate::filter::{filter_markdown, FilterConfig};
 use anyhow::{Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -27,6 +28,8 @@ pub struct ScrapeConfig {
     pub user_agent: String,
     /// Respect robots.txt (default: true)
     pub respect_robots: bool,
+    /// Enable content filtering to remove nav/footer/boilerplate (default: true)
+    pub enable_filtering: bool,
 }
 
 impl Default for ScrapeConfig {
@@ -38,6 +41,7 @@ impl Default for ScrapeConfig {
             delay_ms: 250,
             user_agent: "DocTransformer/5.0 (AI Documentation Indexer)".to_string(),
             respect_robots: true,
+            enable_filtering: true,
         }
     }
 }
@@ -59,6 +63,8 @@ pub struct ScrapedPage {
     pub word_count: usize,
     /// URL slug for filename
     pub slug: String,
+    /// Whether content filtering was applied
+    pub filtered: bool,
 }
 
 /// A header extracted from the page
@@ -89,6 +95,9 @@ pub struct ScrapeResult {
 ///
 /// This function uses spider-rs internally but presents a sequential interface.
 /// Spider handles concurrency; we process results one at a time.
+///
+/// When `use_sitemap` is true, scrapes using the sitemap for URL discovery.
+/// Otherwise uses standard crawling.
 pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     let mut website = Website::new(&config.base_url);
 
@@ -97,8 +106,14 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     website.configuration.respect_robots_txt = config.respect_robots;
     website.configuration.user_agent = Some(Box::new(config.user_agent.clone().into()));
 
-    // Perform the scrape (spider handles concurrency internally)
-    website.scrape().await;
+    // Perform the scrape - use sitemap scraping if enabled
+    if config.use_sitemap {
+        // Scrape using sitemap for URL discovery
+        website.scrape_sitemap().await;
+    } else {
+        // Standard crawling
+        website.scrape().await;
+    }
 
     // Compile path filter regex if provided
     let path_regex = config
@@ -138,8 +153,8 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                 }
             }
 
-            // Transform HTML to Markdown
-            match transform_page(page, &config.base_url) {
+            // Transform HTML to Markdown (with optional filtering)
+            match transform_page(page, &config.base_url, config.enable_filtering) {
                 Ok(scraped) => pages.push(scraped),
                 Err(e) => errors.push((url.to_string(), e.to_string())),
             }
@@ -160,9 +175,8 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
 }
 
 /// Transform a spider page into our ScrapedPage format
-fn transform_page(page: &spider::page::Page, base_url: &str) -> Result<ScrapedPage> {
+fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: bool) -> Result<ScrapedPage> {
     let url = page.get_url().to_string();
-    let _html = page.get_html();
 
     // Configure transformation for markdown output
     let mut transform_config = TransformConfig::default();
@@ -170,7 +184,16 @@ fn transform_page(page: &spider::page::Page, base_url: &str) -> Result<ScrapedPa
 
     // Transform HTML to Markdown using spider_transformations
     // Args: page, config, url_selector, ignore_selectors, clean_selectors
-    let markdown = content::transform_content(page, &transform_config, &None, &None, &None);
+    let mut markdown = content::transform_content(page, &transform_config, &None, &None, &None);
+
+    // Apply content filtering if enabled
+    let filtered = if enable_filtering {
+        let filter_config = FilterConfig::default();
+        markdown = filter_markdown(&markdown, &filter_config);
+        true
+    } else {
+        false
+    };
 
     // Extract title from markdown (first H1) or fall back to URL
     let title = extract_title(&markdown, &url);
@@ -195,6 +218,7 @@ fn transform_page(page: &spider::page::Page, base_url: &str) -> Result<ScrapedPa
         headers,
         word_count,
         slug,
+        filtered,
     })
 }
 
@@ -290,8 +314,8 @@ pub fn write_scraped_pages(result: &ScrapeResult, output_dir: &Path) -> Result<(
 
         // Write markdown with metadata header
         let content = format!(
-            "---\nurl: {}\ntitle: {}\nword_count: {}\n---\n\n{}",
-            page.url, page.title, page.word_count, page.markdown
+            "---\nurl: {}\ntitle: {}\nword_count: {}\nfiltered: {}\n---\n\n{}",
+            page.url, page.title, page.word_count, page.filtered, page.markdown
         );
 
         fs::write(&filepath, content)?;

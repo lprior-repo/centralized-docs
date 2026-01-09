@@ -16,7 +16,7 @@ tokio = { version = "1.35", features = ["full"] }
 petgraph = { version = "0.6", features = ["serde-1"] }
 
 # Web scraping (spider-rs ecosystem)
-spider = { version = "2", default-features = false }
+spider = { version = "2", default-features = false, features = ["sitemap"] }
 spider_transformations = "2"
 
 # URL handling

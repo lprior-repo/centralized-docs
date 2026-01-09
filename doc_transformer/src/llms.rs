@@ -223,6 +223,93 @@ fn skip_frontmatter(content: &str) -> &str {
     content
 }
 
+/// Generate AGENTS.md - coding instructions for AI assistants
+///
+/// This file provides project-specific instructions that AI coding assistants
+/// should follow when working with this codebase. Adopted by OpenAI Codex,
+/// Google Jules, and Cursor.
+pub fn generate_agents_md(
+    analyses: &[Analysis],
+    _link_map: &HashMap<String, IdMapping>,
+    config: &LlmsConfig,
+    output_dir: &Path,
+) -> Result<()> {
+    let mut content = String::new();
+
+    // Header
+    content.push_str(&format!("# {} - Agent Instructions\n\n", config.project_name));
+    content.push_str(&format!("> {}\n\n", config.project_description));
+
+    // Project overview
+    content.push_str("## Project Overview\n\n");
+    content.push_str(&format!("This documentation index contains {} documents organized by category.\n\n", analyses.len()));
+
+    // Count categories
+    let mut categories: HashMap<&str, usize> = HashMap::new();
+    for analysis in analyses {
+        *categories.entry(&analysis.category).or_insert(0) += 1;
+    }
+
+    content.push_str("### Document Categories\n\n");
+    for (cat, count) in &categories {
+        content.push_str(&format!("- **{}**: {} documents\n", cat, count));
+    }
+    content.push('\n');
+
+    // Navigation instructions
+    content.push_str("## Navigation Guide\n\n");
+    content.push_str("When working with this documentation:\n\n");
+    content.push_str("1. **Start with llms.txt** - Read this first to understand the structure\n");
+    content.push_str("2. **Use INDEX.json** - For programmatic lookup of documents and chunks\n");
+    content.push_str("3. **Follow the DAG** - Use knowledge graph edges to find related content\n");
+    content.push_str("4. **Chunk navigation** - Each chunk has `previous_chunk_id` and `next_chunk_id`\n\n");
+
+    // File structure
+    content.push_str("## File Structure\n\n");
+    content.push_str("```\n");
+    content.push_str("./\n");
+    content.push_str("├── llms.txt           # AI entry point (read first)\n");
+    content.push_str("├── llms-full.txt      # Full content for large context models\n");
+    content.push_str("├── AGENTS.md          # This file - coding instructions\n");
+    content.push_str("├── INDEX.json         # Machine-readable index + knowledge graph\n");
+    content.push_str("├── COMPASS.md         # Human-readable navigation\n");
+    content.push_str("├── docs/              # Transformed documents with frontmatter\n");
+    content.push_str("└── chunks/            # Semantic chunks with context prefix\n");
+    content.push_str("```\n\n");
+
+    // Chunk format
+    content.push_str("## Chunk Format\n\n");
+    content.push_str("Each chunk file contains:\n");
+    content.push_str("- YAML frontmatter with `chunk_id`, `doc_id`, `token_count`, navigation pointers\n");
+    content.push_str("- Context prefix from previous chunk (~50-100 tokens)\n");
+    content.push_str("- Main content (~170 tokens average)\n\n");
+
+    // Index structure
+    content.push_str("## INDEX.json Structure\n\n");
+    content.push_str("```json\n");
+    content.push_str("{\n");
+    content.push_str("  \"documents\": [...],    // Document metadata\n");
+    content.push_str("  \"chunks\": [...],       // Chunk metadata with navigation\n");
+    content.push_str("  \"keywords\": {...},     // Term → doc_id lookup\n");
+    content.push_str("  \"graph\": {             // Knowledge DAG\n");
+    content.push_str("    \"nodes\": [...],      // Documents and chunks\n");
+    content.push_str("    \"edges\": [...]       // Relationships (Parent, Sequential, Related)\n");
+    content.push_str("  }\n");
+    content.push_str("}\n");
+    content.push_str("```\n\n");
+
+    // Best practices
+    content.push_str("## Best Practices\n\n");
+    content.push_str("- **Don't guess**: Use INDEX.json to find exact document/chunk IDs\n");
+    content.push_str("- **Read context**: When reading a chunk, consider reading previous/next chunks\n");
+    content.push_str("- **Follow relationships**: Use graph edges to find related content\n");
+    content.push_str("- **Check frontmatter**: Every document has `category`, `tags`, and `summary`\n");
+
+    fs::write(output_dir.join("AGENTS.md"), content)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

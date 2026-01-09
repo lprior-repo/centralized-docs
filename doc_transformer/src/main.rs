@@ -281,14 +281,18 @@ fn run_index(
         transform_result.success_count, transform_result.total_count, transform_result.error_count
     );
 
-    // STEP 5: CHUNK
+    // STEP 5: CHUNK (Hierarchical)
     println!("[STEP 5] CHUNK");
     let chunks_result = chunk::chunk_all(&analyses, output)?;
     println!(
         "  Generated {} chunks from {} documents",
         chunks_result.total_chunks, chunks_result.document_count
     );
-    println!("  ~170 tokens/chunk with contextual prefixes\n");
+    println!(
+        "  Hierarchical: {} summary, {} standard, {} detailed",
+        chunks_result.summary_chunks, chunks_result.standard_chunks, chunks_result.detailed_chunks
+    );
+    println!("  ~512 tokens/chunk with contextual prefixes\n");
 
     // STEP 6: INDEX + GRAPH
     println!("[STEP 6] INDEX + GRAPH");
@@ -296,17 +300,23 @@ fn run_index(
     index::build_and_write_compass(&analyses, &link_map, output)?;
     println!("  Created INDEX.json and COMPASS.md\n");
 
-    // STEP 7: LLMS.TXT
+    // STEP 7: LLMS.TXT + AGENTS.MD
     if generate_llms {
-        println!("[STEP 7] LLMS.TXT");
+        println!("[STEP 7] LLMS.TXT + AGENTS.MD");
         let llms_config = llms::LlmsConfig {
             project_name: project_name.to_string(),
             project_description: project_desc.to_string(),
+            generate_full: true,
             ..Default::default()
         };
         llms::generate_llms_txt(&analyses, &link_map, &llms_config, output)?;
-        llms::generate_llms_full_txt(&analyses, &link_map, output)?;
-        println!("  Created llms.txt and llms-full.txt\n");
+        llms::generate_agents_md(&analyses, &link_map, &llms_config, output)?;
+        if llms_config.generate_full {
+            llms::generate_llms_full_txt(&analyses, &link_map, output)?;
+            println!("  Created llms.txt, llms-full.txt, and AGENTS.md\n");
+        } else {
+            println!("  Created llms.txt and AGENTS.md\n");
+        }
     }
 
     // STEP 8: VALIDATE
