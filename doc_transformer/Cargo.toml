@@ -1,6 +1,6 @@
 [package]
 name = "doc_transformer"
-version = "0.1.0"
+version = "0.5.0"
 edition = "2021"
 
 [dependencies]
@@ -14,3 +14,13 @@ thiserror = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 tokio = { version = "1.35", features = ["full"] }
 petgraph = { version = "0.6", features = ["serde-1"] }
+
+# Web scraping (spider-rs ecosystem)
+spider = { version = "2", default-features = false }
+spider_transformations = "2"
+
+# URL handling
+url = "2.5"
+
+# HTML parsing for content filtering
+scraper = "0.20"
