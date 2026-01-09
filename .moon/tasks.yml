@@ -1,191 +1,113 @@
-# Moon task definitions for centralized-docs - FULL CAPACITY UTILIZATION
+# Moon task definitions for centralized-docs - RUST EDITION
 
-# Task: Format code
+# Task: Format code with rustfmt
 fmt:
-  command: go fmt ./...
-  description: Format all Go code
+  command: cargo fmt --all
+  description: Format all Rust code
   inputs:
-    - "**/*.go"
+    - "**/*.rs"
   outputs:
-    - "**/*.go"
-  cache: false  # Formatting always runs but outputs cached
+    - "**/*.rs"
+  cache: false
 
-# Task: Generate mocks (setup for testing)
-generate:
-  command: go generate ./...
-  description: Generate code (mocks, etc.)
-  inputs:
-    - internal/ports/*.go
-    - go.mod
-  outputs:
-    - internal/mocks/**/*
-  deps:
-    - install-tools
-  cache: true
-
-# Task: Install development tools
-install-tools:
-  command: |
-    go install github.com/vektra/mockery/v2@latest
-  description: Install development dependencies
-  local: true  # Don't cache, always check tools
-  outputs:
-    - ~/go/bin/mockery
-
-# Task: Run linter
+# Task: Run clippy linter
 lint:
-  command: golangci-lint run --out-format colored-line-number
-  description: Run static analysis and linting
+  command: cargo clippy --all-targets --all-features -- -D warnings
+  description: Run Clippy static analysis and linting
   inputs:
-    - "**/*.go"
-    - go.mod
-    - go.sum
-    - .golangci.yml
+    - "**/*.rs"
+    - Cargo.toml
+    - Cargo.lock
   outputs:
-    - lint-report.json
+    - target/clippy-output.json
   cache: true
   cacheable: true
   deps:
-    - fmt  # Code must be formatted before linting
+    - fmt
 
-# Task: Run tests with coverage (no parallel - Go test handles this)
+# Task: Run tests with coverage
 test:
-  command: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
-  description: Run all tests with race detector and coverage
+  command: cargo test --all-features --verbose
+  description: Run all tests
   inputs:
-    - "**/*.go"
-    - go.mod
-    - go.sum
-    - "**/*_test.go"
+    - "**/*.rs"
+    - Cargo.toml
+    - "**/*_test.rs"
   outputs:
-    - coverage.out
+    - target/debug/deps/
   cache: true
   deps:
-    - generate  # Mocks must be generated first
+    - fmt
 
-# Task: Generate coverage report (HTML)
-coverage-report:
-  command: go tool cover -html=coverage.out -o coverage.html
-  description: Generate HTML coverage report
+# Task: Run tests in short mode (TCR)
+test-short:
+  command: cargo test --lib --all-features
+  description: Run unit tests (TCR short mode)
   inputs:
-    - coverage.out
-  outputs:
-    - coverage.html
+    - "**/*.rs"
+    - Cargo.toml
   cache: true
   deps:
-    - test
+    - fmt
 
-# Task: Extract coverage percentage
-coverage-percent:
-  command: |
-    go tool cover -func=coverage.out | grep total | awk '{print $(NF-1)}'
-  description: Display coverage percentage
-  inputs:
-    - coverage.out
-  cache: true
-  deps:
-    - test
-
-# Task: Verify coverage threshold
-coverage-check:
-  command: |
-    COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $(NF-1)}' | sed 's/%//')
-    THRESHOLD=90
-    if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
-      echo "❌ Coverage $COVERAGE% is below threshold $THRESHOLD%"
-      exit 1
-    fi
-    echo "✅ Coverage $COVERAGE% meets threshold ($THRESHOLD%)"
-  description: Verify coverage meets 90% minimum
-  inputs:
-    - coverage.out
-  cache: true
-  deps:
-    - test
-
-# Task: Build CLI binary
+# Task: Build binary
 build:
-  command: go build -o bin/docmgr cmd/docmgr/main.go
-  description: Build the CLI binary
+  command: cargo build --release
+  description: Build the release binary
   inputs:
-    - "**/*.go"
-    - go.mod
-    - go.sum
+    - "**/*.rs"
+    - Cargo.toml
   outputs:
-    - bin/docmgr
+    - target/release/doc_transformer
   cache: true
   deps:
-    - lint      # Lint before build
-    - test      # Tests must pass before build
+    - lint
+    - test
 
-# Task: Build for multiple platforms
-build-all:
-  command: |
-    GOOS=linux GOARCH=amd64 go build -o bin/docmgr-linux-amd64 cmd/docmgr/main.go
-    GOOS=darwin GOARCH=amd64 go build -o bin/docmgr-darwin-amd64 cmd/docmgr/main.go
-    GOOS=darwin GOARCH=arm64 go build -o bin/docmgr-darwin-arm64 cmd/docmgr/main.go
-    GOOS=windows GOARCH=amd64 go build -o bin/docmgr-windows-amd64.exe cmd/docmgr/main.go
-  description: Build CLI for all platforms
+# Task: Build debug binary
+build-debug:
+  command: cargo build
+  description: Build the debug binary
   inputs:
-    - "**/*.go"
-    - go.mod
-    - go.sum
-  outputs:
-    - bin/docmgr-*
+    - "**/*.rs"
+    - Cargo.toml
   cache: true
   deps:
-    - coverage-check
+    - fmt
 
-# Task: Install locally
-install:
-  command: go install ./cmd/docmgr
-  description: Install CLI locally
-  cache: false  # Always install latest
+# Task: Run the binary
+run:
+  command: cargo run --release
+  description: Run the release binary
+  cache: false
   deps:
     - build
 
-# Task: Run integration tests
-test-integration:
-  command: go test -v -race -tags=integration -coverprofile=coverage-integration.out ./...
-  description: Run integration tests (slower, real I/O)
-  inputs:
-    - "**/*.go"
-    - go.mod
-    - go.sum
-  outputs:
-    - coverage-integration.out
-  cache: true
-  deps:
-    - generate
-
-# Task: Full quality gate pipeline (sequential, enforces order)
+# Task: Full quality gate pipeline
 quality:
-  command: echo "Running full quality checks..."
-  description: Run all quality gates (fmt → lint → test → coverage-check)
-  cache: false  # Orchestration task
+  command: echo "Running Rust quality checks..."
+  description: Run all quality gates (fmt → lint → test)
+  cache: false
   deps:
     - fmt
     - lint
     - test
-    - coverage-check
   local: true
 
-# Task: CI/CD full pipeline (everything)
+# Task: CI/CD full pipeline
 ci:
   command: echo "Running full CI pipeline..."
   description: Run complete CI (quality → build)
-  cache: false  # Orchestration task
+  cache: false
   deps:
     - quality
     - build
   local: true
 
-# Task: Development loop (fast, with watch)
+# Task: Development loop
 dev:
-  command: |
-    echo "Running in development mode..."
-    echo "Use: moon run dev --watch"
-  description: Development mode (with file watching)
+  command: echo "Running in development mode..."
+  description: Development mode (with cargo watch)
   cache: false
   deps:
     - fmt
@@ -196,27 +118,43 @@ dev:
 # Task: Clean build artifacts and cache
 clean:
   command: |
-    rm -rf bin/ dist/ coverage.* *.prof .moon/cache
-    go clean -cache -testcache
+    cargo clean
+    rm -rf target/ bin/ dist/ .moon/cache
   description: Clean all generated files and caches
   cache: false
   local: true
 
 # Task: Check dependencies for updates
 deps-check:
-  command: go list -u -m all | grep "\[" || echo "All dependencies up to date"
+  command: cargo outdated
   description: Check for outdated dependencies
   cache: false
   local: true
 
 # Task: Update dependencies
 deps-update:
-  command: go get -u ./...
+  command: cargo update
   description: Update all dependencies
   cache: false
   local: true
   inputs:
-    - go.mod
+    - Cargo.toml
   outputs:
-    - go.mod
-    - go.sum
+    - Cargo.lock
+
+# Task: Generate documentation
+doc:
+  command: cargo doc --no-deps --open
+  description: Generate and open documentation
+  outputs:
+    - target/doc/
+  cache: true
+
+# Task: Check code
+check:
+  command: cargo check --all-features
+  description: Quick syntax and type check
+  inputs:
+    - "**/*.rs"
+    - Cargo.toml
+  cache: true
