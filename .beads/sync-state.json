@@ -1,0 +1,7 @@
+{
+  "last_failure": "2026-01-10T14:56:33.673453846-06:00",
+  "failure_count": 1,
+  "backoff_until": "2026-01-10T14:57:03.673457548-06:00",
+  "needs_manual_sync": false,
+  "failure_reason": "git pull failed in worktree: exit status 128\nFrom https://github.com/lprior-repo/centralized-docs\n * branch            main       -\u003e FETCH_HEAD\nfatal: Cannot rebase onto multiple branches.\n"
+}
