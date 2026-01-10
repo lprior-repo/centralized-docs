@@ -33,6 +33,20 @@ pub struct ChunkMetadata {
     pub previous_chunk_id: Option<String>,
     pub next_chunk_id: Option<String>,
     pub path: String,
+    /// Related chunks with similarity scores (populated from knowledge DAG)
+    pub related_chunks: Vec<RelatedChunk>,
+    /// Hierarchical chunk level (summary/standard/detailed)
+    pub chunk_level: String,
+    /// Parent chunk ID (for hierarchical navigation)
+    pub parent_chunk_id: Option<String>,
+    /// Child chunk IDs (for hierarchical navigation)
+    pub child_chunk_ids: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RelatedChunk {
+    pub chunk_id: String,
+    pub similarity: f32,
 }
 
 pub fn build_and_write_index(
@@ -86,8 +100,23 @@ pub fn build_and_write_index(
         }
     }
 
-    // Build chunk metadata for semantic navigation
+    // Build knowledge graph (DAG) first so we can use it for related chunks
+    let dag = build_knowledge_dag(&documents, &chunks_result.chunks_metadata, &document_chunk_tags);
+    let dag_stats = dag.statistics();
+
+    // Build chunk metadata for semantic navigation (with related chunks from DAG)
     for chunk in &chunks_result.chunks_metadata {
+        // Get related chunks from the DAG
+        let related = dag.get_related_chunks(&chunk.chunk_id);
+        let related_chunks: Vec<RelatedChunk> = related
+            .into_iter()
+            .take(5) // Limit to top 5 related chunks
+            .map(|(id, similarity)| RelatedChunk {
+                chunk_id: id,
+                similarity,
+            })
+            .collect();
+
         chunks_metadata.push(ChunkMetadata {
             chunk_id: chunk.chunk_id.clone(),
             doc_id: chunk.doc_id.clone(),
@@ -98,16 +127,34 @@ pub fn build_and_write_index(
             summary: chunk.summary.clone(),
             previous_chunk_id: chunk.previous_chunk_id.clone(),
             next_chunk_id: chunk.next_chunk_id.clone(),
-            path: format!("chunks/{}.md", chunk.chunk_id.replace(['/', '#'], "-")),
+            path: format!("chunks/{}-{}.md", chunk.chunk_id.replace(['/', '#'], "-"), chunk.chunk_level.as_str()),
+            related_chunks,
+            chunk_level: chunk.chunk_level.as_str().to_string(),
+            parent_chunk_id: chunk.parent_chunk_id.clone(),
+            child_chunk_ids: chunk.child_chunk_ids.clone(),
         });
     }
 
-    // Build knowledge graph (DAG)
-    let dag = build_knowledge_dag(&documents, &chunks_result.chunks_metadata, &document_chunk_tags);
-    let dag_stats = dag.statistics();
+    // Compute topological order for traversal
+    let topo_order = dag.topological_order();
+
+    // Compute reachability from each document node (transitive closure)
+    let mut reachability: HashMap<String, Vec<String>> = HashMap::new();
+    let mut node_importance: HashMap<String, f32> = HashMap::new();
+    for doc in &documents {
+        let reachable = dag.reachable_from(&doc.id);
+        let mut reachable_list: Vec<String> = reachable.into_iter()
+            .filter(|id| id != &doc.id)  // Exclude self
+            .collect();
+        reachable_list.sort();
+        reachability.insert(doc.id.clone(), reachable_list);
+
+        // Compute node importance (sum of outgoing edge weights)
+        node_importance.insert(doc.id.clone(), dag.node_importance(&doc.id));
+    }
 
     let index = json!({
-        "version": "4.3",
+        "version": "5.0",
         "generated": chrono::Utc::now().to_rfc3339(),
         "stats": {
             "doc_count": documents.len(),
@@ -131,6 +178,9 @@ pub fn build_and_write_index(
         "graph": {
             "nodes": dag.nodes(),
             "edges": dag.edges(),
+            "topological_order": topo_order,
+            "reachability": reachability,
+            "node_importance": node_importance,
             "statistics": dag_stats
         },
         "navigation": {
