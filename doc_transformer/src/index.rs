@@ -3,7 +3,6 @@ use crate::assign::IdMapping;
 use crate::chunk::ChunksResult;
 use crate::graph::{EdgeType, GraphEdge, GraphNode, KnowledgeDAG, NodeType, RelationshipDetector};
 use anyhow::Result;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -34,20 +33,6 @@ pub struct ChunkMetadata {
     pub previous_chunk_id: Option<String>,
     pub next_chunk_id: Option<String>,
     pub path: String,
-    /// Related chunks with similarity scores (populated from knowledge DAG)
-    pub related_chunks: Vec<RelatedChunk>,
-    /// Hierarchical chunk level (summary/standard/detailed)
-    pub chunk_level: String,
-    /// Parent chunk ID (for hierarchical navigation)
-    pub parent_chunk_id: Option<String>,
-    /// Child chunk IDs (for hierarchical navigation)
-    pub child_chunk_ids: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RelatedChunk {
-    pub chunk_id: String,
-    pub similarity: f32,
 }
 
 pub fn build_and_write_index(
@@ -101,23 +86,8 @@ pub fn build_and_write_index(
         }
     }
 
-    // Build knowledge graph (DAG) first so we can use it for related chunks
-    let dag = build_knowledge_dag(&documents, &chunks_result.chunks_metadata, &document_chunk_tags);
-    let dag_stats = dag.statistics();
-
-    // Build chunk metadata for semantic navigation (with related chunks from DAG)
+    // Build chunk metadata for semantic navigation
     for chunk in &chunks_result.chunks_metadata {
-        // Get related chunks from the DAG
-        let related = dag.get_related_chunks(&chunk.chunk_id);
-        let related_chunks: Vec<RelatedChunk> = related
-            .into_iter()
-            .take(5) // Limit to top 5 related chunks
-            .map(|(id, similarity)| RelatedChunk {
-                chunk_id: id,
-                similarity,
-            })
-            .collect();
-
         chunks_metadata.push(ChunkMetadata {
             chunk_id: chunk.chunk_id.clone(),
             doc_id: chunk.doc_id.clone(),
@@ -128,43 +98,25 @@ pub fn build_and_write_index(
             summary: chunk.summary.clone(),
             previous_chunk_id: chunk.previous_chunk_id.clone(),
             next_chunk_id: chunk.next_chunk_id.clone(),
-            path: format!("chunks/{}-{}.md", chunk.chunk_id.replace(['/', '#'], "-"), chunk.chunk_level.as_str()),
-            related_chunks,
-            chunk_level: chunk.chunk_level.as_str().to_string(),
-            parent_chunk_id: chunk.parent_chunk_id.clone(),
-            child_chunk_ids: chunk.child_chunk_ids.clone(),
+            path: format!("chunks/{}.md", chunk.chunk_id.replace(['/', '#'], "-")),
         });
     }
 
-    // Compute topological order for traversal
-    let topo_order = dag.topological_order();
-
-    // Compute reachability from each document node (transitive closure)
-    let mut reachability: HashMap<String, Vec<String>> = HashMap::new();
-    let mut node_importance: HashMap<String, f32> = HashMap::new();
-    for doc in &documents {
-        let reachable = dag.reachable_from(&doc.id);
-        let mut reachable_list: Vec<String> = reachable.into_iter()
-            .filter(|id| id != &doc.id)  // Exclude self
-            .collect();
-        reachable_list.sort();
-        reachability.insert(doc.id.clone(), reachable_list);
-
-        // Compute node importance (sum of outgoing edge weights)
-        node_importance.insert(doc.id.clone(), dag.node_importance(&doc.id));
-    }
+    // Build knowledge graph (DAG)
+    let dag = build_knowledge_dag(&documents, &chunks_result.chunks_metadata, &document_chunk_tags);
+    let dag_stats = dag.statistics();
 
     let index = json!({
-        "version": "5.0",
+        "version": "4.3",
         "generated": chrono::Utc::now().to_rfc3339(),
         "stats": {
             "doc_count": documents.len(),
             "chunk_count": chunks_result.total_chunks,
-            "avg_chunk_size_tokens": chunks_result.chunks_metadata.iter()
-                .map(|c| c.token_count)
-                .sum::<usize>()
-                .checked_div(chunks_result.total_chunks)
-                .unwrap_or(0),
+            "avg_chunk_size_tokens": if chunks_result.total_chunks > 0 {
+                chunks_result.chunks_metadata.iter().map(|c| c.token_count).sum::<usize>() / chunks_result.total_chunks
+            } else {
+                0
+            },
             "graph": {
                 "node_count": dag_stats.node_count,
                 "edge_count": dag_stats.edge_count,
@@ -179,9 +131,6 @@ pub fn build_and_write_index(
         "graph": {
             "nodes": dag.nodes(),
             "edges": dag.edges(),
-            "topological_order": topo_order,
-            "reachability": reachability,
-            "node_importance": node_importance,
             "statistics": dag_stats
         },
         "navigation": {
@@ -242,31 +191,28 @@ pub fn build_and_write_compass(
     Ok(())
 }
 
-/// Extract tags using functional composition
 fn extract_tags(analysis: &Analysis) -> Vec<String> {
-    std::iter::once(analysis.category.clone())
-        .chain(
-            analysis
-                .headings
-                .iter()
-                .take(3)
-                .flat_map(|h| h.text.split_whitespace())
-                .filter(|word| word.len() > 4 && !is_stopword(&word.to_lowercase()))
-                .map(|word| word.to_lowercase()),
-        )
-        .sorted()
-        .dedup()
-        .take(5)
-        .collect()
+    let mut tags = vec![analysis.category.clone()];
+
+    for heading in analysis.headings.iter().take(3) {
+        for word in heading.text.split_whitespace() {
+            if word.len() > 4 && !is_stopword(&word.to_lowercase()) {
+                tags.push(word.to_lowercase());
+            }
+        }
+    }
+
+    tags.sort();
+    tags.dedup();
+    tags.truncate(5);
+    tags
 }
 
-/// Stopwords to filter out from tags
-const STOPWORDS: [&str; 10] = [
-    "this", "that", "these", "those", "about", "guide", "the", "and", "or", "for",
-];
-
 fn is_stopword(word: &str) -> bool {
-    STOPWORDS.contains(&word)
+    matches!(
+        word,
+        "this" | "that" | "these" | "those" | "about" | "guide" | "the" | "and" | "or" | "for"
+    )
 }
 
 /// Build a knowledge graph DAG from documents and chunks
