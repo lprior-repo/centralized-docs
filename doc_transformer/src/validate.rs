@@ -1,8 +1,16 @@
 use anyhow::Result;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use tap::Pipe;
+
+static H1_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?m)^# [^#]").expect("valid H1 regex"));
+
+static TAGS_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"tags:\s*\[[^\]]{10,}\]").expect("valid tags regex"));
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValidationResult {
@@ -12,13 +20,9 @@ pub struct ValidationResult {
     pub total_warnings: usize,
 }
 
+/// Validate all files using functional composition with fold
 pub fn validate_all(output_dir: &Path) -> Result<ValidationResult> {
     let docs_dir = output_dir.join("docs");
-
-    let mut files_checked = 0;
-    let mut files_passed = 0;
-    let mut total_errors = 0;
-    let mut total_warnings = 0;
 
     if !docs_dir.exists() {
         return Ok(ValidationResult {
@@ -29,76 +33,115 @@ pub fn validate_all(output_dir: &Path) -> Result<ValidationResult> {
         });
     }
 
-    for entry in fs::read_dir(docs_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if path.extension().is_some_and(|ext| ext == "md") {
-            files_checked += 1;
-            if let Ok(content) = fs::read_to_string(&path) {
-                let (errors, warnings) = validate_file(&content);
-
-                if errors == 0 {
-                    files_passed += 1;
-                }
-
-                total_errors += errors;
-                total_warnings += warnings;
-            }
-        }
-    }
-
-    Ok(ValidationResult {
-        files_checked,
-        files_passed,
-        total_errors,
-        total_warnings,
-    })
+    fs::read_dir(docs_dir)?
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
+        .filter_map(|path| fs::read_to_string(&path).ok())
+        .map(|content| validate_file(&content))
+        .fold(
+            (0usize, 0usize, 0usize, 0usize),
+            |(checked, passed, errors, warnings), (e, w)| {
+                (
+                    checked.saturating_add(1),
+                    passed.saturating_add(if e == 0 { 1 } else { 0 }),
+                    errors.saturating_add(e),
+                    warnings.saturating_add(w),
+                )
+            },
+        )
+        .pipe(
+            |(files_checked, files_passed, total_errors, total_warnings)| {
+                Ok(ValidationResult {
+                    files_checked,
+                    files_passed,
+                    total_errors,
+                    total_warnings,
+                })
+            },
+        )
 }
 
 fn validate_file(content: &str) -> (usize, usize) {
-    let mut errors = 0;
-    let mut warnings = 0;
+    let mut errors: usize = 0;
+    let mut warnings: usize = 0;
 
     // V001: single_h1
-    let h1_count = Regex::new(r"^# [^#]")
-        .unwrap()
-        .find_iter(content)
-        .count();
+    let h1_count = H1_REGEX.find_iter(content).count();
     if h1_count != 1 {
-        errors += 1;
+        errors = errors.saturating_add(1);
     }
 
     // V002: frontmatter_exists
     if !content.starts_with("---") {
-        errors += 1;
+        errors = errors.saturating_add(1);
     }
 
     // V003: required_fields
     let required = ["id:", "title:", "category:", "tags:"];
     for field in &required {
         if !content[..std::cmp::min(500, content.len())].contains(field) {
-            errors += 1;
+            errors = errors.saturating_add(1);
         }
     }
 
     // V006: min_tags
-    if !Regex::new(r"tags:\s*\[[^\]]{10,}\]")
-        .unwrap()
-        .is_match(content)
-    {
-        warnings += 1;
+    if !TAGS_REGEX.is_match(content) {
+        warnings = warnings.saturating_add(1);
     }
 
     // V007: has_context
     if !content.contains("> **Context**:") {
-        warnings += 1;
+        warnings = warnings.saturating_add(1);
     }
 
     // V008: has_see_also
     if !content.contains("## See Also") {
-        warnings += 1;
+        warnings = warnings.saturating_add(1);
     }
 
     (errors, warnings)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_h1_at_start() {
+        let content = "---\nid: test\ntitle: Test\ncategory: ref\ntags: [\"test\", \"example\"]\n---\n\n# Title\n\nContent here.";
+        let (errors, _warnings) = validate_file(content);
+        // Should pass - has frontmatter and single H1
+        assert_eq!(
+            errors, 0,
+            "Document with H1 at start should have 0 errors for H1 check"
+        );
+    }
+
+    #[test]
+    fn test_validate_h1_in_middle() {
+        let content = "---\nid: test\ntitle: Test\ncategory: ref\ntags: [\"test\", \"example\"]\n---\n\nSome intro text.\n\n# Title\n\nBody text.";
+        let (errors, _warnings) = validate_file(content);
+        // Should pass - H1 exists even though not at very start
+        assert_eq!(
+            errors, 0,
+            "Document with H1 in middle should have 0 errors for H1 check"
+        );
+    }
+
+    #[test]
+    fn test_validate_multiple_h1() {
+        let content = "---\nid: test\ntitle: Test\ncategory: ref\ntags: [\"test\", \"example\"]\n---\n\n# One\n\n# Two\n\nContent.";
+        let (errors, _warnings) = validate_file(content);
+        // Should fail - has 2 H1s
+        assert!(errors >= 1, "Document with multiple H1s should have errors");
+    }
+
+    #[test]
+    fn test_validate_no_h1() {
+        let content = "---\nid: test\ntitle: Test\ncategory: ref\ntags: [\"test\", \"example\"]\n---\n\n## Only H2\n\nContent.";
+        let (errors, _warnings) = validate_file(content);
+        // Should fail - no H1
+        assert!(errors >= 1, "Document with no H1 should have errors");
+    }
 }

@@ -1,10 +1,12 @@
 use crate::discover::DiscoveryFile;
 use anyhow::Result;
+use itertools::Itertools;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use tap::Pipe;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Heading {
@@ -35,18 +37,18 @@ pub struct Analysis {
     pub content: String,
 }
 
+/// Analyze files using functional composition with filter_map
 pub fn analyze_files(files: &[DiscoveryFile], source_dir: &Path) -> Result<Vec<Analysis>> {
-    let mut analyses = Vec::new();
-
-    for file in files {
-        let file_path = source_dir.join(&file.source_path);
-        match analyze_single_file(&file.source_path, &file_path) {
-            Ok(analysis) => analyses.push(analysis),
-            Err(e) => eprintln!("ANALYZE ERROR: {}: {}", file.source_path, e),
-        }
-    }
-
-    Ok(analyses)
+    files
+        .iter()
+        .filter_map(|file| {
+            let file_path = source_dir.join(&file.source_path);
+            analyze_single_file(&file.source_path, &file_path)
+                .map_err(|e| eprintln!("ANALYZE ERROR: {}: {}", file.source_path, e))
+                .ok()
+        })
+        .collect::<Vec<_>>()
+        .pipe(Ok)
 }
 
 fn analyze_single_file(source_path: &str, file_path: &Path) -> Result<Analysis> {
@@ -78,7 +80,7 @@ fn analyze_single_file(source_path: &str, file_path: &Path) -> Result<Analysis> 
 }
 
 fn extract_title(content: &str, filename: &str) -> String {
-    let h1_regex = Regex::new(r"^# (.+)$").unwrap();
+    let h1_regex = Regex::new(r"^# (.+)$").expect("valid h1 regex");
     if let Some(cap) = h1_regex.captures_iter(content).next() {
         return cap[1].trim().to_string();
     }
@@ -86,7 +88,7 @@ fn extract_title(content: &str, filename: &str) -> String {
     // Use filename
     let stem = Path::new(filename)
         .file_stem()
-        .unwrap()
+        .unwrap_or_default()
         .to_string_lossy();
     let title = stem
         .replace(['-', '_'], " ")
@@ -130,91 +132,92 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
     for line in &lines[1..end_idx] {
         if let Some(pos) = line.find(':') {
             let key = line[..pos].trim().to_string();
-            let val = line[pos + 1..].trim().to_string();
+            let val = line.get(pos.saturating_add(1)..)
+                .unwrap_or("")
+                .trim()
+                .to_string();
             fm.insert(key, val);
         }
     }
 
-    let remaining = lines[end_idx + 1..].join("\n");
+    let remaining = lines.get(end_idx.saturating_add(1)..)
+        .map(|slice| slice.join("\n"))
+        .unwrap_or_default();
     (Some(fm), remaining)
 }
 
+/// Extract headings from content using functional composition
 fn extract_headings(content: &str) -> Vec<Heading> {
-    let regex = Regex::new(r"^(#{1,6})\s+(.+)$").unwrap();
-    let mut headings = Vec::new();
+    let regex = Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid heading regex");
 
-    for (line_num, line) in content.lines().enumerate() {
-        if let Some(cap) = regex.captures(line) {
-            let level = cap[1].len() as u32;
-            let text = cap[2].trim().to_string();
-            headings.push(Heading {
-                level,
-                text,
+    content
+        .lines()
+        .enumerate()
+        .filter_map(|(line_num, line)| {
+            regex.captures(line).map(|cap| Heading {
+                level: cap[1].len() as u32,
+                text: cap[2].trim().to_string(),
                 line: line_num,
-            });
-        }
-    }
-
-    headings
+            })
+        })
+        .collect()
 }
 
+/// Extract links from content using functional composition
 fn extract_links(content: &str) -> Vec<Link> {
-    let regex = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap();
-    let mut links = Vec::new();
+    let regex = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex");
 
-    for cap in regex.captures_iter(content) {
-        let text = cap[1].to_string();
-        let target = cap[2].to_string();
-        let is_internal = !target.starts_with("http://")
-            && !target.starts_with("https://")
-            && !target.starts_with("mailto:");
+    regex
+        .captures_iter(content)
+        .map(|cap| {
+            let text = cap[1].to_string();
+            let target = cap[2].to_string();
+            let is_internal = !target.starts_with("http://")
+                && !target.starts_with("https://")
+                && !target.starts_with("mailto:");
 
-        links.push(Link {
-            text,
-            target,
-            is_internal,
-        });
-    }
-
-    links
+            Link {
+                text,
+                target,
+                is_internal,
+            }
+        })
+        .collect()
 }
 
+/// Extract first paragraph using functional composition with fold
 fn extract_first_paragraph(content: &str) -> String {
-    let lines: Vec<&str> = content
+    content
         .lines()
         .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
-        .collect();
-
-    let mut paragraph = String::new();
-    for line in lines {
-        if line.starts_with('>') || line.starts_with('|') {
-            continue;
-        }
-        paragraph.push_str(line);
-        paragraph.push(' ');
-        if paragraph.len() >= 20 {
-            break;
-        }
-    }
-
-    let result = paragraph.trim();
-    if result.len() > 200 {
-        result[..200].to_string()
-    } else {
-        result.to_string()
-    }
+        .filter(|line| !line.starts_with('>') && !line.starts_with('|'))
+        .fold(String::new(), |mut acc, line| {
+            if acc.len() < 20 {
+                acc.push_str(line);
+                acc.push(' ');
+            }
+            acc
+        })
+        .trim()
+        .pipe(|s| {
+            if s.len() > 200 {
+                s[..200].to_string()
+            } else {
+                s.to_string()
+            }
+        })
 }
 
 fn has_table(content: &str) -> bool {
     Regex::new(r"\|.*\|.*\|")
-        .unwrap()
+        .expect("valid table regex")
         .is_match(content)
 }
 
 fn detect_category(filename: &str, content: &str) -> String {
     let fname_lower = Path::new(filename)
         .file_stem()
-        .unwrap()
+        .unwrap_or_default()
         .to_string_lossy()
         .to_lowercase();
 
@@ -233,7 +236,7 @@ fn detect_category(filename: &str, content: &str) -> String {
         || content_lower.contains("step 1")
         || content_lower.contains("step 2")
         || content_lower.contains("## step")
-        || Regex::new(r"^\d+\.\s+").unwrap().is_match(&content_lower)
+        || Regex::new(r"^\d+\.\s+").expect("valid step regex").is_match(&content_lower)
     {
         return "tutorial".to_string();
     }
@@ -264,10 +267,10 @@ fn detect_category(filename: &str, content: &str) -> String {
     "concept".to_string()
 }
 
+/// Count categories using functional composition with counts
 pub fn count_categories(analyses: &[Analysis]) -> HashMap<String, usize> {
-    let mut counts = HashMap::new();
-    for analysis in analyses {
-        *counts.entry(analysis.category.clone()).or_insert(0) += 1;
-    }
-    counts
+    analyses
+        .iter()
+        .map(|a| a.category.clone())
+        .counts()
 }

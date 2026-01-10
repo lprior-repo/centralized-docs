@@ -1,10 +1,24 @@
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
 use anyhow::Result;
+use itertools::Itertools;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+
+static HEADING_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid heading regex"));
+
+static LINK_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex"));
+
+static H1_START_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^# [^#]").expect("valid H1 start regex"));
+
+static H1_LINE_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^(# .+\n)").expect("valid H1 line regex"));
 
 pub struct TransformResult {
     pub success_count: usize,
@@ -20,16 +34,16 @@ pub fn transform_all(
     let docs_dir = output_dir.join("docs");
     fs::create_dir_all(&docs_dir)?;
 
-    let mut success_count = 0;
-    let mut error_count = 0;
+    let mut success_count: usize = 0;
+    let mut error_count: usize = 0;
 
     for analysis in analyses {
         if let Some(mapping) = link_map.get(&analysis.source_path) {
             match transform_file(analysis, mapping, link_map, &docs_dir) {
-                Ok(_) => success_count += 1,
+                Ok(_) => success_count = success_count.saturating_add(1),
                 Err(e) => {
                     eprintln!("TRANSFORM ERROR: {}: {}", analysis.source_path, e);
-                    error_count += 1;
+                    error_count = error_count.saturating_add(1);
                 }
             }
         }
@@ -59,7 +73,7 @@ fn transform_file(
     content = _content;
 
     // Step 3: Ensure single H1
-    if !Regex::new(r"^# [^#]")?.is_match(&content) {
+    if !H1_START_REGEX.is_match(&content) {
         content = format!("# {}\n\n{}", analysis.title, content);
     }
 
@@ -74,8 +88,7 @@ fn transform_file(
         let context_block = format!("> **Context**: {}\n", context_text);
 
         // Insert after H1
-        let h1_pattern = Regex::new(r"^(# .+\n)")?;
-        content = h1_pattern
+        content = H1_LINE_REGEX
             .replace(&content, format!("$1\n{}\n", context_block))
             .to_string();
     }
@@ -112,40 +125,37 @@ fn transform_file(
 /// Fix heading structure: no skipped levels, max level 4
 fn fix_headings(content: &str) -> String {
     let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-    let heading_pattern = Regex::new(r"^(#{1,6})\s+(.+)$").unwrap();
 
     // Find all headings and their levels
     let mut heading_lines: Vec<(usize, usize)> = Vec::new();
     for (i, line) in lines.iter().enumerate() {
-        if let Some(caps) = heading_pattern.captures(line) {
-            let level = caps.get(1).unwrap().as_str().len();
+        if let Some(caps) = HEADING_REGEX.captures(line) {
+            let level = caps.get(1).expect("capture group 1 exists").as_str().len();
             heading_lines.push((i, level));
         }
     }
 
     // Fix skipped levels
     for j in 1..heading_lines.len() {
-        let prev_level = heading_lines[j - 1].1;
+        let prev_level = heading_lines[j.saturating_sub(1)].1;
         let curr_level = heading_lines[j].1;
         let line_idx = heading_lines[j].0;
 
-        if curr_level > prev_level + 1 {
+        if curr_level > prev_level.saturating_add(1) {
             // Demote to prev_level + 1
-            let new_level = prev_level + 1;
+            let new_level = prev_level.saturating_add(1);
             let new_hashes = "#".repeat(new_level);
-            let text = lines[line_idx]
-                .trim_start_matches('#')
-                .trim_start();
+            let text = lines[line_idx].trim_start_matches('#').trim_start();
             lines[line_idx] = format!("{} {}", new_hashes, text);
         }
     }
 
     // Limit heading level to 4
     for line in &mut lines {
-        if let Some(caps) = heading_pattern.captures(line) {
-            let hashes = caps.get(1).unwrap().as_str();
+        if let Some(caps) = HEADING_REGEX.captures(line) {
+            let hashes = caps.get(1).expect("capture group 1 exists").as_str();
             if hashes.len() > 4 {
-                let text = caps.get(2).unwrap().as_str();
+                let text = caps.get(2).expect("capture group 2 exists").as_str();
                 *line = format!("#### {}", text);
             }
         }
@@ -161,10 +171,9 @@ fn rewrite_links(
     link_map: &HashMap<String, IdMapping>,
 ) -> (String, Vec<String>) {
     let mut broken_links = Vec::new();
-    let link_pattern = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap();
     let source_dir = Path::new(source_path).parent().unwrap_or_else(|| Path::new(""));
 
-    let result = link_pattern
+    let result = LINK_REGEX
         .replace_all(content, |caps: &regex::Captures| {
             let text = &caps[1];
             let target = &caps[2];
@@ -204,23 +213,22 @@ fn rewrite_links(
     (result, broken_links)
 }
 
+/// Generate tags using functional composition
 fn generate_tags(analysis: &Analysis) -> Vec<String> {
-    let mut tags = vec![analysis.category.clone()];
-
-    // Add heading nouns
-    for heading in analysis.headings.iter().take(3) {
-        for word in heading.text.split_whitespace() {
-            if word.len() > 4 && !is_stopword(word) {
-                tags.push(word.to_lowercase());
-            }
-        }
-    }
-
-    // Unique and limit to 5
-    tags.sort();
-    tags.dedup();
-    tags.truncate(5);
-    tags
+    std::iter::once(analysis.category.clone())
+        .chain(
+            analysis
+                .headings
+                .iter()
+                .take(3)
+                .flat_map(|h| h.text.split_whitespace())
+                .filter(|word| word.len() > 4 && !is_stopword(word))
+                .map(|word| word.to_lowercase()),
+        )
+        .sorted()
+        .dedup()
+        .take(5)
+        .collect()
 }
 
 fn is_stopword(word: &str) -> bool {
