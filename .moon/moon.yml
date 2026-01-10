@@ -1,8 +1,5 @@
 # Moon workspace configuration for centralized-docs
 workspace:
-  # Inherit from moon's built-in Go toolchain
-  extends: go
-
   # VCS configuration
   vcs:
     manager: git
@@ -14,15 +11,15 @@ workspace:
 projects:
   # This project
   docmgr:
-    root: .
-    type: go
-    language: go
+    root: doc_transformer
+    type: rust
+    language: rust
 
 # Task configuration defaults
 tasks:
   # Output tracking for cache invalidation
   outputs:
-    - coverage.out
+    - target/
     - bin/
     - dist/
 
@@ -34,6 +31,5 @@ tasks:
 
   # Inherit environment variables
   env:
-    GOFLAGS: -mod=mod
-    GOCACHE: ./.moon/cache/go-build
-    GOMODCACHE: ./.moon/cache/go-mod
+    CARGO_TARGET_DIR: ./target
+    RUSTFLAGS: -D warnings

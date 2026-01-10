@@ -1,422 +1,151 @@
-# docmgr - Documentation Manager
+# centralized-docs
 
-A pure GoFr CLI tool for centralizing, indexing, and managing documentation with extreme engineering rigor.
+A pure Rust CLI tool for transforming raw documentation into AI-optimized, searchable knowledge structures.
 
-## Features
+## Overview
 
-- **Import**: Scan directories and centralize documents from multiple sources
-- **Search**: Full-text search with tag and category filtering
-- **Export**: Multiple output formats (Markdown, HTML, JSON)
-- **Organize**: Tag and categorize documents for easy discovery
-- **Observe**: Complete OpenTelemetry tracing, one trace per command
-- **Quality**: ≥90% test coverage with TDD and hexagonal architecture
-
-## Installation
-
-### Build from Source
-```bash
-git clone https://github.com/lewisblake/centralized-docs
-cd centralized-docs
-
-# Install locally
-moon run install
-
-# Or build binary
-moon run build
-./bin/docmgr --help
-```
-
-### Go Install
-```bash
-go install github.com/lewisblake/centralized-docs/cmd/docmgr@latest
-```
+**centralized-docs** transforms markdown documentation into a semantic knowledge graph with:
+- 📑 Automatic metadata extraction (titles, headings, categories, tags)
+- 🔗 Knowledge Graph DAG (directed acyclic graph) with document relationships
+- 📝 Semantic chunking with contextual prefixes (AI-optimized)
+- 🔍 Full-text indexing with keyword search
+- 🧭 Navigation guide (COMPASS.md) for document discovery
+- ✅ Automated validation and quality checking
 
 ## Quick Start
 
-### Import Documentation
+### Build
 ```bash
-# Import from a directory
-docmgr import --source ~/my-docs --tags golang,tutorial
-
-# Recursive import with categories
-docmgr import --source ~/projects --recursive --categories work
+cd doc_transformer
+cargo build --release
 ```
 
-### Search Documents
+### Transform Documentation
 ```bash
-# Full-text search
-docmgr search "GoFr CLI"
-
-# Search with filters
-docmgr search "distributed systems" --tags architecture --categories reference
-
-# Limit results
-docmgr search "database" --max-results 5
+./target/release/doc_transformer ./source_docs ./output_index
 ```
 
-### Export Documents
-```bash
-# Export to HTML
-docmgr export --format html --output ./site
-
-# Export to Markdown
-docmgr export --format markdown --output ./docs
-
-# Export to JSON
-docmgr export --format json --output ./data.json
+### Output Structure
 ```
-
-### List & Manage
-```bash
-# List all documents
-docmgr list
-
-# List documents with specific tag
-docmgr list --tag golang
-
-# Add tags to a document
-docmgr tag <doc-id> --add golang,tutorial
-
-# Delete a document
-docmgr delete <doc-id>
-```
-
-## Configuration
-
-Configure via environment variables:
-
-```bash
-# Storage location
-STORAGE_BASE_PATH=./docs/indexed
-
-# Search settings
-SEARCH_MAX_RESULTS=100
-
-# Export defaults
-EXPORT_DEFAULT_FORMAT=markdown
-
-# Observability
-TRACE_EXPORTER=jaeger          # zipkin, jaeger, otlp, gofr
-TRACER_URL=localhost:14250
-TRACER_RATIO=1.0               # 100% sampling
-LOG_LEVEL=INFO
-```
-
-Create a `.env` file in your working directory:
-
-```bash
-# .env
-STORAGE_BASE_PATH=./docs/indexed
-TRACE_EXPORTER=zipkin
-TRACER_URL=localhost:9411
+output_index/
+├── docs/                    # Transformed source documents
+├── chunks/                  # AI-optimized semantic chunks
+├── INDEX.json              # Complete searchable index
+└── COMPASS.md              # Navigation guide
 ```
 
 ## Architecture
 
-### Hexagonal Design (Ports & Adapters)
-```
-GoFr CLI Handlers
-    ↓
-Application Service (Pure Business Logic)
-    ↓
-Ports (Interfaces)
-    ↓
-Adapters (File System, Search, Export)
-```
+### 7-Step Pipeline
 
-### Single Unified Trace Per Command
+1. **DISCOVER** - Scan directories for markdown files
+2. **ANALYZE** - Extract metadata (titles, headings, categories)
+3. **ASSIGN IDs** - Generate hierarchical document IDs
+4. **TRANSFORM** - Apply standard formatting and frontmatter
+5. **CHUNK** - Semantic splitting with context prefixes (~170 tokens/chunk)
+6. **INDEX** - Build searchable index (INDEX.json)
+7. **VALIDATE** - Quality checks and validation
 
-Every CLI invocation creates ONE OpenTelemetry trace with complete context:
+### Key Features
 
-```
-docmgr import --source ~/docs
-│
-├─ TraceID: abc123def456
-├─ Command: import
-├─ User: lewis
-├─ PWD: /home/lewis/src
-│
-└─ Spans
-   ├─ command-import (root)
-   ├── validate-params
-   ├── application-import
-   │  ├─ importer-scan
-   │  └─ repository-save
-   │     ├─ hash-content
-   │     ├─ write-file
-   │     └─ update-index
-   └─ response
-```
+**Knowledge Graph (DAG)**
+- Automatic relationship detection
+- Jaccard similarity scoring
+- Topological ordering
+- Semantic navigation
 
-Query in Jaeger/Zipkin by TraceID to see complete execution flow.
+**Contextual Retrieval**
+- Each chunk includes 50-100 token context prefix
+- Natural multi-turn AI conversations
+- 35% fewer retrieval failures (Anthropic research)
 
-### Functional Programming
+**Full-Text Search**
+- Keyword indexing
+- Category and tag filtering
+- Complete chunk navigation
 
-- **No Nil Pointers**: Result[T] and Option[T] types
-- **Pure Functions**: Deterministic, referentially transparent
-- **Immutable Data**: Value types, new instances on change
-- **Function Composition**: FlatMap chains for error handling
-
-## Development
-
-### Prerequisites
-- Go 1.24+
-- Moon (task orchestration)
-- golangci-lint (linting)
-
-### Development Workflow
+## Example
 
 ```bash
-# Fast iteration with watch
-moon run dev --watch
+# Transform CUE documentation (36 files)
+./target/release/doc_transformer ./cue_docs ./indexed_output
 
-# Run quality checks
-moon run quality
-
-# View test coverage
-moon run coverage-report
-open coverage.html
-
-# Full CI pipeline
-moon run ci
+# Output
+# ======================================================================
+# DOC_TRANSFORMER v4.3 (Knowledge DAG)
+# ======================================================================
+# [STEP 1] DISCOVER: Found 36 files
+# [STEP 2] ANALYZE: Processed 36 files
+# [STEP 3] ASSIGN IDs: Generated 36 IDs
+# [STEP 4] TRANSFORM: 36/36 files (0 errors)
+# [STEP 5] CHUNK: Generated 156 chunks
+# [STEP 6] INDEX: Created COMPASS.md and INDEX.json
+# [STEP 7] VALIDATE: 36/36 files passed
+# ======================================================================
+# COMPLETE
 ```
 
-### Testing
+## For AI Agents
+
+Load the generated INDEX.json to:
+1. Search by keyword
+2. Get document metadata and chunk list
+3. Retrieve individual chunks with context
+4. Navigate related documents via Knowledge Graph
+
+See `docs/INDEXER.md` for complete integration guide.
+
+## Testing
 
 ```bash
-# Run all tests with coverage
-moon run test
+# Run all tests
+cargo test --all-features
 
-# View coverage percentage
-moon run coverage-percent
+# Run specific tests
+cargo test graph::tests::
 
-# Enforce 90% minimum
-moon run coverage-check
-
-# Run integration tests
-moon run test-integration
-```
-
-### Dependency Management
-
-```bash
-# Check for outdated dependencies
-moon run deps-check
-
-# Update dependencies
-moon run deps-update
+# With output
+cargo test -- --nocapture
 ```
 
 ## Project Structure
 
 ```
 centralized-docs/
-├── cmd/docmgr/
-│   └── main.go                 # CLI entry point
-├── pkg/domain/
-│   ├── types.go                # Domain model
-│   ├── result.go               # Result[T] and Option[T]
-│   └── errors.go               # Error types
-├── internal/
-│   ├── app/
-│   │   └── application.go       # Business logic
-│   ├── ports/
-│   │   ├── repository.go        # Storage interface
-│   │   ├── searcher.go          # Search interface
-│   │   ├── exporter.go          # Export interface
-│   │   └── importer.go          # Import interface
-│   ├── adapters/
-│   │   ├── repository/          # File system storage
-│   │   ├── search/              # In-memory search
-│   │   ├── export/              # Format exporters
-│   │   └── import/              # File discovery
-│   ├── handlers/
-│   │   ├── import.go
-│   │   ├── search.go
-│   │   ├── export.go
-│   │   ├── list.go
-│   │   ├── tag.go
-│   │   └── delete.go
-│   └── observability/           # Tracing & logging
+├── doc_transformer/              # Rust transformer binary
+│   ├── src/
+│   │   ├── main.rs              # Entry point
+│   │   ├── discover.rs          # File discovery
+│   │   ├── analyze.rs           # Metadata extraction
+│   │   ├── assign.rs            # ID generation
+│   │   ├── transform.rs         # Document transformation
+│   │   ├── chunk.rs             # Semantic chunking
+│   │   ├── graph.rs             # Knowledge DAG
+│   │   ├── index.rs             # Indexing
+│   │   └── validate.rs          # Validation
+│   └── Cargo.toml
+├── cue_docs/                     # Example: CUE documentation (36 files)
 ├── docs/
-│   ├── VISION.md                # Project vision
-│   ├── ARCHITECTURE.md          # System design
-│   ├── AGENTS.md                # AI instructions
-│   ├── CLAUDE.md                # Claude context
-│   └── indexed/                 # Document storage
-├── .moon/
-│   ├── moon.yml                 # Moon config
-│   └── tasks.yml                # Task definitions
-└── README.md                    # This file
+│   └── INDEXER.md               # Complete documentation
+├── CLAUDE.md                     # AI development rules
+└── README.md                     # This file
 ```
-
-## Documentation
-
-- **[VISION.md](docs/VISION.md)** - Project philosophy and goals
-- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System design and layers
-- **[AGENTS.md](docs/AGENTS.md)** - AI agent coding instructions
-- **[CLAUDE.md](docs/CLAUDE.md)** - Claude Code context
-
-## Testing
-
-### Test Coverage Requirements
-- **Overall project**: ≥90% (enforced by CI)
-- **Domain model**: 100%
-- **Application service**: ≥95%
-- **Adapters**: ≥90%
-- **Handlers**: ≥90%
-
-### Test Patterns
-
-All tests use table-driven pattern with `testify/assert`:
-
-```go
-func TestImportDocuments(t *testing.T) {
-    tests := []struct {
-        name    string
-        opts    ImportOptions
-        want    int
-        wantErr bool
-    }{
-        {
-            name: "successful import",
-            opts: ImportOptions{SourcePath: "/test"},
-            want: 3,
-            wantErr: false,
-        },
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            // Test logic
-        })
-    }
-}
-```
-
-## Observability
-
-### Tracing
-
-All commands automatically create traces:
-
-```bash
-# Enable tracing to Jaeger
-export TRACE_EXPORTER=jaeger
-export TRACER_URL=localhost:14250
-
-# Run command
-docmgr import --source ~/docs
-
-# View trace at http://localhost:16686
-# Query by TraceID to see complete execution
-```
-
-### Logging
-
-Every log includes unified context:
-- `trace_id`: Correlation ID
-- `command`: CLI command name
-- `user`: Current user
-- `pwd`: Working directory
-- `timestamp`: When operation occurred
-
-### Metrics
-
-Each command reports:
-- Duration
-- Items processed
-- Success/failure status
-
-## CI/CD Pipeline
-
-### Local Development
-```bash
-# Format code
-moon run fmt
-
-# Lint code
-moon run lint
-
-# Run tests
-moon run test
-
-# Check coverage
-moon run coverage-check
-```
-
-### Full Pipeline
-```bash
-# Complete quality gates + build
-moon run ci
-```
-
-Tasks enforce order:
-1. Format code
-2. Lint (requires formatted)
-3. Generate mocks
-4. Run tests (requires mocks)
-5. Check coverage (requires tests)
-6. Build binary (requires passing tests)
 
 ## Dependencies
 
-### Required
-- `gofr.dev` - CLI framework and observability
+- **petgraph** - Graph data structures (Knowledge DAG)
+- **serde** / **serde_json** - Serialization
+- **regex** - Pattern matching
+- **walkdir** - Directory traversal
+- **chrono** - Timestamps
+- **clap** - CLI parsing
+- **tokio** - Async runtime
+- **anyhow** - Error handling
 
-### Development
-- `github.com/stretchr/testify` - Testing assertions and mocks
-- `github.com/vektra/mockery` - Mock generation
+## Version
 
-## Design Principles
-
-This project follows Dave Farley's continuous delivery principles:
-
-1. **Modularity**: Clear module boundaries and responsibilities
-2. **Cohesion**: Each module does one thing well
-3. **Separation of Concerns**: Handler, Logic, and Storage clearly separated
-4. **Abstraction**: Depend on interfaces, not implementations
-5. **Loose Coupling**: Swap implementations without touching logic
-
-## Contributing
-
-### Before Starting
-1. Read [docs/AGENTS.md](docs/AGENTS.md) for code standards
-2. Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system design
-3. Check existing code for patterns
-
-### Development Process
-1. Write failing tests first (TDD)
-2. Implement minimal code to pass
-3. Refactor for clarity
-4. Run `moon run coverage-check` (must be ≥90%)
-5. Create pull request
-
-### Code Standards
-- Pure GoFr (no Cobra)
-- Hexagonal architecture (ports-first)
-- Result[T] and Option[T] types (no nil)
-- Table-driven tests (only pattern)
-- ≥90% test coverage
+**v4.3** - Knowledge DAG with Anthropic Contextual Retrieval pattern
 
 ## License
 
-MIT License
-
-## Status
-
-**Phase**: Foundation Complete, Ready for Phase 1 (Domain Model + Ports)
-
-See `/home/lewis/.claude/plans/snoopy-tinkering-patterson.md` for detailed implementation plan.
-
-## Questions?
-
-Refer to:
-- **Code patterns**: [docs/AGENTS.md](docs/AGENTS.md)
-- **System design**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Project vision**: [docs/VISION.md](docs/VISION.md)
-- **Implementation plan**: `/home/lewis/.claude/plans/snoopy-tinkering-patterson.md`
-
----
-
-**docmgr**: Centralized documentation infrastructure with extreme engineering rigor.
+MIT
