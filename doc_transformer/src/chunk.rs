@@ -1,9 +1,15 @@
 use crate::analyze::Analysis;
 use anyhow::Result;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use tap::Pipe;
+
+static H2_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^## (.+)$").expect("valid H2 regex"));
+
+static TABLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\|.*\|").expect("valid table regex"));
 
 /// Chunk level for hierarchical retrieval
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -73,79 +79,77 @@ pub fn chunk_all(analyses: &[Analysis], output_dir: &Path) -> Result<ChunksResul
     let chunks_dir = output_dir.join("chunks");
     fs::create_dir_all(&chunks_dir)?;
 
-    let mut total_chunks = 0;
-    let mut all_chunks = Vec::new();
-    let mut summary_chunks = 0;
-    let mut standard_chunks = 0;
-    let mut detailed_chunks = 0;
+    // Use functional fold to collect all chunks with counts
+    let (all_chunks, summary_chunks, standard_chunks, detailed_chunks) = analyses
+        .iter()
+        .fold(
+            (Vec::new(), 0usize, 0usize, 0usize),
+            |(mut chunks, sum_count, std_count, det_count), analysis| {
+                let doc_id = slugify(&analysis.source_path);
 
-    for analysis in analyses {
-        let doc_id = slugify(&analysis.source_path);
+                // Create chunks at ALL THREE levels for hierarchical retrieval
+                let summary = create_chunks_at_level(
+                    &analysis.content,
+                    &doc_id,
+                    &analysis.title,
+                    ChunkLevel::Summary,
+                );
+                let standard = create_chunks_at_level(
+                    &analysis.content,
+                    &doc_id,
+                    &analysis.title,
+                    ChunkLevel::Standard,
+                );
+                let detailed = create_chunks_at_level(
+                    &analysis.content,
+                    &doc_id,
+                    &analysis.title,
+                    ChunkLevel::Detailed,
+                );
 
-        // Create chunks at ALL THREE levels for hierarchical retrieval
-        // Summary level: quick overview (~128 tokens)
-        let summary = create_chunks_at_level(
-            &analysis.content,
-            &doc_id,
-            &analysis.title,
-            ChunkLevel::Summary,
+                // Link parent-child relationships between levels
+                let summary_ids: Vec<String> = summary.iter().map(|c| c.chunk_id.clone()).collect();
+                let standard_ids: Vec<String> = standard.iter().map(|c| c.chunk_id.clone()).collect();
+                let detailed_ids: Vec<String> = detailed.iter().map(|c| c.chunk_id.clone()).collect();
+
+                let new_sum_count = summary.len();
+                let new_std_count = standard.len();
+                let new_det_count = detailed.len();
+
+                // Add summary chunks with standard as children
+                chunks.extend(summary.into_iter().map(|mut chunk| {
+                    chunk.child_chunk_ids = standard_ids.clone();
+                    chunk
+                }));
+
+                // Add standard chunks with relationships
+                chunks.extend(standard.into_iter().map(|mut chunk| {
+                    chunk.parent_chunk_id = summary_ids.first().cloned();
+                    chunk.child_chunk_ids = detailed_ids.clone();
+                    chunk
+                }));
+
+                // Add detailed chunks with parent
+                chunks.extend(detailed.into_iter().map(|mut chunk| {
+                    chunk.parent_chunk_id = standard_ids.first().cloned();
+                    chunk
+                }));
+
+                (
+                    chunks,
+                    sum_count.saturating_add(new_sum_count),
+                    std_count.saturating_add(new_std_count),
+                    det_count.saturating_add(new_det_count),
+                )
+            },
         );
-
-        // Standard level: balanced detail (~512 tokens)
-        let standard = create_chunks_at_level(
-            &analysis.content,
-            &doc_id,
-            &analysis.title,
-            ChunkLevel::Standard,
-        );
-
-        // Detailed level: full context (~1024 tokens)
-        let detailed = create_chunks_at_level(
-            &analysis.content,
-            &doc_id,
-            &analysis.title,
-            ChunkLevel::Detailed,
-        );
-
-        // Link parent-child relationships between levels
-        // Standard chunks are children of Summary, Detailed are children of Standard
-        let summary_ids: Vec<String> = summary.iter().map(|c| c.chunk_id.clone()).collect();
-        let standard_ids: Vec<String> = standard.iter().map(|c| c.chunk_id.clone()).collect();
-        let detailed_ids: Vec<String> = detailed.iter().map(|c| c.chunk_id.clone()).collect();
-
-        // Add all chunks with proper relationships
-        for mut chunk in summary {
-            // Summary chunks have standard chunks as children
-            chunk.child_chunk_ids = standard_ids.clone();
-            summary_chunks += 1;
-            all_chunks.push(chunk);
-        }
-
-        for mut chunk in standard {
-            // Standard chunks have summary as parent, detailed as children
-            if !summary_ids.is_empty() {
-                chunk.parent_chunk_id = Some(summary_ids[0].clone());
-            }
-            chunk.child_chunk_ids = detailed_ids.clone();
-            standard_chunks += 1;
-            all_chunks.push(chunk);
-        }
-
-        for mut chunk in detailed {
-            // Detailed chunks have standard as parent
-            if !standard_ids.is_empty() {
-                chunk.parent_chunk_id = Some(standard_ids[0].clone());
-            }
-            detailed_chunks += 1;
-            all_chunks.push(chunk);
-        }
-    }
 
     // Add navigation links between chunks (same level, same doc)
+    let mut all_chunks = all_chunks;
     link_chunks(&mut all_chunks);
 
-    // Write chunks to disk
-    for chunk in &all_chunks {
+    // Write chunks to disk using functional for_each
+    all_chunks.iter().try_for_each(|chunk| {
         let level_suffix = chunk.chunk_level.as_str();
         let chunk_filename = format!("{}-{}.md", chunk.chunk_id.replace(['/', '#'], "-"), level_suffix);
         let chunk_file = chunks_dir.join(&chunk_filename);
@@ -162,9 +166,10 @@ pub fn chunk_all(analyses: &[Analysis], output_dir: &Path) -> Result<ChunksResul
         );
 
         let content = format!("{}\n{}", frontmatter, chunk.content);
-        fs::write(chunk_file, content)?;
-        total_chunks += 1;
-    }
+        fs::write(chunk_file, content)
+    })?;
+
+    let total_chunks = all_chunks.len();
 
     Ok(ChunksResult {
         total_chunks,
@@ -187,7 +192,6 @@ fn create_chunks_at_level(
     doc_title: &str,
     level: ChunkLevel,
 ) -> Vec<Chunk> {
-    let h2_regex = Regex::new(r"^## (.+)$").unwrap();
     let target_tokens = level.target_tokens();
 
     let mut chunks = Vec::new();
@@ -201,7 +205,7 @@ fn create_chunks_at_level(
     for line in lines.iter() {
         // Check for H2 heading (new chunk boundary) or token limit reached
         let current_tokens = estimate_tokens(&current_chunk);
-        let should_split = h2_regex.captures(line).is_some()
+        let should_split = H2_REGEX.captures(line).is_some()
             || (current_tokens >= target_tokens && !current_chunk.is_empty());
 
         if should_split && !current_chunk.is_empty() {
@@ -219,11 +223,9 @@ fn create_chunks_at_level(
                 token_count,
                 heading: current_heading.clone(),
                 chunk_type,
-                previous_chunk_id: if chunk_index > 0 {
-                    Some(format!("{}#{}", doc_id, chunk_index - 1))
-                } else {
-                    None
-                },
+                previous_chunk_id: chunk_index
+                    .checked_sub(1)
+                    .map(|prev| format!("{}#{}", doc_id, prev)),
                 next_chunk_id: None,
                 related_chunk_ids: Vec::new(),
                 summary,
@@ -232,7 +234,7 @@ fn create_chunks_at_level(
                 child_chunk_ids: Vec::new(),
             });
 
-            chunk_index += 1;
+            chunk_index = chunk_index.saturating_add(1);
 
             // Context buffer size varies by level
             let context_tokens = match level {
@@ -246,7 +248,7 @@ fn create_chunks_at_level(
         }
 
         // Update heading if this is an H2
-        if let Some(caps) = h2_regex.captures(line) {
+        if let Some(caps) = H2_REGEX.captures(line) {
             current_heading = caps.get(1).map(|m| m.as_str().to_string());
 
             // Add context to new chunk
@@ -277,11 +279,9 @@ fn create_chunks_at_level(
             token_count,
             heading: current_heading,
             chunk_type,
-            previous_chunk_id: if chunk_index > 0 {
-                Some(format!("{}#{}", doc_id, chunk_index - 1))
-            } else {
-                None
-            },
+            previous_chunk_id: chunk_index
+                .checked_sub(1)
+                .map(|prev| format!("{}#{}", doc_id, prev)),
             next_chunk_id: None,
             related_chunk_ids: Vec::new(),
             summary,
@@ -320,33 +320,37 @@ fn create_chunks_at_level(
     chunks
 }
 
-/// Get trailing context from a chunk for the next chunk's prefix
+/// Get trailing context from a chunk for the next chunk's prefix using fold
 fn get_context_tail(content: &str, max_tokens: usize) -> String {
-    let lines: Vec<&str> = content.lines().collect();
-    let mut result = Vec::new();
-    let mut token_count = 0;
-
-    for line in lines.iter().rev() {
-        let line_tokens = estimate_tokens(line);
-        if token_count + line_tokens > max_tokens {
-            break;
-        }
-        result.push(*line);
-        token_count += line_tokens;
-    }
-
-    result.reverse();
-    result.join("\n")
+    content
+        .lines()
+        .rev()
+        .fold((Vec::new(), 0usize), |(mut lines, count), line| {
+            let line_tokens = estimate_tokens(line);
+            if count.saturating_add(line_tokens) <= max_tokens {
+                lines.push(line);
+                (lines, count.saturating_add(line_tokens))
+            } else {
+                (lines, count)
+            }
+        })
+        .0
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Link chunks together: set next_chunk_id pointers (same level, same doc only)
 fn link_chunks(chunks: &mut [Chunk]) {
     for i in 0..chunks.len() {
-        if i + 1 < chunks.len()
-            && chunks[i].doc_id == chunks[i + 1].doc_id
-            && chunks[i].chunk_level == chunks[i + 1].chunk_level
-        {
-            chunks[i].next_chunk_id = Some(chunks[i + 1].chunk_id.clone());
+        if let Some(next_i) = i.checked_add(1) {
+            if next_i < chunks.len()
+                && chunks[i].doc_id == chunks[next_i].doc_id
+                && chunks[i].chunk_level == chunks[next_i].chunk_level
+            {
+                chunks[i].next_chunk_id = Some(chunks[next_i].chunk_id.clone());
+            }
         }
     }
 }
@@ -356,39 +360,39 @@ fn estimate_tokens(text: &str) -> usize {
     (text.len() / 4).max(1)
 }
 
-/// Create a summary of chunk content (first 2 sentences or 50 words)
+/// Create a summary of chunk content using functional composition
 fn create_summary(content: &str) -> String {
-    let sentences: Vec<&str> = content
+    content
         .split(['.', '\n'])
         .filter(|s| s.trim().len() > 10)
         .take(2)
-        .collect();
-
-    let summary = sentences.join(". ");
-    if summary.len() > 200 {
-        format!("{}...", &summary[..200])
-    } else {
-        summary
-    }
+        .collect::<Vec<_>>()
+        .join(". ")
+        .pipe(|summary| {
+            if summary.len() > 200 {
+                format!("{}...", &summary[..200])
+            } else {
+                summary
+            }
+        })
 }
 
-/// Generate URL-safe slug for document ID
+/// Generate URL-safe slug for document ID using functional composition
 fn slugify(text: &str) -> String {
-    text
-        .to_lowercase()
-        .replace('/', "-")
-        .replace(".md", "")
-        .replace(".mdx", "")
-        .replace('_', "-")
+    text.to_lowercase()
+        .pipe(|s| s.replace('/', "-"))
+        .pipe(|s| s.replace(".md", ""))
+        .pipe(|s| s.replace(".mdx", ""))
+        .pipe(|s| s.replace('_', "-"))
         .chars()
         .filter(|c| c.is_alphanumeric() || *c == '-')
         .collect()
 }
 
-/// Escape special characters in frontmatter string values
+/// Escape special characters in frontmatter string values using functional composition
 fn escape_frontmatter(text: &str) -> String {
     text.replace('"', "\\\"")
-        .replace('\n', " ")
+        .pipe(|s| s.replace('\n', " "))
         .chars()
         .take(100)
         .collect()
@@ -397,7 +401,7 @@ fn escape_frontmatter(text: &str) -> String {
 /// Detect chunk type: code, table, or prose
 fn detect_chunk_type(content: &str) -> String {
     let code_block_count = content.matches("```").count() / 2;
-    let has_table = content.contains('|') && Regex::new(r"\|.*\|").unwrap().is_match(content);
+    let has_table = content.contains('|') && TABLE_REGEX.is_match(content);
 
     if code_block_count > 5 {
         "code".to_string()

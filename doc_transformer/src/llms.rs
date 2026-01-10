@@ -213,14 +213,14 @@ fn truncate_summary(text: &str, max_len: usize) -> String {
     }
 }
 
-/// Skip YAML frontmatter from document content
+/// Skip YAML frontmatter from document content using functional pattern
 fn skip_frontmatter(content: &str) -> &str {
-    if content.starts_with("---") {
-        if let Some(end) = content[3..].find("---") {
-            return content[end + 6..].trim_start();
-        }
-    }
     content
+        .strip_prefix("---")
+        .and_then(|stripped| {
+            stripped.find("---").map(|end| stripped[end.saturating_add(3)..].trim_start())
+        })
+        .unwrap_or(content)
 }
 
 /// Generate AGENTS.md - coding instructions for AI assistants
@@ -247,7 +247,8 @@ pub fn generate_agents_md(
     // Count categories
     let mut categories: HashMap<&str, usize> = HashMap::new();
     for analysis in analyses {
-        *categories.entry(&analysis.category).or_insert(0) += 1;
+        let count = categories.entry(&analysis.category).or_insert(0);
+        *count = count.saturating_add(1);
     }
 
     content.push_str("### Document Categories\n\n");

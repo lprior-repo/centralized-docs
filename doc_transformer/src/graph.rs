@@ -1,8 +1,11 @@
-use petgraph::graph::{DiGraph, NodeIndex};
+use itertools::Itertools;
 use petgraph::algo::toposort;
+use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use strum::EnumDiscriminants;
+use tap::Pipe;
 
 /// Node in the knowledge graph - represents a document or chunk
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
@@ -31,28 +34,29 @@ pub struct GraphEdge {
 }
 
 /// Types of edges in the graph
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, EnumDiscriminants)]
+#[strum_discriminants(name(EdgeTypeKind))]
 #[serde(rename_all = "snake_case")]
 pub enum EdgeType {
-    Sequential,      // Next chunk in document (natural order)
-    Parent,          // Document contains chunk
-    Hierarchical,    // Higher-level organization
-    Related,         // Topically related (semantic similarity)
-    References,      // Explicit link in document
-    ReferencedBy,    // Document links to this one
-    CoAuthored,      // Share tags or category
+    Sequential,   // Next chunk in document (natural order)
+    Parent,       // Document contains chunk
+    Hierarchical, // Higher-level organization
+    Related,      // Topically related (semantic similarity)
+    References,   // Explicit link in document
+    ReferencedBy, // Document links to this one
+    CoAuthored,   // Share tags or category
 }
 
-impl ToString for EdgeType {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for EdgeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EdgeType::Sequential => "sequential".to_string(),
-            EdgeType::Parent => "parent".to_string(),
-            EdgeType::Hierarchical => "hierarchical".to_string(),
-            EdgeType::Related => "related".to_string(),
-            EdgeType::References => "references".to_string(),
-            EdgeType::ReferencedBy => "referenced_by".to_string(),
-            EdgeType::CoAuthored => "co_authored".to_string(),
+            EdgeType::Sequential => write!(f, "sequential"),
+            EdgeType::Parent => write!(f, "parent"),
+            EdgeType::Hierarchical => write!(f, "hierarchical"),
+            EdgeType::Related => write!(f, "related"),
+            EdgeType::References => write!(f, "references"),
+            EdgeType::ReferencedBy => write!(f, "referenced_by"),
+            EdgeType::CoAuthored => write!(f, "co_authored"),
         }
     }
 }
@@ -68,6 +72,8 @@ pub struct KnowledgeDAG {
 /// Edge data for petgraph
 #[derive(Debug, Clone)]
 struct GraphEdgeData {
+    /// Edge type for graph queries (used by get_edge_data)
+    #[allow(dead_code)]
     edge_type: EdgeType,
     weight: f32,
 }
@@ -117,6 +123,7 @@ impl KnowledgeDAG {
 
     /// Get edge properties between two nodes from the petgraph
     /// Returns (edge_type, weight) if edge exists
+    #[allow(dead_code)]
     pub fn get_edge_data(&self, from: &str, to: &str) -> Option<(EdgeType, f32)> {
         let from_idx = self.node_map.get(from)?;
         let to_idx = self.node_map.get(to)?;
@@ -143,33 +150,27 @@ impl KnowledgeDAG {
     }
 
     /// Find related chunks for a given chunk (via semantic links)
+    /// Uses functional composition with itertools for sorted results
     pub fn get_related_chunks(&self, chunk_id: &str) -> Vec<(String, f32)> {
-        let mut related = Vec::new();
-
-        for edge in &self.edges_vec {
-            if edge.from == chunk_id && edge.edge_type == EdgeType::Related {
-                related.push((edge.to.clone(), edge.weight));
-            }
-        }
-
-        // Sort by weight (strength) descending
-        related.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-        related
+        self.edges_vec
+            .iter()
+            .filter(|edge| edge.from == chunk_id && edge.edge_type == EdgeType::Related)
+            .map(|edge| (edge.to.clone(), edge.weight))
+            .sorted_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal))
+            .collect()
     }
 
     /// Get topologically sorted nodes (respects dependencies)
+    /// Uses functional composition for cleaner flow
     pub fn topological_order(&self) -> Vec<String> {
-        match toposort(&self.graph, None) {
-            Ok(sorted) => sorted
-                .into_iter()
-                .filter_map(|idx| {
-                    self.graph
-                        .node_weight(idx)
-                        .map(|node| node.id.clone())
-                })
-                .collect(),
-            Err(_) => Vec::new(), // Graph has cycles (shouldn't happen in valid DAG)
-        }
+        toposort(&self.graph, None)
+            .map(|sorted| {
+                sorted
+                    .into_iter()
+                    .filter_map(|idx| self.graph.node_weight(idx).map(|node| node.id.clone()))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// Get all nodes reachable from a given node (transitive closure)
@@ -194,32 +195,28 @@ impl KnowledgeDAG {
         }
     }
 
-    /// Calculate graph statistics
+    /// Calculate graph statistics using functional composition
     pub fn statistics(&self) -> GraphStatistics {
-        let document_count = self
+        // Count nodes by type using partition
+        let (documents, chunks): (Vec<_>, Vec<_>) = self
             .nodes_vec
             .iter()
-            .filter(|n| n.node_type == NodeType::Document)
-            .count();
+            .partition(|n| n.node_type == NodeType::Document);
 
-        let chunk_count = self
-            .nodes_vec
-            .iter()
-            .filter(|n| n.node_type == NodeType::Chunk)
-            .count();
-
-        let sequential_edges = self.edges_by_type(&EdgeType::Sequential).len();
-        let related_edges = self.edges_by_type(&EdgeType::Related).len();
-        let reference_edges = self.edges_by_type(&EdgeType::References).len();
+        // Count edges by type using functional style
+        let edge_counts = [EdgeType::Sequential, EdgeType::Related, EdgeType::References]
+            .into_iter()
+            .map(|t| self.edges_by_type(&t).len())
+            .collect::<Vec<_>>();
 
         GraphStatistics {
             node_count: self.nodes_vec.len(),
-            document_count,
-            chunk_count,
+            document_count: documents.len(),
+            chunk_count: chunks.len(),
             edge_count: self.edges_vec.len(),
-            sequential_edges,
-            related_edges,
-            reference_edges,
+            sequential_edges: edge_counts[0],
+            related_edges: edge_counts[1],
+            reference_edges: edge_counts[2],
         }
     }
 
@@ -262,7 +259,7 @@ impl RelationshipDetector {
         Self { min_similarity }
     }
 
-    /// Calculate Jaccard similarity between two tag sets
+    /// Calculate Jaccard similarity between two tag sets using functional composition
     pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
         if tags1.is_empty() && tags2.is_empty() {
             return 1.0;
@@ -271,17 +268,17 @@ impl RelationshipDetector {
         let set1: HashSet<_> = tags1.iter().collect();
         let set2: HashSet<_> = tags2.iter().collect();
 
-        let intersection = set1.intersection(&set2).count() as f32;
-        let union = set1.union(&set2).count() as f32;
-
-        if union == 0.0 {
-            0.0
-        } else {
-            intersection / union
-        }
+        (set1.intersection(&set2).count() as f32, set1.union(&set2).count() as f32)
+            .pipe(|(intersection, union)| {
+                if union == 0.0 {
+                    0.0
+                } else {
+                    intersection / union
+                }
+            })
     }
 
-    /// Detect relationships between chunks based on metadata
+    /// Detect relationships between chunks based on metadata using functional composition
     pub fn detect_relationships(
         &self,
         chunk_id: &str,
@@ -291,18 +288,15 @@ impl RelationshipDetector {
     ) -> Vec<(String, f32)> {
         all_chunks
             .iter()
-            .filter(|(id, _, _)| id != chunk_id) // Don't self-reference
+            .filter(|(id, _, _)| id != chunk_id)
             .filter_map(|(id, tags, category)| {
                 let tag_similarity = Self::jaccard_similarity(chunk_tags, tags);
                 let category_match = if category == chunk_category { 0.3 } else { 0.0 };
 
-                let combined_similarity = (tag_similarity * 0.7) + category_match;
-
-                if combined_similarity >= self.min_similarity {
-                    Some((id.clone(), combined_similarity))
-                } else {
-                    None
-                }
+                (tag_similarity * 0.7 + category_match)
+                    .pipe(|combined| {
+                        (combined >= self.min_similarity).then(|| (id.clone(), combined))
+                    })
             })
             .collect()
     }
@@ -430,7 +424,7 @@ mod tests {
 
         let edge_data = dag.get_edge_data("a", "b");
         assert!(edge_data.is_some());
-        let (edge_type, weight) = edge_data.unwrap();
+        let (edge_type, weight) = edge_data.expect("edge should exist");
         assert_eq!(edge_type, EdgeType::Related);
         assert!((weight - 0.75).abs() < 0.001);
 

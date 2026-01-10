@@ -3,6 +3,7 @@ use crate::assign::IdMapping;
 use crate::chunk::ChunksResult;
 use crate::graph::{EdgeType, GraphEdge, GraphNode, KnowledgeDAG, NodeType, RelationshipDetector};
 use anyhow::Result;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -159,11 +160,11 @@ pub fn build_and_write_index(
         "stats": {
             "doc_count": documents.len(),
             "chunk_count": chunks_result.total_chunks,
-            "avg_chunk_size_tokens": if chunks_result.total_chunks > 0 {
-                chunks_result.chunks_metadata.iter().map(|c| c.token_count).sum::<usize>() / chunks_result.total_chunks
-            } else {
-                0
-            },
+            "avg_chunk_size_tokens": chunks_result.chunks_metadata.iter()
+                .map(|c| c.token_count)
+                .sum::<usize>()
+                .checked_div(chunks_result.total_chunks)
+                .unwrap_or(0),
             "graph": {
                 "node_count": dag_stats.node_count,
                 "edge_count": dag_stats.edge_count,
@@ -241,28 +242,31 @@ pub fn build_and_write_compass(
     Ok(())
 }
 
+/// Extract tags using functional composition
 fn extract_tags(analysis: &Analysis) -> Vec<String> {
-    let mut tags = vec![analysis.category.clone()];
-
-    for heading in analysis.headings.iter().take(3) {
-        for word in heading.text.split_whitespace() {
-            if word.len() > 4 && !is_stopword(&word.to_lowercase()) {
-                tags.push(word.to_lowercase());
-            }
-        }
-    }
-
-    tags.sort();
-    tags.dedup();
-    tags.truncate(5);
-    tags
+    std::iter::once(analysis.category.clone())
+        .chain(
+            analysis
+                .headings
+                .iter()
+                .take(3)
+                .flat_map(|h| h.text.split_whitespace())
+                .filter(|word| word.len() > 4 && !is_stopword(&word.to_lowercase()))
+                .map(|word| word.to_lowercase()),
+        )
+        .sorted()
+        .dedup()
+        .take(5)
+        .collect()
 }
 
+/// Stopwords to filter out from tags
+const STOPWORDS: [&str; 10] = [
+    "this", "that", "these", "those", "about", "guide", "the", "and", "or", "for",
+];
+
 fn is_stopword(word: &str) -> bool {
-    matches!(
-        word,
-        "this" | "that" | "these" | "those" | "about" | "guide" | "the" | "and" | "or" | "for"
-    )
+    STOPWORDS.contains(&word)
 }
 
 /// Build a knowledge graph DAG from documents and chunks

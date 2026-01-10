@@ -6,6 +6,11 @@
 //! - Knowledge DAG with relationship detection
 //! - llms.txt generation for AI entry points
 
+// Strict functional programming constraints
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::panic)]
+#![deny(clippy::arithmetic_side_effects)]
+
 mod analyze;
 mod assign;
 mod chunk;
@@ -20,7 +25,7 @@ mod validate;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(name = "doc_transformer")]
@@ -241,7 +246,7 @@ async fn run_scrape(
             println!("    - {}: {}", url, err);
         }
         if result.errors.len() > 5 {
-            println!("    ... and {} more", result.errors.len() - 5);
+            println!("    ... and {} more", result.errors.len().saturating_sub(5));
         }
     }
 
@@ -262,8 +267,8 @@ async fn run_scrape(
 
 /// Run the index command (main pipeline)
 fn run_index(
-    source: &PathBuf,
-    output: &PathBuf,
+    source: &Path,
+    output: &Path,
     generate_llms: bool,
     project_name: &str,
     project_desc: &str,
@@ -376,7 +381,7 @@ fn run_index(
 /// Run the ingest command (scrape + index)
 async fn run_ingest(
     url: &str,
-    output: &PathBuf,
+    output: &Path,
     filter: Option<String>,
     delay: u64,
     project_name: Option<String>,
@@ -427,7 +432,13 @@ async fn run_ingest(
 }
 
 /// Run the search command using BM25 ranking
-fn run_search(query: &str, index_dir: &PathBuf, limit: usize) -> Result<()> {
+fn run_search(query: &str, index_dir: &Path, limit: usize) -> Result<()> {
+    // Validate query is not empty
+    let query = query.trim();
+    if query.is_empty() {
+        anyhow::bail!("Query cannot be empty");
+    }
+
     use serde_json::Value;
 
     let index_path = index_dir.join("INDEX.json");
@@ -495,7 +506,7 @@ fn run_search(query: &str, index_dir: &PathBuf, limit: usize) -> Result<()> {
                 summary.to_string()
             };
 
-            println!("{}. [{}] {} (score: {:.2})", i + 1, category, title, score);
+            println!("{}. [{}] {} (score: {:.2})", i.saturating_add(1), category, title, score);
             println!("   Path: {}", path);
             println!("   {}\n", summary_short);
         }

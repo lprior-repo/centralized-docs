@@ -5,13 +5,25 @@
 
 use crate::filter::{filter_markdown, prune_html, FilterConfig, FilterResult};
 use anyhow::{Context, Result};
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use spider::website::Website;
-use spider_transformations::transformation::content::{self, ReturnFormat, SelectorConfiguration, TransformConfig};
+use spider_transformations::transformation::content::{
+    self, ReturnFormat, SelectorConfiguration, TransformConfig,
+};
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
+
+static H1_TITLE_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^#\s+(.+)$").expect("valid H1 regex"));
+
+static HEADER_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid header regex"));
+
+static LINK_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex"));
 
 /// Configuration for scraping a documentation site
 #[derive(Debug, Clone)]
@@ -103,7 +115,10 @@ pub struct ScrapeResult {
 /// When `use_sitemap` is true, scrapes using the sitemap for URL discovery.
 /// Otherwise uses standard crawling.
 pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
-    let mut website = Website::new(&config.base_url);
+    // Validate URL before passing to spider (prevents panic)
+    let validated_url = validate_url(&config.base_url)?;
+
+    let mut website = Website::new(validated_url.as_str());
 
     // Configure spider via the website's configuration
     website.configuration.delay = config.delay_ms;
@@ -196,8 +211,10 @@ fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: b
     };
 
     // Configure transformation for markdown output
-    let mut transform_config = TransformConfig::default();
-    transform_config.return_format = ReturnFormat::Markdown;
+    let transform_config = TransformConfig {
+        return_format: ReturnFormat::Markdown,
+        ..Default::default()
+    };
 
     // Build selector configuration for HTML filtering (nav, footer, aside, etc.)
     // Uses the same patterns from FilterConfig for consistency
@@ -265,36 +282,33 @@ fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: b
 /// Extract title from markdown content
 fn extract_title(markdown: &str, url: &str) -> String {
     // Look for first H1
-    let h1_regex = Regex::new(r"^#\s+(.+)$").unwrap();
     for line in markdown.lines() {
-        if let Some(caps) = h1_regex.captures(line.trim()) {
-            return caps.get(1).unwrap().as_str().to_string();
+        if let Some(caps) = H1_TITLE_REGEX.captures(line.trim()) {
+            return caps.get(1).expect("capture group 1").as_str().to_string();
         }
     }
 
-    // Fall back to URL path
+    // Fall back to URL path using functional pattern
     url::Url::parse(url)
         .map(|u| {
             u.path()
                 .trim_matches('/')
                 .split('/')
-                .last()
+                .next_back()
                 .unwrap_or("Untitled")
-                .replace('-', " ")
-                .replace('_', " ")
+                .replace(['-', '_'], " ")
         })
         .unwrap_or_else(|_| "Untitled".to_string())
 }
 
 /// Extract headers from markdown
 fn extract_headers(markdown: &str) -> Vec<Header> {
-    let header_regex = Regex::new(r"^(#{1,6})\s+(.+)$").unwrap();
     let mut headers = Vec::new();
 
     for line in markdown.lines() {
-        if let Some(caps) = header_regex.captures(line.trim()) {
-            let level = caps.get(1).unwrap().as_str().len() as u8;
-            let text = caps.get(2).unwrap().as_str().to_string();
+        if let Some(caps) = HEADER_REGEX.captures(line.trim()) {
+            let level = caps.get(1).expect("capture group 1").as_str().len() as u8;
+            let text = caps.get(2).expect("capture group 2").as_str().to_string();
             headers.push(Header { level, text });
         }
     }
@@ -304,12 +318,11 @@ fn extract_headers(markdown: &str) -> Vec<Header> {
 
 /// Extract internal links from markdown
 fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
-    let link_regex = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap();
     let base = url::Url::parse(base_url).ok();
     let mut links = Vec::new();
 
-    for caps in link_regex.captures_iter(markdown) {
-        let href = caps.get(2).unwrap().as_str();
+    for caps in LINK_REGEX.captures_iter(markdown) {
+        let href = caps.get(2).expect("capture group 2").as_str();
 
         // Check if internal link
         if let Some(ref base) = base {
@@ -328,15 +341,35 @@ fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
     links
 }
 
-/// Convert URL to a filesystem-safe slug
+/// Validate URL format before passing to spider
+///
+/// Ensures the URL is well-formed and uses http or https scheme.
+/// This prevents panics from spider-rs's Website::new() on invalid URLs.
+fn validate_url(url: &str) -> Result<url::Url> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        anyhow::bail!("URL cannot be empty");
+    }
+
+    let parsed = url::Url::parse(trimmed).context("Invalid URL format")?;
+
+    match parsed.scheme() {
+        "http" | "https" => Ok(parsed),
+        scheme => anyhow::bail!(
+            "Invalid URL scheme '{}': only http and https are supported",
+            scheme
+        ),
+    }
+}
+
+/// Convert URL to a filesystem-safe slug using functional pattern
 fn url_to_slug(url: &str) -> String {
     let path = url::Url::parse(url)
         .map(|u| u.path().to_string())
         .unwrap_or_else(|_| url.to_string());
 
     path.trim_matches('/')
-        .replace('/', "-")
-        .replace('.', "-")
+        .replace(['/', '.'], "-")
         .chars()
         .filter(|c| c.is_alphanumeric() || *c == '-')
         .collect::<String>()
@@ -371,6 +404,21 @@ pub fn write_scraped_pages(result: &ScrapeResult, output_dir: &Path) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_validate_url_valid() {
+        assert!(validate_url("https://example.com").is_ok());
+        assert!(validate_url("http://docs.rust-lang.org/book").is_ok());
+    }
+
+    #[test]
+    fn test_validate_url_invalid() {
+        assert!(validate_url("not-a-url").is_err());
+        assert!(validate_url("").is_err());
+        assert!(validate_url("   ").is_err());
+        assert!(validate_url("ftp://example.com").is_err());
+        assert!(validate_url("example.com").is_err()); // missing scheme
+    }
 
     #[test]
     fn test_url_to_slug() {

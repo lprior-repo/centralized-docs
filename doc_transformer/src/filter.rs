@@ -8,6 +8,7 @@
 //! while preserving main documentation content.
 
 use scraper::{Html, Selector};
+use tap::Pipe;
 
 /// Configuration for content filtering
 #[derive(Debug, Clone)]
@@ -54,7 +55,8 @@ impl Default for FilterConfig {
 /// Result of content filtering
 #[derive(Debug)]
 pub struct FilterResult {
-    /// Cleaned HTML content
+    /// Cleaned HTML content (used in tests and for future filtering enhancements)
+    #[allow(dead_code)]
     pub html: String,
     /// Number of elements removed
     pub removed_count: usize,
@@ -64,70 +66,65 @@ pub struct FilterResult {
 
 /// Apply pruning filter to HTML content
 ///
-/// This filter:
-/// 1. Removes known non-content tags (nav, footer, script, etc.)
-/// 2. Removes elements with navigation-related classes/IDs
-/// 3. Scores remaining content by text density
-/// 4. Keeps only sections above the density threshold
+/// This filter uses functional composition to:
+/// 1. Remove known non-content tags (nav, footer, script, etc.)
+/// 2. Remove elements with navigation-related classes/IDs
+/// 3. Score remaining content by text density
+/// 4. Keep only sections above the density threshold
 pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
     let document = Html::parse_document(html);
-    let mut removed_count = 0;
 
-    // Count elements that would be removed based on config.remove_tags
-    for tag in &config.remove_tags {
-        if let Ok(selector) = Selector::parse(tag) {
-            removed_count += document.select(&selector).count();
-        }
-    }
+    // Count elements removed from tags using functional chain
+    let tag_removed_count: usize = config
+        .remove_tags
+        .iter()
+        .filter_map(|tag| Selector::parse(tag).ok())
+        .map(|sel| document.select(&sel).count())
+        .sum();
 
-    // Also count nav pattern matches
-    for pattern in &config.nav_patterns {
-        let class_selector_str = format!(".{}", pattern);
-        let id_selector_str = format!("#{}", pattern);
+    // Count elements removed from nav patterns using functional chain
+    let nav_removed_count: usize = config
+        .nav_patterns
+        .iter()
+        .flat_map(|pattern| {
+            [format!(".{}", pattern), format!("#{}", pattern)]
+                .into_iter()
+                .filter_map(|sel_str| Selector::parse(&sel_str).ok())
+                .map(|sel| document.select(&sel).count())
+                .collect::<Vec<_>>()
+        })
+        .sum();
 
-        // Parse and use class selector
-        let class_count = Selector::parse(&class_selector_str)
-            .map(|sel| document.select(&sel).count())
-            .unwrap_or(0);
-        removed_count += class_count;
+    let removed_count = tag_removed_count.saturating_add(nav_removed_count);
 
-        // Parse and use id selector
-        let id_count = Selector::parse(&id_selector_str)
-            .map(|sel| document.select(&sel).count())
-            .unwrap_or(0);
-        removed_count += id_count;
-    }
-
-    // Extract main content area if present
+    // Extract main content and calculate density score using pipe
     let main_content = extract_main_content(&document, config);
 
-    // Calculate density score
-    let text_length = main_content
+    let (density_score, final_content) = main_content
         .chars()
         .filter(|c| !c.is_whitespace())
-        .count();
-    let total_length = main_content.len();
-    let density_score = if total_length > 0 {
-        text_length as f32 / total_length as f32
-    } else {
-        0.0
-    };
-
-    // Apply density threshold - if content is too sparse, return empty
-    let final_content = if density_score >= config.density_threshold {
-        main_content
-    } else {
-        // Content is too sparse (likely boilerplate-heavy), try body text
-        if let Ok(body_selector) = Selector::parse("body") {
-            if let Some(body) = document.select(&body_selector).next() {
-                body.text().collect::<Vec<_>>().join(" ")
+        .count()
+        .pipe(|text_length| {
+            let total_length = main_content.len();
+            if total_length > 0 {
+                text_length as f32 / total_length as f32
             } else {
-                main_content
+                0.0
             }
-        } else {
-            main_content
-        }
-    };
+        })
+        .pipe(|density| {
+            let content = if density >= config.density_threshold {
+                main_content.clone()
+            } else {
+                // Content is too sparse, try body text
+                Selector::parse("body")
+                    .ok()
+                    .and_then(|sel| document.select(&sel).next())
+                    .map(|body| body.text().collect::<Vec<_>>().join(" "))
+                    .unwrap_or_else(|| main_content.clone())
+            };
+            (density, content)
+        });
 
     FilterResult {
         html: final_content,
@@ -136,7 +133,22 @@ pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
     }
 }
 
-/// Extract main content from HTML document
+/// Content selectors in priority order
+const CONTENT_SELECTORS: [&str; 11] = [
+    "main",
+    "article",
+    "[role='main']",
+    ".content",
+    ".main-content",
+    ".doc-content",
+    ".markdown-body",
+    ".post-content",
+    "#content",
+    "#main",
+    ".documentation",
+];
+
+/// Extract main content from HTML document using functional composition
 ///
 /// Tries to find the main content area using common selectors:
 /// 1. <main> tag
@@ -147,65 +159,41 @@ pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
 ///
 /// Filters out elements matching nav_patterns from the config.
 pub fn extract_main_content(document: &Html, config: &FilterConfig) -> String {
-    // Priority list of content selectors
-    let selectors = [
-        "main",
-        "article",
-        "[role='main']",
-        ".content",
-        ".main-content",
-        ".doc-content",
-        ".markdown-body",
-        ".post-content",
-        "#content",
-        "#main",
-        ".documentation",
-    ];
+    // Build exclusion selectors from config using functional chain
+    let _exclude_selectors: Vec<Selector> = config
+        .remove_tags
+        .iter()
+        .filter_map(|tag| Selector::parse(tag).ok())
+        .chain(config.nav_patterns.iter().flat_map(|pattern| {
+            [format!(".{}", pattern), format!("#{}", pattern)]
+                .into_iter()
+                .filter_map(|s| Selector::parse(&s).ok())
+        }))
+        .collect();
 
-    // Build exclusion selectors from config
-    let mut exclude_selectors: Vec<Selector> = Vec::new();
-    for tag in &config.remove_tags {
-        if let Ok(sel) = Selector::parse(tag) {
-            exclude_selectors.push(sel);
-        }
-    }
-    for pattern in &config.nav_patterns {
-        if let Ok(sel) = Selector::parse(&format!(".{}", pattern)) {
-            exclude_selectors.push(sel);
-        }
-        if let Ok(sel) = Selector::parse(&format!("#{}", pattern)) {
-            exclude_selectors.push(sel);
-        }
-    }
-
-    for selector_str in selectors {
-        if let Ok(selector) = Selector::parse(selector_str) {
-            if let Some(element) = document.select(&selector).next() {
-                // Get text, but filter out excluded elements
+    // Try each content selector in priority order
+    CONTENT_SELECTORS
+        .iter()
+        .filter_map(|selector_str| Selector::parse(selector_str).ok())
+        .find_map(|selector| {
+            document.select(&selector).next().and_then(|element| {
                 let text = element.text().collect::<Vec<_>>().join(" ");
-
-                // Check if this content meets minimum word count
-                let word_count = text.split_whitespace().count();
-                if word_count >= config.min_word_count {
-                    return text;
-                }
-            }
-        }
-    }
-
-    // Fall back to body text
-    if let Ok(body_selector) = Selector::parse("body") {
-        if let Some(body) = document.select(&body_selector).next() {
-            let text = body.text().collect::<Vec<_>>().join(" ");
-            let word_count = text.split_whitespace().count();
-            if word_count >= config.min_word_count {
-                return text;
-            }
-        }
-    }
-
-    // Last resort: all text (even if below min_word_count)
-    document.root_element().text().collect::<Vec<_>>().join(" ")
+                (text.split_whitespace().count() >= config.min_word_count).then_some(text)
+            })
+        })
+        .or_else(|| {
+            // Fall back to body text
+            Selector::parse("body").ok().and_then(|sel| {
+                document.select(&sel).next().and_then(|body| {
+                    let text = body.text().collect::<Vec<_>>().join(" ");
+                    (text.split_whitespace().count() >= config.min_word_count).then_some(text)
+                })
+            })
+        })
+        .unwrap_or_else(|| {
+            // Last resort: all text (even if below min_word_count)
+            document.root_element().text().collect::<Vec<_>>().join(" ")
+        })
 }
 
 /// Filter markdown content by removing common boilerplate patterns
@@ -214,135 +202,148 @@ pub fn extract_main_content(document: &Html, config: &FilterConfig) -> String {
 /// remaining navigation or boilerplate that made it through.
 /// Uses config.nav_patterns to identify navigation headings to skip.
 /// Uses config.min_word_count to filter out sparse sections.
+/// Uses functional composition with pipe and fold.
 pub fn filter_markdown(markdown: &str, config: &FilterConfig) -> String {
-    let lines: Vec<&str> = markdown.lines().collect();
-    let mut result = Vec::new();
-    let mut skip_until_heading = false;
-    let mut current_section_lines: Vec<&str> = Vec::new();
+    /// State for markdown filtering fold operation
+    struct FilterState<'a> {
+        result: Vec<&'a str>,
+        current_section: Vec<&'a str>,
+        skip_until_heading: bool,
+    }
 
-    for line in lines {
-        let lower = line.to_lowercase();
+    /// Check if heading indicates navigation content
+    fn is_nav_section(heading_text: &str, config: &FilterConfig) -> bool {
+        config
+            .nav_patterns
+            .iter()
+            .any(|pattern| heading_text.contains(pattern))
+            || is_nav_heading(heading_text)
+    }
 
-        // Check if this is a heading
-        if line.starts_with('#') {
-            // Flush previous section if it meets word count
-            if !current_section_lines.is_empty() {
-                let section_text = current_section_lines.join(" ");
-                let word_count = section_text.split_whitespace().count();
-                if word_count >= config.min_word_count {
-                    result.extend(current_section_lines.drain(..));
-                } else {
-                    current_section_lines.clear();
-                }
-            }
+    let initial_state = FilterState {
+        result: Vec::new(),
+        current_section: Vec::new(),
+        skip_until_heading: false,
+    };
 
-            let heading_text = line.trim_start_matches('#').trim().to_lowercase();
-            // Check against config nav_patterns
-            skip_until_heading = config.nav_patterns.iter()
-                .any(|pattern| heading_text.contains(pattern))
-                || is_nav_heading(&heading_text);
-        }
+    markdown
+        .lines()
+        .fold(initial_state, |mut state, line| {
+            let lower = line.to_lowercase();
 
-        if skip_until_heading {
+            // Check if this is a heading
             if line.starts_with('#') {
+                // Flush previous section if it meets word count
+                if !state.current_section.is_empty() {
+                    let section_text = state.current_section.join(" ");
+                    let word_count = section_text.split_whitespace().count();
+                    if word_count >= config.min_word_count {
+                        state.result.append(&mut state.current_section);
+                    } else {
+                        state.current_section.clear();
+                    }
+                }
+
                 let heading_text = line.trim_start_matches('#').trim().to_lowercase();
-                let is_nav = config.nav_patterns.iter()
-                    .any(|pattern| heading_text.contains(pattern))
-                    || is_nav_heading(&heading_text);
-                if !is_nav {
-                    skip_until_heading = false;
-                    current_section_lines.push(line);
+                state.skip_until_heading = is_nav_section(&heading_text, config);
+            }
+
+            if state.skip_until_heading {
+                if line.starts_with('#') {
+                    let heading_text = line.trim_start_matches('#').trim().to_lowercase();
+                    if !is_nav_section(&heading_text, config) {
+                        state.skip_until_heading = false;
+                        state.current_section.push(line);
+                    }
+                }
+                return state;
+            }
+
+            // Skip common footer patterns
+            if !is_footer_line(&lower) {
+                state.current_section.push(line);
+            }
+
+            state
+        })
+        .pipe(|mut state| {
+            // Flush final section
+            if !state.current_section.is_empty() {
+                let section_text = state.current_section.join(" ");
+                let word_count = section_text.split_whitespace().count();
+                if word_count >= config.min_word_count || state.result.is_empty() {
+                    state.result.extend(state.current_section);
                 }
             }
-            continue;
-        }
-
-        // Skip common footer patterns
-        if is_footer_line(&lower) {
-            continue;
-        }
-
-        current_section_lines.push(line);
-    }
-
-    // Flush final section
-    if !current_section_lines.is_empty() {
-        let section_text = current_section_lines.join(" ");
-        let word_count = section_text.split_whitespace().count();
-        if word_count >= config.min_word_count || result.is_empty() {
-            result.extend(current_section_lines);
-        }
-    }
-
-    result.join("\n")
+            state.result.join("\n")
+        })
 }
+
+/// Navigation heading patterns as a const array for functional matching
+const NAV_HEADINGS: [&str; 10] = [
+    "navigation",
+    "menu",
+    "table of contents",
+    "toc",
+    "on this page",
+    "in this article",
+    "related articles",
+    "see also",
+    "footer",
+    "breadcrumb",
+];
+
+/// Footer patterns as a const array for functional matching
+const FOOTER_PATTERNS: [&str; 9] = [
+    "copyright",
+    "all rights reserved",
+    "privacy policy",
+    "terms of service",
+    "cookie policy",
+    "powered by",
+    "built with",
+    "last updated:",
+    "© 20",
+];
 
 /// Check if a heading indicates navigation content
 fn is_nav_heading(heading: &str) -> bool {
-    let nav_headings = [
-        "navigation",
-        "menu",
-        "table of contents",
-        "toc",
-        "on this page",
-        "in this article",
-        "related articles",
-        "see also",
-        "footer",
-        "breadcrumb",
-    ];
-    nav_headings.iter().any(|&h| heading.contains(h))
+    NAV_HEADINGS.iter().any(|&h| heading.contains(h))
 }
 
 /// Check if a line looks like footer content
 fn is_footer_line(line: &str) -> bool {
-    let footer_patterns = [
-        "copyright",
-        "all rights reserved",
-        "privacy policy",
-        "terms of service",
-        "cookie policy",
-        "powered by",
-        "built with",
-        "last updated:",
-        "© 20",
-    ];
-    footer_patterns.iter().any(|&p| line.contains(p))
+    FOOTER_PATTERNS.iter().any(|&p| line.contains(p))
 }
 
 /// Calculate BM25 score for a document against a query
 ///
 /// This is a simplified BM25 implementation for filtering
-/// documents by query relevance.
+/// documents by query relevance. Uses functional composition.
 pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
     let k1 = 1.2;
     let b = 0.75;
 
     let doc_words: Vec<&str> = document.split_whitespace().collect();
-    let query_words: Vec<&str> = query.split_whitespace().collect();
     let doc_length = doc_words.len() as f32;
 
-    let mut score = 0.0;
-
-    for term in &query_words {
-        let term_lower = term.to_lowercase();
-        let tf = doc_words
-            .iter()
-            .filter(|w| w.to_lowercase() == term_lower)
-            .count() as f32;
-
-        if tf > 0.0 {
-            // Simplified IDF (assume term appears in ~10% of docs)
+    query
+        .split_whitespace()
+        .map(|term| {
+            let term_lower = term.to_lowercase();
+            doc_words
+                .iter()
+                .filter(|w| w.to_lowercase() == term_lower)
+                .count() as f32
+        })
+        .filter(|&tf| tf > 0.0)
+        .map(|tf| {
             let idf = (10.0_f32).ln();
-
             let numerator = tf * (k1 + 1.0);
             let denominator = tf + k1 * (1.0 - b + b * (doc_length / avg_doc_length));
-
-            score += idf * (numerator / denominator);
-        }
-    }
-
-    score
+            idf * (numerator / denominator)
+        })
+        .sum()
 }
 
 #[cfg(test)]
