@@ -1,7 +1,7 @@
 ---
 id: meta/navigation/compass
 title: Documentation Compass
-generated: 2026-01-08T02:16:52.489859411+00:00
+generated: 2026-01-10T21:21:18.006358870+00:00
 ---
 
 # Documentation Compass
@@ -10,5 +10,5 @@ generated: 2026-01-08T02:16:52.489859411+00:00
 
 ## TUTORIAL
 
-- [Sample](./docs/tutorial-general-sample.md) `getting` `installation`
+- [Sample](./docs/tutorial-general-sample.md) `basic` `concepts`
 
