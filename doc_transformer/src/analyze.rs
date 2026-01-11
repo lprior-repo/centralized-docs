@@ -1,3 +1,4 @@
+use crate::config::CategoryConfig;
 use crate::discover::DiscoveryFile;
 use anyhow::Result;
 use itertools::Itertools;
@@ -38,12 +39,19 @@ pub struct Analysis {
 }
 
 /// Analyze files using functional composition with filter_map
-pub fn analyze_files(files: &[DiscoveryFile], source_dir: &Path) -> Result<Vec<Analysis>> {
+pub fn analyze_files(files: &[DiscoveryFile], source_dir: &Path, category_config_path: Option<&Path>) -> Result<Vec<Analysis>> {
+    // Load category config if provided
+    let config = if let Some(path) = category_config_path {
+        Some(CategoryConfig::load_from_file(path)?)
+    } else {
+        None
+    };
+
     files
         .iter()
         .filter_map(|file| {
             let file_path = source_dir.join(&file.source_path);
-            analyze_single_file(&file.source_path, &file_path)
+            analyze_single_file(&file.source_path, &file_path, config.as_ref())
                 .map_err(|e| eprintln!("ANALYZE ERROR: {}: {}", file.source_path, e))
                 .ok()
         })
