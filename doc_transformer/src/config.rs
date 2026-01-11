@@ -59,9 +59,35 @@ impl CategoryConfig {
                     rule.category
                 );
             }
+
+            // Validate that rule has at least one non-empty criterion
+            if !Self::has_valid_criteria(&rule.criteria) {
+                anyhow::bail!(
+                    "Config error: rule for category '{}' has no criteria (all are None or empty)",
+                    rule.category
+                );
+            }
         }
 
         Ok(config)
+    }
+
+    /// Check if criteria has at least one non-empty, non-None criterion
+    fn has_valid_criteria(criteria: &MatchCriteria) -> bool {
+        // Check filename: must be Some with non-empty vec containing non-empty strings
+        let has_filename = criteria.filename.as_ref()
+            .map_or(false, |v| !v.is_empty() && v.iter().any(|s| !s.trim().is_empty()));
+
+        // Check content: must be Some with non-empty vec containing non-empty strings
+        let has_content = criteria.content.as_ref()
+            .map_or(false, |v| !v.is_empty() && v.iter().any(|s| !s.trim().is_empty()));
+
+        // Check path: must be Some with non-empty vec containing non-empty strings
+        let has_path = criteria.path.as_ref()
+            .map_or(false, |v| !v.is_empty() && v.iter().any(|s| !s.trim().is_empty()));
+
+        // At least one criterion must be valid
+        has_filename || has_content || has_path
     }
 
     /// Detect category for a document using these rules
@@ -135,6 +161,7 @@ fn is_valid_category_name(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
 
     #[test]
     fn test_valid_category_names() {
@@ -163,5 +190,263 @@ mod tests {
             config.detect_category("readme.md", "", ""),
             "meta"
         );
+    }
+
+    // === VALIDATION TESTS ===
+
+    #[test]
+    fn test_reject_rule_with_all_none_criteria() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "api"
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("no criteria"));
+        assert!(err_msg.contains("api"));
+    }
+
+    #[test]
+    fn test_reject_rule_with_all_empty_arrays() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "api"
+    filename: []
+    content: []
+    path: []
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("no criteria"));
+        assert!(err_msg.contains("api"));
+    }
+
+    #[test]
+    fn test_reject_rule_with_empty_strings_only() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "tutorial"
+    filename: [""]
+    content: [""]
+    path: [""]
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("no criteria"));
+    }
+
+    #[test]
+    fn test_reject_rule_with_whitespace_only_strings() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "reference"
+    filename: ["   "]
+    content: [" "]
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("no criteria"));
+    }
+
+    #[test]
+    fn test_accept_rule_with_single_filename_criterion() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "api"
+    filename: ["reference"]
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_ok());
+        let config = result.unwrap();
+        assert_eq!(config.rules.len(), 1);
+        assert_eq!(config.rules[0].category, "api");
+    }
+
+    #[test]
+    fn test_accept_rule_with_single_content_criterion() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "tutorial"
+    content: ["example"]
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_accept_rule_with_single_path_criterion() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "guide"
+    path: ["/docs/guides/"]
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_accept_rule_with_multiple_criteria() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "api"
+    filename: ["reference", "swagger"]
+    content: ["endpoint", "method"]
+    path: ["/api/"]
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_accept_rule_with_empty_criteria_but_some_populated() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "meta"
+    filename: []
+    content: ["metadata", "header"]
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_ok());
+        let config = result.unwrap();
+        assert_eq!(config.rules[0].category, "meta");
+    }
+
+    #[test]
+    fn test_multiple_rules_all_valid() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "api"
+    filename: ["reference"]
+  - category: "tutorial"
+    content: ["example"]
+  - category: "guide"
+    path: ["/guides/"]
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_ok());
+        let config = result.unwrap();
+        assert_eq!(config.rules.len(), 3);
+    }
+
+    #[test]
+    fn test_multiple_rules_one_invalid() {
+        let config_yaml = r#"
+default_category: "concept"
+rules:
+  - category: "api"
+    filename: ["reference"]
+  - category: "broken"
+  - category: "guide"
+    path: ["/guides/"]
+"#;
+
+        let temp = TempDir::new().unwrap();
+        let config_path = temp.path().join("config.yaml");
+        fs::write(&config_path, config_yaml).unwrap();
+
+        let result = CategoryConfig::load_from_file(&config_path);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("broken"));
+    }
+
+    #[test]
+    fn test_has_valid_criteria_with_all_none() {
+        let criteria = MatchCriteria::default();
+        assert!(!CategoryConfig::has_valid_criteria(&criteria));
+    }
+
+    #[test]
+    fn test_has_valid_criteria_with_empty_vecs() {
+        let criteria = MatchCriteria {
+            filename: Some(vec![]),
+            content: Some(vec![]),
+            path: Some(vec![]),
+        };
+        assert!(!CategoryConfig::has_valid_criteria(&criteria));
+    }
+
+    #[test]
+    fn test_has_valid_criteria_with_one_valid_filename() {
+        let criteria = MatchCriteria {
+            filename: Some(vec!["api".to_string()]),
+            content: None,
+            path: None,
+        };
+        assert!(CategoryConfig::has_valid_criteria(&criteria));
+    }
+
+    #[test]
+    fn test_has_valid_criteria_with_whitespace_strings() {
+        let criteria = MatchCriteria {
+            filename: Some(vec!["  ".to_string()]),
+            content: Some(vec![" ".to_string()]),
+            path: None,
+        };
+        assert!(!CategoryConfig::has_valid_criteria(&criteria));
     }
 }
