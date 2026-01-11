@@ -13,6 +13,139 @@
 /// 3. Re-export public functions and types for testing
 
 #[cfg(test)]
+mod validate_output_dir_tests {
+    use doc_transformer::validate::validate_output_dir;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_validate_nonexistent_dir() {
+        let temp = tempdir().unwrap();
+        let new_dir = temp.path().join("new_output");
+
+        // Directory doesn't exist yet
+        assert!(!new_dir.exists());
+
+        // Validation should succeed and create the directory
+        let result = validate_output_dir(&new_dir);
+        assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
+
+        // Directory should now exist
+        assert!(new_dir.exists());
+        assert!(new_dir.is_dir());
+    }
+
+    #[test]
+    fn test_validate_existing_writable_dir() {
+        let temp = tempdir().unwrap();
+
+        // Directory already exists and is writable
+        let result = validate_output_dir(temp.path());
+        assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
+    }
+
+    #[test]
+    fn test_validate_file_not_dir() {
+        let temp = tempdir().unwrap();
+        let file = temp.path().join("file.txt");
+        fs::write(&file, "test").unwrap();
+
+        // Path exists but is a file, not a directory
+        let result = validate_output_dir(&file);
+        assert!(result.is_err(), "Expected error for file path");
+
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("not a directory"),
+                "Error should mention 'not a directory', got: {}", error_msg);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_validate_readonly_dir() {
+        let temp = tempdir().unwrap();
+        let readonly_dir = temp.path().join("readonly");
+        fs::create_dir(&readonly_dir).unwrap();
+
+        // Make directory read-only
+        let mut perms = fs::metadata(&readonly_dir).unwrap().permissions();
+        perms.set_mode(0o444); // Read-only
+        fs::set_permissions(&readonly_dir, perms).unwrap();
+
+        // Validation should fail because directory is not writable
+        let result = validate_output_dir(&readonly_dir);
+        assert!(result.is_err(), "Expected error for read-only directory");
+
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("not writable"),
+                "Error should mention 'not writable', got: {}", error_msg);
+
+        // Cleanup: restore permissions
+        let mut perms = fs::metadata(&readonly_dir).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&readonly_dir, perms.clone()).ok();
+    }
+
+    #[test]
+    fn test_validate_nested_nonexistent_dir() {
+        let temp = tempdir().unwrap();
+        let nested_dir = temp.path().join("level1").join("level2").join("level3");
+
+        // None of the nested directories exist
+        assert!(!nested_dir.exists());
+
+        // Validation should succeed and create all directories
+        let result = validate_output_dir(&nested_dir);
+        assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
+
+        // All nested directories should now exist
+        assert!(nested_dir.exists());
+        assert!(nested_dir.is_dir());
+    }
+
+    #[test]
+    fn test_validate_cleans_up_test_file() {
+        let temp = tempdir().unwrap();
+
+        // Validate should succeed
+        let result = validate_output_dir(temp.path());
+        assert!(result.is_ok());
+
+        // Test file should be cleaned up
+        let test_file = temp.path().join(".write_test");
+        assert!(!test_file.exists(), "Test file should be cleaned up");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_validate_parent_readonly() {
+        let temp = tempdir().unwrap();
+        let parent = temp.path().join("parent");
+        fs::create_dir(&parent).unwrap();
+
+        // Make parent read-only
+        let mut perms = fs::metadata(&parent).unwrap().permissions();
+        perms.set_mode(0o444);
+        fs::set_permissions(&parent, perms).unwrap();
+
+        let child = parent.join("child");
+
+        // Validation should fail because parent is read-only
+        let result = validate_output_dir(&child);
+        assert!(result.is_err(), "Expected error when parent is read-only");
+
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Failed to create output directory"),
+                "Error should mention directory creation failure, got: {}", error_msg);
+
+        // Cleanup
+        let mut perms = fs::metadata(&parent).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&parent, perms).ok();
+    }
+}
+
+#[cfg(test)]
 mod validate_module_tests {
 
     // ============================================================================

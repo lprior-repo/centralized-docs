@@ -44,6 +44,14 @@ enum Commands {
         /// Show detailed validation output
         #[arg(long)]
         verbose: bool,
+
+        /// Filter files by BM25 relevance to query
+        #[arg(short, long, value_name = "QUERY")]
+        query: Option<String>,
+
+        /// Minimum BM25 score to keep a file (default: 0.1)
+        #[arg(long, default_value = "0.1")]
+        threshold: f32,
     },
 
     /// Search documents or chunks
@@ -86,8 +94,8 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     match args.command {
-        Commands::Transform { source_dir, output_dir, incremental, force, verbose } => {
-            run_transform(&source_dir, &output_dir, incremental, force, verbose).await
+        Commands::Transform { source_dir, output_dir, incremental, force, verbose, query, threshold } => {
+            run_transform(&source_dir, &output_dir, incremental, force, verbose, query.as_deref(), threshold).await
         }
         Commands::Search { query, index_dir, limit, chunks } => {
             run_search(&query, &index_dir, limit, chunks)
@@ -98,7 +106,7 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn run_transform(source_dir: &PathBuf, output_dir: &PathBuf, incremental: bool, force: bool, verbose: bool) -> Result<()> {
+async fn run_transform(source_dir: &PathBuf, output_dir: &PathBuf, incremental: bool, force: bool, verbose: bool, query: Option<&str>, threshold: f32) -> Result<()> {
     // VALIDATE OUTPUT FIRST (before any processing or printing)
     validate::validate_output_dir(output_dir)?;
 
@@ -108,8 +116,26 @@ async fn run_transform(source_dir: &PathBuf, output_dir: &PathBuf, incremental: 
 
     // STEP 1: DISCOVER
     println!("[STEP 1] DISCOVER");
-    let (files, _discover_manifest) = discover::discover_files(source_dir)?;
-    println!("  DISCOVER: Found {} files\n", files.len());
+    let (mut files, _discover_manifest) = discover::discover_files(source_dir)?;
+    println!("  DISCOVER: Found {} files", files.len());
+
+    // STEP 1.5: BM25 FILTERING (if query provided)
+    if let Some(q) = query {
+        println!("  Query filter: \"{}\" (threshold: {})", q, threshold);
+        let (filtered_files, filtered_count) = discover::filter_files_by_relevance(files, q, threshold, source_dir)?;
+
+        if filtered_files.is_empty() {
+            println!("  WARNING: All files filtered out by query. No files to process.");
+            println!("  Consider lowering the --threshold value.\n");
+            return Ok(());
+        }
+
+        println!("  Filtered by relevance: {} files removed", filtered_count);
+        println!("  Kept: {} files matching \"{}\"\n", filtered_files.len(), q);
+        files = filtered_files;
+    } else {
+        println!();
+    }
 
     // INCREMENTAL MODE CHECK
     let (files_to_process, _changeset) = if incremental && !force {
