@@ -22,7 +22,6 @@
 use crate::filter::{filter_markdown, prune_html, FilterConfig, FilterResult};
 use anyhow::{Context, Result};
 use regex::Regex;
-use std::sync::LazyLock;
 use serde::{Deserialize, Serialize};
 use spider::website::Website;
 use spider_transformations::transformation::content::{
@@ -31,6 +30,7 @@ use spider_transformations::transformation::content::{
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
+use std::sync::LazyLock;
 
 static H1_TITLE_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("valid H1 regex"));
@@ -62,6 +62,16 @@ pub struct ScrapeConfig {
     pub max_retries: u32,
     /// Enable exponential backoff for retries (default: true)
     pub use_exponential_backoff: bool,
+    /// Maximum size of a single page in bytes (default: 10MB) - DoS protection against huge files
+    pub max_page_size_bytes: u64,
+    /// Maximum total content size for entire scrape in bytes (default: 500MB) - DoS protection against streaming attacks
+    pub max_total_size_bytes: u64,
+    /// Maximum markdown content size per page in bytes (default: 5MB) - Memory exhaustion protection
+    pub max_markdown_size_bytes: u64,
+    /// Maximum number of pages to scrape (default: 10000) - DoS protection
+    pub max_pages: usize,
+    /// Maximum number of links to extract per page (default: 1000) - Memory protection
+    pub max_links_per_page: usize,
 }
 
 impl Default for ScrapeConfig {
@@ -76,6 +86,11 @@ impl Default for ScrapeConfig {
             enable_filtering: true,
             max_retries: 3,
             use_exponential_backoff: true,
+            max_page_size_bytes: 10 * 1024 * 1024, // 10MB per page
+            max_total_size_bytes: 500 * 1024 * 1024, // 500MB total
+            max_markdown_size_bytes: 5 * 1024 * 1024, // 5MB per page markdown
+            max_pages: 10_000,                     // Maximum pages to scrape
+            max_links_per_page: 1_000,             // Maximum links per page
         }
     }
 }
@@ -164,10 +179,11 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
         .transpose()
         .context("Invalid path filter regex")?;
 
-    // Process results sequentially
+    // Process results sequentially with size limit tracking
     let mut pages = Vec::new();
     let mut errors = Vec::new();
     let mut seen_urls = HashSet::new();
+    let mut total_content_size: u64 = 0;
 
     let binding = website.get_pages();
     let scraped_pages = binding.as_ref();
@@ -177,6 +193,16 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     if let Some(spider_pages) = scraped_pages {
         for page in spider_pages.iter() {
             let url = page.get_url();
+
+            // Check if we've exceeded the maximum page count (DoS protection)
+            if pages.len() >= config.max_pages {
+                let error_msg = format!(
+                    "Maximum page count ({}) reached, stopping scrape",
+                    config.max_pages
+                );
+                errors.push((url.to_string(), error_msg));
+                break;
+            }
 
             // Skip duplicates
             if seen_urls.contains(url) {
@@ -198,7 +224,23 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
             // Note: Individual page transformation errors are collected but don't stop the scrape.
             // This allows partial success when scraping large sites with some problematic pages.
             match transform_page(page, &config.base_url, config.enable_filtering) {
-                Ok(scraped) => pages.push(scraped),
+                Ok(scraped) => {
+                    // Track cumulative size for DoS protection (total content limit)
+                    let page_size = scraped.markdown.len() as u64;
+                    total_content_size = total_content_size.saturating_add(page_size);
+
+                    // Check if total content exceeds limit (streaming attack protection)
+                    if total_content_size > config.max_total_size_bytes {
+                        let error_msg = format!(
+                            "Total content size ({} bytes) exceeds limit ({} bytes), stopping scrape",
+                            total_content_size, config.max_total_size_bytes
+                        );
+                        errors.push((url.to_string(), error_msg));
+                        break;
+                    }
+
+                    pages.push(scraped);
+                }
                 Err(e) => {
                     let error_msg = format!("Failed to transform page: {}", e);
                     errors.push((url.to_string(), error_msg));
@@ -221,12 +263,22 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
 }
 
 /// Transform a spider page into our ScrapedPage format
-fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: bool) -> Result<ScrapedPage> {
+///
+/// Includes size limit checking to prevent memory exhaustion from huge pages.
+fn transform_page(
+    page: &spider::page::Page,
+    base_url: &str,
+    enable_filtering: bool,
+) -> Result<ScrapedPage> {
     let url = page.get_url().to_string();
     let filter_config = FilterConfig::default();
 
-    // Apply HTML-level pruning to analyze content quality
+    // Get raw HTML and enforce size limits (DoS protection)
     let raw_html = page.get_html();
+    let config = ScrapeConfig::default();
+    check_html_size(&raw_html, config.max_page_size_bytes)?;
+
+    // Apply HTML-level pruning to analyze content quality
     let prune_result: FilterResult = if enable_filtering {
         prune_html(&raw_html, &filter_config)
     } else {
@@ -261,13 +313,8 @@ fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: b
 
     // Transform HTML to Markdown using spider_transformations
     // Args: page, config, url_selector, selector_config, clean_selectors
-    let mut markdown = content::transform_content(
-        page,
-        &transform_config,
-        &None,
-        &selector_config,
-        &None,
-    );
+    let mut markdown =
+        content::transform_content(page, &transform_config, &None, &selector_config, &None);
 
     // Apply additional markdown-level content filtering
     let filtered = if enable_filtering {
@@ -277,14 +324,24 @@ fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: b
         false
     };
 
+    // Enforce markdown size limit (memory exhaustion protection)
+    check_markdown_size(&markdown, config.max_markdown_size_bytes)?;
+
     // Extract title from markdown (first H1) or fall back to URL
     let title = extract_title(&markdown, &url);
 
     // Extract headers from markdown
     let headers = extract_headers(&markdown);
 
-    // Extract internal links
+    // Extract internal links and enforce per-page limit
     let links = extract_internal_links(&markdown, base_url);
+    let (links, was_truncated) = limit_links_per_page(links, config.max_links_per_page);
+    if was_truncated {
+        eprintln!(
+            "[WARN] Page {} had too many links, truncated to {}",
+            url, config.max_links_per_page
+        );
+    }
 
     // Count words
     let word_count = markdown.split_whitespace().count();
@@ -311,7 +368,9 @@ fn extract_title(markdown: &str, url: &str) -> String {
     // Look for first H1
     for line in markdown.lines() {
         if let Some(caps) = H1_TITLE_REGEX.captures(line.trim()) {
-            return caps.get(1).expect("capture group 1").as_str().to_string();
+            if let Some(title_match) = caps.get(1) {
+                return title_match.as_str().to_string();
+            }
         }
     }
 
@@ -334,9 +393,15 @@ fn extract_headers(markdown: &str) -> Vec<Header> {
 
     for line in markdown.lines() {
         if let Some(caps) = HEADER_REGEX.captures(line.trim()) {
-            let level = caps.get(1).expect("capture group 1").as_str().len() as u8;
-            let text = caps.get(2).expect("capture group 2").as_str().to_string();
-            headers.push(Header { level, text });
+            // Safe extraction of level from capture group 1
+            if let Some(level_match) = caps.get(1) {
+                let level = u8::try_from(level_match.as_str().len()).unwrap_or(1); // Fallback to h1 if somehow invalid
+                                                                                   // Safe extraction of text from capture group 2
+                if let Some(text_match) = caps.get(2) {
+                    let text = text_match.as_str().to_string();
+                    headers.push(Header { level, text });
+                }
+            }
         }
     }
 
@@ -349,17 +414,20 @@ fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
     let mut links = Vec::new();
 
     for caps in LINK_REGEX.captures_iter(markdown) {
-        let href = caps.get(2).expect("capture group 2").as_str();
+        // Safe extraction of href from capture group 2
+        if let Some(href_match) = caps.get(2) {
+            let href = href_match.as_str();
 
-        // Check if internal link
-        if let Some(ref base) = base {
-            if let Ok(resolved) = base.join(href) {
-                if resolved.host() == base.host() {
-                    links.push(resolved.to_string());
+            // Check if internal link
+            if let Some(ref base) = base {
+                if let Ok(resolved) = base.join(href) {
+                    if resolved.host() == base.host() {
+                        links.push(resolved.to_string());
+                    }
                 }
+            } else if href.starts_with('/') || href.starts_with("./") {
+                links.push(href.to_string());
             }
-        } else if href.starts_with('/') || href.starts_with("./") {
-            links.push(href.to_string());
         }
     }
 
@@ -370,9 +438,30 @@ fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
 
 /// Calculate exponential backoff delay in milliseconds
 /// Formula: base_delay * (multiplier ^ retry_count)
+///
+/// Uses checked arithmetic to prevent overflow/underflow:
+/// - Validates retry_count <= i32::MAX for powi() argument
+/// - Clamps negative/NaN results to 0
+/// - Caps result at 30 seconds (30000ms)
 fn calculate_backoff_delay(base_ms: u64, retry_count: u32, multiplier: f32) -> u64 {
-    let backoff = base_ms as f32 * multiplier.powi(retry_count as i32);
-    (backoff as u64).min(30000) // Cap at 30 seconds
+    // Safe cast: retry_count is u32, powi needs i32. Only values > i32::MAX would overflow,
+    // which is unrealistic for retry counts (typically 0-10)
+    let exponent = i32::try_from(retry_count).unwrap_or(i32::MAX);
+
+    // Safe float arithmetic: base_ms as f32 is safe for reasonable delays (< 1 second = 1000ms)
+    let backoff = base_ms as f32 * multiplier.powi(exponent);
+
+    // Safe cast back: clamp negative/NaN values to 0, then convert with bounds checking
+    let clamped = backoff.max(0.0).min(f32::MAX);
+
+    // Safe u64 conversion: use saturating_cast semantic via min() with cap
+    let result = if clamped.is_finite() && clamped >= 0.0 {
+        (clamped as u64).min(30000)
+    } else {
+        30000 // Cap at max on any NaN/Inf
+    };
+
+    result
 }
 
 /// Validate URL format before passing to spider
@@ -394,6 +483,48 @@ fn validate_url(url: &str) -> Result<url::Url> {
             scheme
         ),
     }
+}
+
+/// Check if HTML content exceeds size limit
+///
+/// Returns error if size exceeds max_page_size_bytes
+fn check_html_size(html: &str, max_size: u64) -> Result<()> {
+    let size_bytes = html.len() as u64;
+    if size_bytes > max_size {
+        anyhow::bail!(
+            "Page HTML too large: {} bytes (limit: {} bytes)",
+            size_bytes,
+            max_size
+        );
+    }
+    Ok(())
+}
+
+/// Check if markdown content exceeds size limit
+///
+/// Returns error if size exceeds max_markdown_size_bytes
+fn check_markdown_size(markdown: &str, max_size: u64) -> Result<()> {
+    let size_bytes = markdown.len() as u64;
+    if size_bytes > max_size {
+        anyhow::bail!(
+            "Page markdown too large: {} bytes (limit: {} bytes)",
+            size_bytes,
+            max_size
+        );
+    }
+    Ok(())
+}
+
+/// Enforce maximum links per page limit
+///
+/// Returns truncated vector if exceeds max_links_per_page
+fn limit_links_per_page(links: Vec<String>, max_links: usize) -> (Vec<String>, bool) {
+    if links.len() <= max_links {
+        return (links, false);
+    }
+    let mut truncated = links;
+    truncated.truncate(max_links);
+    (truncated, true)
 }
 
 /// Convert URL to a filesystem-safe slug using functional pattern
@@ -434,12 +565,10 @@ pub fn filter_pages_by_relevance(
     use crate::filter::bm25_score;
 
     // Filter pages by BM25 score
-    let (kept, filtered): (Vec<_>, Vec<_>) = pages
-        .into_iter()
-        .partition(|page| {
-            let score = bm25_score(&page.markdown, query, avg_doc_length);
-            score >= threshold
-        });
+    let (kept, filtered): (Vec<_>, Vec<_>) = pages.into_iter().partition(|page| {
+        let score = bm25_score(&page.markdown, query, avg_doc_length);
+        score >= threshold
+    });
 
     let filtered_count = filtered.len();
 
@@ -492,18 +621,30 @@ mod tests {
 
     #[test]
     fn test_url_to_slug() {
-        assert_eq!(url_to_slug("https://example.com/docs/getting-started"), "docs-getting-started");
-        assert_eq!(url_to_slug("https://example.com/api/v1/users.html"), "api-v1-users-html");
+        assert_eq!(
+            url_to_slug("https://example.com/docs/getting-started"),
+            "docs-getting-started"
+        );
+        assert_eq!(
+            url_to_slug("https://example.com/api/v1/users.html"),
+            "api-v1-users-html"
+        );
         assert_eq!(url_to_slug("https://example.com/"), "");
     }
 
     #[test]
     fn test_extract_title() {
         let md = "# Getting Started\n\nThis is content.";
-        assert_eq!(extract_title(md, "https://example.com/foo"), "Getting Started");
+        assert_eq!(
+            extract_title(md, "https://example.com/foo"),
+            "Getting Started"
+        );
 
         let md_no_h1 = "Some content without header";
-        assert_eq!(extract_title(md_no_h1, "https://example.com/getting-started"), "getting started");
+        assert_eq!(
+            extract_title(md_no_h1, "https://example.com/getting-started"),
+            "getting started"
+        );
     }
 
     #[test]
@@ -586,7 +727,10 @@ mod tests {
 
         // Should keep at least the Rust guide
         assert!(kept.len() >= 1, "Should keep at least 1 Rust-related page");
-        assert!(filtered_count >= 1, "Should filter out at least 1 non-Rust page");
+        assert!(
+            filtered_count >= 1,
+            "Should filter out at least 1 non-Rust page"
+        );
 
         // Check that rust page is in the kept list
         assert!(
@@ -599,7 +743,11 @@ mod tests {
     fn test_filter_all_filtered_out() {
         let pages = vec![
             create_test_page("Rust programming", "Rust Guide", "https://example.com/rust"),
-            create_test_page("Python tutorial", "Python Guide", "https://example.com/python"),
+            create_test_page(
+                "Python tutorial",
+                "Python Guide",
+                "https://example.com/python",
+            ),
         ];
 
         // Use a very high threshold to filter everything out
@@ -619,8 +767,15 @@ mod tests {
 
         let (kept, filtered_count) = filter_pages_by_relevance(pages, "rust", 0.0);
 
-        assert_eq!(kept.len(), original_count, "Threshold 0.0 should keep all pages");
-        assert_eq!(filtered_count, 0, "No pages should be filtered with threshold 0.0");
+        assert_eq!(
+            kept.len(),
+            original_count,
+            "Threshold 0.0 should keep all pages"
+        );
+        assert_eq!(
+            filtered_count, 0,
+            "No pages should be filtered with threshold 0.0"
+        );
     }
 
     #[test]
@@ -633,8 +788,15 @@ mod tests {
 
         let (kept, filtered_count) = filter_pages_by_relevance(pages, "rust", -1.0);
 
-        assert_eq!(kept.len(), original_count, "Negative threshold should keep all pages");
-        assert_eq!(filtered_count, 0, "No pages should be filtered with negative threshold");
+        assert_eq!(
+            kept.len(),
+            original_count,
+            "Negative threshold should keep all pages"
+        );
+        assert_eq!(
+            filtered_count, 0,
+            "No pages should be filtered with negative threshold"
+        );
     }
 
     #[test]
@@ -649,7 +811,10 @@ mod tests {
         let (kept, filtered_count) = filter_pages_by_relevance(pages, "nonexistent_term_xyz", 0.1);
 
         assert_eq!(kept.len(), 0, "No pages should match nonexistent term");
-        assert_eq!(filtered_count, original_count, "All pages should be filtered");
+        assert_eq!(
+            filtered_count, original_count,
+            "All pages should be filtered"
+        );
     }
 
     #[test]
@@ -664,9 +829,11 @@ mod tests {
 
     #[test]
     fn test_filter_case_insensitive() {
-        let pages = vec![
-            create_test_page("Rust programming language", "Rust", "https://example.com/rust"),
-        ];
+        let pages = vec![create_test_page(
+            "Rust programming language",
+            "Rust",
+            "https://example.com/rust",
+        )];
 
         let (kept_lower, _) = filter_pages_by_relevance(pages.clone(), "rust", 0.1);
         let (kept_upper, _) = filter_pages_by_relevance(pages.clone(), "RUST", 0.1);
@@ -692,7 +859,10 @@ mod tests {
         let (kept, _) = filter_pages_by_relevance(pages, "rust programming systems", 0.1);
 
         // Should find pages containing any of these terms
-        assert!(kept.len() >= 1, "Should find pages matching multi-term query");
+        assert!(
+            kept.len() >= 1,
+            "Should find pages matching multi-term query"
+        );
         assert!(
             kept.iter().any(|p| p.title.contains("Rust")),
             "Should find rust page with multi-term query"
@@ -744,7 +914,10 @@ mod tests {
         let filtered_page = &kept[0];
 
         assert_eq!(filtered_page.url, original_url, "URL should be preserved");
-        assert_eq!(filtered_page.title, original_title, "Title should be preserved");
+        assert_eq!(
+            filtered_page.title, original_title,
+            "Title should be preserved"
+        );
         assert_eq!(
             filtered_page.word_count, original_word_count,
             "Word count should be preserved"
@@ -753,9 +926,11 @@ mod tests {
 
     #[test]
     fn test_filter_with_special_characters_in_query() {
-        let pages = vec![
-            create_test_page("Rust-lang systems programming", "Rust", "https://example.com/rust"),
-        ];
+        let pages = vec![create_test_page(
+            "Rust-lang systems programming",
+            "Rust",
+            "https://example.com/rust",
+        )];
 
         // Query with special characters (should not crash)
         let result = std::panic::catch_unwind(|| {
@@ -767,15 +942,21 @@ mod tests {
 
     #[test]
     fn test_filter_empty_query() {
-        let pages = vec![
-            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
-        ];
+        let pages = vec![create_test_page(
+            "Rust programming",
+            "Rust",
+            "https://example.com/rust",
+        )];
 
         let (kept, filtered_count) = filter_pages_by_relevance(pages.clone(), "", 0.1);
 
         // Empty query should filter all pages (no terms to match)
         assert_eq!(kept.len(), 0, "Empty query should match nothing");
-        assert_eq!(filtered_count, pages.len(), "All pages should be filtered with empty query");
+        assert_eq!(
+            filtered_count,
+            pages.len(),
+            "All pages should be filtered with empty query"
+        );
     }
 
     #[test]
@@ -784,16 +965,175 @@ mod tests {
         let pages = vec![
             create_test_page("one two three four five", "Page 1", "https://example.com/1"), // 5 words
             create_test_page("one two three", "Page 2", "https://example.com/2"), // 3 words
-            create_test_page("one two", "Page 3", "https://example.com/3"), // 2 words
+            create_test_page("one two", "Page 3", "https://example.com/3"),       // 2 words
         ];
         // Average: (5 + 3 + 2) / 3 = 3.33 words
 
         // The filter should calculate avg_doc_length correctly and use it for scoring
         // We can't test the internal calculation directly, but we can verify it doesn't panic
-        let result = std::panic::catch_unwind(|| {
-            filter_pages_by_relevance(pages, "one", 0.1)
-        });
+        let result = std::panic::catch_unwind(|| filter_pages_by_relevance(pages, "one", 0.1));
 
-        assert!(result.is_ok(), "Should calculate average document length without panicking");
+        assert!(
+            result.is_ok(),
+            "Should calculate average document length without panicking"
+        );
+    }
+
+    // ============================================================================
+    // SIZE LIMIT TESTS (DoS PROTECTION)
+    // ============================================================================
+
+    #[test]
+    fn test_check_html_size_valid() {
+        let html = "<html><body>Hello</body></html>";
+        let result = check_html_size(html, 1000);
+        assert!(result.is_ok(), "Small HTML should pass size check");
+    }
+
+    #[test]
+    fn test_check_html_size_exceeds_limit() {
+        let html = "x".repeat(1001);
+        let result = check_html_size(&html, 1000);
+        assert!(result.is_err(), "HTML exceeding limit should fail");
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(err_msg.contains("too large"), "Error should mention size");
+    }
+
+    #[test]
+    fn test_check_markdown_size_valid() {
+        let markdown = "# Hello\n\nThis is content.";
+        let result = check_markdown_size(markdown, 1000);
+        assert!(result.is_ok(), "Small markdown should pass size check");
+    }
+
+    #[test]
+    fn test_check_markdown_size_exceeds_limit() {
+        let markdown = "x".repeat(5001);
+        let result = check_markdown_size(&markdown, 5000);
+        assert!(result.is_err(), "Markdown exceeding limit should fail");
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("too large"),
+            "Error should mention markdown size"
+        );
+    }
+
+    #[test]
+    fn test_limit_links_per_page_within_limit() {
+        let links = vec![
+            "link1".to_string(),
+            "link2".to_string(),
+            "link3".to_string(),
+        ];
+        let (result, was_truncated) = limit_links_per_page(links, 10);
+        assert_eq!(result.len(), 3, "All links should be kept");
+        assert!(!was_truncated, "Should not be truncated");
+    }
+
+    #[test]
+    fn test_limit_links_per_page_exceeds_limit() {
+        let links = vec![
+            "link1".to_string(),
+            "link2".to_string(),
+            "link3".to_string(),
+        ];
+        let (result, was_truncated) = limit_links_per_page(links, 2);
+        assert_eq!(result.len(), 2, "Links should be truncated to limit");
+        assert!(was_truncated, "Should indicate truncation");
+    }
+
+    #[test]
+    fn test_limit_links_per_page_exactly_at_limit() {
+        let links = vec!["link1".to_string(), "link2".to_string()];
+        let (result, was_truncated) = limit_links_per_page(links, 2);
+        assert_eq!(result.len(), 2, "All links at limit should be kept");
+        assert!(!was_truncated, "Should not truncate when at exact limit");
+    }
+
+    #[test]
+    fn test_limit_links_per_page_empty() {
+        let links: Vec<String> = vec![];
+        let (result, was_truncated) = limit_links_per_page(links, 10);
+        assert_eq!(result.len(), 0, "Empty list should remain empty");
+        assert!(!was_truncated, "Empty list should not be truncated");
+    }
+
+    #[test]
+    fn test_scrape_config_default_has_size_limits() {
+        let config = ScrapeConfig::default();
+        assert_eq!(
+            config.max_page_size_bytes,
+            10 * 1024 * 1024,
+            "Default max page size should be 10MB"
+        );
+        assert_eq!(
+            config.max_total_size_bytes,
+            500 * 1024 * 1024,
+            "Default max total size should be 500MB"
+        );
+        assert_eq!(
+            config.max_markdown_size_bytes,
+            5 * 1024 * 1024,
+            "Default max markdown size should be 5MB"
+        );
+        assert_eq!(
+            config.max_pages, 10_000,
+            "Default max pages should be 10000"
+        );
+        assert_eq!(
+            config.max_links_per_page, 1_000,
+            "Default max links per page should be 1000"
+        );
+    }
+
+    #[test]
+    fn test_scrape_config_limits_are_reasonable() {
+        let config = ScrapeConfig::default();
+        // Verify: max_page_size < max_total_size
+        assert!(
+            config.max_page_size_bytes < config.max_total_size_bytes,
+            "Per-page limit must be less than total limit"
+        );
+        // Verify: max_markdown_size <= max_page_size
+        assert!(
+            config.max_markdown_size_bytes <= config.max_page_size_bytes,
+            "Markdown limit should not exceed page limit"
+        );
+        // Verify: reasonable defaults
+        assert!(config.max_pages > 0, "Max pages must be positive");
+        assert!(
+            config.max_links_per_page > 0,
+            "Max links per page must be positive"
+        );
+    }
+
+    #[test]
+    fn test_huge_content_detection() {
+        // Simulate 100MB of repeated text
+        let huge_text = "x".repeat(100 * 1024 * 1024);
+        let config = ScrapeConfig::default();
+        let result = check_html_size(&huge_text, config.max_page_size_bytes);
+        assert!(result.is_err(), "100MB content should exceed 10MB limit");
+    }
+
+    #[test]
+    fn test_streaming_attack_protection() {
+        // Simulate multiple pages hitting the total limit
+        let mut total_size = 0u64;
+        let config = ScrapeConfig::default();
+        let page_size = config.max_page_size_bytes / 2; // 5MB per page
+        let mut pages_before_limit = 0usize;
+
+        while total_size.saturating_add(page_size) <= config.max_total_size_bytes {
+            total_size = total_size.saturating_add(page_size);
+            pages_before_limit = pages_before_limit.saturating_add(1);
+        }
+
+        // With 500MB limit and 5MB pages, should allow ~100 pages
+        assert!(
+            pages_before_limit >= 90 && pages_before_limit <= 110,
+            "Should allow ~100 5MB pages in 500MB budget, got: {}",
+            pages_before_limit
+        );
     }
 }
