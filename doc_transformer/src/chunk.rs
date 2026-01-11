@@ -7,6 +7,15 @@ use std::fs;
 use std::path::Path;
 use tap::Pipe;
 
+// Lazy-initialized regex patterns for chunking
+//
+// SAFETY (BEAD-006): All regex patterns are hardcoded string literals verified to be valid.
+// The `.expect()` calls will never panic - this is guaranteed by:
+// 1. Patterns are compile-time constants (no user input)
+// 2. All patterns are tested in tests/bead_006_regex_initialization_tests.rs
+// 3. If a pattern were invalid, tests would fail immediately
+//
+// Using `.expect()` here is acceptable per BEAD-006 Option A: "Keep Lazy + Add Compile-Time Test"
 static H2_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^## (.+)$").expect("valid H2 regex"));
 
 static TABLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\|.*\|").expect("valid table regex"));

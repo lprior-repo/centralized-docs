@@ -1,0 +1,103 @@
+# Example Category Detection Rules Configuration
+# Copy this file to category_rules.yaml and customize as needed
+# Usage: doc_transformer index <SOURCE> --output <DIR> --category-config category_rules.yaml
+
+# Default category to use if no rules match
+default_category: concept
+
+# Category detection rules - evaluated in order, first match wins
+rules:
+  # Meta documentation (README, CHANGELOG, etc.)
+  - category: meta
+    filename:
+      - readme
+      - changelog
+      - contributing
+      - license
+      - code_of_conduct
+
+  # Tutorial/Getting Started guides
+  - category: tutorial
+    match:
+      content:
+        - "getting started"
+        - "step 1"
+        - "## step"
+        - "tutorial"
+        - "quickstart"
+      filename:
+        - tutorial
+        - guide
+        - quickstart
+        - getting_started
+
+  # Operations and deployment guides
+  - category: ops
+    match:
+      content:
+        - deploy
+        - install
+        - troubleshoot
+        - production
+        - docker
+        - kubernetes
+        - devops
+      path:
+        - /ops/
+        - /deploy/
+        - /operations/
+        - /infrastructure/
+      filename:
+        - deploy
+        - install
+        - ops
+
+  # API Reference and technical documentation
+  - category: ref
+    match:
+      content:
+        - "## api"
+        - "## reference"
+        - "## endpoints"
+        - "parameters:"
+        - "returns:"
+        - "arguments:"
+        - "signature:"
+      filename:
+        - api
+        - reference
+        - spec
+        - schema
+        - interface
+
+  # Architecture and design documents
+  - category: architecture
+    match:
+      content:
+        - architecture
+        - design pattern
+        - system design
+        - "## architecture"
+      filename:
+        - architecture
+        - design
+        - arch
+        - system_design
+      path:
+        - /architecture/
+        - /design/
+
+  # Concept explanations and theory
+  - category: concept
+    match:
+      content:
+        - "conceptual"
+        - "explanation"
+        - "understanding"
+        - "what is"
+        - "how does"
+      filename:
+        - concept
+        - explanation
+        - theory
+        - understanding
