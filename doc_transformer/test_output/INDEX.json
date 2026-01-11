@@ -1,216 +1,24 @@
 {
-  "chunks": [
-    {
-      "chunk_id": "sample#0",
-      "chunk_type": "prose",
-      "doc_id": "sample",
-      "doc_title": "Sample",
-      "heading": null,
-      "next_chunk_id": "sample#1",
-      "path": "chunks/sample-0.md",
-      "previous_chunk_id": null,
-      "summary": "# Getting Started with Rust. This is a guide to getting started with Rust programming language",
-      "token_count": 46
-    },
-    {
-      "chunk_id": "sample#1",
-      "chunk_type": "prose",
-      "doc_id": "sample",
-      "doc_title": "Sample",
-      "heading": "Installation",
-      "next_chunk_id": "sample#2",
-      "path": "chunks/sample-1.md",
-      "previous_chunk_id": "sample#0",
-      "summary": "# Getting Started with Rust. This is a guide to getting started with Rust programming language",
-      "token_count": 76
-    },
-    {
-      "chunk_id": "sample#2",
-      "chunk_type": "prose",
-      "doc_id": "sample",
-      "doc_title": "Sample",
-      "heading": "Basic Concepts",
-      "next_chunk_id": "sample#3",
-      "path": "chunks/sample-2.md",
-      "previous_chunk_id": "sample#1",
-      "summary": "# Getting Started with Rust. This is a guide to getting started with Rust programming language",
-      "token_count": 113
-    },
-    {
-      "chunk_id": "sample#3",
-      "chunk_type": "prose",
-      "doc_id": "sample",
-      "doc_title": "Sample",
-      "heading": "Writing Your First Program",
-      "next_chunk_id": null,
-      "path": "chunks/sample-3.md",
-      "previous_chunk_id": "sample#2",
-      "summary": "# Getting Started with Rust. This is a guide to getting started with Rust programming language",
-      "token_count": 142
-    }
-  ],
   "documents": [
     {
       "category": "tutorial",
-      "chunk_ids": [],
       "id": "tutorial/general/sample",
       "path": "docs/tutorial-general-sample.md",
-      "summary": "This is a guide to getting started with Rust programming language. Rust is a systems programming language that focuses on safety, speed, and concurrency.",
+      "summary": "CUE is a data validation language.",
       "tags": [
-        "basic",
-        "concepts",
         "getting",
         "installation",
-        "started"
+        "started",
+        "tutorial",
+        "usage"
       ],
       "title": "Sample",
-      "word_count": 87
+      "word_count": 48
     }
   ],
-  "generated": "2026-01-10T21:21:18.005965874+00:00",
-  "graph": {
-    "edges": [
-      {
-        "edge_type": "sequential",
-        "from": "sample#0",
-        "to": "sample#1",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "sequential",
-        "from": "sample#1",
-        "to": "sample#2",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "sequential",
-        "from": "sample#2",
-        "to": "sample#3",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#0",
-        "to": "sample#1",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#0",
-        "to": "sample#2",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#0",
-        "to": "sample#3",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#1",
-        "to": "sample#0",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#1",
-        "to": "sample#2",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#1",
-        "to": "sample#3",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#2",
-        "to": "sample#0",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#2",
-        "to": "sample#1",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#2",
-        "to": "sample#3",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#3",
-        "to": "sample#0",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#3",
-        "to": "sample#1",
-        "weight": 1.0
-      },
-      {
-        "edge_type": "related",
-        "from": "sample#3",
-        "to": "sample#2",
-        "weight": 1.0
-      }
-    ],
-    "nodes": [
-      {
-        "category": "tutorial",
-        "id": "tutorial/general/sample",
-        "node_type": "document",
-        "title": "Sample"
-      },
-      {
-        "category": null,
-        "id": "sample#0",
-        "node_type": "chunk",
-        "title": "Sample - Intro"
-      },
-      {
-        "category": null,
-        "id": "sample#1",
-        "node_type": "chunk",
-        "title": "Sample - Installation"
-      },
-      {
-        "category": null,
-        "id": "sample#2",
-        "node_type": "chunk",
-        "title": "Sample - Basic Concepts"
-      },
-      {
-        "category": null,
-        "id": "sample#3",
-        "node_type": "chunk",
-        "title": "Sample - Writing Your First Program"
-      }
-    ],
-    "statistics": {
-      "chunk_count": 4,
-      "document_count": 1,
-      "edge_count": 15,
-      "node_count": 5,
-      "reference_edges": 0,
-      "related_edges": 12,
-      "sequential_edges": 3
-    }
-  },
+  "generated": "2026-01-08T02:16:52.489796452+00:00",
   "keywords": {
-    "basic": [
-      "tutorial/general/sample"
-    ],
-    "concepts": [
-      "tutorial/general/sample"
-    ],
-    "first": [
+    "also": [
       "tutorial/general/sample"
     ],
     "getting": [
@@ -219,44 +27,19 @@
     "installation": [
       "tutorial/general/sample"
     ],
-    "program": [
-      "tutorial/general/sample"
-    ],
-    "rust": [
-      "tutorial/general/sample"
-    ],
     "started": [
+      "tutorial/general/sample"
+    ],
+    "usage": [
       "tutorial/general/sample"
     ],
     "with": [
       "tutorial/general/sample"
-    ],
-    "writing": [
-      "tutorial/general/sample"
-    ],
-    "your": [
-      "tutorial/general/sample"
     ]
   },
-  "navigation": {
-    "avg_tokens_per_chunk": 170,
-    "graph_enabled": true,
-    "min_similarity_threshold": 0.3,
-    "similarity_metric": "jaccard_on_tags_and_category",
-    "strategy": "50-100 token context prefix + H2 boundaries + knowledge DAG with semantic similarity",
-    "type": "contextual_retrieval_with_dag"
-  },
   "stats": {
-    "avg_chunk_size_tokens": 94,
     "chunk_count": 4,
-    "doc_count": 1,
-    "graph": {
-      "edge_count": 15,
-      "node_count": 5,
-      "reference_edges": 0,
-      "related_edges": 12,
-      "sequential_edges": 3
-    }
+    "doc_count": 1
   },
-  "version": "4.3"
+  "version": "4.2"
 }
