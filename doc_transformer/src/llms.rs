@@ -131,7 +131,10 @@ pub fn generate_llms_txt(
     if let Some(meta) = by_category.get("meta") {
         content.push_str("## Optional\n\n");
         for (analysis, mapping) in meta.iter().take(config.max_per_category) {
-            content.push_str(&format!("- [{}](./docs/{})\n", analysis.title, mapping.filename));
+            content.push_str(&format!(
+                "- [{}](./docs/{})\n",
+                analysis.title, mapping.filename
+            ));
         }
         content.push('\n');
     }
@@ -178,7 +181,10 @@ pub fn generate_llms_full_txt(
 
     for (analysis, mapping) in sorted {
         // Document header
-        content.push_str(&format!("## {} [{}]\n\n", analysis.title, analysis.category));
+        content.push_str(&format!(
+            "## {} [{}]\n\n",
+            analysis.title, analysis.category
+        ));
         content.push_str(&format!("**Path**: docs/{}\n", mapping.filename));
         content.push_str(&format!("**ID**: {}\n\n", mapping.id));
 
@@ -210,10 +216,7 @@ fn truncate_summary(text: &str, max_len: usize) -> String {
     if char_count <= max_len {
         cleaned
     } else {
-        let truncated: String = cleaned
-            .chars()
-            .take(max_len.saturating_sub(3))
-            .collect();
+        let truncated: String = cleaned.chars().take(max_len.saturating_sub(3)).collect();
         format!("{}...", truncated)
     }
 }
@@ -223,7 +226,9 @@ fn skip_frontmatter(content: &str) -> &str {
     content
         .strip_prefix("---")
         .and_then(|stripped| {
-            stripped.find("---").map(|end| stripped[end.saturating_add(3)..].trim_start())
+            stripped
+                .find("---")
+                .map(|end| stripped[end.saturating_add(3)..].trim_start())
         })
         .unwrap_or(content)
 }
@@ -242,12 +247,18 @@ pub fn generate_agents_md(
     let mut content = String::new();
 
     // Header
-    content.push_str(&format!("# {} - Agent Instructions\n\n", config.project_name));
+    content.push_str(&format!(
+        "# {} - Agent Instructions\n\n",
+        config.project_name
+    ));
     content.push_str(&format!("> {}\n\n", config.project_description));
 
     // Project overview
     content.push_str("## Project Overview\n\n");
-    content.push_str(&format!("This documentation index contains {} documents organized by category.\n\n", analyses.len()));
+    content.push_str(&format!(
+        "This documentation index contains {} documents organized by category.\n\n",
+        analyses.len()
+    ));
 
     // Count categories
     let mut categories: HashMap<&str, usize> = HashMap::new();
@@ -268,7 +279,9 @@ pub fn generate_agents_md(
     content.push_str("1. **Start with llms.txt** - Read this first to understand the structure\n");
     content.push_str("2. **Use INDEX.json** - For programmatic lookup of documents and chunks\n");
     content.push_str("3. **Follow the DAG** - Use knowledge graph edges to find related content\n");
-    content.push_str("4. **Chunk navigation** - Each chunk has `previous_chunk_id` and `next_chunk_id`\n\n");
+    content.push_str(
+        "4. **Chunk navigation** - Each chunk has `previous_chunk_id` and `next_chunk_id`\n\n",
+    );
 
     // File structure
     content.push_str("## File Structure\n\n");
@@ -286,7 +299,9 @@ pub fn generate_agents_md(
     // Chunk format
     content.push_str("## Chunk Format\n\n");
     content.push_str("Each chunk file contains:\n");
-    content.push_str("- YAML frontmatter with `chunk_id`, `doc_id`, `token_count`, navigation pointers\n");
+    content.push_str(
+        "- YAML frontmatter with `chunk_id`, `doc_id`, `token_count`, navigation pointers\n",
+    );
     content.push_str("- Context prefix from previous chunk (~50-100 tokens)\n");
     content.push_str("- Main content (~170 tokens average)\n\n");
 
@@ -307,9 +322,13 @@ pub fn generate_agents_md(
     // Best practices
     content.push_str("## Best Practices\n\n");
     content.push_str("- **Don't guess**: Use INDEX.json to find exact document/chunk IDs\n");
-    content.push_str("- **Read context**: When reading a chunk, consider reading previous/next chunks\n");
+    content.push_str(
+        "- **Read context**: When reading a chunk, consider reading previous/next chunks\n",
+    );
     content.push_str("- **Follow relationships**: Use graph edges to find related content\n");
-    content.push_str("- **Check frontmatter**: Every document has `category`, `tags`, and `summary`\n");
+    content.push_str(
+        "- **Check frontmatter**: Every document has `category`, `tags`, and `summary`\n",
+    );
 
     fs::write(output_dir.join("AGENTS.md"), content)?;
 
@@ -324,7 +343,10 @@ mod tests {
     fn test_truncate_summary() {
         assert_eq!(truncate_summary("Short text", 20), "Short text");
         assert_eq!(
-            truncate_summary("This is a much longer piece of text that needs truncation", 20),
+            truncate_summary(
+                "This is a much longer piece of text that needs truncation",
+                20
+            ),
             "This is a much lo..."
         );
     }
