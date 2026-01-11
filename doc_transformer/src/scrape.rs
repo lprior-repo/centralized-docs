@@ -286,6 +286,7 @@ fn transform_page(
             html: raw_html.clone(),
             removed_count: 0,
             density_score: 1.0,
+            used_readability: false,
         }
     };
 
@@ -346,8 +347,11 @@ fn transform_page(
     // Count words
     let word_count = markdown.split_whitespace().count();
 
-    // Generate slug from URL
-    let slug = url_to_slug(&url);
+    // Generate slug from URL (with validation for non-empty)
+    let slug = url_to_slug(&url).context(format!(
+        "Failed to generate slug for URL {}: ensure URL has a valid path or hostname",
+        url
+    ))?;
 
     Ok(ScrapedPage {
         url,
@@ -527,18 +531,60 @@ fn limit_links_per_page(links: Vec<String>, max_links: usize) -> (Vec<String>, b
     (truncated, true)
 }
 
-/// Convert URL to a filesystem-safe slug using functional pattern
-fn url_to_slug(url: &str) -> String {
-    let path = url::Url::parse(url)
-        .map(|u| u.path().to_string())
-        .unwrap_or_else(|_| url.to_string());
+/// Validate that a slug is non-empty and filesystem-safe
+///
+/// Returns an error if the slug would be empty, ensuring all generated
+/// slugs can be safely used as filenames.
+fn validate_slug(slug: &str) -> Result<()> {
+    if slug.trim().is_empty() {
+        anyhow::bail!("URL slug cannot be empty: all URLs must produce non-empty identifiers");
+    }
+    Ok(())
+}
 
-    path.trim_matches('/')
-        .replace(['/', '.'], "-")
+/// Convert URL to a filesystem-safe slug using functional pattern
+///
+/// Returns a non-empty slug guaranteed to be safe for filenames.
+/// Falls back to hostname if path is empty.
+///
+/// # Contract
+/// - Input: Valid or invalid URL string
+/// - Output: Result<String> where String is non-empty, alphanumeric + hyphens only, lowercase
+/// - Guarantees: Returned slug is always non-empty (validated before return)
+fn url_to_slug(url: &str) -> Result<String> {
+    let parsed = url::Url::parse(url).context("Failed to parse URL for slug generation")?;
+
+    // Get path and normalize
+    let path = parsed.path().trim_matches('/');
+
+    // If path is empty, use hostname as fallback
+    let raw_slug = if path.is_empty() {
+        parsed
+            .host_str()
+            .ok_or_else(|| anyhow::anyhow!("URL has no host for slug generation"))?
+            .replace(['.', '-'], "-")
+    } else {
+        path.replace(['/', '.'], "-")
+    };
+
+    // Filter to filesystem-safe characters (alphanumeric + hyphens)
+    let slug = raw_slug
         .chars()
         .filter(|c| c.is_alphanumeric() || *c == '-')
         .collect::<String>()
-        .to_lowercase()
+        .to_lowercase();
+
+    // Truncate to reasonable length (prevent filesystem issues)
+    let slug = if slug.len() > 200 {
+        slug[..200].to_string()
+    } else {
+        slug
+    };
+
+    // Validate non-empty
+    validate_slug(&slug)?;
+
+    Ok(slug)
 }
 
 /// Filter scraped pages by BM25 relevance to query
@@ -620,16 +666,81 @@ mod tests {
     }
 
     #[test]
-    fn test_url_to_slug() {
+    fn test_url_to_slug_with_path() {
         assert_eq!(
-            url_to_slug("https://example.com/docs/getting-started"),
+            url_to_slug("https://example.com/docs/getting-started").unwrap(),
             "docs-getting-started"
         );
         assert_eq!(
-            url_to_slug("https://example.com/api/v1/users.html"),
+            url_to_slug("https://example.com/api/v1/users.html").unwrap(),
             "api-v1-users-html"
         );
-        assert_eq!(url_to_slug("https://example.com/"), "");
+    }
+
+    #[test]
+    fn test_url_to_slug_root_url_uses_hostname() {
+        // Root URLs should fall back to hostname
+        let result = url_to_slug("https://example.com/").unwrap();
+        assert_eq!(result, "example-com");
+        assert!(!result.is_empty(), "Slug from root URL must not be empty");
+    }
+
+    #[test]
+    fn test_url_to_slug_no_path_uses_hostname() {
+        // URLs without path should use hostname
+        let result = url_to_slug("https://docs.example.com").unwrap();
+        assert_eq!(result, "docs-example-com");
+        assert!(!result.is_empty(), "Slug must not be empty");
+    }
+
+    #[test]
+    fn test_url_to_slug_never_empty() {
+        // Comprehensive test: any valid URL should produce non-empty slug
+        let valid_urls = vec![
+            "https://example.com/",
+            "https://example.com",
+            "https://a.b/",
+            "https://docs.rust-lang.org",
+            "http://localhost:8080/api/v1/users",
+        ];
+
+        for url in valid_urls {
+            let slug = url_to_slug(url).expect(&format!("URL {} should produce valid slug", url));
+            assert!(
+                !slug.is_empty(),
+                "URL {} produced empty slug",
+                url
+            );
+            assert!(
+                slug.chars().all(|c| c.is_alphanumeric() || c == '-'),
+                "Slug {} contains invalid characters",
+                slug
+            );
+        }
+    }
+
+    #[test]
+    fn test_url_to_slug_invalid_url() {
+        assert!(url_to_slug("not-a-url").is_err());
+        assert!(url_to_slug("").is_err());
+        assert!(url_to_slug("   ").is_err());
+    }
+
+    #[test]
+    fn test_url_to_slug_special_characters_filtered() {
+        let slug = url_to_slug("https://example.com/docs/getting-started-2.0").unwrap();
+        // Should not contain dots, only hyphens and alphanumeric
+        assert!(!slug.contains("."));
+        assert!(slug.chars().all(|c| c.is_alphanumeric() || c == '-'));
+    }
+
+    #[test]
+    fn test_url_to_slug_truncates_long_paths() {
+        // Create a URL with an extremely long path
+        let long_path = "https://example.com/".to_string()
+            + &"very-long-path-segment-".repeat(20); // Create 400+ char path
+        let slug = url_to_slug(&long_path).unwrap();
+        assert!(slug.len() <= 200, "Slug should be truncated to 200 chars");
     }
 
     #[test]
@@ -689,6 +800,8 @@ mod tests {
 
     fn create_test_page(markdown: &str, title: &str, url: &str) -> ScrapedPage {
         let word_count = markdown.split_whitespace().count();
+        let slug = url_to_slug(url)
+            .expect("Test URL should produce valid slug");
         ScrapedPage {
             url: url.to_string(),
             markdown: markdown.to_string(),
@@ -696,7 +809,7 @@ mod tests {
             links: Vec::new(),
             headers: Vec::new(),
             word_count,
-            slug: url_to_slug(url),
+            slug,
             filtered: false,
             elements_removed: 0,
             density_score: 1.0,

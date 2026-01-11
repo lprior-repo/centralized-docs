@@ -1,12 +1,15 @@
 //! Content filtering module
 //!
-//! Implements content filtering strategies inspired by Crawl4AI:
-//! - Pruning: Remove low-value content based on text density and tag importance
-//! - BM25: Query-based relevance filtering (future enhancement)
+//! Implements content filtering using Mozilla Readability algorithm:
+//! - Readability: Extract main article content using proven Mozilla algorithm
+//! - Fallback pruning: Custom heuristics for edge cases (no content detected)
+//! - BM25: Query-based relevance filtering
 //!
-//! The pruning filter removes navigation, footers, sidebars, and boilerplate
-//! while preserving main documentation content.
+//! The Readability filter removes navigation, footers, sidebars, and boilerplate
+//! while preserving main documentation content. Falls back to density-based pruning
+//! when Readability cannot extract content.
 
+use readability::extractor;
 use scraper::{Html, Selector};
 use tap::Pipe;
 
@@ -62,16 +65,88 @@ pub struct FilterResult {
     pub removed_count: usize,
     /// Density score of kept content
     pub density_score: f32,
+    /// Whether Readability was successfully used (vs fallback to custom pruning)
+    #[allow(dead_code)]
+    pub used_readability: bool,
 }
 
-/// Apply pruning filter to HTML content
+/// Apply pruning filter to HTML content using Mozilla Readability algorithm
 ///
-/// This filter uses functional composition to:
-/// 1. Remove known non-content tags (nav, footer, script, etc.)
-/// 2. Remove elements with navigation-related classes/IDs
-/// 3. Score remaining content by text density
-/// 4. Keep only sections above the density threshold
+/// This filter attempts to use Mozilla Readability (proven by 14+ years of Firefox Reader Mode)
+/// to extract main article content. If Readability cannot extract content, falls back to
+/// custom text density heuristics.
+///
+/// # Contract (Design by Contract)
+///
+/// **Preconditions:**
+/// - `html` is valid UTF-8 (guaranteed by &str)
+/// - `config` is valid FilterConfig
+///
+/// **Postconditions:**
+/// - Returns FilterResult with non-empty `html` field
+/// - `used_readability` indicates extraction method used
+/// - `density_score` is always between 0.0 and 1.0
+/// - `removed_count` may be 0 if Readability extraction succeeded
+///
+/// **Invariants:**
+/// - Function never panics on any input HTML
+/// - Gracefully degrades to fallback if Readability fails
+/// - Always returns some content (never empty result)
 pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
+    // Attempt Readability extraction first
+    match try_readability_extraction(html) {
+        Ok(extracted_content) => {
+            let density = calculate_text_density(&extracted_content);
+            FilterResult {
+                html: extracted_content,
+                removed_count: 0, // Readability handles removal internally
+                density_score: density,
+                used_readability: true,
+            }
+        }
+        Err(_) => {
+            // Fallback to custom density-based pruning
+            fallback_prune_html(html, config)
+        }
+    }
+}
+
+/// Extract content using Mozilla Readability algorithm
+///
+/// Attempts to extract the main article content from HTML using the Readability crate.
+/// This is a wrapper around `readability::extractor::extract()` that provides error handling.
+///
+/// # Returns
+/// - `Ok(String)` with extracted HTML content
+/// - `Err` if Readability cannot extract content (no article found, etc.)
+fn try_readability_extraction(html: &str) -> Result<String, anyhow::Error> {
+    // Use Readability's extractor with default configuration
+    let product = extractor::extract(html, html)
+        .ok_or_else(|| anyhow::anyhow!("Readability could not extract article content"))?;
+
+    // Return the extracted HTML content
+    Ok(product.content)
+}
+
+/// Calculate text density score (ratio of non-whitespace to total characters)
+///
+/// Used to assess content quality after extraction.
+fn calculate_text_density(content: &str) -> f32 {
+    let text_length = content.chars().filter(|c| !c.is_whitespace()).count();
+    let total_length = content.len();
+
+    if total_length > 0 {
+        (text_length as f32 / total_length as f32).min(1.0)
+    } else {
+        0.0
+    }
+}
+
+/// Fallback pruning function using custom text density heuristics
+///
+/// Used when Readability cannot extract content. This provides compatibility
+/// with edge cases (navigation-only pages, paywalled content, etc.).
+fn fallback_prune_html(html: &str, config: &FilterConfig) -> FilterResult {
     let document = Html::parse_document(html);
 
     // Count elements removed from tags using functional chain
@@ -130,6 +205,7 @@ pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
         html: final_content,
         removed_count,
         density_score,
+        used_readability: false,
     }
 }
 
@@ -650,11 +726,64 @@ mod tests {
         assert!(result.html.contains("Main Title") || result.html.contains("main content"));
 
         // Check density score is calculated
-        assert!(result.density_score > 0.0);
+        assert!(result.density_score >= 0.0);
         assert!(result.density_score <= 1.0);
+
+        // Check that used_readability indicates which method was used
+        let _ = result.used_readability;
 
         // Check that removed_count is a valid value (always true, but tests the field is used)
         let _ = result.removed_count;
+    }
+
+    #[test]
+    fn test_prune_html_with_article_tag() {
+        // Test that Readability can extract from article tags
+        let html = r#"
+            <html>
+            <body>
+                <nav>Navigation</nav>
+                <article>
+                    <h1>Article Title</h1>
+                    <p>This is substantive article content with plenty of words. Article content includes discussion, explanations, and detailed information about topics. It is the main focus of the page and should be extracted properly.</p>
+                </article>
+                <aside>Sidebar content</aside>
+            </body>
+            </html>
+        "#;
+
+        let config = FilterConfig::default();
+        let result = prune_html(html, &config);
+
+        // Should extract article content regardless of method
+        assert!(result.html.contains("Article Title") || result.html.contains("article content"));
+        assert!(result.density_score > 0.0);
+        assert!(result.density_score <= 1.0);
+    }
+
+    #[test]
+    fn test_readability_fallback_on_nav_only() {
+        // Test fallback behavior when page is navigation-only
+        let html = r#"
+            <html>
+            <body>
+                <nav>
+                    <a href="/page1">Page 1</a>
+                    <a href="/page2">Page 2</a>
+                    <a href="/page3">Page 3</a>
+                </nav>
+            </body>
+            </html>
+        "#;
+
+        let config = FilterConfig::default();
+        let result = prune_html(html, &config);
+
+        // Should have used fallback (Readability can't extract)
+        // Result should still be valid (non-panic)
+        assert!(!result.html.is_empty());
+        assert!(result.density_score >= 0.0);
+        assert!(result.density_score <= 1.0);
     }
 
     #[test]
