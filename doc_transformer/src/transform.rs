@@ -2,23 +2,32 @@ use crate::analyze::Analysis;
 use crate::assign::IdMapping;
 use anyhow::Result;
 use itertools::Itertools;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::sync::LazyLock;
 
-static HEADING_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid heading regex"));
+// Lazy-initialized regex patterns for document transformation
+//
+// SAFETY (BEAD-006): All regex patterns are hardcoded string literals verified to be valid.
+// The `.expect()` calls will never panic - this is guaranteed by:
+// 1. Patterns are compile-time constants (no user input)
+// 2. All patterns are tested in tests/bead_006_regex_initialization_tests.rs
+// 3. If a pattern were invalid, tests would fail immediately
+//
+// Using `.expect()` here is acceptable per BEAD-006 Option A: "Keep LazyLock + Add Compile-Time Test"
+static HEADING_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid heading regex"));
 
-static LINK_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex"));
+static LINK_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex"));
 
-static H1_START_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^# [^#]").expect("valid H1 start regex"));
+static H1_START_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^# [^#]").expect("valid H1 start regex"));
 
-static H1_LINE_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(# .+\n)").expect("valid H1 line regex"));
+static H1_LINE_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(# .+\n)").expect("valid H1 line regex"));
 
 pub struct TransformResult {
     pub success_count: usize,
