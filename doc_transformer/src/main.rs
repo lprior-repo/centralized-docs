@@ -14,11 +14,9 @@
 mod analyze;
 mod assign;
 mod chunk;
-mod config;
 mod discover;
 mod filter;
 mod graph;
-mod highlight;
 mod index;
 mod llms;
 mod scrape;
@@ -77,10 +75,6 @@ enum Commands {
         /// Maximum number of results to return
         #[arg(short = 'n', long, default_value = "10")]
         limit: usize,
-
-        /// Disable colored output
-        #[arg(long)]
-        no_color: bool,
     },
 
     /// Scrape a documentation website to local markdown files
@@ -104,14 +98,6 @@ enum Commands {
         /// Delay between requests in milliseconds
         #[arg(short, long, default_value = "250")]
         delay: u64,
-
-        /// Filter pages by BM25 relevance to query
-        #[arg(short, long, value_name = "QUERY")]
-        query: Option<String>,
-
-        /// Minimum BM25 score to keep a page (default: 0.1)
-        #[arg(long, default_value = "0.1")]
-        threshold: f32,
     },
 
     /// Index local markdown files into AI-optimized structure
@@ -135,10 +121,6 @@ enum Commands {
         /// Project description for llms.txt
         #[arg(long, default_value = "AI-optimized documentation index")]
         project_desc: String,
-
-        /// Path to category rules config file
-        #[arg(long, value_name = "FILE")]
-        category_config: Option<PathBuf>,
     },
 
     /// Scrape and index in one step
@@ -159,14 +141,6 @@ enum Commands {
         #[arg(short, long, default_value = "250")]
         delay: u64,
 
-        /// Filter pages by BM25 relevance to query
-        #[arg(short, long, value_name = "QUERY")]
-        query: Option<String>,
-
-        /// Minimum BM25 score to keep a page (default: 0.1)
-        #[arg(long, default_value = "0.1")]
-        threshold: f32,
-
         /// Project name for llms.txt header
         #[arg(long)]
         project_name: Option<String>,
@@ -182,9 +156,8 @@ async fn main() -> Result<()> {
             query,
             index_dir,
             limit,
-            no_color,
         }) => {
-            run_search(&query, &index_dir, limit, !no_color)
+            run_search(&query, &index_dir, limit)
         }
 
         Some(Commands::Scrape {
@@ -193,10 +166,8 @@ async fn main() -> Result<()> {
             sitemap,
             filter,
             delay,
-            query,
-            threshold,
         }) => {
-            run_scrape(&url, &output, sitemap, filter, delay, query.as_deref(), threshold).await
+            run_scrape(&url, &output, sitemap, filter, delay).await
         }
 
         Some(Commands::Index {
@@ -205,9 +176,8 @@ async fn main() -> Result<()> {
             llms_txt,
             project_name,
             project_desc,
-            category_config,
         }) => {
-            run_index(&source, &output, category_config.as_deref(), llms_txt, &project_name, &project_desc)
+            run_index(&source, &output, llms_txt, &project_name, &project_desc)
         }
 
         Some(Commands::Ingest {
@@ -215,17 +185,15 @@ async fn main() -> Result<()> {
             output,
             filter,
             delay,
-            query,
-            threshold,
             project_name,
         }) => {
-            run_ingest(&url, &output, filter, delay, query, threshold, project_name).await
+            run_ingest(&url, &output, filter, delay, project_name).await
         }
 
         None => {
             // Legacy mode: two positional arguments
             if let (Some(source), Some(output)) = (cli.source_dir, cli.output_dir) {
-                run_index(&source, &output, None, true, "Documentation", "AI-optimized documentation index")
+                run_index(&source, &output, true, "Documentation", "AI-optimized documentation index")
             } else {
                 eprintln!("Usage: doc_transformer <SOURCE> <OUTPUT>");
                 eprintln!("   or: doc_transformer scrape <URL> --output <DIR>");
@@ -245,8 +213,6 @@ async fn run_scrape(
     use_sitemap: bool,
     filter: Option<String>,
     delay: u64,
-    query: Option<&str>,
-    threshold: f32,
 ) -> Result<()> {
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER v5.0 - SCRAPE");
@@ -268,28 +234,11 @@ async fn run_scrape(
     };
 
     println!("[SCRAPE] Starting crawl...");
-    let mut result = scrape::scrape_site(&config).await?;
+    let result = scrape::scrape_site(&config).await?;
 
     println!("  Discovered: {} URLs", result.total_urls);
     println!("  Scraped: {} pages", result.success_count);
     println!("  Errors: {}", result.error_count);
-
-    // Apply BM25 filtering if query is provided
-    if let Some(q) = query {
-        let (kept_pages, filtered_count) = scrape::filter_pages_by_relevance(result.pages, q, threshold);
-
-        if kept_pages.is_empty() {
-            println!("\n  WARNING: All pages filtered out by query.");
-            println!("  Consider lowering the --threshold value.");
-            return Ok(());
-        }
-
-        println!("  Filtered by relevance: {} pages removed", filtered_count);
-        println!("  Kept: {} pages matching \"{}\"", kept_pages.len(), q);
-
-        result.pages = kept_pages;
-        result.success_count = result.pages.len();
-    }
 
     if !result.errors.is_empty() {
         println!("\n  Error details:");
@@ -320,7 +269,6 @@ async fn run_scrape(
 fn run_index(
     source: &Path,
     output: &Path,
-    category_config: Option<&Path>,
     generate_llms: bool,
     project_name: &str,
     project_desc: &str,
@@ -336,7 +284,7 @@ fn run_index(
 
     // STEP 2: ANALYZE
     println!("[STEP 2] ANALYZE");
-    let analyses = analyze::analyze_files(&files, source, category_config)?;
+    let analyses = analyze::analyze_files(&files, source)?;
     let categories = analyze::count_categories(&analyses);
     println!("  Processed {} files", analyses.len());
     println!(
@@ -436,8 +384,6 @@ async fn run_ingest(
     output: &Path,
     filter: Option<String>,
     delay: u64,
-    query: Option<String>,
-    threshold: f32,
     project_name: Option<String>,
 ) -> Result<()> {
     println!("\n{}", "=".repeat(70));
@@ -455,27 +401,8 @@ async fn run_ingest(
         ..Default::default()
     };
 
-    let mut scrape_result = scrape::scrape_site(&config).await?;
-    println!("  Scraped {} pages from {}", scrape_result.success_count, url);
-
-    // Apply BM25 filtering if query is provided
-    if let Some(ref q) = query {
-        let (kept_pages, filtered_count) = scrape::filter_pages_by_relevance(scrape_result.pages, q, threshold);
-
-        if kept_pages.is_empty() {
-            println!("\n  WARNING: All pages filtered out by query.");
-            println!("  Consider lowering the --threshold value.");
-            return Ok(());
-        }
-
-        println!("  Filtered by relevance: {} pages removed", filtered_count);
-        println!("  Kept: {} pages matching \"{}\"", kept_pages.len(), q);
-
-        scrape_result.pages = kept_pages;
-        scrape_result.success_count = scrape_result.pages.len();
-    }
-
-    println!();
+    let scrape_result = scrape::scrape_site(&config).await?;
+    println!("  Scraped {} pages from {}\n", scrape_result.success_count, url);
 
     // Write scraped content to temp location within output
     let scrape_dir = output.join(".scrape");
@@ -496,7 +423,6 @@ async fn run_ingest(
     run_index(
         &scrape_dir,
         output,
-        None,
         true,
         &name,
         &format!("Documentation scraped from {}", url),
@@ -506,33 +432,11 @@ async fn run_ingest(
 }
 
 /// Run the search command using BM25 ranking
-fn run_search(query: &str, index_dir: &Path, limit: usize, use_color: bool) -> Result<()> {
-    const MAX_QUERY_LENGTH: usize = 1000;
-    const MAX_QUERY_WORDS: usize = 100;
-
+fn run_search(query: &str, index_dir: &Path, limit: usize) -> Result<()> {
     // Validate query is not empty
     let query = query.trim();
     if query.is_empty() {
         anyhow::bail!("Query cannot be empty");
-    }
-
-    // Validate query length
-    if query.len() > MAX_QUERY_LENGTH {
-        anyhow::bail!(
-            "Query too long ({} chars, max {})",
-            query.len(),
-            MAX_QUERY_LENGTH
-        );
-    }
-
-    // Validate word count
-    let word_count = query.split_whitespace().count();
-    if word_count > MAX_QUERY_WORDS {
-        anyhow::bail!(
-            "Query has too many terms ({} words, max {})",
-            word_count,
-            MAX_QUERY_WORDS
-        );
     }
 
     use serde_json::Value;
