@@ -1,4 +1,4 @@
-use doc_transformer::discover::{discover_files, DiscoveryFile, DiscoverManifest};
+use doc_transformer::discover::{discover_files, filter_files_by_relevance, DiscoveryFile, DiscoverManifest};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
