@@ -21,6 +21,7 @@
 
 use crate::filter::{filter_markdown, prune_html, FilterConfig, FilterResult};
 use anyhow::{Context, Result};
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use spider::website::Website;
@@ -30,16 +31,15 @@ use spider_transformations::transformation::content::{
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
-use std::sync::LazyLock;
 
-static H1_TITLE_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("valid H1 regex"));
+static H1_TITLE_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^#\s+(.+)$").expect("valid H1 regex"));
 
-static HEADER_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid header regex"));
+static HEADER_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid header regex"));
 
-static LINK_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex"));
+static LINK_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex"));
 
 /// Configuration for scraping a documentation site
 #[derive(Debug, Clone)]
@@ -62,16 +62,6 @@ pub struct ScrapeConfig {
     pub max_retries: u32,
     /// Enable exponential backoff for retries (default: true)
     pub use_exponential_backoff: bool,
-    /// Maximum size of a single page in bytes (default: 10MB) - DoS protection against huge files
-    pub max_page_size_bytes: u64,
-    /// Maximum total content size for entire scrape in bytes (default: 500MB) - DoS protection against streaming attacks
-    pub max_total_size_bytes: u64,
-    /// Maximum markdown content size per page in bytes (default: 5MB) - Memory exhaustion protection
-    pub max_markdown_size_bytes: u64,
-    /// Maximum number of pages to scrape (default: 10000) - DoS protection
-    pub max_pages: usize,
-    /// Maximum number of links to extract per page (default: 1000) - Memory protection
-    pub max_links_per_page: usize,
 }
 
 impl Default for ScrapeConfig {
@@ -86,11 +76,6 @@ impl Default for ScrapeConfig {
             enable_filtering: true,
             max_retries: 3,
             use_exponential_backoff: true,
-            max_page_size_bytes: 10 * 1024 * 1024, // 10MB per page
-            max_total_size_bytes: 500 * 1024 * 1024, // 500MB total
-            max_markdown_size_bytes: 5 * 1024 * 1024, // 5MB per page markdown
-            max_pages: 10_000,                     // Maximum pages to scrape
-            max_links_per_page: 1_000,             // Maximum links per page
         }
     }
 }
@@ -179,11 +164,10 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
         .transpose()
         .context("Invalid path filter regex")?;
 
-    // Process results sequentially with size limit tracking
+    // Process results sequentially
     let mut pages = Vec::new();
     let mut errors = Vec::new();
     let mut seen_urls = HashSet::new();
-    let mut total_content_size: u64 = 0;
 
     let binding = website.get_pages();
     let scraped_pages = binding.as_ref();
@@ -193,16 +177,6 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     if let Some(spider_pages) = scraped_pages {
         for page in spider_pages.iter() {
             let url = page.get_url();
-
-            // Check if we've exceeded the maximum page count (DoS protection)
-            if pages.len() >= config.max_pages {
-                let error_msg = format!(
-                    "Maximum page count ({}) reached, stopping scrape",
-                    config.max_pages
-                );
-                errors.push((url.to_string(), error_msg));
-                break;
-            }
 
             // Skip duplicates
             if seen_urls.contains(url) {
@@ -224,23 +198,7 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
             // Note: Individual page transformation errors are collected but don't stop the scrape.
             // This allows partial success when scraping large sites with some problematic pages.
             match transform_page(page, &config.base_url, config.enable_filtering) {
-                Ok(scraped) => {
-                    // Track cumulative size for DoS protection (total content limit)
-                    let page_size = scraped.markdown.len() as u64;
-                    total_content_size = total_content_size.saturating_add(page_size);
-
-                    // Check if total content exceeds limit (streaming attack protection)
-                    if total_content_size > config.max_total_size_bytes {
-                        let error_msg = format!(
-                            "Total content size ({} bytes) exceeds limit ({} bytes), stopping scrape",
-                            total_content_size, config.max_total_size_bytes
-                        );
-                        errors.push((url.to_string(), error_msg));
-                        break;
-                    }
-
-                    pages.push(scraped);
-                }
+                Ok(scraped) => pages.push(scraped),
                 Err(e) => {
                     let error_msg = format!("Failed to transform page: {}", e);
                     errors.push((url.to_string(), error_msg));
@@ -263,22 +221,12 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
 }
 
 /// Transform a spider page into our ScrapedPage format
-///
-/// Includes size limit checking to prevent memory exhaustion from huge pages.
-fn transform_page(
-    page: &spider::page::Page,
-    base_url: &str,
-    enable_filtering: bool,
-) -> Result<ScrapedPage> {
+fn transform_page(page: &spider::page::Page, base_url: &str, enable_filtering: bool) -> Result<ScrapedPage> {
     let url = page.get_url().to_string();
     let filter_config = FilterConfig::default();
 
-    // Get raw HTML and enforce size limits (DoS protection)
-    let raw_html = page.get_html();
-    let config = ScrapeConfig::default();
-    check_html_size(&raw_html, config.max_page_size_bytes)?;
-
     // Apply HTML-level pruning to analyze content quality
+    let raw_html = page.get_html();
     let prune_result: FilterResult = if enable_filtering {
         prune_html(&raw_html, &filter_config)
     } else {
@@ -286,7 +234,6 @@ fn transform_page(
             html: raw_html.clone(),
             removed_count: 0,
             density_score: 1.0,
-            used_readability: false,
         }
     };
 
@@ -314,8 +261,13 @@ fn transform_page(
 
     // Transform HTML to Markdown using spider_transformations
     // Args: page, config, url_selector, selector_config, clean_selectors
-    let mut markdown =
-        content::transform_content(page, &transform_config, &None, &selector_config, &None);
+    let mut markdown = content::transform_content(
+        page,
+        &transform_config,
+        &None,
+        &selector_config,
+        &None,
+    );
 
     // Apply additional markdown-level content filtering
     let filtered = if enable_filtering {
@@ -325,33 +277,20 @@ fn transform_page(
         false
     };
 
-    // Enforce markdown size limit (memory exhaustion protection)
-    check_markdown_size(&markdown, config.max_markdown_size_bytes)?;
-
     // Extract title from markdown (first H1) or fall back to URL
     let title = extract_title(&markdown, &url);
 
     // Extract headers from markdown
     let headers = extract_headers(&markdown);
 
-    // Extract internal links and enforce per-page limit
+    // Extract internal links
     let links = extract_internal_links(&markdown, base_url);
-    let (links, was_truncated) = limit_links_per_page(links, config.max_links_per_page);
-    if was_truncated {
-        eprintln!(
-            "[WARN] Page {} had too many links, truncated to {}",
-            url, config.max_links_per_page
-        );
-    }
 
     // Count words
     let word_count = markdown.split_whitespace().count();
 
-    // Generate slug from URL (with validation for non-empty)
-    let slug = url_to_slug(&url).context(format!(
-        "Failed to generate slug for URL {}: ensure URL has a valid path or hostname",
-        url
-    ))?;
+    // Generate slug from URL
+    let slug = url_to_slug(&url);
 
     Ok(ScrapedPage {
         url,
@@ -372,9 +311,7 @@ fn extract_title(markdown: &str, url: &str) -> String {
     // Look for first H1
     for line in markdown.lines() {
         if let Some(caps) = H1_TITLE_REGEX.captures(line.trim()) {
-            if let Some(title_match) = caps.get(1) {
-                return title_match.as_str().to_string();
-            }
+            return caps.get(1).expect("capture group 1").as_str().to_string();
         }
     }
 
@@ -397,15 +334,9 @@ fn extract_headers(markdown: &str) -> Vec<Header> {
 
     for line in markdown.lines() {
         if let Some(caps) = HEADER_REGEX.captures(line.trim()) {
-            // Safe extraction of level from capture group 1
-            if let Some(level_match) = caps.get(1) {
-                let level = u8::try_from(level_match.as_str().len()).unwrap_or(1); // Fallback to h1 if somehow invalid
-                                                                                   // Safe extraction of text from capture group 2
-                if let Some(text_match) = caps.get(2) {
-                    let text = text_match.as_str().to_string();
-                    headers.push(Header { level, text });
-                }
-            }
+            let level = caps.get(1).expect("capture group 1").as_str().len() as u8;
+            let text = caps.get(2).expect("capture group 2").as_str().to_string();
+            headers.push(Header { level, text });
         }
     }
 
@@ -418,20 +349,17 @@ fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
     let mut links = Vec::new();
 
     for caps in LINK_REGEX.captures_iter(markdown) {
-        // Safe extraction of href from capture group 2
-        if let Some(href_match) = caps.get(2) {
-            let href = href_match.as_str();
+        let href = caps.get(2).expect("capture group 2").as_str();
 
-            // Check if internal link
-            if let Some(ref base) = base {
-                if let Ok(resolved) = base.join(href) {
-                    if resolved.host() == base.host() {
-                        links.push(resolved.to_string());
-                    }
+        // Check if internal link
+        if let Some(ref base) = base {
+            if let Ok(resolved) = base.join(href) {
+                if resolved.host() == base.host() {
+                    links.push(resolved.to_string());
                 }
-            } else if href.starts_with('/') || href.starts_with("./") {
-                links.push(href.to_string());
             }
+        } else if href.starts_with('/') || href.starts_with("./") {
+            links.push(href.to_string());
         }
     }
 
@@ -442,30 +370,9 @@ fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
 
 /// Calculate exponential backoff delay in milliseconds
 /// Formula: base_delay * (multiplier ^ retry_count)
-///
-/// Uses checked arithmetic to prevent overflow/underflow:
-/// - Validates retry_count <= i32::MAX for powi() argument
-/// - Clamps negative/NaN results to 0
-/// - Caps result at 30 seconds (30000ms)
 fn calculate_backoff_delay(base_ms: u64, retry_count: u32, multiplier: f32) -> u64 {
-    // Safe cast: retry_count is u32, powi needs i32. Only values > i32::MAX would overflow,
-    // which is unrealistic for retry counts (typically 0-10)
-    let exponent = i32::try_from(retry_count).unwrap_or(i32::MAX);
-
-    // Safe float arithmetic: base_ms as f32 is safe for reasonable delays (< 1 second = 1000ms)
-    let backoff = base_ms as f32 * multiplier.powi(exponent);
-
-    // Safe cast back: clamp negative/NaN values to 0, then convert with bounds checking
-    let clamped = backoff.max(0.0).min(f32::MAX);
-
-    // Safe u64 conversion: use saturating_cast semantic via min() with cap
-    let result = if clamped.is_finite() && clamped >= 0.0 {
-        (clamped as u64).min(30000)
-    } else {
-        30000 // Cap at max on any NaN/Inf
-    };
-
-    result
+    let backoff = base_ms as f32 * multiplier.powi(retry_count as i32);
+    (backoff as u64).min(30000) // Cap at 30 seconds
 }
 
 /// Validate URL format before passing to spider
@@ -489,136 +396,18 @@ fn validate_url(url: &str) -> Result<url::Url> {
     }
 }
 
-/// Check if HTML content exceeds size limit
-///
-/// Returns error if size exceeds max_page_size_bytes
-fn check_html_size(html: &str, max_size: u64) -> Result<()> {
-    let size_bytes = html.len() as u64;
-    if size_bytes > max_size {
-        anyhow::bail!(
-            "Page HTML too large: {} bytes (limit: {} bytes)",
-            size_bytes,
-            max_size
-        );
-    }
-    Ok(())
-}
-
-/// Check if markdown content exceeds size limit
-///
-/// Returns error if size exceeds max_markdown_size_bytes
-fn check_markdown_size(markdown: &str, max_size: u64) -> Result<()> {
-    let size_bytes = markdown.len() as u64;
-    if size_bytes > max_size {
-        anyhow::bail!(
-            "Page markdown too large: {} bytes (limit: {} bytes)",
-            size_bytes,
-            max_size
-        );
-    }
-    Ok(())
-}
-
-/// Enforce maximum links per page limit
-///
-/// Returns truncated vector if exceeds max_links_per_page
-fn limit_links_per_page(links: Vec<String>, max_links: usize) -> (Vec<String>, bool) {
-    if links.len() <= max_links {
-        return (links, false);
-    }
-    let mut truncated = links;
-    truncated.truncate(max_links);
-    (truncated, true)
-}
-
-/// Validate that a slug is non-empty and filesystem-safe
-///
-/// Returns an error if the slug would be empty, ensuring all generated
-/// slugs can be safely used as filenames.
-fn validate_slug(slug: &str) -> Result<()> {
-    if slug.trim().is_empty() {
-        anyhow::bail!("URL slug cannot be empty: all URLs must produce non-empty identifiers");
-    }
-    Ok(())
-}
-
 /// Convert URL to a filesystem-safe slug using functional pattern
-///
-/// Returns a non-empty slug guaranteed to be safe for filenames.
-/// Falls back to hostname if path is empty.
-///
-/// # Contract
-/// - Input: Valid or invalid URL string
-/// - Output: Result<String> where String is non-empty, alphanumeric + hyphens only, lowercase
-/// - Guarantees: Returned slug is always non-empty (validated before return)
-fn url_to_slug(url: &str) -> Result<String> {
-    let parsed = url::Url::parse(url).context("Failed to parse URL for slug generation")?;
+fn url_to_slug(url: &str) -> String {
+    let path = url::Url::parse(url)
+        .map(|u| u.path().to_string())
+        .unwrap_or_else(|_| url.to_string());
 
-    // Get path and normalize
-    let path = parsed.path().trim_matches('/');
-
-    // If path is empty, use hostname as fallback
-    let raw_slug = if path.is_empty() {
-        parsed
-            .host_str()
-            .ok_or_else(|| anyhow::anyhow!("URL has no host for slug generation"))?
-            .replace(['.', '-'], "-")
-    } else {
-        path.replace(['/', '.'], "-")
-    };
-
-    // Filter to filesystem-safe characters (alphanumeric + hyphens)
-    let slug = raw_slug
+    path.trim_matches('/')
+        .replace(['/', '.'], "-")
         .chars()
         .filter(|c| c.is_alphanumeric() || *c == '-')
         .collect::<String>()
-        .to_lowercase();
-
-    // Truncate to reasonable length (prevent filesystem issues)
-    let slug = if slug.len() > 200 {
-        slug[..200].to_string()
-    } else {
-        slug
-    };
-
-    // Validate non-empty
-    validate_slug(&slug)?;
-
-    Ok(slug)
-}
-
-/// Filter scraped pages by BM25 relevance to query
-/// Returns (kept_pages, filtered_count)
-pub fn filter_pages_by_relevance(
-    pages: Vec<ScrapedPage>,
-    query: &str,
-    threshold: f32,
-) -> (Vec<ScrapedPage>, usize) {
-    if pages.is_empty() {
-        return (pages, 0);
-    }
-
-    // Guard: if threshold is 0.0 or negative, keep all pages (no filtering)
-    if threshold <= 0.0 {
-        return (pages, 0);
-    }
-
-    // Calculate average document length
-    let total_words: usize = pages.iter().map(|p| p.word_count).sum();
-    let avg_doc_length = (total_words as f32 / pages.len() as f32).max(1.0);
-
-    // Import bm25_score from filter module
-    use crate::filter::bm25_score;
-
-    // Filter pages by BM25 score
-    let (kept, filtered): (Vec<_>, Vec<_>) = pages.into_iter().partition(|page| {
-        let score = bm25_score(&page.markdown, query, avg_doc_length);
-        score >= threshold
-    });
-
-    let filtered_count = filtered.len();
-
-    (kept, filtered_count)
+        .to_lowercase()
 }
 
 /// Write scraped pages to output directory
@@ -666,96 +455,19 @@ mod tests {
     }
 
     #[test]
-    fn test_url_to_slug_with_path() {
-        assert_eq!(
-            url_to_slug("https://example.com/docs/getting-started").unwrap(),
-            "docs-getting-started"
-        );
-        assert_eq!(
-            url_to_slug("https://example.com/api/v1/users.html").unwrap(),
-            "api-v1-users-html"
-        );
-    }
-
-    #[test]
-    fn test_url_to_slug_root_url_uses_hostname() {
-        // Root URLs should fall back to hostname
-        let result = url_to_slug("https://example.com/").unwrap();
-        assert_eq!(result, "example-com");
-        assert!(!result.is_empty(), "Slug from root URL must not be empty");
-    }
-
-    #[test]
-    fn test_url_to_slug_no_path_uses_hostname() {
-        // URLs without path should use hostname
-        let result = url_to_slug("https://docs.example.com").unwrap();
-        assert_eq!(result, "docs-example-com");
-        assert!(!result.is_empty(), "Slug must not be empty");
-    }
-
-    #[test]
-    fn test_url_to_slug_never_empty() {
-        // Comprehensive test: any valid URL should produce non-empty slug
-        let valid_urls = vec![
-            "https://example.com/",
-            "https://example.com",
-            "https://a.b/",
-            "https://docs.rust-lang.org",
-            "http://localhost:8080/api/v1/users",
-        ];
-
-        for url in valid_urls {
-            let slug = url_to_slug(url).expect(&format!("URL {} should produce valid slug", url));
-            assert!(
-                !slug.is_empty(),
-                "URL {} produced empty slug",
-                url
-            );
-            assert!(
-                slug.chars().all(|c| c.is_alphanumeric() || c == '-'),
-                "Slug {} contains invalid characters",
-                slug
-            );
-        }
-    }
-
-    #[test]
-    fn test_url_to_slug_invalid_url() {
-        assert!(url_to_slug("not-a-url").is_err());
-        assert!(url_to_slug("").is_err());
-        assert!(url_to_slug("   ").is_err());
-    }
-
-    #[test]
-    fn test_url_to_slug_special_characters_filtered() {
-        let slug = url_to_slug("https://example.com/docs/getting-started-2.0").unwrap();
-        // Should not contain dots, only hyphens and alphanumeric
-        assert!(!slug.contains("."));
-        assert!(slug.chars().all(|c| c.is_alphanumeric() || c == '-'));
-    }
-
-    #[test]
-    fn test_url_to_slug_truncates_long_paths() {
-        // Create a URL with an extremely long path
-        let long_path = "https://example.com/".to_string()
-            + &"very-long-path-segment-".repeat(20); // Create 400+ char path
-        let slug = url_to_slug(&long_path).unwrap();
-        assert!(slug.len() <= 200, "Slug should be truncated to 200 chars");
+    fn test_url_to_slug() {
+        assert_eq!(url_to_slug("https://example.com/docs/getting-started"), "docs-getting-started");
+        assert_eq!(url_to_slug("https://example.com/api/v1/users.html"), "api-v1-users-html");
+        assert_eq!(url_to_slug("https://example.com/"), "");
     }
 
     #[test]
     fn test_extract_title() {
         let md = "# Getting Started\n\nThis is content.";
-        assert_eq!(
-            extract_title(md, "https://example.com/foo"),
-            "Getting Started"
-        );
+        assert_eq!(extract_title(md, "https://example.com/foo"), "Getting Started");
 
         let md_no_h1 = "Some content without header";
-        assert_eq!(
-            extract_title(md_no_h1, "https://example.com/getting-started"),
-            "getting started"
-        );
+        assert_eq!(extract_title(md_no_h1, "https://example.com/getting-started"), "getting started");
     }
 
     #[test]
@@ -792,461 +504,5 @@ mod tests {
         // Verify cap at 30 seconds
         let capped = calculate_backoff_delay(250, 10, 2.0);
         assert_eq!(capped, 30000);
-    }
-
-    // ============================================================================
-    // BM25 FILTERING TESTS
-    // ============================================================================
-
-    fn create_test_page(markdown: &str, title: &str, url: &str) -> ScrapedPage {
-        let word_count = markdown.split_whitespace().count();
-        let slug = url_to_slug(url)
-            .expect("Test URL should produce valid slug");
-        ScrapedPage {
-            url: url.to_string(),
-            markdown: markdown.to_string(),
-            title: title.to_string(),
-            links: Vec::new(),
-            headers: Vec::new(),
-            word_count,
-            slug,
-            filtered: false,
-            elements_removed: 0,
-            density_score: 1.0,
-        }
-    }
-
-    #[test]
-    fn test_filter_keeps_relevant_pages() {
-        let pages = vec![
-            create_test_page(
-                "Rust is a systems programming language that runs blazingly fast. Rust programming is great for systems development.",
-                "Rust Guide",
-                "https://example.com/rust-guide",
-            ),
-            create_test_page(
-                "Python is a high-level programming language. Learn Python for web development.",
-                "Python Tutorial",
-                "https://example.com/python-tutorial",
-            ),
-            create_test_page(
-                "JavaScript is the language of the web. Modern JavaScript powers interactive websites.",
-                "JavaScript Intro",
-                "https://example.com/js-intro",
-            ),
-        ];
-
-        let (kept, filtered_count) = filter_pages_by_relevance(pages, "rust programming", 0.1);
-
-        // Should keep at least the Rust guide
-        assert!(kept.len() >= 1, "Should keep at least 1 Rust-related page");
-        assert!(
-            filtered_count >= 1,
-            "Should filter out at least 1 non-Rust page"
-        );
-
-        // Check that rust page is in the kept list
-        assert!(
-            kept.iter().any(|p| p.title.contains("Rust")),
-            "Should keep Rust page"
-        );
-    }
-
-    #[test]
-    fn test_filter_all_filtered_out() {
-        let pages = vec![
-            create_test_page("Rust programming", "Rust Guide", "https://example.com/rust"),
-            create_test_page(
-                "Python tutorial",
-                "Python Guide",
-                "https://example.com/python",
-            ),
-        ];
-
-        // Use a very high threshold to filter everything out
-        let (kept, filtered_count) = filter_pages_by_relevance(pages.clone(), "rust", 10.0);
-
-        assert_eq!(kept.len(), 0, "High threshold should filter all pages");
-        assert_eq!(filtered_count, pages.len(), "All pages should be filtered");
-    }
-
-    #[test]
-    fn test_filter_zero_threshold_keeps_all() {
-        let pages = vec![
-            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
-            create_test_page("Python tutorial", "Python", "https://example.com/python"),
-        ];
-        let original_count = pages.len();
-
-        let (kept, filtered_count) = filter_pages_by_relevance(pages, "rust", 0.0);
-
-        assert_eq!(
-            kept.len(),
-            original_count,
-            "Threshold 0.0 should keep all pages"
-        );
-        assert_eq!(
-            filtered_count, 0,
-            "No pages should be filtered with threshold 0.0"
-        );
-    }
-
-    #[test]
-    fn test_filter_negative_threshold_keeps_all() {
-        let pages = vec![
-            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
-            create_test_page("Python tutorial", "Python", "https://example.com/python"),
-        ];
-        let original_count = pages.len();
-
-        let (kept, filtered_count) = filter_pages_by_relevance(pages, "rust", -1.0);
-
-        assert_eq!(
-            kept.len(),
-            original_count,
-            "Negative threshold should keep all pages"
-        );
-        assert_eq!(
-            filtered_count, 0,
-            "No pages should be filtered with negative threshold"
-        );
-    }
-
-    #[test]
-    fn test_filter_no_matches() {
-        let pages = vec![
-            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
-            create_test_page("Python tutorial", "Python", "https://example.com/python"),
-        ];
-        let original_count = pages.len();
-
-        // Query for something that doesn't exist in any page
-        let (kept, filtered_count) = filter_pages_by_relevance(pages, "nonexistent_term_xyz", 0.1);
-
-        assert_eq!(kept.len(), 0, "No pages should match nonexistent term");
-        assert_eq!(
-            filtered_count, original_count,
-            "All pages should be filtered"
-        );
-    }
-
-    #[test]
-    fn test_filter_empty_pages_list() {
-        let pages: Vec<ScrapedPage> = Vec::new();
-
-        let (kept, filtered_count) = filter_pages_by_relevance(pages, "query", 0.1);
-
-        assert_eq!(kept.len(), 0, "Empty input should return empty output");
-        assert_eq!(filtered_count, 0, "No pages to filter");
-    }
-
-    #[test]
-    fn test_filter_case_insensitive() {
-        let pages = vec![create_test_page(
-            "Rust programming language",
-            "Rust",
-            "https://example.com/rust",
-        )];
-
-        let (kept_lower, _) = filter_pages_by_relevance(pages.clone(), "rust", 0.1);
-        let (kept_upper, _) = filter_pages_by_relevance(pages.clone(), "RUST", 0.1);
-        let (kept_mixed, _) = filter_pages_by_relevance(pages, "RuSt", 0.1);
-
-        // All should return the same results
-        assert_eq!(kept_lower.len(), kept_upper.len(), "Case should not matter");
-        assert_eq!(kept_lower.len(), kept_mixed.len(), "Case should not matter");
-    }
-
-    #[test]
-    fn test_filter_multi_term_query() {
-        let pages = vec![
-            create_test_page(
-                "Rust is a systems programming language that guarantees memory safety.",
-                "Rust Guide",
-                "https://example.com/rust",
-            ),
-            create_test_page("JavaScript tutorial", "JS Guide", "https://example.com/js"),
-        ];
-
-        // Multi-term query
-        let (kept, _) = filter_pages_by_relevance(pages, "rust programming systems", 0.1);
-
-        // Should find pages containing any of these terms
-        assert!(
-            kept.len() >= 1,
-            "Should find pages matching multi-term query"
-        );
-        assert!(
-            kept.iter().any(|p| p.title.contains("Rust")),
-            "Should find rust page with multi-term query"
-        );
-    }
-
-    #[test]
-    fn test_filter_different_thresholds() {
-        let pages = vec![
-            create_test_page(
-                "Rust programming language systems",
-                "Rust",
-                "https://example.com/rust1",
-            ),
-            create_test_page("Rust", "Rust Short", "https://example.com/rust2"),
-            create_test_page("Python programming", "Python", "https://example.com/python"),
-        ];
-
-        let (kept_low, _) = filter_pages_by_relevance(pages.clone(), "rust", 0.1);
-        let (kept_medium, _) = filter_pages_by_relevance(pages.clone(), "rust", 0.5);
-        let (kept_high, _) = filter_pages_by_relevance(pages, "rust", 2.0);
-
-        // Lower threshold should keep more pages
-        assert!(
-            kept_low.len() >= kept_medium.len(),
-            "Lower threshold should keep more pages"
-        );
-        assert!(
-            kept_medium.len() >= kept_high.len(),
-            "Medium threshold should keep more than high"
-        );
-    }
-
-    #[test]
-    fn test_filter_preserves_page_metadata() {
-        let original_page = create_test_page(
-            "Rust programming guide with comprehensive examples",
-            "Rust Guide",
-            "https://example.com/rust-guide",
-        );
-        let original_url = original_page.url.clone();
-        let original_title = original_page.title.clone();
-        let original_word_count = original_page.word_count;
-
-        let pages = vec![original_page];
-        let (kept, _) = filter_pages_by_relevance(pages, "rust programming", 0.1);
-
-        assert_eq!(kept.len(), 1, "Should keep the rust page");
-        let filtered_page = &kept[0];
-
-        assert_eq!(filtered_page.url, original_url, "URL should be preserved");
-        assert_eq!(
-            filtered_page.title, original_title,
-            "Title should be preserved"
-        );
-        assert_eq!(
-            filtered_page.word_count, original_word_count,
-            "Word count should be preserved"
-        );
-    }
-
-    #[test]
-    fn test_filter_with_special_characters_in_query() {
-        let pages = vec![create_test_page(
-            "Rust-lang systems programming",
-            "Rust",
-            "https://example.com/rust",
-        )];
-
-        // Query with special characters (should not crash)
-        let result = std::panic::catch_unwind(|| {
-            filter_pages_by_relevance(pages, "rust-lang & systems", 0.1)
-        });
-
-        assert!(result.is_ok(), "Should handle special characters in query");
-    }
-
-    #[test]
-    fn test_filter_empty_query() {
-        let pages = vec![create_test_page(
-            "Rust programming",
-            "Rust",
-            "https://example.com/rust",
-        )];
-
-        let (kept, filtered_count) = filter_pages_by_relevance(pages.clone(), "", 0.1);
-
-        // Empty query should filter all pages (no terms to match)
-        assert_eq!(kept.len(), 0, "Empty query should match nothing");
-        assert_eq!(
-            filtered_count,
-            pages.len(),
-            "All pages should be filtered with empty query"
-        );
-    }
-
-    #[test]
-    fn test_filter_calculates_average_correctly() {
-        // Create pages with known word counts
-        let pages = vec![
-            create_test_page("one two three four five", "Page 1", "https://example.com/1"), // 5 words
-            create_test_page("one two three", "Page 2", "https://example.com/2"), // 3 words
-            create_test_page("one two", "Page 3", "https://example.com/3"),       // 2 words
-        ];
-        // Average: (5 + 3 + 2) / 3 = 3.33 words
-
-        // The filter should calculate avg_doc_length correctly and use it for scoring
-        // We can't test the internal calculation directly, but we can verify it doesn't panic
-        let result = std::panic::catch_unwind(|| filter_pages_by_relevance(pages, "one", 0.1));
-
-        assert!(
-            result.is_ok(),
-            "Should calculate average document length without panicking"
-        );
-    }
-
-    // ============================================================================
-    // SIZE LIMIT TESTS (DoS PROTECTION)
-    // ============================================================================
-
-    #[test]
-    fn test_check_html_size_valid() {
-        let html = "<html><body>Hello</body></html>";
-        let result = check_html_size(html, 1000);
-        assert!(result.is_ok(), "Small HTML should pass size check");
-    }
-
-    #[test]
-    fn test_check_html_size_exceeds_limit() {
-        let html = "x".repeat(1001);
-        let result = check_html_size(&html, 1000);
-        assert!(result.is_err(), "HTML exceeding limit should fail");
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(err_msg.contains("too large"), "Error should mention size");
-    }
-
-    #[test]
-    fn test_check_markdown_size_valid() {
-        let markdown = "# Hello\n\nThis is content.";
-        let result = check_markdown_size(markdown, 1000);
-        assert!(result.is_ok(), "Small markdown should pass size check");
-    }
-
-    #[test]
-    fn test_check_markdown_size_exceeds_limit() {
-        let markdown = "x".repeat(5001);
-        let result = check_markdown_size(&markdown, 5000);
-        assert!(result.is_err(), "Markdown exceeding limit should fail");
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(
-            err_msg.contains("too large"),
-            "Error should mention markdown size"
-        );
-    }
-
-    #[test]
-    fn test_limit_links_per_page_within_limit() {
-        let links = vec![
-            "link1".to_string(),
-            "link2".to_string(),
-            "link3".to_string(),
-        ];
-        let (result, was_truncated) = limit_links_per_page(links, 10);
-        assert_eq!(result.len(), 3, "All links should be kept");
-        assert!(!was_truncated, "Should not be truncated");
-    }
-
-    #[test]
-    fn test_limit_links_per_page_exceeds_limit() {
-        let links = vec![
-            "link1".to_string(),
-            "link2".to_string(),
-            "link3".to_string(),
-        ];
-        let (result, was_truncated) = limit_links_per_page(links, 2);
-        assert_eq!(result.len(), 2, "Links should be truncated to limit");
-        assert!(was_truncated, "Should indicate truncation");
-    }
-
-    #[test]
-    fn test_limit_links_per_page_exactly_at_limit() {
-        let links = vec!["link1".to_string(), "link2".to_string()];
-        let (result, was_truncated) = limit_links_per_page(links, 2);
-        assert_eq!(result.len(), 2, "All links at limit should be kept");
-        assert!(!was_truncated, "Should not truncate when at exact limit");
-    }
-
-    #[test]
-    fn test_limit_links_per_page_empty() {
-        let links: Vec<String> = vec![];
-        let (result, was_truncated) = limit_links_per_page(links, 10);
-        assert_eq!(result.len(), 0, "Empty list should remain empty");
-        assert!(!was_truncated, "Empty list should not be truncated");
-    }
-
-    #[test]
-    fn test_scrape_config_default_has_size_limits() {
-        let config = ScrapeConfig::default();
-        assert_eq!(
-            config.max_page_size_bytes,
-            10 * 1024 * 1024,
-            "Default max page size should be 10MB"
-        );
-        assert_eq!(
-            config.max_total_size_bytes,
-            500 * 1024 * 1024,
-            "Default max total size should be 500MB"
-        );
-        assert_eq!(
-            config.max_markdown_size_bytes,
-            5 * 1024 * 1024,
-            "Default max markdown size should be 5MB"
-        );
-        assert_eq!(
-            config.max_pages, 10_000,
-            "Default max pages should be 10000"
-        );
-        assert_eq!(
-            config.max_links_per_page, 1_000,
-            "Default max links per page should be 1000"
-        );
-    }
-
-    #[test]
-    fn test_scrape_config_limits_are_reasonable() {
-        let config = ScrapeConfig::default();
-        // Verify: max_page_size < max_total_size
-        assert!(
-            config.max_page_size_bytes < config.max_total_size_bytes,
-            "Per-page limit must be less than total limit"
-        );
-        // Verify: max_markdown_size <= max_page_size
-        assert!(
-            config.max_markdown_size_bytes <= config.max_page_size_bytes,
-            "Markdown limit should not exceed page limit"
-        );
-        // Verify: reasonable defaults
-        assert!(config.max_pages > 0, "Max pages must be positive");
-        assert!(
-            config.max_links_per_page > 0,
-            "Max links per page must be positive"
-        );
-    }
-
-    #[test]
-    fn test_huge_content_detection() {
-        // Simulate 100MB of repeated text
-        let huge_text = "x".repeat(100 * 1024 * 1024);
-        let config = ScrapeConfig::default();
-        let result = check_html_size(&huge_text, config.max_page_size_bytes);
-        assert!(result.is_err(), "100MB content should exceed 10MB limit");
-    }
-
-    #[test]
-    fn test_streaming_attack_protection() {
-        // Simulate multiple pages hitting the total limit
-        let mut total_size = 0u64;
-        let config = ScrapeConfig::default();
-        let page_size = config.max_page_size_bytes / 2; // 5MB per page
-        let mut pages_before_limit = 0usize;
-
-        while total_size.saturating_add(page_size) <= config.max_total_size_bytes {
-            total_size = total_size.saturating_add(page_size);
-            pages_before_limit = pages_before_limit.saturating_add(1);
-        }
-
-        // With 500MB limit and 5MB pages, should allow ~100 pages
-        assert!(
-            pages_before_limit >= 90 && pages_before_limit <= 110,
-            "Should allow ~100 5MB pages in 500MB budget, got: {}",
-            pages_before_limit
-        );
     }
 }

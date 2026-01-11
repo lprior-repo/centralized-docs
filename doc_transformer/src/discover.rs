@@ -26,14 +26,18 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     let extensions = [".md", ".mdx", ".rst", ".txt"];
     let exclude_dirs = ["node_modules", ".git", "_build", "dist", "vendor"];
 
-    for entry in WalkDir::new(source_dir).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(source_dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
         let path = entry.path();
 
         // Skip excluded directories
-        if exclude_dirs.iter().any(|excl| {
-            path.components()
-                .any(|c| c.as_os_str().to_string_lossy().contains(excl))
-        }) {
+        if exclude_dirs.iter().any(|excl| path.components().any(|c| {
+            c.as_os_str()
+                .to_string_lossy()
+                .contains(excl)
+        })) {
             continue;
         }
 
@@ -41,7 +45,9 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
             if let Some(ext) = path.extension() {
                 let ext_str = format!(".{}", ext.to_string_lossy());
                 if extensions.contains(&ext_str.as_str()) {
-                    let rel_path = path.strip_prefix(source_dir)?.to_string_lossy().to_string();
+                    let rel_path = path.strip_prefix(source_dir)?
+                        .to_string_lossy()
+                        .to_string();
                     let size = path.metadata()?.len();
 
                     files.push(DiscoveryFile {
