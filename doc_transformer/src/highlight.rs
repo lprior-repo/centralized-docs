@@ -154,7 +154,11 @@ mod tests {
 
     #[test]
     fn test_multiple_terms() {
-        let result = highlight_terms("Getting Started with Rust Programming", "rust programming", true);
+        let result = highlight_terms(
+            "Getting Started with Rust Programming",
+            "rust programming",
+            true,
+        );
         assert!(result.contains("\x1b[1mRust\x1b[0m"));
         assert!(result.contains("\x1b[1mProgramming\x1b[0m"));
     }

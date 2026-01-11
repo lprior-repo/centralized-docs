@@ -30,6 +30,49 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
+// Validation functions for HNSW graph parameters
+fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
+    let value = s.parse::<usize>()
+        .map_err(|_| format!("max_related_chunks must be a positive integer, got '{}'", s))?;
+
+    if value < 1 {
+        return Err("max_related_chunks must be at least 1".to_string());
+    }
+    if value > 100 {
+        return Err("max_related_chunks must be at most 100".to_string());
+    }
+
+    Ok(value)
+}
+
+fn validate_hnsw_m(s: &str) -> Result<usize, String> {
+    let value = s.parse::<usize>()
+        .map_err(|_| format!("hnsw_m must be a positive integer, got '{}'", s))?;
+
+    if value < 4 {
+        return Err("hnsw_m must be at least 4 for proper connectivity (too sparse otherwise)".to_string());
+    }
+    if value > 64 {
+        return Err("hnsw_m must be at most 64 for reasonable performance".to_string());
+    }
+
+    Ok(value)
+}
+
+fn validate_hnsw_ef_construction(s: &str) -> Result<usize, String> {
+    let value = s.parse::<usize>()
+        .map_err(|_| format!("hnsw_ef_construction must be a positive integer, got '{}'", s))?;
+
+    if value < 50 {
+        return Err("hnsw_ef_construction must be at least 50 for acceptable build quality".to_string());
+    }
+    if value > 800 {
+        return Err("hnsw_ef_construction must be at most 800 for reasonable build times".to_string());
+    }
+
+    Ok(value)
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "doc_transformer")]
 #[command(version = "5.0")]
@@ -140,6 +183,18 @@ enum Commands {
         /// Path to category rules config file
         #[arg(long, value_name = "FILE")]
         category_config: Option<PathBuf>,
+
+        /// Maximum number of related chunks per document (1-100, default: 20)
+        #[arg(long, value_name = "N", value_parser = validate_max_related_chunks)]
+        max_related_chunks: Option<usize>,
+
+        /// HNSW graph connectivity parameter (4-64, default: 16)
+        #[arg(long, value_name = "M", value_parser = validate_hnsw_m)]
+        hnsw_m: Option<usize>,
+
+        /// HNSW graph construction effort (50-800, default: 200)
+        #[arg(long, value_name = "EF", value_parser = validate_hnsw_ef_construction)]
+        hnsw_ef_construction: Option<usize>,
     },
 
     /// Scrape and index in one step
@@ -214,6 +269,9 @@ async fn main() -> Result<()> {
             project_name,
             project_desc,
             category_config,
+            max_related_chunks,
+            hnsw_m,
+            hnsw_ef_construction,
         }) => run_index(
             &source,
             &output,
@@ -221,6 +279,9 @@ async fn main() -> Result<()> {
             llms_txt,
             &project_name,
             &project_desc,
+            max_related_chunks,
+            hnsw_m,
+            hnsw_ef_construction,
         ),
 
         Some(Commands::Ingest {
@@ -243,6 +304,9 @@ async fn main() -> Result<()> {
                     true,
                     "Documentation",
                     "AI-optimized documentation index",
+                    None,
+                    None,
+                    None,
                 )
             } else {
                 eprintln!("Usage: doc_transformer <SOURCE> <OUTPUT>");
@@ -276,6 +340,54 @@ fn validate_query_length(query: &Option<&str>) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Apply BM25 query filtering to scraped pages (extracted common logic)
+///
+/// Design by Contract:
+/// - **Preconditions:**
+///   - pages may be empty (returns empty with count 0)
+///   - query may be None (returns pages unchanged)
+///   - threshold and pages are valid
+/// - **Postconditions:**
+///   - Returns filtered pages and count of removed pages
+///   - All returned pages scored >= threshold (if query provided)
+///   - Logs filtering statistics
+///
+/// Edge Cases Handled:
+/// - Query is None → returns all pages unchanged
+/// - Query is empty string → returns all pages (empty query scores all = 0)
+/// - threshold <= 0.0 → no filtering applied (configuration of filter_pages_by_relevance)
+/// - threshold = 1.0 → very strict (only highly relevant pages)
+/// - All pages filtered out → logs warning and returns empty
+/// - Pages with identical content → same score, all kept or all removed together
+fn apply_query_filter(
+    pages: Vec<scrape::ScrapedPage>,
+    query: Option<&str>,
+    threshold: f32,
+) -> Result<Vec<scrape::ScrapedPage>> {
+    if let Some(q) = query {
+        let (kept_pages, filtered_count) = scrape::filter_pages_by_relevance(pages, q, threshold);
+
+        if kept_pages.is_empty() {
+            println!("\n  WARNING: All pages filtered out by query.");
+            println!("  Consider lowering the --threshold value.");
+            anyhow::bail!(
+                "All {} pages filtered out by query '{}' (threshold: {})",
+                filtered_count,
+                q,
+                threshold
+            );
+        }
+
+        println!("  Filtered by relevance: {} pages removed", filtered_count);
+        println!("  Kept: {} pages matching \"{}\"", kept_pages.len(), q);
+
+        Ok(kept_pages)
+    } else {
+        // No query provided - return all pages unchanged
+        Ok(pages)
+    }
 }
 
 /// Run the scrape command
@@ -317,23 +429,9 @@ async fn run_scrape(
     println!("  Scraped: {} pages", result.success_count);
     println!("  Errors: {}", result.error_count);
 
-    // Apply BM25 filtering if query is provided
-    if let Some(q) = query {
-        let (kept_pages, filtered_count) =
-            scrape::filter_pages_by_relevance(result.pages, q, threshold);
-
-        if kept_pages.is_empty() {
-            println!("\n  WARNING: All pages filtered out by query.");
-            println!("  Consider lowering the --threshold value.");
-            return Ok(());
-        }
-
-        println!("  Filtered by relevance: {} pages removed", filtered_count);
-        println!("  Kept: {} pages matching \"{}\"", kept_pages.len(), q);
-
-        result.pages = kept_pages;
-        result.success_count = result.pages.len();
-    }
+    // Apply BM25 filtering if query is provided (extracted common logic)
+    result.pages = apply_query_filter(result.pages, query, threshold)?;
+    result.success_count = result.pages.len();
 
     if !result.errors.is_empty() {
         println!("\n  Error details:");
@@ -368,10 +466,28 @@ fn run_index(
     generate_llms: bool,
     project_name: &str,
     project_desc: &str,
+    max_related_chunks: Option<usize>,
+    hnsw_m: Option<usize>,
+    hnsw_ef_construction: Option<usize>,
 ) -> Result<()> {
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER v5.0 (Knowledge DAG + llms.txt)");
     println!("{}\n", "=".repeat(70));
+
+    // Log graph configuration parameters if provided
+    if max_related_chunks.is_some() || hnsw_m.is_some() || hnsw_ef_construction.is_some() {
+        println!("[CONFIG] Graph Parameters:");
+        if let Some(n) = max_related_chunks {
+            println!("  max_related_chunks: {} (default: 20)", n);
+        }
+        if let Some(m) = hnsw_m {
+            println!("  hnsw_m: {} (default: 16)", m);
+        }
+        if let Some(ef) = hnsw_ef_construction {
+            println!("  hnsw_ef_construction: {} (default: 200)", ef);
+        }
+        println!();
+    }
 
     // STEP 1: DISCOVER
     println!("[STEP 1] DISCOVER");
@@ -509,23 +625,9 @@ async fn run_ingest(
         scrape_result.success_count, url
     );
 
-    // Apply BM25 filtering if query is provided
-    if let Some(ref q) = query {
-        let (kept_pages, filtered_count) =
-            scrape::filter_pages_by_relevance(scrape_result.pages, q, threshold);
-
-        if kept_pages.is_empty() {
-            println!("\n  WARNING: All pages filtered out by query.");
-            println!("  Consider lowering the --threshold value.");
-            return Ok(());
-        }
-
-        println!("  Filtered by relevance: {} pages removed", filtered_count);
-        println!("  Kept: {} pages matching \"{}\"", kept_pages.len(), q);
-
-        scrape_result.pages = kept_pages;
-        scrape_result.success_count = scrape_result.pages.len();
-    }
+    // Apply BM25 filtering if query is provided (extracted common logic)
+    scrape_result.pages = apply_query_filter(scrape_result.pages, query_ref, threshold)?;
+    scrape_result.success_count = scrape_result.pages.len();
 
     println!();
 

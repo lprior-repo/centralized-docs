@@ -16,9 +16,11 @@ use tap::Pipe;
 // 3. If a pattern were invalid, tests would fail immediately
 //
 // Using `.expect()` here is acceptable per BEAD-006 Option A: "Keep LazyLock + Add Compile-Time Test"
-static H2_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^## (.+)$").expect("valid H2 regex"));
+static H2_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^## (.+)$").expect("valid H2 regex"));
 
-static TABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\|.*\|").expect("valid table regex"));
+static TABLE_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\|.*\|").expect("valid table regex"));
 
 /// Chunk level for hierarchical retrieval
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -89,69 +91,67 @@ pub fn chunk_all(analyses: &[Analysis], output_dir: &Path) -> Result<ChunksResul
     fs::create_dir_all(&chunks_dir)?;
 
     // Use functional fold to collect all chunks with counts
-    let (all_chunks, summary_chunks, standard_chunks, detailed_chunks) = analyses
-        .iter()
-        .fold(
-            (Vec::new(), 0usize, 0usize, 0usize),
-            |(mut chunks, sum_count, std_count, det_count), analysis| {
-                let doc_id = slugify(&analysis.source_path);
+    let (all_chunks, summary_chunks, standard_chunks, detailed_chunks) = analyses.iter().fold(
+        (Vec::new(), 0usize, 0usize, 0usize),
+        |(mut chunks, sum_count, std_count, det_count), analysis| {
+            let doc_id = slugify(&analysis.source_path);
 
-                // Create chunks at ALL THREE levels for hierarchical retrieval
-                let summary = create_chunks_at_level(
-                    &analysis.content,
-                    &doc_id,
-                    &analysis.title,
-                    ChunkLevel::Summary,
-                );
-                let standard = create_chunks_at_level(
-                    &analysis.content,
-                    &doc_id,
-                    &analysis.title,
-                    ChunkLevel::Standard,
-                );
-                let detailed = create_chunks_at_level(
-                    &analysis.content,
-                    &doc_id,
-                    &analysis.title,
-                    ChunkLevel::Detailed,
-                );
+            // Create chunks at ALL THREE levels for hierarchical retrieval
+            let summary = create_chunks_at_level(
+                &analysis.content,
+                &doc_id,
+                &analysis.title,
+                ChunkLevel::Summary,
+            );
+            let standard = create_chunks_at_level(
+                &analysis.content,
+                &doc_id,
+                &analysis.title,
+                ChunkLevel::Standard,
+            );
+            let detailed = create_chunks_at_level(
+                &analysis.content,
+                &doc_id,
+                &analysis.title,
+                ChunkLevel::Detailed,
+            );
 
-                // Link parent-child relationships between levels
-                let summary_ids: Vec<String> = summary.iter().map(|c| c.chunk_id.clone()).collect();
-                let standard_ids: Vec<String> = standard.iter().map(|c| c.chunk_id.clone()).collect();
-                let detailed_ids: Vec<String> = detailed.iter().map(|c| c.chunk_id.clone()).collect();
+            // Link parent-child relationships between levels
+            let summary_ids: Vec<String> = summary.iter().map(|c| c.chunk_id.clone()).collect();
+            let standard_ids: Vec<String> = standard.iter().map(|c| c.chunk_id.clone()).collect();
+            let detailed_ids: Vec<String> = detailed.iter().map(|c| c.chunk_id.clone()).collect();
 
-                let new_sum_count = summary.len();
-                let new_std_count = standard.len();
-                let new_det_count = detailed.len();
+            let new_sum_count = summary.len();
+            let new_std_count = standard.len();
+            let new_det_count = detailed.len();
 
-                // Add summary chunks with standard as children
-                chunks.extend(summary.into_iter().map(|mut chunk| {
-                    chunk.child_chunk_ids = standard_ids.clone();
-                    chunk
-                }));
+            // Add summary chunks with standard as children
+            chunks.extend(summary.into_iter().map(|mut chunk| {
+                chunk.child_chunk_ids = standard_ids.clone();
+                chunk
+            }));
 
-                // Add standard chunks with relationships
-                chunks.extend(standard.into_iter().map(|mut chunk| {
-                    chunk.parent_chunk_id = summary_ids.first().cloned();
-                    chunk.child_chunk_ids = detailed_ids.clone();
-                    chunk
-                }));
+            // Add standard chunks with relationships
+            chunks.extend(standard.into_iter().map(|mut chunk| {
+                chunk.parent_chunk_id = summary_ids.first().cloned();
+                chunk.child_chunk_ids = detailed_ids.clone();
+                chunk
+            }));
 
-                // Add detailed chunks with parent
-                chunks.extend(detailed.into_iter().map(|mut chunk| {
-                    chunk.parent_chunk_id = standard_ids.first().cloned();
-                    chunk
-                }));
+            // Add detailed chunks with parent
+            chunks.extend(detailed.into_iter().map(|mut chunk| {
+                chunk.parent_chunk_id = standard_ids.first().cloned();
+                chunk
+            }));
 
-                (
-                    chunks,
-                    sum_count.saturating_add(new_sum_count),
-                    std_count.saturating_add(new_std_count),
-                    det_count.saturating_add(new_det_count),
-                )
-            },
-        );
+            (
+                chunks,
+                sum_count.saturating_add(new_sum_count),
+                std_count.saturating_add(new_std_count),
+                det_count.saturating_add(new_det_count),
+            )
+        },
+    );
 
     // Add navigation links between chunks (same level, same doc)
     let mut all_chunks = all_chunks;
@@ -380,10 +380,7 @@ fn create_summary(content: &str) -> String {
         .pipe(|summary| {
             let char_count = summary.chars().count();
             if char_count > 200 {
-                let truncated: String = summary
-                    .chars()
-                    .take(197)
-                    .collect();
+                let truncated: String = summary.chars().take(197).collect();
                 format!("{}...", truncated)
             } else {
                 summary

@@ -141,9 +141,7 @@ impl KnowledgeDAG {
     /// Get total edge weight for a node (sum of outgoing edge weights)
     pub fn node_importance(&self, node_id: &str) -> f32 {
         if let Some(&idx) = self.node_map.get(node_id) {
-            self.graph.edges(idx)
-                .map(|e| e.weight().weight)
-                .sum()
+            self.graph.edges(idx).map(|e| e.weight().weight).sum()
         } else {
             0.0
         }
@@ -204,10 +202,14 @@ impl KnowledgeDAG {
             .partition(|n| n.node_type == NodeType::Document);
 
         // Count edges by type using functional style
-        let edge_counts = [EdgeType::Sequential, EdgeType::Related, EdgeType::References]
-            .into_iter()
-            .map(|t| self.edges_by_type(&t).len())
-            .collect::<Vec<_>>();
+        let edge_counts = [
+            EdgeType::Sequential,
+            EdgeType::Related,
+            EdgeType::References,
+        ]
+        .into_iter()
+        .map(|t| self.edges_by_type(&t).len())
+        .collect::<Vec<_>>();
 
         GraphStatistics {
             node_count: self.nodes_vec.len(),
@@ -268,7 +270,10 @@ impl RelationshipDetector {
         let set1: HashSet<_> = tags1.iter().collect();
         let set2: HashSet<_> = tags2.iter().collect();
 
-        (set1.intersection(&set2).count() as f32, set1.union(&set2).count() as f32)
+        (
+            set1.intersection(&set2).count() as f32,
+            set1.union(&set2).count() as f32,
+        )
             .pipe(|(intersection, union)| {
                 if union == 0.0 {
                     0.0
@@ -293,10 +298,9 @@ impl RelationshipDetector {
                 let tag_similarity = Self::jaccard_similarity(chunk_tags, tags);
                 let category_match = if category == chunk_category { 0.3 } else { 0.0 };
 
-                (tag_similarity * 0.7 + category_match)
-                    .pipe(|combined| {
-                        (combined >= self.min_similarity).then(|| (id.clone(), combined))
-                    })
+                (tag_similarity * 0.7 + category_match).pipe(|combined| {
+                    (combined >= self.min_similarity).then(|| (id.clone(), combined))
+                })
             })
             .collect()
     }
