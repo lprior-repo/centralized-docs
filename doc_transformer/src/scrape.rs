@@ -21,8 +21,8 @@
 
 use crate::filter::{filter_markdown, prune_html, FilterConfig, FilterResult};
 use anyhow::{Context, Result};
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock;
 use serde::{Deserialize, Serialize};
 use spider::website::Website;
 use spider_transformations::transformation::content::{
@@ -32,14 +32,14 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
-static H1_TITLE_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^#\s+(.+)$").expect("valid H1 regex"));
+static H1_TITLE_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("valid H1 regex"));
 
-static HEADER_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid header regex"));
+static HEADER_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid header regex"));
 
-static LINK_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex"));
+static LINK_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex"));
 
 /// Configuration for scraping a documentation site
 #[derive(Debug, Clone)]
@@ -410,6 +410,42 @@ fn url_to_slug(url: &str) -> String {
         .to_lowercase()
 }
 
+/// Filter scraped pages by BM25 relevance to query
+/// Returns (kept_pages, filtered_count)
+pub fn filter_pages_by_relevance(
+    pages: Vec<ScrapedPage>,
+    query: &str,
+    threshold: f32,
+) -> (Vec<ScrapedPage>, usize) {
+    if pages.is_empty() {
+        return (pages, 0);
+    }
+
+    // Guard: if threshold is 0.0 or negative, keep all pages (no filtering)
+    if threshold <= 0.0 {
+        return (pages, 0);
+    }
+
+    // Calculate average document length
+    let total_words: usize = pages.iter().map(|p| p.word_count).sum();
+    let avg_doc_length = (total_words as f32 / pages.len() as f32).max(1.0);
+
+    // Import bm25_score from filter module
+    use crate::filter::bm25_score;
+
+    // Filter pages by BM25 score
+    let (kept, filtered): (Vec<_>, Vec<_>) = pages
+        .into_iter()
+        .partition(|page| {
+            let score = bm25_score(&page.markdown, query, avg_doc_length);
+            score >= threshold
+        });
+
+    let filtered_count = filtered.len();
+
+    (kept, filtered_count)
+}
+
 /// Write scraped pages to output directory
 pub fn write_scraped_pages(result: &ScrapeResult, output_dir: &Path) -> Result<()> {
     let scrape_dir = output_dir.join(".scrape");
@@ -504,5 +540,260 @@ mod tests {
         // Verify cap at 30 seconds
         let capped = calculate_backoff_delay(250, 10, 2.0);
         assert_eq!(capped, 30000);
+    }
+
+    // ============================================================================
+    // BM25 FILTERING TESTS
+    // ============================================================================
+
+    fn create_test_page(markdown: &str, title: &str, url: &str) -> ScrapedPage {
+        let word_count = markdown.split_whitespace().count();
+        ScrapedPage {
+            url: url.to_string(),
+            markdown: markdown.to_string(),
+            title: title.to_string(),
+            links: Vec::new(),
+            headers: Vec::new(),
+            word_count,
+            slug: url_to_slug(url),
+            filtered: false,
+            elements_removed: 0,
+            density_score: 1.0,
+        }
+    }
+
+    #[test]
+    fn test_filter_keeps_relevant_pages() {
+        let pages = vec![
+            create_test_page(
+                "Rust is a systems programming language that runs blazingly fast. Rust programming is great for systems development.",
+                "Rust Guide",
+                "https://example.com/rust-guide",
+            ),
+            create_test_page(
+                "Python is a high-level programming language. Learn Python for web development.",
+                "Python Tutorial",
+                "https://example.com/python-tutorial",
+            ),
+            create_test_page(
+                "JavaScript is the language of the web. Modern JavaScript powers interactive websites.",
+                "JavaScript Intro",
+                "https://example.com/js-intro",
+            ),
+        ];
+
+        let (kept, filtered_count) = filter_pages_by_relevance(pages, "rust programming", 0.1);
+
+        // Should keep at least the Rust guide
+        assert!(kept.len() >= 1, "Should keep at least 1 Rust-related page");
+        assert!(filtered_count >= 1, "Should filter out at least 1 non-Rust page");
+
+        // Check that rust page is in the kept list
+        assert!(
+            kept.iter().any(|p| p.title.contains("Rust")),
+            "Should keep Rust page"
+        );
+    }
+
+    #[test]
+    fn test_filter_all_filtered_out() {
+        let pages = vec![
+            create_test_page("Rust programming", "Rust Guide", "https://example.com/rust"),
+            create_test_page("Python tutorial", "Python Guide", "https://example.com/python"),
+        ];
+
+        // Use a very high threshold to filter everything out
+        let (kept, filtered_count) = filter_pages_by_relevance(pages.clone(), "rust", 10.0);
+
+        assert_eq!(kept.len(), 0, "High threshold should filter all pages");
+        assert_eq!(filtered_count, pages.len(), "All pages should be filtered");
+    }
+
+    #[test]
+    fn test_filter_zero_threshold_keeps_all() {
+        let pages = vec![
+            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
+            create_test_page("Python tutorial", "Python", "https://example.com/python"),
+        ];
+        let original_count = pages.len();
+
+        let (kept, filtered_count) = filter_pages_by_relevance(pages, "rust", 0.0);
+
+        assert_eq!(kept.len(), original_count, "Threshold 0.0 should keep all pages");
+        assert_eq!(filtered_count, 0, "No pages should be filtered with threshold 0.0");
+    }
+
+    #[test]
+    fn test_filter_negative_threshold_keeps_all() {
+        let pages = vec![
+            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
+            create_test_page("Python tutorial", "Python", "https://example.com/python"),
+        ];
+        let original_count = pages.len();
+
+        let (kept, filtered_count) = filter_pages_by_relevance(pages, "rust", -1.0);
+
+        assert_eq!(kept.len(), original_count, "Negative threshold should keep all pages");
+        assert_eq!(filtered_count, 0, "No pages should be filtered with negative threshold");
+    }
+
+    #[test]
+    fn test_filter_no_matches() {
+        let pages = vec![
+            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
+            create_test_page("Python tutorial", "Python", "https://example.com/python"),
+        ];
+        let original_count = pages.len();
+
+        // Query for something that doesn't exist in any page
+        let (kept, filtered_count) = filter_pages_by_relevance(pages, "nonexistent_term_xyz", 0.1);
+
+        assert_eq!(kept.len(), 0, "No pages should match nonexistent term");
+        assert_eq!(filtered_count, original_count, "All pages should be filtered");
+    }
+
+    #[test]
+    fn test_filter_empty_pages_list() {
+        let pages: Vec<ScrapedPage> = Vec::new();
+
+        let (kept, filtered_count) = filter_pages_by_relevance(pages, "query", 0.1);
+
+        assert_eq!(kept.len(), 0, "Empty input should return empty output");
+        assert_eq!(filtered_count, 0, "No pages to filter");
+    }
+
+    #[test]
+    fn test_filter_case_insensitive() {
+        let pages = vec![
+            create_test_page("Rust programming language", "Rust", "https://example.com/rust"),
+        ];
+
+        let (kept_lower, _) = filter_pages_by_relevance(pages.clone(), "rust", 0.1);
+        let (kept_upper, _) = filter_pages_by_relevance(pages.clone(), "RUST", 0.1);
+        let (kept_mixed, _) = filter_pages_by_relevance(pages, "RuSt", 0.1);
+
+        // All should return the same results
+        assert_eq!(kept_lower.len(), kept_upper.len(), "Case should not matter");
+        assert_eq!(kept_lower.len(), kept_mixed.len(), "Case should not matter");
+    }
+
+    #[test]
+    fn test_filter_multi_term_query() {
+        let pages = vec![
+            create_test_page(
+                "Rust is a systems programming language that guarantees memory safety.",
+                "Rust Guide",
+                "https://example.com/rust",
+            ),
+            create_test_page("JavaScript tutorial", "JS Guide", "https://example.com/js"),
+        ];
+
+        // Multi-term query
+        let (kept, _) = filter_pages_by_relevance(pages, "rust programming systems", 0.1);
+
+        // Should find pages containing any of these terms
+        assert!(kept.len() >= 1, "Should find pages matching multi-term query");
+        assert!(
+            kept.iter().any(|p| p.title.contains("Rust")),
+            "Should find rust page with multi-term query"
+        );
+    }
+
+    #[test]
+    fn test_filter_different_thresholds() {
+        let pages = vec![
+            create_test_page(
+                "Rust programming language systems",
+                "Rust",
+                "https://example.com/rust1",
+            ),
+            create_test_page("Rust", "Rust Short", "https://example.com/rust2"),
+            create_test_page("Python programming", "Python", "https://example.com/python"),
+        ];
+
+        let (kept_low, _) = filter_pages_by_relevance(pages.clone(), "rust", 0.1);
+        let (kept_medium, _) = filter_pages_by_relevance(pages.clone(), "rust", 0.5);
+        let (kept_high, _) = filter_pages_by_relevance(pages, "rust", 2.0);
+
+        // Lower threshold should keep more pages
+        assert!(
+            kept_low.len() >= kept_medium.len(),
+            "Lower threshold should keep more pages"
+        );
+        assert!(
+            kept_medium.len() >= kept_high.len(),
+            "Medium threshold should keep more than high"
+        );
+    }
+
+    #[test]
+    fn test_filter_preserves_page_metadata() {
+        let original_page = create_test_page(
+            "Rust programming guide with comprehensive examples",
+            "Rust Guide",
+            "https://example.com/rust-guide",
+        );
+        let original_url = original_page.url.clone();
+        let original_title = original_page.title.clone();
+        let original_word_count = original_page.word_count;
+
+        let pages = vec![original_page];
+        let (kept, _) = filter_pages_by_relevance(pages, "rust programming", 0.1);
+
+        assert_eq!(kept.len(), 1, "Should keep the rust page");
+        let filtered_page = &kept[0];
+
+        assert_eq!(filtered_page.url, original_url, "URL should be preserved");
+        assert_eq!(filtered_page.title, original_title, "Title should be preserved");
+        assert_eq!(
+            filtered_page.word_count, original_word_count,
+            "Word count should be preserved"
+        );
+    }
+
+    #[test]
+    fn test_filter_with_special_characters_in_query() {
+        let pages = vec![
+            create_test_page("Rust-lang systems programming", "Rust", "https://example.com/rust"),
+        ];
+
+        // Query with special characters (should not crash)
+        let result = std::panic::catch_unwind(|| {
+            filter_pages_by_relevance(pages, "rust-lang & systems", 0.1)
+        });
+
+        assert!(result.is_ok(), "Should handle special characters in query");
+    }
+
+    #[test]
+    fn test_filter_empty_query() {
+        let pages = vec![
+            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
+        ];
+
+        let (kept, filtered_count) = filter_pages_by_relevance(pages.clone(), "", 0.1);
+
+        // Empty query should filter all pages (no terms to match)
+        assert_eq!(kept.len(), 0, "Empty query should match nothing");
+        assert_eq!(filtered_count, pages.len(), "All pages should be filtered with empty query");
+    }
+
+    #[test]
+    fn test_filter_calculates_average_correctly() {
+        // Create pages with known word counts
+        let pages = vec![
+            create_test_page("one two three four five", "Page 1", "https://example.com/1"), // 5 words
+            create_test_page("one two three", "Page 2", "https://example.com/2"), // 3 words
+            create_test_page("one two", "Page 3", "https://example.com/3"), // 2 words
+        ];
+        // Average: (5 + 3 + 2) / 3 = 3.33 words
+
+        // The filter should calculate avg_doc_length correctly and use it for scoring
+        // We can't test the internal calculation directly, but we can verify it doesn't panic
+        let result = std::panic::catch_unwind(|| {
+            filter_pages_by_relevance(pages, "one", 0.1)
+        });
+
+        assert!(result.is_ok(), "Should calculate average document length without panicking");
     }
 }

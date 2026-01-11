@@ -1,3 +1,4 @@
+use crate::config::CategoryConfig;
 use crate::discover::DiscoveryFile;
 use anyhow::Result;
 use itertools::Itertools;
@@ -38,12 +39,19 @@ pub struct Analysis {
 }
 
 /// Analyze files using functional composition with filter_map
-pub fn analyze_files(files: &[DiscoveryFile], source_dir: &Path) -> Result<Vec<Analysis>> {
+pub fn analyze_files(files: &[DiscoveryFile], source_dir: &Path, category_config_path: Option<&Path>) -> Result<Vec<Analysis>> {
+    // Load category config if provided
+    let config = if let Some(path) = category_config_path {
+        Some(CategoryConfig::load_from_file(path)?)
+    } else {
+        None
+    };
+
     files
         .iter()
         .filter_map(|file| {
             let file_path = source_dir.join(&file.source_path);
-            analyze_single_file(&file.source_path, &file_path)
+            analyze_single_file(&file.source_path, &file_path, config.as_ref())
                 .map_err(|e| eprintln!("ANALYZE ERROR: {}: {}", file.source_path, e))
                 .ok()
         })
@@ -51,7 +59,7 @@ pub fn analyze_files(files: &[DiscoveryFile], source_dir: &Path) -> Result<Vec<A
         .pipe(Ok)
 }
 
-fn analyze_single_file(source_path: &str, file_path: &Path) -> Result<Analysis> {
+fn analyze_single_file(source_path: &str, file_path: &Path, category_config: Option<&CategoryConfig>) -> Result<Analysis> {
     let content = fs::read_to_string(file_path)?;
 
     let title = extract_title(&content, source_path);
@@ -62,7 +70,16 @@ fn analyze_single_file(source_path: &str, file_path: &Path) -> Result<Analysis> 
     let word_count = clean_content.split_whitespace().count();
     let has_code = clean_content.contains("```");
     let has_tables = has_table(&clean_content);
-    let category = detect_category(source_path, &clean_content);
+
+    let category = if let Some(config) = category_config {
+        let filename = Path::new(source_path)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+        config.detect_category(&filename, &clean_content, source_path)
+    } else {
+        detect_category(source_path, &clean_content)
+    };
 
     Ok(Analysis {
         source_path: source_path.to_string(),
