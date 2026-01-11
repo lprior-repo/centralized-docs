@@ -320,12 +320,42 @@ fn is_footer_line(line: &str) -> bool {
 ///
 /// This is a simplified BM25 implementation for filtering
 /// documents by query relevance. Uses functional composition.
+///
+/// # Contract (Design by Contract)
+///
+/// **Preconditions:**
+/// - `document` is valid UTF-8 (guaranteed by &str)
+/// - `query` is valid UTF-8 (guaranteed by &str)
+/// - `avg_doc_length` may be 0.0 (empty corpus or all empty docs)
+///
+/// **Postconditions:**
+/// - Return value is always finite (never NaN, never Infinity)
+/// - Return value is always non-negative
+/// - Function never panics (checked arithmetic prevents division by zero)
+///
+/// **Invariants:**
+/// - Safe defaults prevent division by zero
+/// - Denominator is always > 0.0 before division
+/// - Output is valid for floating-point comparisons
 pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
-    let k1 = 1.2;
-    let b = 0.75;
+    const DEFAULT_AVG_LENGTH: f32 = 100.0;
+    const K1: f32 = 1.2;
+    const B: f32 = 0.75;
+
+    // Guard against invalid average length
+    let safe_avg = if avg_doc_length > 0.0 {
+        avg_doc_length
+    } else {
+        DEFAULT_AVG_LENGTH
+    };
 
     let doc_words: Vec<&str> = document.split_whitespace().collect();
     let doc_length = doc_words.len() as f32;
+
+    // Early exit for empty query or document
+    if doc_words.is_empty() || query.split_whitespace().next().is_none() {
+        return 0.0;
+    }
 
     query
         .split_whitespace()
@@ -339,11 +369,64 @@ pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
         .filter(|&tf| tf > 0.0)
         .map(|tf| {
             let idf = (10.0_f32).ln();
-            let numerator = tf * (k1 + 1.0);
-            let denominator = tf + k1 * (1.0 - b + b * (doc_length / avg_doc_length));
-            idf * (numerator / denominator)
+            let numerator = tf * (K1 + 1.0);
+            // Guard against division by zero in denominator
+            let denominator = tf + K1 * (1.0 - B + B * (doc_length / safe_avg));
+
+            // Ensure denominator is valid before division
+            if denominator > 0.0 {
+                idf * (numerator / denominator)
+            } else {
+                0.0
+            }
         })
-        .sum()
+        .sum::<f32>()
+        .pipe(|score| {
+            // Final sanity check: ensure result is finite
+            if score.is_finite() {
+                score
+            } else {
+                0.0
+            }
+        })
+}
+
+/// Test helper: Discover markdown files from a directory (for integration tests)
+///
+/// This function is used in integration tests to simulate the discovery phase
+/// without depending on the full discover module. Returns a Vec of relative paths.
+#[cfg(test)]
+pub fn discover_test_files(root: &std::path::Path) -> Result<Vec<String>, anyhow::Error> {
+    use std::fs;
+    use walkdir::WalkDir;
+
+    let mut files = Vec::new();
+    let extensions = [".md", ".mdx", ".rst", ".txt"];
+    let exclude_dirs = ["node_modules", ".git", "_build", "dist", "vendor"];
+
+    for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
+
+        // Skip excluded directories
+        if exclude_dirs.iter().any(|excl| {
+            path.components()
+                .any(|c| c.as_os_str().to_string_lossy().contains(excl))
+        }) {
+            continue;
+        }
+
+        if path.is_file() {
+            if let Some(ext) = path.extension() {
+                let ext_str = format!(".{}", ext.to_string_lossy());
+                if extensions.contains(&ext_str.as_str()) {
+                    let rel_path = path.strip_prefix(root)?.to_string_lossy().to_string();
+                    files.push(rel_path);
+                }
+            }
+        }
+    }
+
+    Ok(files)
 }
 
 #[cfg(test)]
@@ -375,6 +458,165 @@ mod tests {
         let unrelated = "python web development django";
         let score2 = bm25_score(unrelated, query, 100.0);
         assert!(score > score2);
+    }
+
+    #[test]
+    fn test_bm25_zero_avg_length() {
+        // Edge case: avg_doc_length is 0.0 (empty corpus)
+        // Should NOT panic, should NOT return NaN/Inf
+        let score = bm25_score("rust programming", "rust", 0.0);
+        assert!(score.is_finite(), "Score must be finite, got {}", score);
+        assert!(score >= 0.0, "Score must be non-negative, got {}", score);
+        assert!(
+            score > 0.0,
+            "Score should be > 0.0 for matching document with fallback"
+        );
+    }
+
+    #[test]
+    fn test_bm25_negative_avg_length() {
+        // Edge case: avg_doc_length is negative (invalid input)
+        // Should use safe default instead
+        let score = bm25_score("hello world", "hello", -100.0);
+        assert!(score.is_finite(), "Score must be finite, got {}", score);
+        assert!(score >= 0.0, "Score must be non-negative, got {}", score);
+    }
+
+    #[test]
+    fn test_bm25_empty_document() {
+        // Edge case: empty document string
+        let score = bm25_score("", "rust", 100.0);
+        assert_eq!(score, 0.0, "Empty document should return 0.0 score");
+    }
+
+    #[test]
+    fn test_bm25_empty_query() {
+        // Edge case: empty query string
+        let score = bm25_score("rust programming language", "", 100.0);
+        assert_eq!(score, 0.0, "Empty query should return 0.0 score");
+    }
+
+    #[test]
+    fn test_bm25_both_empty() {
+        // Edge case: both document and query are empty
+        let score = bm25_score("", "", 100.0);
+        assert_eq!(score, 0.0, "Empty doc and query should return 0.0 score");
+    }
+
+    #[test]
+    fn test_bm25_no_matches() {
+        // Edge case: query terms don't appear in document
+        let score = bm25_score("python django flask", "rust", 100.0);
+        assert_eq!(score, 0.0, "No matching terms should return 0.0 score");
+    }
+
+    #[test]
+    fn test_bm25_all_zeros_edge_case() {
+        // Edge case: all inputs are minimal
+        let score = bm25_score("a", "a", 0.0);
+        assert!(
+            score.is_finite(),
+            "Even with zero avg_length, should be finite"
+        );
+        assert!(score >= 0.0, "Score must be non-negative");
+    }
+
+    #[test]
+    fn test_bm25_single_word_document() {
+        // Edge case: document with one word
+        let score = bm25_score("rust", "rust", 100.0);
+        assert!(score.is_finite());
+        assert!(score > 0.0);
+    }
+
+    #[test]
+    fn test_bm25_very_long_document() {
+        // Edge case: very long document (1M+ words)
+        let long_doc = vec!["rust"; 1_000_000].join(" ");
+        let score = bm25_score(&long_doc, "rust", 100.0);
+        assert!(
+            score.is_finite(),
+            "Long document should not produce NaN/Inf"
+        );
+        assert!(score >= 0.0);
+    }
+
+    #[test]
+    fn test_bm25_case_insensitive() {
+        // Verify case-insensitive matching
+        let doc = "Rust Programming Language";
+        let query_lower = "rust";
+        let query_upper = "RUST";
+        let score_lower = bm25_score(doc, query_lower, 100.0);
+        let score_upper = bm25_score(doc, query_upper, 100.0);
+        assert_eq!(
+            score_lower, score_upper,
+            "Matching should be case-insensitive"
+        );
+    }
+
+    #[test]
+    fn test_bm25_whitespace_normalization() {
+        // Edge case: multiple spaces between words
+        let doc1 = "rust   programming";
+        let doc2 = "rust programming";
+        let query = "rust programming";
+        let score1 = bm25_score(doc1, query, 100.0);
+        let score2 = bm25_score(doc2, query, 100.0);
+        // Scores may differ due to different word counts, but both must be finite
+        assert!(score1.is_finite());
+        assert!(score2.is_finite());
+    }
+
+    #[test]
+    fn test_bm25_relevance_ordering() {
+        // Verify that documents with more matches score higher
+        let query = "rust programming";
+        let exact_match = "rust programming rust programming rust programming";
+        let single_match = "rust programming";
+        let partial_match = "rust web development";
+
+        let score_exact = bm25_score(exact_match, query, 100.0);
+        let score_single = bm25_score(single_match, query, 100.0);
+        let score_partial = bm25_score(partial_match, query, 100.0);
+
+        assert!(
+            score_exact >= score_single,
+            "More matches should score >= single match"
+        );
+        assert!(
+            score_single >= score_partial,
+            "Exact match should score >= partial"
+        );
+    }
+
+    #[test]
+    fn test_bm25_never_panics_on_pathological_input() {
+        // Fuzz with various pathological inputs
+        let long_a = "a".repeat(10000);
+        let long_d = "d".repeat(1000);
+
+        let pathological_inputs = vec![
+            ("", "", 0.0),
+            ("x", "x", 0.0),
+            ("a", "b", 0.0),
+            ("  ", "  ", 0.0),
+            ("\t\n", "\r\n", f32::NAN),
+            ("🦀", "🦀", -1.0),
+            (&long_a, "a", 0.0),
+            ("a b c", &long_d, f32::INFINITY),
+        ];
+
+        for (doc, query, avg_len) in pathological_inputs {
+            let score = bm25_score(doc, query, avg_len);
+            assert!(
+                score.is_finite(),
+                "Score must be finite for input: doc={:?}, query={:?}, avg_len={}",
+                doc.chars().take(10).collect::<String>(),
+                query.chars().take(10).collect::<String>(),
+                avg_len
+            );
+        }
     }
 
     #[test]

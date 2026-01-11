@@ -10,13 +10,16 @@
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::panic)]
 #![deny(clippy::arithmetic_side_effects)]
+#![deny(clippy::expect_used)]
 
 mod analyze;
 mod assign;
 mod chunk;
+mod config;
 mod discover;
 mod filter;
 mod graph;
+mod highlight;
 mod index;
 mod llms;
 mod scrape;
@@ -75,6 +78,10 @@ enum Commands {
         /// Maximum number of results to return
         #[arg(short = 'n', long, default_value = "10")]
         limit: usize,
+
+        /// Disable colored output
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Scrape a documentation website to local markdown files
@@ -98,6 +105,14 @@ enum Commands {
         /// Delay between requests in milliseconds
         #[arg(short, long, default_value = "250")]
         delay: u64,
+
+        /// Filter pages by BM25 relevance to query
+        #[arg(short, long, value_name = "QUERY")]
+        query: Option<String>,
+
+        /// Minimum BM25 score to keep a page (default: 0.1)
+        #[arg(long, default_value = "0.1")]
+        threshold: f32,
     },
 
     /// Index local markdown files into AI-optimized structure
@@ -121,6 +136,10 @@ enum Commands {
         /// Project description for llms.txt
         #[arg(long, default_value = "AI-optimized documentation index")]
         project_desc: String,
+
+        /// Path to category rules config file
+        #[arg(long, value_name = "FILE")]
+        category_config: Option<PathBuf>,
     },
 
     /// Scrape and index in one step
@@ -141,6 +160,14 @@ enum Commands {
         #[arg(short, long, default_value = "250")]
         delay: u64,
 
+        /// Filter pages by BM25 relevance to query
+        #[arg(short, long, value_name = "QUERY")]
+        query: Option<String>,
+
+        /// Minimum BM25 score to keep a page (default: 0.1)
+        #[arg(long, default_value = "0.1")]
+        threshold: f32,
+
         /// Project name for llms.txt header
         #[arg(long)]
         project_name: Option<String>,
@@ -156,9 +183,8 @@ async fn main() -> Result<()> {
             query,
             index_dir,
             limit,
-        }) => {
-            run_search(&query, &index_dir, limit)
-        }
+            no_color,
+        }) => run_search(&query, &index_dir, limit, !no_color),
 
         Some(Commands::Scrape {
             url,
@@ -166,8 +192,19 @@ async fn main() -> Result<()> {
             sitemap,
             filter,
             delay,
+            query,
+            threshold,
         }) => {
-            run_scrape(&url, &output, sitemap, filter, delay).await
+            run_scrape(
+                &url,
+                &output,
+                sitemap,
+                filter,
+                delay,
+                query.as_deref(),
+                threshold,
+            )
+            .await
         }
 
         Some(Commands::Index {
@@ -176,24 +213,37 @@ async fn main() -> Result<()> {
             llms_txt,
             project_name,
             project_desc,
-        }) => {
-            run_index(&source, &output, llms_txt, &project_name, &project_desc)
-        }
+            category_config,
+        }) => run_index(
+            &source,
+            &output,
+            category_config.as_deref(),
+            llms_txt,
+            &project_name,
+            &project_desc,
+        ),
 
         Some(Commands::Ingest {
             url,
             output,
             filter,
             delay,
+            query,
+            threshold,
             project_name,
-        }) => {
-            run_ingest(&url, &output, filter, delay, project_name).await
-        }
+        }) => run_ingest(&url, &output, filter, delay, query, threshold, project_name).await,
 
         None => {
             // Legacy mode: two positional arguments
             if let (Some(source), Some(output)) = (cli.source_dir, cli.output_dir) {
-                run_index(&source, &output, true, "Documentation", "AI-optimized documentation index")
+                run_index(
+                    &source,
+                    &output,
+                    None,
+                    true,
+                    "Documentation",
+                    "AI-optimized documentation index",
+                )
             } else {
                 eprintln!("Usage: doc_transformer <SOURCE> <OUTPUT>");
                 eprintln!("   or: doc_transformer scrape <URL> --output <DIR>");
@@ -206,6 +256,28 @@ async fn main() -> Result<()> {
     }
 }
 
+/// Validate query length to prevent DoS attacks and resource exhaustion
+///
+/// Constraints:
+/// - Maximum 1000 bytes (prevents regex compilation timeouts)
+/// - None/empty queries allowed (no filtering)
+fn validate_query_length(query: &Option<&str>) -> Result<()> {
+    const MAX_QUERY_LENGTH: usize = 1000;
+
+    if let Some(q) = query {
+        let byte_count = q.len();
+        if byte_count > MAX_QUERY_LENGTH {
+            anyhow::bail!(
+                "Query too long ({} bytes, maximum {})",
+                byte_count,
+                MAX_QUERY_LENGTH
+            );
+        }
+    }
+
+    Ok(())
+}
+
 /// Run the scrape command
 async fn run_scrape(
     url: &str,
@@ -213,7 +285,12 @@ async fn run_scrape(
     use_sitemap: bool,
     filter: Option<String>,
     delay: u64,
+    query: Option<&str>,
+    threshold: f32,
 ) -> Result<()> {
+    // Validate query length before processing (prevents DoS)
+    validate_query_length(&query)?;
+
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER v5.0 - SCRAPE");
     println!("{}\n", "=".repeat(70));
@@ -234,11 +311,29 @@ async fn run_scrape(
     };
 
     println!("[SCRAPE] Starting crawl...");
-    let result = scrape::scrape_site(&config).await?;
+    let mut result = scrape::scrape_site(&config).await?;
 
     println!("  Discovered: {} URLs", result.total_urls);
     println!("  Scraped: {} pages", result.success_count);
     println!("  Errors: {}", result.error_count);
+
+    // Apply BM25 filtering if query is provided
+    if let Some(q) = query {
+        let (kept_pages, filtered_count) =
+            scrape::filter_pages_by_relevance(result.pages, q, threshold);
+
+        if kept_pages.is_empty() {
+            println!("\n  WARNING: All pages filtered out by query.");
+            println!("  Consider lowering the --threshold value.");
+            return Ok(());
+        }
+
+        println!("  Filtered by relevance: {} pages removed", filtered_count);
+        println!("  Kept: {} pages matching \"{}\"", kept_pages.len(), q);
+
+        result.pages = kept_pages;
+        result.success_count = result.pages.len();
+    }
 
     if !result.errors.is_empty() {
         println!("\n  Error details:");
@@ -269,6 +364,7 @@ async fn run_scrape(
 fn run_index(
     source: &Path,
     output: &Path,
+    category_config: Option<&Path>,
     generate_llms: bool,
     project_name: &str,
     project_desc: &str,
@@ -284,7 +380,7 @@ fn run_index(
 
     // STEP 2: ANALYZE
     println!("[STEP 2] ANALYZE");
-    let analyses = analyze::analyze_files(&files, source)?;
+    let analyses = analyze::analyze_files(&files, source, category_config)?;
     let categories = analyze::count_categories(&analyses);
     println!("  Processed {} files", analyses.len());
     println!(
@@ -384,8 +480,14 @@ async fn run_ingest(
     output: &Path,
     filter: Option<String>,
     delay: u64,
+    query: Option<String>,
+    threshold: f32,
     project_name: Option<String>,
 ) -> Result<()> {
+    // Validate query length before processing (prevents DoS)
+    let query_ref = query.as_deref();
+    validate_query_length(&query_ref)?;
+
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER v5.0 - INGEST (Scrape + Index)");
     println!("{}\n", "=".repeat(70));
@@ -401,8 +503,31 @@ async fn run_ingest(
         ..Default::default()
     };
 
-    let scrape_result = scrape::scrape_site(&config).await?;
-    println!("  Scraped {} pages from {}\n", scrape_result.success_count, url);
+    let mut scrape_result = scrape::scrape_site(&config).await?;
+    println!(
+        "  Scraped {} pages from {}",
+        scrape_result.success_count, url
+    );
+
+    // Apply BM25 filtering if query is provided
+    if let Some(ref q) = query {
+        let (kept_pages, filtered_count) =
+            scrape::filter_pages_by_relevance(scrape_result.pages, q, threshold);
+
+        if kept_pages.is_empty() {
+            println!("\n  WARNING: All pages filtered out by query.");
+            println!("  Consider lowering the --threshold value.");
+            return Ok(());
+        }
+
+        println!("  Filtered by relevance: {} pages removed", filtered_count);
+        println!("  Kept: {} pages matching \"{}\"", kept_pages.len(), q);
+
+        scrape_result.pages = kept_pages;
+        scrape_result.success_count = scrape_result.pages.len();
+    }
+
+    println!();
 
     // Write scraped content to temp location within output
     let scrape_dir = output.join(".scrape");
@@ -423,6 +548,7 @@ async fn run_ingest(
     run_index(
         &scrape_dir,
         output,
+        None,
         true,
         &name,
         &format!("Documentation scraped from {}", url),
@@ -431,50 +557,143 @@ async fn run_ingest(
     Ok(())
 }
 
-/// Run the search command using BM25 ranking
-fn run_search(query: &str, index_dir: &Path, limit: usize) -> Result<()> {
+/// Run the search command using Tantivy (with fallback to BM25)
+///
+/// Strategy:
+/// 1. Try to use Tantivy index if available (faster, better features)
+/// 2. Fall back to INDEX.json + manual BM25 scoring if index missing
+/// 3. Display results with scores and metadata
+fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> Result<()> {
+    const MAX_QUERY_LENGTH: usize = 1000;
+    const MAX_QUERY_WORDS: usize = 100;
+
     // Validate query is not empty
     let query = query.trim();
     if query.is_empty() {
         anyhow::bail!("Query cannot be empty");
     }
 
-    use serde_json::Value;
+    // Validate query length
+    if query.len() > MAX_QUERY_LENGTH {
+        anyhow::bail!(
+            "Query too long ({} chars, max {})",
+            query.len(),
+            MAX_QUERY_LENGTH
+        );
+    }
+
+    // Validate word count
+    let word_count = query.split_whitespace().count();
+    if word_count > MAX_QUERY_WORDS {
+        anyhow::bail!(
+            "Query has too many terms ({} words, max {})",
+            word_count,
+            MAX_QUERY_WORDS
+        );
+    }
 
     let index_path = index_dir.join("INDEX.json");
     if !index_path.exists() {
         anyhow::bail!("INDEX.json not found in {}", index_dir.display());
     }
 
+    println!("\n{}", "=".repeat(70));
+    println!("DOC_TRANSFORMER SEARCH - Tantivy + BM25");
+    println!("{}\n", "=".repeat(70));
+    println!("Query: \"{}\"", query);
+
+    // Try Tantivy index first
+    let tantivy_available = doc_transformer::search::open_or_create_index(index_dir).is_ok();
+
+    if tantivy_available {
+        // Use Tantivy if available
+        match doc_transformer::search::open_or_create_index(index_dir) {
+            Ok(index) => {
+                match doc_transformer::search::search_index(&index, query, limit) {
+                    Ok(results) => {
+                        println!("Using Tantivy index\n");
+
+                        if results.is_empty() {
+                            println!("No results found for \"{}\"", query);
+                        } else {
+                            println!("Results:\n");
+                            for (i, result) in results.iter().enumerate() {
+                                // Truncate summary
+                                let summary_short = if result.summary.chars().count() > 80 {
+                                    let truncated: String =
+                                        result.summary.chars().take(77).collect();
+                                    format!("{}...", truncated)
+                                } else {
+                                    result.summary.clone()
+                                };
+
+                                println!(
+                                    "{}. [{}] {} (score: {:.2})",
+                                    i.saturating_add(1),
+                                    result.category,
+                                    result.title,
+                                    result.score
+                                );
+                                println!("   Path: {}", result.path);
+                                println!("   {}\n", summary_short);
+                            }
+
+                            println!("{}", "=".repeat(70));
+                            println!(
+                                "Showing {} of {} results",
+                                results.len().min(limit),
+                                results.len()
+                            );
+                            println!("{}\n", "=".repeat(70));
+                        }
+
+                        return Ok(());
+                    }
+                    Err(_) => {
+                        // Fall through to JSON-based search
+                        println!("Tantivy search failed, falling back to INDEX.json\n");
+                    }
+                }
+            }
+            Err(_) => {
+                // Fall through to JSON-based search
+                println!("Tantivy index not found, using INDEX.json\n");
+            }
+        }
+    }
+
+    // Fallback: Use INDEX.json + manual BM25 scoring
+    use serde_json::Value;
+
     let index_content = std::fs::read_to_string(&index_path)?;
     let index: Value = serde_json::from_str(&index_content)?;
 
-    // Extract documents and chunks for searching
-    let documents = index["documents"].as_array()
+    // Extract documents
+    let documents = index["documents"]
+        .as_array()
         .ok_or_else(|| anyhow::anyhow!("Invalid INDEX.json: missing documents array"))?;
 
-    let chunks = index["chunks"].as_array()
+    let _chunks = index["chunks"]
+        .as_array()
         .ok_or_else(|| anyhow::anyhow!("Invalid INDEX.json: missing chunks array"))?;
 
-    println!("\n{}", "=".repeat(70));
-    println!("DOC_TRANSFORMER SEARCH - BM25");
-    println!("{}\n", "=".repeat(70));
-    println!("Query: \"{}\"", query);
-    println!("Searching {} documents, {} chunks...\n", documents.len(), chunks.len());
+    println!("Searching {} documents\n", documents.len());
 
     // Calculate average document length for BM25
-    let total_words: usize = documents.iter()
+    let total_words: usize = documents
+        .iter()
         .filter_map(|d| d["word_count"].as_u64())
-        .map(|c| c as usize)
+        .filter_map(|c| usize::try_from(c).ok())
         .sum();
-    let avg_doc_length = if !documents.is_empty() {
+    let avg_doc_length = if !documents.is_empty() && total_words > 0 {
         total_words as f32 / documents.len() as f32
     } else {
         100.0
     };
 
     // Score each document
-    let mut results: Vec<(f32, &Value)> = documents.iter()
+    let mut results: Vec<(f32, &Value)> = documents
+        .iter()
         .map(|doc| {
             let title = doc["title"].as_str().unwrap_or("");
             let summary = doc["summary"].as_str().unwrap_or("");
@@ -501,24 +720,178 @@ fn run_search(query: &str, index_dir: &Path, limit: usize) -> Result<()> {
 
             // Truncate summary
             let summary_short = if summary.chars().count() > 80 {
-                let truncated: String = summary
-                    .chars()
-                    .take(77)
-                    .collect();
+                let truncated: String = summary.chars().take(77).collect();
                 format!("{}...", truncated)
             } else {
                 summary.to_string()
             };
 
-            println!("{}. [{}] {} (score: {:.2})", i.saturating_add(1), category, title, score);
+            println!(
+                "{}. [{}] {} (score: {:.2})",
+                i.saturating_add(1),
+                category,
+                title,
+                score
+            );
             println!("   Path: {}", path);
             println!("   {}\n", summary_short);
         }
 
         println!("{}", "=".repeat(70));
-        println!("Showing {} of {} results", results.len().min(limit), results.len());
+        println!(
+            "Showing {} of {} results",
+            results.len().min(limit),
+            results.len()
+        );
         println!("{}\n", "=".repeat(70));
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_query_none() {
+        // None query should always pass (no filtering)
+        let query: Option<&str> = None;
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_empty_string() {
+        // Empty query should pass (no filtering, returns all)
+        let query: Option<&str> = Some("");
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_single_char() {
+        // Single character should pass
+        let query: Option<&str> = Some("a");
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_short() {
+        // Short query well below limit
+        let query: Option<&str> = Some("test query");
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_at_limit() {
+        // Query exactly at 1000 byte limit should pass
+        let long_query = "a".repeat(1000);
+        let query: Option<&str> = Some(&long_query);
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_exceeds_limit() {
+        // Query exceeding 1000 bytes should fail
+        let too_long_query = "a".repeat(1001);
+        let query: Option<&str> = Some(&too_long_query);
+        let result = validate_query_length(&query);
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("1001"));
+        assert!(err_msg.contains("1000"));
+        assert!(err_msg.contains("too long"));
+    }
+
+    #[test]
+    fn test_validate_query_unicode_within_limit() {
+        // UTF-8 characters: "café" = 5 bytes, should pass
+        let query: Option<&str> = Some("café");
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_unicode_exceeds_limit() {
+        // Euro sign "€" = 3 bytes each, 334 repetitions = 1002 bytes, should fail
+        let euro_query = "€".repeat(334);
+        assert_eq!(euro_query.len(), 1002); // Verify it's actually 1002 bytes
+
+        let query: Option<&str> = Some(&euro_query);
+        let result = validate_query_length(&query);
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("1002"));
+    }
+
+    #[test]
+    fn test_validate_query_unicode_at_byte_limit() {
+        // Create a query that's exactly 1000 bytes with Unicode
+        // "€" is 3 bytes, so 333 reps = 999 bytes + 1 ASCII char = 1000 bytes
+        let euro_query = format!("{}a", "€".repeat(333));
+        assert_eq!(euro_query.len(), 1000);
+
+        let query: Option<&str> = Some(&euro_query);
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_whitespace_only() {
+        // Whitespace-only query should pass (treated as empty after trim)
+        let query: Option<&str> = Some("   ");
+        // Note: This passes validation, but may be filtered later by BM25
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_special_characters() {
+        // Query with special characters should pass (no regex issues at validation stage)
+        let query: Option<&str> = Some("rust-lang & systems *2025*");
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_newlines() {
+        // Query with embedded newlines (from CLI) should validate on byte count
+        let query: Option<&str> = Some("line1\nline2\nline3");
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_near_limit_minus_one() {
+        // Query at 999 bytes (one below limit) should pass
+        let query_999 = "a".repeat(999);
+        let query: Option<&str> = Some(&query_999);
+        assert!(validate_query_length(&query).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_far_exceeds_limit() {
+        // Query way over limit should fail with appropriate message
+        let way_too_long = "a".repeat(10000);
+        let query: Option<&str> = Some(&way_too_long);
+        let result = validate_query_length(&query);
+
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("10000"));
+    }
+
+    #[test]
+    fn test_validate_query_mixed_unicode_ascii() {
+        // Mix of ASCII and Unicode, totaling within limit
+        let mixed = "Hello 世界 Rust €uro دعم தமிழ்";
+        let query: Option<&str> = Some(mixed);
+        // Mixed UTF-8 should pass if under 1000 bytes
+        if mixed.len() <= 1000 {
+            assert!(validate_query_length(&query).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_validate_query_binary_looking_bytes() {
+        // Some control characters and high bytes (valid UTF-8)
+        let query: Option<&str> = Some("café\t\n\r ");
+        assert!(validate_query_length(&query).is_ok());
+    }
 }
