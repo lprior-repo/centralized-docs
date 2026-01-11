@@ -1,0 +1,9 @@
+# Aider cannot access these files
+.git/
+.git/**
+scripts/tcr.sh
+scripts/revert-to-safe.sh
+scripts/verify-jail.sh
+scripts/setup-tcr-jail.sh
+.claude/
+.opencode/

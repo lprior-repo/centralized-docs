@@ -1,7 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,63 +67,4 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     };
 
     Ok((files, manifest))
-}
-
-/// Filter files by BM25 relevance to query
-/// Returns (kept_files, filtered_count)
-pub fn filter_files_by_relevance(
-    files: Vec<DiscoveryFile>,
-    query: &str,
-    threshold: f32,
-    source_dir: &Path,
-) -> Result<(Vec<DiscoveryFile>, usize)> {
-    if files.is_empty() {
-        return Ok((files, 0));
-    }
-
-    // Guard: if threshold is 0.0, keep all files (no filtering)
-    if threshold <= 0.0 {
-        return Ok((files, 0));
-    }
-
-    // Read file contents and calculate word counts
-    let mut files_with_content: Vec<(DiscoveryFile, String, usize)> = Vec::new();
-
-    for file in files {
-        let full_path = source_dir.join(&file.source_path);
-        match fs::read_to_string(&full_path) {
-            Ok(content) => {
-                let word_count = content.split_whitespace().count();
-                files_with_content.push((file, content, word_count));
-            }
-            Err(_) => {
-                // Skip files that can't be read
-                continue;
-            }
-        }
-    }
-
-    if files_with_content.is_empty() {
-        return Ok((Vec::new(), 0));
-    }
-
-    // Calculate average document length
-    let total_words: usize = files_with_content.iter().map(|(_, _, wc)| wc).sum();
-    let avg_doc_length = (total_words as f32 / files_with_content.len() as f32).max(1.0);
-
-    // Import bm25_score from search module
-    use crate::search::bm25_score;
-
-    // Filter files by BM25 score
-    let (kept, filtered): (Vec<_>, Vec<_>) = files_with_content
-        .into_iter()
-        .partition(|(_, content, _)| {
-            let score = bm25_score(query, content, avg_doc_length, 1.5, 0.75);
-            score >= threshold
-        });
-
-    let kept_files: Vec<DiscoveryFile> = kept.into_iter().map(|(file, _, _)| file).collect();
-    let filtered_count = filtered.len();
-
-    Ok((kept_files, filtered_count))
 }

@@ -1,0 +1,1106 @@
+{
+  "chunks": [
+    {
+      "chunk_id": "docs-introduction#0",
+      "doc_id": "docs-introduction",
+      "doc_title": "Docs Introduction",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-introduction-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Introduction | CUE. **Source:** https://cuelang",
+      "token_count": 3815
+    },
+    {
+      "chunk_id": "docs-introduction-installation#0",
+      "doc_id": "docs-introduction-installation",
+      "doc_title": "Docs Introduction Installation",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-introduction-installation-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Installation | CUE. **Source:** https://cuelang",
+      "token_count": 2088
+    },
+    {
+      "chunk_id": "docs-tour#0",
+      "doc_id": "docs-tour",
+      "doc_title": "Docs Tour",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-tour-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Tour | CUE. **Source:** https://cuelang",
+      "token_count": 1334
+    },
+    {
+      "chunk_id": "docs-tour-basics#0",
+      "doc_id": "docs-tour-basics",
+      "doc_title": "Docs Tour Basics",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-tour-basics-0.md",
+      "previous_chunk_id": null,
+      "summary": "# JSON Superset | CUE. **Source:** https://cuelang",
+      "token_count": 1900
+    },
+    {
+      "chunk_id": "docs-tour-types#0",
+      "doc_id": "docs-tour-types",
+      "doc_title": "Docs Tour Types",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-tour-types-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Type Hierarchy | CUE. **Source:** https://cuelang",
+      "token_count": 2098
+    },
+    {
+      "chunk_id": "docs-tour-references#0",
+      "doc_id": "docs-tour-references",
+      "doc_title": "Docs Tour References",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-tour-references-0.md",
+      "previous_chunk_id": null,
+      "summary": "# References and Scopes | CUE. **Source:** https://cuelang",
+      "token_count": 1398
+    },
+    {
+      "chunk_id": "docs-tour-expressions#0",
+      "doc_id": "docs-tour-expressions",
+      "doc_title": "Docs Tour Expressions",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-tour-expressions-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Operators | CUE. **Source:** https://cuelang",
+      "token_count": 1750
+    },
+    {
+      "chunk_id": "docs-tour-packages#0",
+      "doc_id": "docs-tour-packages",
+      "doc_title": "Docs Tour Packages",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-tour-packages-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Packages | CUE. **Source:** https://cuelang",
+      "token_count": 1464
+    },
+    {
+      "chunk_id": "docs-tutorial#0",
+      "doc_id": "docs-tutorial",
+      "doc_title": "Docs Tutorial",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-tutorial-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Tutorials | CUE. **Source:** https://cuelang",
+      "token_count": 1217
+    },
+    {
+      "chunk_id": "docs-tutorial-new-to-cue#0",
+      "doc_id": "docs-tutorial-new-to-cue",
+      "doc_title": "Docs Tutorial New To Cue",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-tutorial-new-to-cue-0.md",
+      "previous_chunk_id": null,
+      "summary": "# New to CUE? | CUE. **Source:** https://cuelang",
+      "token_count": 937
+    },
+    {
+      "chunk_id": "docs-tutorial-get-started-cue-java#0",
+      "doc_id": "docs-tutorial-get-started-cue-java",
+      "doc_title": "Docs Tutorial Get Started Cue Java",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-tutorial-get-started-cue-java-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Getting started using CUE in Java | CUE. **Source:** https://cuelang",
+      "token_count": 2869
+    },
+    {
+      "chunk_id": "docs-tutorial-publishing-modules-to-the-central-registry#0",
+      "doc_id": "docs-tutorial-publishing-modules-to-the-central-registry",
+      "doc_title": "Docs Tutorial Publishing Modules To The Central Registry",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-tutorial-publishing-modules-to-the-central-registry-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Publishing modules to the Central Registry | CUE. **Source:** https://cuelang",
+      "token_count": 2978
+    },
+    {
+      "chunk_id": "docs-howto#0",
+      "doc_id": "docs-howto",
+      "doc_title": "Docs Howto",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-howto-0.md",
+      "previous_chunk_id": null,
+      "summary": "# How-to Guides | CUE. **Source:** https://cuelang",
+      "token_count": 1427
+    },
+    {
+      "chunk_id": "docs-howto-about-commented-cue-guides#0",
+      "doc_id": "docs-howto-about-commented-cue-guides",
+      "doc_title": "Docs Howto About Commented Cue Guides",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-howto-about-commented-cue-guides-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Commented CUE Guides | CUE. **Source:** https://cuelang",
+      "token_count": 1650
+    },
+    {
+      "chunk_id": "docs-howto-search-this-site#0",
+      "doc_id": "docs-howto-search-this-site",
+      "doc_title": "Docs Howto Search This Site",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-howto-search-this-site-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Searching for content on cuelang. **Source:** https://cuelang",
+      "token_count": 1833
+    },
+    {
+      "chunk_id": "docs-howto-popular-guides#0",
+      "doc_id": "docs-howto-popular-guides",
+      "doc_title": "Docs Howto Popular Guides",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-howto-popular-guides-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Popular guides | CUE. **Source:** https://cuelang",
+      "token_count": 1114
+    },
+    {
+      "chunk_id": "docs-concept#0",
+      "doc_id": "docs-concept",
+      "doc_title": "Docs Concept",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Concept Guides | CUE. **Source:** https://cuelang",
+      "token_count": 4899
+    },
+    {
+      "chunk_id": "docs-concept-popular-guides#0",
+      "doc_id": "docs-concept-popular-guides",
+      "doc_title": "Docs Concept Popular Guides",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-popular-guides-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Popular guides | CUE. **Source:** https://cuelang",
+      "token_count": 1163
+    },
+    {
+      "chunk_id": "docs-concept-the-logic-of-cue#0",
+      "doc_id": "docs-concept-the-logic-of-cue",
+      "doc_title": "Docs Concept The Logic Of Cue",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-the-logic-of-cue-0.md",
+      "previous_chunk_id": null,
+      "summary": "# The Logic of CUE | CUE. **Source:** https://cuelang",
+      "token_count": 6325
+    },
+    {
+      "chunk_id": "docs-concept-modules#0",
+      "doc_id": "docs-concept-modules",
+      "doc_title": "Docs Concept Modules",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-modules-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Modules | CUE. **Source:** https://cuelang",
+      "token_count": 3943
+    },
+    {
+      "chunk_id": "docs-concept-faq#0",
+      "doc_id": "docs-concept-faq",
+      "doc_title": "Docs Concept Faq",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-faq-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Frequently Asked Questions | CUE. **Source:** https://cuelang",
+      "token_count": 1143
+    },
+    {
+      "chunk_id": "docs-concept-how-cue-works-with-json#0",
+      "doc_id": "docs-concept-how-cue-works-with-json",
+      "doc_title": "Docs Concept How Cue Works With Json",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-how-cue-works-with-json-0.md",
+      "previous_chunk_id": null,
+      "summary": "# How CUE works with JSON | CUE. **Source:** https://cuelang",
+      "token_count": 3775
+    },
+    {
+      "chunk_id": "docs-concept-how-cue-works-with-yaml#0",
+      "doc_id": "docs-concept-how-cue-works-with-yaml",
+      "doc_title": "Docs Concept How Cue Works With Yaml",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-how-cue-works-with-yaml-0.md",
+      "previous_chunk_id": null,
+      "summary": "# How CUE works with YAML | CUE. **Source:** https://cuelang",
+      "token_count": 3554
+    },
+    {
+      "chunk_id": "docs-concept-how-cue-works-with-go#0",
+      "doc_id": "docs-concept-how-cue-works-with-go",
+      "doc_title": "Docs Concept How Cue Works With Go",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-how-cue-works-with-go-0.md",
+      "previous_chunk_id": null,
+      "summary": "# How CUE works with Go | CUE. **Source:** https://cuelang",
+      "token_count": 3571
+    },
+    {
+      "chunk_id": "docs-concept-how-cue-works-with-toml#0",
+      "doc_id": "docs-concept-how-cue-works-with-toml",
+      "doc_title": "Docs Concept How Cue Works With Toml",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-how-cue-works-with-toml-0.md",
+      "previous_chunk_id": null,
+      "summary": "# How CUE works with TOML | CUE. **Source:** https://cuelang",
+      "token_count": 3424
+    },
+    {
+      "chunk_id": "docs-concept-how-cue-works-with-openapi#0",
+      "doc_id": "docs-concept-how-cue-works-with-openapi",
+      "doc_title": "Docs Concept How Cue Works With Openapi",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-how-cue-works-with-openapi-0.md",
+      "previous_chunk_id": null,
+      "summary": "# How CUE works with OpenAPI | CUE. **Source:** https://cuelang",
+      "token_count": 3487
+    },
+    {
+      "chunk_id": "docs-concept-how-cue-works-with-protocol-buffers#0",
+      "doc_id": "docs-concept-how-cue-works-with-protocol-buffers",
+      "doc_title": "Docs Concept How Cue Works With Protocol Buffers",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-how-cue-works-with-protocol-buffers-0.md",
+      "previous_chunk_id": null,
+      "summary": "# How CUE works with Protocol Buffers | CUE. **Source:** https://cuelang",
+      "token_count": 2722
+    },
+    {
+      "chunk_id": "docs-concept-how-cue-works-with-json-schema#0",
+      "doc_id": "docs-concept-how-cue-works-with-json-schema",
+      "doc_title": "Docs Concept How Cue Works With Json Schema",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-concept-how-cue-works-with-json-schema-0.md",
+      "previous_chunk_id": null,
+      "summary": "# How CUE works with JSON Schema | CUE. **Source:** https://cuelang",
+      "token_count": 3394
+    },
+    {
+      "chunk_id": "docs-reference#0",
+      "doc_id": "docs-reference",
+      "doc_title": "Docs Reference",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-reference-0.md",
+      "previous_chunk_id": null,
+      "summary": "# References | CUE. **Source:** https://cuelang",
+      "token_count": 1602
+    },
+    {
+      "chunk_id": "docs-reference-spec#0",
+      "doc_id": "docs-reference-spec",
+      "doc_title": "Docs Reference Spec",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-reference-spec-0.md",
+      "previous_chunk_id": null,
+      "summary": "# The CUE Language Specification | CUE. **Source:** https://cuelang",
+      "token_count": 21186
+    },
+    {
+      "chunk_id": "docs-reference-command#0",
+      "doc_id": "docs-reference-command",
+      "doc_title": "Docs Reference Command",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-reference-command-0.md",
+      "previous_chunk_id": null,
+      "summary": "# The cue command | CUE. **Source:** https://cuelang",
+      "token_count": 2968
+    },
+    {
+      "chunk_id": "docs-reference-modules#0",
+      "doc_id": "docs-reference-modules",
+      "doc_title": "Docs Reference Modules",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-reference-modules-0.md",
+      "previous_chunk_id": null,
+      "summary": "# CUE Modules | CUE. **Source:** https://cuelang",
+      "token_count": 8688
+    },
+    {
+      "chunk_id": "docs-reference-glossary#0",
+      "doc_id": "docs-reference-glossary",
+      "doc_title": "Docs Reference Glossary",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-reference-glossary-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Glossary of terms | CUE. **Source:** https://cuelang",
+      "token_count": 3334
+    },
+    {
+      "chunk_id": "docs-reference-code-of-conduct#0",
+      "doc_id": "docs-reference-code-of-conduct",
+      "doc_title": "Docs Reference Code Of Conduct",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-reference-code-of-conduct-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Code of Conduct | CUE. **Source:** https://cuelang",
+      "token_count": 3561
+    },
+    {
+      "chunk_id": "docs-integration#0",
+      "doc_id": "docs-integration",
+      "doc_title": "Docs Integration",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/docs-integration-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Integrations | CUE. **Source:** https://cuelang",
+      "token_count": 3419
+    },
+    {
+      "chunk_id": "community#0",
+      "doc_id": "community",
+      "doc_title": "Community",
+      "heading": null,
+      "next_chunk_id": null,
+      "path": "chunks/community-0.md",
+      "previous_chunk_id": null,
+      "summary": "# Community | CUE. **Source:** https://cuelang",
+      "token_count": 886
+    }
+  ],
+  "documents": [
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-introduction",
+      "path": "docs/ops-general-docs-introduction.md",
+      "summary": "**Source:** https://cuelang.org/docs/introduction/",
+      "tags": [
+        "introduction",
+        "ops"
+      ],
+      "title": "Docs Introduction",
+      "word_count": 1921
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-introduction-installation",
+      "path": "docs/ops-general-docs-introduction-installation.md",
+      "summary": "**Source:** https://cuelang.org/docs/introduction/installation/",
+      "tags": [
+        "installation",
+        "ops"
+      ],
+      "title": "Docs Introduction Installation",
+      "word_count": 714
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-tour",
+      "path": "docs/ops-general-docs-tour.md",
+      "summary": "**Source:** https://cuelang.org/docs/tour/",
+      "tags": [
+        "ops"
+      ],
+      "title": "Docs Tour",
+      "word_count": 347
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-tour-basics",
+      "path": "docs/ops-general-docs-tour-basics.md",
+      "summary": "**Source:** https://cuelang.org/docs/tour/basics/",
+      "tags": [
+        "ops",
+        "superset"
+      ],
+      "title": "Docs Tour Basics",
+      "word_count": 575
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-tour-types",
+      "path": "docs/ops-general-docs-tour-types.md",
+      "summary": "**Source:** https://cuelang.org/docs/tour/types/",
+      "tags": [
+        "hierarchy",
+        "ops"
+      ],
+      "title": "Docs Tour Types",
+      "word_count": 645
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-tour-references",
+      "path": "docs/ops-general-docs-tour-references.md",
+      "summary": "**Source:** https://cuelang.org/docs/tour/references/",
+      "tags": [
+        "ops",
+        "references",
+        "scopes"
+      ],
+      "title": "Docs Tour References",
+      "word_count": 425
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-tour-expressions",
+      "path": "docs/ops-general-docs-tour-expressions.md",
+      "summary": "**Source:** https://cuelang.org/docs/tour/expressions/",
+      "tags": [
+        "operators",
+        "ops"
+      ],
+      "title": "Docs Tour Expressions",
+      "word_count": 532
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-tour-packages",
+      "path": "docs/ops-general-docs-tour-packages.md",
+      "summary": "**Source:** https://cuelang.org/docs/tour/packages/",
+      "tags": [
+        "ops",
+        "packages"
+      ],
+      "title": "Docs Tour Packages",
+      "word_count": 436
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-tutorial",
+      "path": "docs/ops-general-docs-tutorial.md",
+      "summary": "**Source:** https://cuelang.org/docs/tutorial/",
+      "tags": [
+        "ops",
+        "tutorials"
+      ],
+      "title": "Docs Tutorial",
+      "word_count": 362
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-tutorial-new-to-cue",
+      "path": "docs/ops-general-docs-tutorial-new-to-cue.md",
+      "summary": "**Source:** https://cuelang.org/docs/tutorial/new-to-cue/",
+      "tags": [
+        "ops"
+      ],
+      "title": "Docs Tutorial New To Cue",
+      "word_count": 277
+    },
+    {
+      "category": "tutorial",
+      "chunk_ids": [],
+      "id": "tutorial/general/docs-tutorial-get-started-cue-java",
+      "path": "docs/tutorial-general-docs-tutorial-get-started-cue-java.md",
+      "summary": "**Source:** https://cuelang.org/docs/tutorial/get-started-cue-java/",
+      "tags": [
+        "getting",
+        "started",
+        "tutorial",
+        "using"
+      ],
+      "title": "Docs Tutorial Get Started Cue Java",
+      "word_count": 1199
+    },
+    {
+      "category": "tutorial",
+      "chunk_ids": [],
+      "id": "tutorial/general/docs-tutorial-publishing-modules-to-the-",
+      "path": "docs/tutorial-general-docs-tutorial-publishing-modules-to-the-.md",
+      "summary": "**Source:** https://cuelang.org/docs/tutorial/publishing-modules-to-the-central-registry/",
+      "tags": [
+        "\"cueckoo\"",
+        "*your*",
+        "central",
+        "github",
+        "lower-cased."
+      ],
+      "title": "Docs Tutorial Publishing Modules To The Central Registry",
+      "word_count": 1388
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-howto",
+      "path": "docs/ops-general-docs-howto.md",
+      "summary": "**Source:** https://cuelang.org/docs/howto/",
+      "tags": [
+        "guides",
+        "how-to",
+        "ops"
+      ],
+      "title": "Docs Howto",
+      "word_count": 393
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-howto-about-commented-cue-guides",
+      "path": "docs/ops-general-docs-howto-about-commented-cue-guides.md",
+      "summary": "**Source:** https://cuelang.org/docs/howto/about-commented-cue-guides/",
+      "tags": [
+        "actually",
+        "commented",
+        "guides",
+        "integer",
+        "ops"
+      ],
+      "title": "Docs Howto About Commented Cue Guides",
+      "word_count": 563
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-howto-search-this-site",
+      "path": "docs/ops-general-docs-howto-search-this-site.md",
+      "summary": "**Source:** https://cuelang.org/docs/howto/search-this-site/",
+      "tags": [
+        "content",
+        "cuelang.org",
+        "ops",
+        "searching"
+      ],
+      "title": "Docs Howto Search This Site",
+      "word_count": 569
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-howto-popular-guides",
+      "path": "docs/ops-general-docs-howto-popular-guides.md",
+      "summary": "**Source:** https://cuelang.org/docs/howto/popular-guides/",
+      "tags": [
+        "guides",
+        "ops",
+        "popular"
+      ],
+      "title": "Docs Howto Popular Guides",
+      "word_count": 302
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept",
+      "path": "docs/ops-general-docs-concept.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/",
+      "tags": [
+        "concept",
+        "guides",
+        "ops"
+      ],
+      "title": "Docs Concept",
+      "word_count": 1843
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept-popular-guides",
+      "path": "docs/ops-general-docs-concept-popular-guides.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/popular-guides/",
+      "tags": [
+        "guides",
+        "ops",
+        "popular"
+      ],
+      "title": "Docs Concept Popular Guides",
+      "word_count": 310
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept-the-logic-of-cue",
+      "path": "docs/ops-general-docs-concept-the-logic-of-cue.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/the-logic-of-cue/",
+      "tags": [
+        "logic",
+        "ops"
+      ],
+      "title": "Docs Concept The Logic Of Cue",
+      "word_count": 3861
+    },
+    {
+      "category": "tutorial",
+      "chunk_ids": [],
+      "id": "tutorial/general/docs-concept-modules",
+      "path": "docs/tutorial-general-docs-concept-modules.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/modules/",
+      "tags": [
+        "modules",
+        "tutorial"
+      ],
+      "title": "Docs Concept Modules",
+      "word_count": 1456
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept-faq",
+      "path": "docs/ops-general-docs-concept-faq.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/faq/",
+      "tags": [
+        "asked",
+        "frequently",
+        "ops",
+        "questions"
+      ],
+      "title": "Docs Concept Faq",
+      "word_count": 335
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept-how-cue-works-with-json",
+      "path": "docs/ops-general-docs-concept-how-cue-works-with-json.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/how-cue-works-with-json/",
+      "tags": [
+        "ops",
+        "works"
+      ],
+      "title": "Docs Concept How Cue Works With Json",
+      "word_count": 1559
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept-how-cue-works-with-yaml",
+      "path": "docs/ops-general-docs-concept-how-cue-works-with-yaml.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/how-cue-works-with-yaml/",
+      "tags": [
+        "ops",
+        "works"
+      ],
+      "title": "Docs Concept How Cue Works With Yaml",
+      "word_count": 1474
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept-how-cue-works-with-go",
+      "path": "docs/ops-general-docs-concept-how-cue-works-with-go.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/how-cue-works-with-go/",
+      "tags": [
+        "ops",
+        "works"
+      ],
+      "title": "Docs Concept How Cue Works With Go",
+      "word_count": 1547
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept-how-cue-works-with-toml",
+      "path": "docs/ops-general-docs-concept-how-cue-works-with-toml.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/how-cue-works-with-toml/",
+      "tags": [
+        "ops",
+        "works"
+      ],
+      "title": "Docs Concept How Cue Works With Toml",
+      "word_count": 1295
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept-how-cue-works-with-openapi",
+      "path": "docs/ops-general-docs-concept-how-cue-works-with-openapi.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/how-cue-works-with-openapi/",
+      "tags": [
+        "openapi",
+        "ops",
+        "works"
+      ],
+      "title": "Docs Concept How Cue Works With Openapi",
+      "word_count": 1415
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept-how-cue-works-with-protocol",
+      "path": "docs/ops-general-docs-concept-how-cue-works-with-protocol.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/how-cue-works-with-protocol-buffers/",
+      "tags": [
+        "buffers",
+        "ops",
+        "protocol",
+        "works"
+      ],
+      "title": "Docs Concept How Cue Works With Protocol Buffers",
+      "word_count": 1055
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-concept-how-cue-works-with-json-sch",
+      "path": "docs/ops-general-docs-concept-how-cue-works-with-json-sch.md",
+      "summary": "**Source:** https://cuelang.org/docs/concept/how-cue-works-with-json-schema/",
+      "tags": [
+        "ops",
+        "schema",
+        "works"
+      ],
+      "title": "Docs Concept How Cue Works With Json Schema",
+      "word_count": 1394
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-reference",
+      "path": "docs/ops-general-docs-reference.md",
+      "summary": "**Source:** https://cuelang.org/docs/reference/",
+      "tags": [
+        "ops",
+        "references"
+      ],
+      "title": "Docs Reference",
+      "word_count": 434
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-reference-spec",
+      "path": "docs/ops-general-docs-reference-spec.md",
+      "summary": "**Source:** https://cuelang.org/docs/reference/spec/",
+      "tags": [
+        "language",
+        "ops",
+        "specification"
+      ],
+      "title": "Docs Reference Spec",
+      "word_count": 13278
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-reference-command",
+      "path": "docs/ops-general-docs-reference-command.md",
+      "summary": "**Source:** https://cuelang.org/docs/reference/command/",
+      "tags": [
+        "command",
+        "ops"
+      ],
+      "title": "Docs Reference Command",
+      "word_count": 844
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-reference-modules",
+      "path": "docs/ops-general-docs-reference-modules.md",
+      "summary": "**Source:** https://cuelang.org/docs/reference/modules/",
+      "tags": [
+        "modules",
+        "ops"
+      ],
+      "title": "Docs Reference Modules",
+      "word_count": 4425
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-reference-glossary",
+      "path": "docs/ops-general-docs-reference-glossary.md",
+      "summary": "**Source:** https://cuelang.org/docs/reference/glossary/",
+      "tags": [
+        "glossary",
+        "ops",
+        "terms"
+      ],
+      "title": "Docs Reference Glossary",
+      "word_count": 1124
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-reference-code-of-conduct",
+      "path": "docs/ops-general-docs-reference-code-of-conduct.md",
+      "summary": "**Source:** https://cuelang.org/docs/reference/code-of-conduct/",
+      "tags": [
+        "conduct",
+        "ops"
+      ],
+      "title": "Docs Reference Code Of Conduct",
+      "word_count": 1374
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/docs-integration",
+      "path": "docs/ops-general-docs-integration.md",
+      "summary": "**Source:** https://cuelang.org/docs/integration/",
+      "tags": [
+        "integrations",
+        "ops"
+      ],
+      "title": "Docs Integration",
+      "word_count": 977
+    },
+    {
+      "category": "ops",
+      "chunk_ids": [],
+      "id": "ops/general/community",
+      "path": "docs/ops-general-community.md",
+      "summary": "**Source:** https://cuelang.org/community/",
+      "tags": [
+        "community",
+        "ops"
+      ],
+      "title": "Community",
+      "word_count": 295
+    }
+  ],
+  "generated": "2026-01-08T02:20:49.600825527+00:00",
+  "keywords": {
+    "\"cueckoo\"": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-"
+    ],
+    "*your*": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-"
+    ],
+    "actually": [
+      "ops/general/docs-howto-about-commented-cue-guides",
+      "ops/general/docs-howto-about-commented-cue-guides"
+    ],
+    "asked": [
+      "ops/general/docs-concept-faq"
+    ],
+    "buffers": [
+      "ops/general/docs-concept-how-cue-works-with-protocol"
+    ],
+    "central": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-"
+    ],
+    "code": [
+      "ops/general/docs-reference-code-of-conduct"
+    ],
+    "command": [
+      "ops/general/docs-reference-command"
+    ],
+    "commented": [
+      "ops/general/docs-howto-about-commented-cue-guides"
+    ],
+    "community": [
+      "ops/general/community"
+    ],
+    "concept": [
+      "ops/general/docs-concept"
+    ],
+    "conduct": [
+      "ops/general/docs-reference-code-of-conduct"
+    ],
+    "content": [
+      "ops/general/docs-howto-search-this-site"
+    ],
+    "cue?": [
+      "ops/general/docs-tutorial-new-to-cue"
+    ],
+    "cuelang.org": [
+      "ops/general/docs-howto-search-this-site"
+    ],
+    "frequently": [
+      "ops/general/docs-concept-faq"
+    ],
+    "getting": [
+      "tutorial/general/docs-tutorial-get-started-cue-java"
+    ],
+    "github": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-"
+    ],
+    "glossary": [
+      "ops/general/docs-reference-glossary"
+    ],
+    "guides": [
+      "ops/general/docs-howto",
+      "ops/general/docs-howto-about-commented-cue-guides",
+      "ops/general/docs-howto-popular-guides",
+      "ops/general/docs-concept",
+      "ops/general/docs-concept-popular-guides"
+    ],
+    "hierarchy": [
+      "ops/general/docs-tour-types"
+    ],
+    "how-to": [
+      "ops/general/docs-howto"
+    ],
+    "installation": [
+      "ops/general/docs-introduction-installation"
+    ],
+    "integer": [
+      "ops/general/docs-howto-about-commented-cue-guides"
+    ],
+    "integrations": [
+      "ops/general/docs-integration"
+    ],
+    "introduction": [
+      "ops/general/docs-introduction"
+    ],
+    "java": [
+      "tutorial/general/docs-tutorial-get-started-cue-java"
+    ],
+    "json": [
+      "ops/general/docs-tour-basics",
+      "ops/general/docs-concept-how-cue-works-with-json",
+      "ops/general/docs-concept-how-cue-works-with-json-sch"
+    ],
+    "language": [
+      "ops/general/docs-reference-spec"
+    ],
+    "logic": [
+      "ops/general/docs-concept-the-logic-of-cue"
+    ],
+    "lower-cased.": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-"
+    ],
+    "modules": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-",
+      "tutorial/general/docs-concept-modules",
+      "ops/general/docs-reference-modules"
+    ],
+    "openapi": [
+      "ops/general/docs-concept-how-cue-works-with-openapi"
+    ],
+    "operators": [
+      "ops/general/docs-tour-expressions"
+    ],
+    "packages": [
+      "ops/general/docs-tour-packages"
+    ],
+    "popular": [
+      "ops/general/docs-howto-popular-guides",
+      "ops/general/docs-concept-popular-guides"
+    ],
+    "protocol": [
+      "ops/general/docs-concept-how-cue-works-with-protocol"
+    ],
+    "publishing": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-"
+    ],
+    "questions": [
+      "ops/general/docs-concept-faq"
+    ],
+    "references": [
+      "ops/general/docs-tour-references",
+      "ops/general/docs-reference"
+    ],
+    "registry": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-"
+    ],
+    "replace": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-"
+    ],
+    "schema": [
+      "ops/general/docs-concept-how-cue-works-with-json-sch"
+    ],
+    "scopes": [
+      "ops/general/docs-tour-references"
+    ],
+    "searching": [
+      "ops/general/docs-howto-search-this-site"
+    ],
+    "specification": [
+      "ops/general/docs-reference-spec"
+    ],
+    "started": [
+      "tutorial/general/docs-tutorial-get-started-cue-java"
+    ],
+    "string": [
+      "ops/general/docs-howto-about-commented-cue-guides"
+    ],
+    "superset": [
+      "ops/general/docs-tour-basics"
+    ],
+    "terms": [
+      "ops/general/docs-reference-glossary"
+    ],
+    "toml": [
+      "ops/general/docs-concept-how-cue-works-with-toml"
+    ],
+    "tour": [
+      "ops/general/docs-tour"
+    ],
+    "tutorials": [
+      "ops/general/docs-tutorial"
+    ],
+    "type": [
+      "ops/general/docs-tour-types"
+    ],
+    "username,": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-"
+    ],
+    "using": [
+      "tutorial/general/docs-tutorial-get-started-cue-java"
+    ],
+    "with": [
+      "tutorial/general/docs-tutorial-publishing-modules-to-the-",
+      "ops/general/docs-concept-how-cue-works-with-json",
+      "ops/general/docs-concept-how-cue-works-with-yaml",
+      "ops/general/docs-concept-how-cue-works-with-go",
+      "ops/general/docs-concept-how-cue-works-with-toml",
+      "ops/general/docs-concept-how-cue-works-with-openapi",
+      "ops/general/docs-concept-how-cue-works-with-protocol",
+      "ops/general/docs-concept-how-cue-works-with-json-sch"
+    ],
+    "works": [
+      "ops/general/docs-concept-how-cue-works-with-json",
+      "ops/general/docs-concept-how-cue-works-with-yaml",
+      "ops/general/docs-concept-how-cue-works-with-go",
+      "ops/general/docs-concept-how-cue-works-with-toml",
+      "ops/general/docs-concept-how-cue-works-with-openapi",
+      "ops/general/docs-concept-how-cue-works-with-protocol",
+      "ops/general/docs-concept-how-cue-works-with-json-sch"
+    ],
+    "yaml": [
+      "ops/general/docs-concept-how-cue-works-with-yaml"
+    ]
+  },
+  "navigation": {
+    "avg_tokens_per_chunk": 170,
+    "strategy": "50-100 token context prefix + H2 boundaries",
+    "type": "contextual_retrieval"
+  },
+  "stats": {
+    "avg_chunk_size_tokens": 3247,
+    "chunk_count": 36,
+    "doc_count": 36
+  },
+  "version": "4.2"
+}

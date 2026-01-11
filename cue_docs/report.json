@@ -1,0 +1,416 @@
+{
+  "scrape_time": "2026-01-07T14:18:25.970Z",
+  "total_urls": 37,
+  "successful": [
+    "https://cuelang.org/docs/introduction/",
+    "https://cuelang.org/docs/introduction/installation/",
+    "https://cuelang.org/docs/tour/",
+    "https://cuelang.org/docs/tour/basics/",
+    "https://cuelang.org/docs/tour/types/",
+    "https://cuelang.org/docs/tour/references/",
+    "https://cuelang.org/docs/tour/expressions/",
+    "https://cuelang.org/docs/tour/packages/",
+    "https://cuelang.org/docs/tutorial/",
+    "https://cuelang.org/docs/tutorial/new-to-cue/",
+    "https://cuelang.org/docs/tutorial/get-started-cue-java/",
+    "https://cuelang.org/docs/tutorial/publishing-modules-to-the-central-registry/",
+    "https://cuelang.org/docs/howto/",
+    "https://cuelang.org/docs/howto/about-commented-cue-guides/",
+    "https://cuelang.org/docs/howto/search-this-site/",
+    "https://cuelang.org/docs/howto/popular-guides/",
+    "https://cuelang.org/docs/concept/",
+    "https://cuelang.org/docs/concept/popular-guides/",
+    "https://cuelang.org/docs/concept/the-logic-of-cue/",
+    "https://cuelang.org/docs/concept/modules/",
+    "https://cuelang.org/docs/concept/faq/",
+    "https://cuelang.org/docs/concept/how-cue-works-with-json/",
+    "https://cuelang.org/docs/concept/how-cue-works-with-yaml/",
+    "https://cuelang.org/docs/concept/how-cue-works-with-go/",
+    "https://cuelang.org/docs/concept/how-cue-works-with-toml/",
+    "https://cuelang.org/docs/concept/how-cue-works-with-openapi/",
+    "https://cuelang.org/docs/concept/how-cue-works-with-protocol-buffers/",
+    "https://cuelang.org/docs/concept/how-cue-works-with-json-schema/",
+    "https://cuelang.org/docs/reference/",
+    "https://cuelang.org/docs/reference/spec/",
+    "https://cuelang.org/docs/reference/command/",
+    "https://cuelang.org/docs/reference/modules/",
+    "https://cuelang.org/docs/reference/glossary/",
+    "https://cuelang.org/docs/reference/code-of-conduct/",
+    "https://cuelang.org/docs/integration/",
+    "https://cuelang.org/",
+    "https://cuelang.org/community/"
+  ],
+  "failed": [],
+  "validation_results": {
+    "https://cuelang.org/docs/introduction/": {
+      "url": "https://cuelang.org/docs/introduction/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/introduction/installation/": {
+      "url": "https://cuelang.org/docs/introduction/installation/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/tour/": {
+      "url": "https://cuelang.org/docs/tour/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/tour/basics/": {
+      "url": "https://cuelang.org/docs/tour/basics/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/tour/types/": {
+      "url": "https://cuelang.org/docs/tour/types/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/tour/references/": {
+      "url": "https://cuelang.org/docs/tour/references/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/tour/expressions/": {
+      "url": "https://cuelang.org/docs/tour/expressions/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/tour/packages/": {
+      "url": "https://cuelang.org/docs/tour/packages/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/tutorial/": {
+      "url": "https://cuelang.org/docs/tutorial/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/tutorial/new-to-cue/": {
+      "url": "https://cuelang.org/docs/tutorial/new-to-cue/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/tutorial/get-started-cue-java/": {
+      "url": "https://cuelang.org/docs/tutorial/get-started-cue-java/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/tutorial/publishing-modules-to-the-central-registry/": {
+      "url": "https://cuelang.org/docs/tutorial/publishing-modules-to-the-central-registry/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/howto/": {
+      "url": "https://cuelang.org/docs/howto/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/howto/about-commented-cue-guides/": {
+      "url": "https://cuelang.org/docs/howto/about-commented-cue-guides/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/howto/search-this-site/": {
+      "url": "https://cuelang.org/docs/howto/search-this-site/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/howto/popular-guides/": {
+      "url": "https://cuelang.org/docs/howto/popular-guides/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/": {
+      "url": "https://cuelang.org/docs/concept/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/popular-guides/": {
+      "url": "https://cuelang.org/docs/concept/popular-guides/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/the-logic-of-cue/": {
+      "url": "https://cuelang.org/docs/concept/the-logic-of-cue/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/modules/": {
+      "url": "https://cuelang.org/docs/concept/modules/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/faq/": {
+      "url": "https://cuelang.org/docs/concept/faq/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/how-cue-works-with-json/": {
+      "url": "https://cuelang.org/docs/concept/how-cue-works-with-json/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/how-cue-works-with-yaml/": {
+      "url": "https://cuelang.org/docs/concept/how-cue-works-with-yaml/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/how-cue-works-with-go/": {
+      "url": "https://cuelang.org/docs/concept/how-cue-works-with-go/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/how-cue-works-with-toml/": {
+      "url": "https://cuelang.org/docs/concept/how-cue-works-with-toml/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/how-cue-works-with-openapi/": {
+      "url": "https://cuelang.org/docs/concept/how-cue-works-with-openapi/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/how-cue-works-with-protocol-buffers/": {
+      "url": "https://cuelang.org/docs/concept/how-cue-works-with-protocol-buffers/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/concept/how-cue-works-with-json-schema/": {
+      "url": "https://cuelang.org/docs/concept/how-cue-works-with-json-schema/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/reference/": {
+      "url": "https://cuelang.org/docs/reference/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/reference/spec/": {
+      "url": "https://cuelang.org/docs/reference/spec/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/reference/command/": {
+      "url": "https://cuelang.org/docs/reference/command/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/reference/modules/": {
+      "url": "https://cuelang.org/docs/reference/modules/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/reference/glossary/": {
+      "url": "https://cuelang.org/docs/reference/glossary/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/reference/code-of-conduct/": {
+      "url": "https://cuelang.org/docs/reference/code-of-conduct/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/docs/integration/": {
+      "url": "https://cuelang.org/docs/integration/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/": {
+      "url": "https://cuelang.org/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    },
+    "https://cuelang.org/community/": {
+      "url": "https://cuelang.org/community/",
+      "checks": {
+        "not_empty": true,
+        "has_content": true,
+        "valid_markdown": true,
+        "substantive_content": true
+      },
+      "is_valid": true
+    }
+  }
+}

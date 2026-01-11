@@ -2,27 +2,35 @@
 id: tutorial/general/sample
 title: Sample
 category: tutorial
-tags: ["basic", "concepts", "getting", "installation", "started"]
+tags: ["getting", "installation", "started", "tutorial", "usage"]
 ---
 
-# Getting Started with Rust
+# Sample
 
-> **Context**: This is a guide to getting started with Rust programming language. Rust is a systems programming language that focuses on safety, speed, and concurren
+> **Context**: CUE is a data validation language.
 
+# Getting Started with CUE
 
-This is a guide to getting started with Rust programming language. Rust is a systems programming language that focuses on safety, speed, and concurrency.
+CUE is a data validation language.
 
 ## Installation
 
-To install Rust, visit the official Rust website and download the installer for your operating system.
+To install CUE, run the following command:
 
-## Basic Concepts
+1. Download from cuelang.org
+2. Extract the binary
+3. Add to PATH
 
-Rust has ownership, borrowing, and lifetimes as core concepts. These features ensure memory safety without garbage collection.
+## Usage
 
-## Writing Your First Program
+Run `cue --help` to see all available commands.
 
-Create a new file called main.rs and add the following code to print "Hello, World!"
+## See Also
+
+- [CUE Documentation](https://cuelang.org)
+
+
 ## See Also
 
 - [Documentation Index](./COMPASS.md)
+
