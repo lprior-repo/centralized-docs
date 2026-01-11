@@ -17,7 +17,6 @@ mod chunk;
 mod discover;
 mod filter;
 mod graph;
-mod highlight;
 mod index;
 mod llms;
 mod scrape;
@@ -76,10 +75,6 @@ enum Commands {
         /// Maximum number of results to return
         #[arg(short = 'n', long, default_value = "10")]
         limit: usize,
-
-        /// Disable colored output
-        #[arg(long)]
-        no_color: bool,
     },
 
     /// Scrape a documentation website to local markdown files
@@ -126,10 +121,6 @@ enum Commands {
         /// Project description for llms.txt
         #[arg(long, default_value = "AI-optimized documentation index")]
         project_desc: String,
-
-        /// Path to category rules config file
-        #[arg(long, value_name = "FILE")]
-        category_config: Option<PathBuf>,
     },
 
     /// Scrape and index in one step
@@ -165,9 +156,8 @@ async fn main() -> Result<()> {
             query,
             index_dir,
             limit,
-            no_color,
         }) => {
-            run_search(&query, &index_dir, limit, !no_color)
+            run_search(&query, &index_dir, limit)
         }
 
         Some(Commands::Scrape {
@@ -186,9 +176,8 @@ async fn main() -> Result<()> {
             llms_txt,
             project_name,
             project_desc,
-            category_config,
         }) => {
-            run_index(&source, &output, category_config.as_deref(), llms_txt, &project_name, &project_desc)
+            run_index(&source, &output, llms_txt, &project_name, &project_desc)
         }
 
         Some(Commands::Ingest {
@@ -280,7 +269,6 @@ async fn run_scrape(
 fn run_index(
     source: &Path,
     output: &Path,
-    category_config: Option<&Path>,
     generate_llms: bool,
     project_name: &str,
     project_desc: &str,
@@ -296,7 +284,7 @@ fn run_index(
 
     // STEP 2: ANALYZE
     println!("[STEP 2] ANALYZE");
-    let analyses = analyze::analyze_files(&files, source, category_config)?;
+    let analyses = analyze::analyze_files(&files, source)?;
     let categories = analyze::count_categories(&analyses);
     println!("  Processed {} files", analyses.len());
     println!(
@@ -444,33 +432,11 @@ async fn run_ingest(
 }
 
 /// Run the search command using BM25 ranking
-fn run_search(query: &str, index_dir: &Path, limit: usize, use_color: bool) -> Result<()> {
-    const MAX_QUERY_LENGTH: usize = 1000;
-    const MAX_QUERY_WORDS: usize = 100;
-
+fn run_search(query: &str, index_dir: &Path, limit: usize) -> Result<()> {
     // Validate query is not empty
     let query = query.trim();
     if query.is_empty() {
         anyhow::bail!("Query cannot be empty");
-    }
-
-    // Validate query length
-    if query.len() > MAX_QUERY_LENGTH {
-        anyhow::bail!(
-            "Query too long ({} chars, max {})",
-            query.len(),
-            MAX_QUERY_LENGTH
-        );
-    }
-
-    // Validate word count
-    let word_count = query.split_whitespace().count();
-    if word_count > MAX_QUERY_WORDS {
-        anyhow::bail!(
-            "Query has too many terms ({} words, max {})",
-            word_count,
-            MAX_QUERY_WORDS
-        );
     }
 
     use serde_json::Value;
