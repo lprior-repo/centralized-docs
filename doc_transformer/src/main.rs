@@ -494,6 +494,15 @@ fn run_index(
     let (files, _discover_manifest) = discover::discover_files(source)?;
     println!("  Found {} files\n", files.len());
 
+    // Validate non-empty: must have at least one file to index
+    if files.is_empty() {
+        eprintln!(
+            "Error: No markdown files found in {}. Please check the path or add .md files.",
+            source.display()
+        );
+        std::process::exit(1);
+    }
+
     // STEP 2: ANALYZE
     println!("[STEP 2] ANALYZE");
     let analyses = analyze::analyze_files(&files, source, category_config)?;
