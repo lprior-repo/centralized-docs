@@ -1,24 +1,15 @@
 use crate::analyze::Analysis;
 use anyhow::Result;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
-use std::sync::LazyLock;
 use tap::Pipe;
 
-// Lazy-initialized regex patterns for chunking
-//
-// SAFETY (BEAD-006): All regex patterns are hardcoded string literals verified to be valid.
-// The `.expect()` calls will never panic - this is guaranteed by:
-// 1. Patterns are compile-time constants (no user input)
-// 2. All patterns are tested in tests/bead_006_regex_initialization_tests.rs
-// 3. If a pattern were invalid, tests would fail immediately
-//
-// Using `.expect()` here is acceptable per BEAD-006 Option A: "Keep LazyLock + Add Compile-Time Test"
-static H2_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^## (.+)$").expect("valid H2 regex"));
+static H2_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^## (.+)$").expect("valid H2 regex"));
 
-static TABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\|.*\|").expect("valid table regex"));
+static TABLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\|.*\|").expect("valid table regex"));
 
 /// Chunk level for hierarchical retrieval
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

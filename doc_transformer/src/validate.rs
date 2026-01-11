@@ -1,25 +1,16 @@
 use anyhow::Result;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
-use std::sync::LazyLock;
 use tap::Pipe;
 
-// Lazy-initialized regex patterns for validation
-//
-// SAFETY (BEAD-006): All regex patterns are hardcoded string literals verified to be valid.
-// The `.expect()` calls will never panic - this is guaranteed by:
-// 1. Patterns are compile-time constants (no user input)
-// 2. All patterns are tested in tests/bead_006_regex_initialization_tests.rs
-// 3. If a pattern were invalid, tests would fail immediately
-//
-// Using `.expect()` here is acceptable per BEAD-006 Option A: "Keep LazyLock + Add Compile-Time Test"
-static H1_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?m)^# [^#]").expect("valid H1 regex"));
+static H1_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?m)^# [^#]").expect("valid H1 regex"));
 
-static TAGS_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"tags:\s*\[[^\]]{10,}\]").expect("valid tags regex"));
+static TAGS_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"tags:\s*\[[^\]]{10,}\]").expect("valid tags regex"));
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValidationResult {
