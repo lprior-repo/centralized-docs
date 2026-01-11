@@ -200,8 +200,11 @@ fn extract_first_paragraph(content: &str) -> String {
         })
         .trim()
         .pipe(|s| {
-            if s.len() > 200 {
-                s[..200].to_string()
+            let char_count = s.chars().count();
+            if char_count > 200 {
+                s.chars()
+                    .take(200)
+                    .collect()
             } else {
                 s.to_string()
             }

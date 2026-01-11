@@ -500,8 +500,12 @@ fn run_search(query: &str, index_dir: &Path, limit: usize) -> Result<()> {
             let summary = doc["summary"].as_str().unwrap_or("");
 
             // Truncate summary
-            let summary_short = if summary.len() > 80 {
-                format!("{}...", &summary[..80])
+            let summary_short = if summary.chars().count() > 80 {
+                let truncated: String = summary
+                    .chars()
+                    .take(77)
+                    .collect();
+                format!("{}...", truncated)
             } else {
                 summary.to_string()
             };

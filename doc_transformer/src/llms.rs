@@ -206,10 +206,15 @@ pub fn generate_llms_full_txt(
 /// Truncate summary to fit in a description
 fn truncate_summary(text: &str, max_len: usize) -> String {
     let cleaned = text.replace('\n', " ").trim().to_string();
-    if cleaned.len() <= max_len {
+    let char_count = cleaned.chars().count();
+    if char_count <= max_len {
         cleaned
     } else {
-        format!("{}...", &cleaned[..max_len.saturating_sub(3)])
+        let truncated: String = cleaned
+            .chars()
+            .take(max_len.saturating_sub(3))
+            .collect();
+        format!("{}...", truncated)
     }
 }
 

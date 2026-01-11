@@ -369,8 +369,13 @@ fn create_summary(content: &str) -> String {
         .collect::<Vec<_>>()
         .join(". ")
         .pipe(|summary| {
-            if summary.len() > 200 {
-                format!("{}...", &summary[..200])
+            let char_count = summary.chars().count();
+            if char_count > 200 {
+                let truncated: String = summary
+                    .chars()
+                    .take(197)
+                    .collect();
+                format!("{}...", truncated)
             } else {
                 summary
             }
@@ -409,5 +414,93 @@ fn detect_chunk_type(content: &str) -> String {
         "table".to_string()
     } else {
         "prose".to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_summary_ascii() {
+        let content = "This is a test. This is another sentence.";
+        let summary = create_summary(content);
+        assert!(!summary.is_empty());
+        assert!(summary.contains("This is a test"));
+    }
+
+    #[test]
+    fn test_create_summary_unicode_emoji() {
+        let content = "This is a test with emoji 🎉 and more content here.";
+        let summary = create_summary(content);
+        assert!(!summary.is_empty());
+        // Should not panic on emoji
+        assert!(summary.contains("test") || summary.contains("emoji"));
+    }
+
+    #[test]
+    fn test_create_summary_unicode_cjk() {
+        let content = "这是一个测试。这是另一个句子。More content after Chinese.";
+        let summary = create_summary(content);
+        assert!(!summary.is_empty());
+        // Should handle Chinese characters without panicking
+        assert!(summary.len() > 0);
+    }
+
+    #[test]
+    fn test_create_summary_long_with_special_chars() {
+        let long_text = "This is a long document with special characters like em-dashes — and ellipses … and other unicode like 'smart quotes' and naïve. ".repeat(5);
+        let summary = create_summary(&long_text);
+        assert!(!summary.is_empty());
+        // Should be truncated properly without panic
+        assert!(summary.len() <= 210); // 197 chars + "..."
+    }
+
+    #[test]
+    fn test_escape_frontmatter_unicode() {
+        let text = "Unicode text with 🎉 emoji and é accent";
+        let escaped = escape_frontmatter(text);
+        assert!(escaped.contains("emoji"));
+        assert!(escaped.contains("é"));
+    }
+
+    #[test]
+    fn test_chunk_type_detection() {
+        // Code: requires > 5 code blocks (i.e., > 10 triple backticks)
+        let code = "```\ncode\n```\n```\ncode\n```\n```\ncode\n```\n```\ncode\n```\n```\ncode\n```\n```\ncode\n```";
+        assert_eq!(detect_chunk_type(code), "code");
+
+        let table = "| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |";
+        assert_eq!(detect_chunk_type(table), "table");
+
+        let prose = "This is just regular prose content with no tables or code blocks.";
+        assert_eq!(detect_chunk_type(prose), "prose");
+    }
+
+    #[test]
+    fn test_slugify_special_chars() {
+        let text = "Path/To/File.md with Special_Chars";
+        let slug = slugify(text);
+        assert!(!slug.contains('/'));
+        assert!(!slug.contains('.'));
+        assert!(!slug.contains('_'));
+        assert!(slug.contains('-'));
+    }
+
+    #[test]
+    fn test_estimate_tokens() {
+        let text = "This is a test";
+        let tokens = estimate_tokens(text);
+        assert!(tokens > 0);
+        // Roughly 4 chars per token
+        assert!(tokens >= 3 && tokens <= 4);
+    }
+
+    #[test]
+    fn test_empty_chunk_content() {
+        let chunks = create_chunks_at_level("", "doc1", "Empty Doc", ChunkLevel::Standard);
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0].content, "");
+        assert_eq!(chunks[0].summary, "");
     }
 }

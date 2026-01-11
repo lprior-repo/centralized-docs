@@ -79,8 +79,10 @@ fn validate_file(content: &str) -> (usize, usize) {
 
     // V003: required_fields
     let required = ["id:", "title:", "category:", "tags:"];
+    let search_chars = std::cmp::min(500, content.chars().count());
+    let search_portion: String = content.chars().take(search_chars).collect();
     for field in &required {
-        if !content[..std::cmp::min(500, content.len())].contains(field) {
+        if !search_portion.contains(field) {
             errors = errors.saturating_add(1);
         }
     }

@@ -82,8 +82,11 @@ fn transform_file(
         let context_text = if analysis.first_paragraph.is_empty() {
             analysis.title.clone()
         } else {
-            let max_len = std::cmp::min(150, analysis.first_paragraph.len());
-            analysis.first_paragraph[..max_len].to_string()
+            let max_chars = std::cmp::min(150, analysis.first_paragraph.chars().count());
+            analysis.first_paragraph
+                .chars()
+                .take(max_chars)
+                .collect::<String>()
         };
         let context_block = format!("> **Context**: {}\n", context_text);
 

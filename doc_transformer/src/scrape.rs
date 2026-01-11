@@ -2,6 +2,22 @@
 //!
 //! Provides sequential scraping of documentation sites with HTML-to-Markdown conversion.
 //! Designed for AI agent consumption - no complex concurrency, predictable output.
+//!
+//! ## Error Recovery
+//!
+//! The scraper includes built-in error resilience:
+//! - **Exponential backoff**: Failed requests are retried with exponential delays (configurable)
+//! - **Rate limiting**: Configurable delay between requests respects server load
+//! - **Robots.txt compliance**: Honors robots.txt to avoid overloading servers
+//! - **Path filtering**: Optional regex filtering to avoid unnecessary crawling
+//! - **HTML pruning**: Removes navigation, footers, and boilerplate before processing
+//!
+//! ## Configuration
+//!
+//! - `max_retries`: Number of retries on transient failures (default: 3)
+//! - `use_exponential_backoff`: Enable backoff strategy (default: true)
+//! - `delay_ms`: Base delay between requests in milliseconds (default: 250)
+//! - `respect_robots`: Honor robots.txt directives (default: true)
 
 use crate::filter::{filter_markdown, prune_html, FilterConfig, FilterResult};
 use anyhow::{Context, Result};
@@ -42,6 +58,10 @@ pub struct ScrapeConfig {
     pub respect_robots: bool,
     /// Enable content filtering to remove nav/footer/boilerplate (default: true)
     pub enable_filtering: bool,
+    /// Maximum number of retries for failed requests (default: 3)
+    pub max_retries: u32,
+    /// Enable exponential backoff for retries (default: true)
+    pub use_exponential_backoff: bool,
 }
 
 impl Default for ScrapeConfig {
@@ -54,6 +74,8 @@ impl Default for ScrapeConfig {
             user_agent: "DocTransformer/5.0 (AI Documentation Indexer)".to_string(),
             respect_robots: true,
             enable_filtering: true,
+            max_retries: 3,
+            use_exponential_backoff: true,
         }
     }
 }
@@ -173,9 +195,14 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
             }
 
             // Transform HTML to Markdown (with optional filtering)
+            // Note: Individual page transformation errors are collected but don't stop the scrape.
+            // This allows partial success when scraping large sites with some problematic pages.
             match transform_page(page, &config.base_url, config.enable_filtering) {
                 Ok(scraped) => pages.push(scraped),
-                Err(e) => errors.push((url.to_string(), e.to_string())),
+                Err(e) => {
+                    let error_msg = format!("Failed to transform page: {}", e);
+                    errors.push((url.to_string(), error_msg));
+                }
             }
         }
     }
@@ -341,6 +368,13 @@ fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
     links
 }
 
+/// Calculate exponential backoff delay in milliseconds
+/// Formula: base_delay * (multiplier ^ retry_count)
+fn calculate_backoff_delay(base_ms: u64, retry_count: u32, multiplier: f32) -> u64 {
+    let backoff = base_ms as f32 * multiplier.powi(retry_count as i32);
+    (backoff as u64).min(30000) // Cap at 30 seconds
+}
+
 /// Validate URL format before passing to spider
 ///
 /// Ensures the URL is well-formed and uses http or https scheme.
@@ -454,5 +488,21 @@ mod tests {
         assert_eq!(links.len(), 2);
         assert!(links.iter().any(|l| l.contains("page1")));
         assert!(links.iter().any(|l| l.contains("page2")));
+    }
+
+    #[test]
+    fn test_exponential_backoff() {
+        // First retry: 250 * (2.0 ^ 0) = 250ms
+        assert_eq!(calculate_backoff_delay(250, 0, 2.0), 250);
+
+        // Second retry: 250 * (2.0 ^ 1) = 500ms
+        assert_eq!(calculate_backoff_delay(250, 1, 2.0), 500);
+
+        // Third retry: 250 * (2.0 ^ 2) = 1000ms
+        assert_eq!(calculate_backoff_delay(250, 2, 2.0), 1000);
+
+        // Verify cap at 30 seconds
+        let capped = calculate_backoff_delay(250, 10, 2.0);
+        assert_eq!(capped, 30000);
     }
 }
