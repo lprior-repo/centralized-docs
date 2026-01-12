@@ -72,8 +72,6 @@ pub struct KnowledgeDAG {
 /// Edge data for petgraph
 #[derive(Debug, Clone)]
 struct GraphEdgeData {
-    /// Edge type for graph queries (used by get_edge_data)
-    #[allow(dead_code)]
     edge_type: EdgeType,
     weight: f32,
 }
@@ -121,29 +119,11 @@ impl KnowledgeDAG {
             .collect()
     }
 
-    /// Get edge properties between two nodes from the petgraph
-    /// Returns (edge_type, weight) if edge exists
-    #[allow(dead_code)]
-    pub fn get_edge_data(&self, from: &str, to: &str) -> Option<(EdgeType, f32)> {
-        let from_idx = self.node_map.get(from)?;
-        let to_idx = self.node_map.get(to)?;
-
-        // Find edge in petgraph
-        for edge in self.graph.edges(*from_idx) {
-            if edge.target() == *to_idx {
-                let data = edge.weight();
-                return Some((data.edge_type.clone(), data.weight));
-            }
-        }
-        None
-    }
 
     /// Get total edge weight for a node (sum of outgoing edge weights)
     pub fn node_importance(&self, node_id: &str) -> f32 {
         if let Some(&idx) = self.node_map.get(node_id) {
-            self.graph.edges(idx)
-                .map(|e| e.weight().weight)
-                .sum()
+            self.graph.edges(idx).map(|e| e.weight().weight).sum()
         } else {
             0.0
         }
@@ -204,10 +184,14 @@ impl KnowledgeDAG {
             .partition(|n| n.node_type == NodeType::Document);
 
         // Count edges by type using functional style
-        let edge_counts = [EdgeType::Sequential, EdgeType::Related, EdgeType::References]
-            .into_iter()
-            .map(|t| self.edges_by_type(&t).len())
-            .collect::<Vec<_>>();
+        let edge_counts = [
+            EdgeType::Sequential,
+            EdgeType::Related,
+            EdgeType::References,
+        ]
+        .into_iter()
+        .map(|t| self.edges_by_type(&t).len())
+        .collect::<Vec<_>>();
 
         GraphStatistics {
             node_count: self.nodes_vec.len(),
@@ -268,7 +252,11 @@ impl RelationshipDetector {
         let set1: HashSet<_> = tags1.iter().collect();
         let set2: HashSet<_> = tags2.iter().collect();
 
-        (set1.intersection(&set2).count() as f32, set1.union(&set2).count() as f32)
+        // SAFETY: Tag counts are small (< 100 typically), well within f32 precision (2^24)
+        (
+            set1.intersection(&set2).count() as f32,
+            set1.union(&set2).count() as f32,
+        )
             .pipe(|(intersection, union)| {
                 if union == 0.0 {
                     0.0
@@ -293,10 +281,9 @@ impl RelationshipDetector {
                 let tag_similarity = Self::jaccard_similarity(chunk_tags, tags);
                 let category_match = if category == chunk_category { 0.3 } else { 0.0 };
 
-                (tag_similarity * 0.7 + category_match)
-                    .pipe(|combined| {
-                        (combined >= self.min_similarity).then(|| (id.clone(), combined))
-                    })
+                (tag_similarity * 0.7 + category_match).pipe(|combined| {
+                    (combined >= self.min_similarity).then(|| (id.clone(), combined))
+                })
             })
             .collect()
     }
@@ -397,40 +384,6 @@ mod tests {
         assert_eq!(topo_order[0], "node1");
     }
 
-    #[test]
-    fn test_get_edge_data() {
-        let mut dag = KnowledgeDAG::new();
-
-        dag.add_node(GraphNode {
-            id: "a".to_string(),
-            node_type: NodeType::Chunk,
-            title: "A".to_string(),
-            category: None,
-        });
-
-        dag.add_node(GraphNode {
-            id: "b".to_string(),
-            node_type: NodeType::Chunk,
-            title: "B".to_string(),
-            category: None,
-        });
-
-        dag.add_edge(GraphEdge {
-            from: "a".to_string(),
-            to: "b".to_string(),
-            edge_type: EdgeType::Related,
-            weight: 0.75,
-        });
-
-        let edge_data = dag.get_edge_data("a", "b");
-        assert!(edge_data.is_some());
-        let (edge_type, weight) = edge_data.expect("edge should exist");
-        assert_eq!(edge_type, EdgeType::Related);
-        assert!((weight - 0.75).abs() < 0.001);
-
-        // Non-existent edge
-        assert!(dag.get_edge_data("b", "a").is_none());
-    }
 
     #[test]
     fn test_node_importance() {

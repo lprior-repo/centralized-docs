@@ -1,3 +1,4 @@
+use crate::config::CategoryConfig;
 use crate::discover::DiscoveryFile;
 use anyhow::Result;
 use itertools::Itertools;
@@ -38,12 +39,23 @@ pub struct Analysis {
 }
 
 /// Analyze files using functional composition with filter_map
-pub fn analyze_files(files: &[DiscoveryFile], source_dir: &Path) -> Result<Vec<Analysis>> {
+pub fn analyze_files(
+    files: &[DiscoveryFile],
+    source_dir: &Path,
+    category_config_path: Option<&Path>,
+) -> Result<Vec<Analysis>> {
+    // Load category config if provided
+    let config = if let Some(path) = category_config_path {
+        Some(CategoryConfig::load_from_file(path)?)
+    } else {
+        None
+    };
+
     files
         .iter()
         .filter_map(|file| {
             let file_path = source_dir.join(&file.source_path);
-            analyze_single_file(&file.source_path, &file_path)
+            analyze_single_file(&file.source_path, &file_path, config.as_ref())
                 .map_err(|e| eprintln!("ANALYZE ERROR: {}: {}", file.source_path, e))
                 .ok()
         })
@@ -51,7 +63,11 @@ pub fn analyze_files(files: &[DiscoveryFile], source_dir: &Path) -> Result<Vec<A
         .pipe(Ok)
 }
 
-fn analyze_single_file(source_path: &str, file_path: &Path) -> Result<Analysis> {
+fn analyze_single_file(
+    source_path: &str,
+    file_path: &Path,
+    category_config: Option<&CategoryConfig>,
+) -> Result<Analysis> {
     let content = fs::read_to_string(file_path)?;
 
     let title = extract_title(&content, source_path);
@@ -62,7 +78,16 @@ fn analyze_single_file(source_path: &str, file_path: &Path) -> Result<Analysis> 
     let word_count = clean_content.split_whitespace().count();
     let has_code = clean_content.contains("```");
     let has_tables = has_table(&clean_content);
-    let category = detect_category(source_path, &clean_content);
+
+    let category = if let Some(config) = category_config {
+        let filename = Path::new(source_path)
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Invalid path: no filename in {}", source_path))?
+            .to_string_lossy();
+        config.detect_category(&filename, &clean_content, source_path)
+    } else {
+        detect_category(source_path, &clean_content)
+    };
 
     Ok(Analysis {
         source_path: source_path.to_string(),
@@ -82,18 +107,18 @@ fn analyze_single_file(source_path: &str, file_path: &Path) -> Result<Analysis> 
 fn extract_title(content: &str, filename: &str) -> String {
     let h1_regex = Regex::new(r"^# (.+)$").expect("valid h1 regex");
     if let Some(cap) = h1_regex.captures_iter(content).next() {
-        return cap[1].trim().to_string();
+        if let Some(title_match) = cap.get(1) {
+            return title_match.as_str().trim().to_string();
+        }
     }
 
-    // Use filename
+    // Use filename - fallback to "untitled" if no valid stem
     let stem = Path::new(filename)
         .file_stem()
-        .unwrap_or_default()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| std::ffi::OsStr::new("untitled"))
         .to_string_lossy();
-    let title = stem
-        .replace(['-', '_'], " ")
-        .trim()
-        .to_string();
+    let title = stem.replace(['-', '_'], " ").trim().to_string();
 
     title
         .split_whitespace()
@@ -132,7 +157,8 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
     for line in &lines[1..end_idx] {
         if let Some(pos) = line.find(':') {
             let key = line[..pos].trim().to_string();
-            let val = line.get(pos.saturating_add(1)..)
+            let val = line
+                .get(pos.saturating_add(1)..)
                 .unwrap_or("")
                 .trim()
                 .to_string();
@@ -140,7 +166,8 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
         }
     }
 
-    let remaining = lines.get(end_idx.saturating_add(1)..)
+    let remaining = lines
+        .get(end_idx.saturating_add(1)..)
         .map(|slice| slice.join("\n"))
         .unwrap_or_default();
     (Some(fm), remaining)
@@ -154,10 +181,20 @@ fn extract_headings(content: &str) -> Vec<Heading> {
         .lines()
         .enumerate()
         .filter_map(|(line_num, line)| {
-            regex.captures(line).map(|cap| Heading {
-                level: cap[1].len() as u32,
-                text: cap[2].trim().to_string(),
-                line: line_num,
+            regex.captures(line).and_then(|cap| {
+                // Safe extraction of level from capture group 1
+                let level_match = cap.get(1)?;
+                let text_match = cap.get(2)?;
+
+                // Safe conversion: markdown headers are 1-6 hashes, so length always fits in u32
+                // Using try_from for explicit overflow protection
+                let level = u32::try_from(level_match.as_str().len()).unwrap_or(1);
+
+                Some(Heading {
+                    level,
+                    text: text_match.as_str().trim().to_string(),
+                    line: line_num,
+                })
             })
         })
         .collect()
@@ -169,18 +206,22 @@ fn extract_links(content: &str) -> Vec<Link> {
 
     regex
         .captures_iter(content)
-        .map(|cap| {
-            let text = cap[1].to_string();
-            let target = cap[2].to_string();
+        .filter_map(|cap| {
+            // Safe extraction of text from capture group 1
+            let text_match = cap.get(1)?;
+            let target_match = cap.get(2)?;
+
+            let text = text_match.as_str().to_string();
+            let target = target_match.as_str().to_string();
             let is_internal = !target.starts_with("http://")
                 && !target.starts_with("https://")
                 && !target.starts_with("mailto:");
 
-            Link {
+            Some(Link {
                 text,
                 target,
                 is_internal,
-            }
+            })
         })
         .collect()
 }
@@ -202,9 +243,7 @@ fn extract_first_paragraph(content: &str) -> String {
         .pipe(|s| {
             let char_count = s.chars().count();
             if char_count > 200 {
-                s.chars()
-                    .take(200)
-                    .collect()
+                s.chars().take(200).collect()
             } else {
                 s.to_string()
             }
@@ -220,7 +259,8 @@ fn has_table(content: &str) -> bool {
 fn detect_category(filename: &str, content: &str) -> String {
     let fname_lower = Path::new(filename)
         .file_stem()
-        .unwrap_or_default()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| std::ffi::OsStr::new("untitled"))
         .to_string_lossy()
         .to_lowercase();
 
@@ -239,7 +279,9 @@ fn detect_category(filename: &str, content: &str) -> String {
         || content_lower.contains("step 1")
         || content_lower.contains("step 2")
         || content_lower.contains("## step")
-        || Regex::new(r"^\d+\.\s+").expect("valid step regex").is_match(&content_lower)
+        || Regex::new(r"^\d+\.\s+")
+            .expect("valid step regex")
+            .is_match(&content_lower)
     {
         return "tutorial".to_string();
     }
@@ -272,8 +314,5 @@ fn detect_category(filename: &str, content: &str) -> String {
 
 /// Count categories using functional composition with counts
 pub fn count_categories(analyses: &[Analysis]) -> HashMap<String, usize> {
-    analyses
-        .iter()
-        .map(|a| a.category.clone())
-        .counts()
+    analyses.iter().map(|a| a.category.clone()).counts()
 }

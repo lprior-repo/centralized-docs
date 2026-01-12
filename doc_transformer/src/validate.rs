@@ -1,16 +1,36 @@
 use anyhow::Result;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use std::sync::LazyLock;
 use tap::Pipe;
+use thiserror::Error;
 
-static H1_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?m)^# [^#]").expect("valid H1 regex"));
+// Lazy-initialized regex patterns for validation
+//
+// SAFETY (BEAD-006): All regex patterns are hardcoded string literals verified to be valid.
+// The `.expect()` calls will never panic - this is guaranteed by:
+// 1. Patterns are compile-time constants (no user input)
+// 2. All patterns are tested in tests/bead_006_regex_initialization_tests.rs
+// 3. If a pattern were invalid, tests would fail immediately
+//
+// Using `.expect()` here is acceptable per BEAD-006 Option A: "Keep LazyLock + Add Compile-Time Test"
+static H1_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^# [^#]").expect("valid H1 regex"));
 
-static TAGS_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"tags:\s*\[[^\]]{10,}\]").expect("valid tags regex"));
+static TAGS_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"tags:\s*\[[^\]]{10,}\]").expect("valid tags regex"));
+
+/// Query validation errors
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ValidationError {
+    #[error("Query cannot be empty")]
+    EmptyQuery,
+
+    #[error("Query too long ({length} chars, max {max})")]
+    QueryTooLong { length: usize, max: usize },
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValidationResult {
@@ -105,6 +125,65 @@ fn validate_file(content: &str) -> (usize, usize) {
     (errors, warnings)
 }
 
+/// Validate query length for search operations
+///
+/// ## Design by Contract
+///
+/// **Preconditions:**
+/// - Query may be any length (including 0)
+/// - Validation happens before expensive operations
+///
+/// **Postconditions:**
+/// - Queries < 1 char (trimmed) rejected with EmptyQuery
+/// - Queries > 1000 chars rejected with QueryTooLong
+/// - Valid queries (1-1000) return Ok with trimmed query
+///
+/// **Invariants:**
+/// - No expensive operations on invalid input
+/// - Error messages are user-friendly
+/// - Validation is consistent across all entry points
+///
+/// ## Error Handling
+///
+/// Returns `ValidationError` for invalid queries:
+/// - `EmptyQuery`: Query is empty or whitespace-only after trimming
+/// - `QueryTooLong`: Query exceeds 1000 character limit
+///
+/// ## Example
+///
+/// ```
+/// use doc_transformer::validate::{validate_query, ValidationError};
+///
+/// // Valid query
+/// assert!(validate_query("rust programming").is_ok());
+///
+/// // Empty query
+/// assert!(matches!(validate_query(""), Err(ValidationError::EmptyQuery)));
+/// assert!(matches!(validate_query("   "), Err(ValidationError::EmptyQuery)));
+///
+/// // Too long query
+/// let long = "a".repeat(1001);
+/// assert!(matches!(validate_query(&long), Err(ValidationError::QueryTooLong{..})));
+/// ```
+pub fn validate_query(query: &str) -> Result<&str, ValidationError> {
+    const MAX_QUERY_LENGTH: usize = 1000;
+
+    let trimmed = query.trim();
+
+    if trimmed.is_empty() {
+        return Err(ValidationError::EmptyQuery);
+    }
+
+    if trimmed.len() > MAX_QUERY_LENGTH {
+        return Err(ValidationError::QueryTooLong {
+            length: trimmed.len(),
+            max: MAX_QUERY_LENGTH,
+        });
+    }
+
+    Ok(trimmed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,5 +224,139 @@ mod tests {
         let (errors, _warnings) = validate_file(content);
         // Should fail - no H1
         assert!(errors >= 1, "Document with no H1 should have errors");
+    }
+
+    // ============================================================================
+    // Query validation tests
+    // ============================================================================
+
+    #[test]
+    fn test_validate_query_empty() {
+        let result = validate_query("");
+        assert!(matches!(result, Err(ValidationError::EmptyQuery)));
+    }
+
+    #[test]
+    fn test_validate_query_whitespace_only() {
+        let result = validate_query("   ");
+        assert!(matches!(result, Err(ValidationError::EmptyQuery)));
+    }
+
+    #[test]
+    fn test_validate_query_tabs_and_newlines() {
+        let result = validate_query("\t\n  \r\n");
+        assert!(matches!(result, Err(ValidationError::EmptyQuery)));
+    }
+
+    #[test]
+    fn test_validate_query_single_char() {
+        let result = validate_query("a");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "a");
+    }
+
+    #[test]
+    fn test_validate_query_normal() {
+        let result = validate_query("rust programming");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "rust programming");
+    }
+
+    #[test]
+    fn test_validate_query_trimmed() {
+        let result = validate_query("  rust programming  ");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "rust programming");
+    }
+
+    #[test]
+    fn test_validate_query_at_limit() {
+        let query = "a".repeat(1000);
+        let result = validate_query(&query);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 1000);
+    }
+
+    #[test]
+    fn test_validate_query_exceeds_limit() {
+        let query = "a".repeat(1001);
+        let result = validate_query(&query);
+        assert!(matches!(
+            result,
+            Err(ValidationError::QueryTooLong {
+                length: 1001,
+                max: 1000
+            })
+        ));
+    }
+
+    #[test]
+    fn test_validate_query_far_exceeds_limit() {
+        let query = "a".repeat(5000);
+        let result = validate_query(&query);
+        assert!(matches!(
+            result,
+            Err(ValidationError::QueryTooLong {
+                length: 5000,
+                max: 1000
+            })
+        ));
+    }
+
+    #[test]
+    fn test_validate_query_unicode() {
+        let result = validate_query("café rust");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "café rust");
+    }
+
+    #[test]
+    fn test_validate_query_unicode_at_limit() {
+        // Euro sign "€" is 3 bytes, so 333 reps = 999 bytes + "a" = 1000 bytes
+        let query = format!("{}a", "€".repeat(333));
+        assert_eq!(query.len(), 1000);
+        let result = validate_query(&query);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_unicode_exceeds_limit() {
+        // Euro sign "€" is 3 bytes, 334 reps = 1002 bytes
+        let query = "€".repeat(334);
+        assert_eq!(query.len(), 1002);
+        let result = validate_query(&query);
+        assert!(matches!(
+            result,
+            Err(ValidationError::QueryTooLong {
+                length: 1002,
+                max: 1000
+            })
+        ));
+    }
+
+    #[test]
+    fn test_validate_query_special_chars() {
+        let result = validate_query("rust-lang & systems *2025*");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "rust-lang & systems *2025*");
+    }
+
+    #[test]
+    fn test_validate_query_error_message_empty() {
+        let result = validate_query("");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.to_string(), "Query cannot be empty");
+    }
+
+    #[test]
+    fn test_validate_query_error_message_too_long() {
+        let query = "a".repeat(1001);
+        let result = validate_query(&query);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("1001"));
+        assert!(err.to_string().contains("1000"));
+        assert!(err.to_string().contains("too long"));
     }
 }

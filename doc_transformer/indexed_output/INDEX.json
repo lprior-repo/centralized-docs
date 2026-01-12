@@ -1,0 +1,84 @@
+{
+  "version": "5.0",
+  "generated": "2026-01-11T00:00:00Z",
+  "stats": {
+    "doc_count": 2,
+    "chunk_count": 3
+  },
+  "documents": [
+    {
+      "id": "doc-001",
+      "title": "Getting Started with Rust",
+      "path": "docs/getting-started.md",
+      "category": "tutorial",
+      "tags": ["rust", "beginner", "tutorial"],
+      "summary": "Learn the basics of Rust programming language",
+      "word_count": 1500,
+      "chunk_ids": ["chunk-001", "chunk-002"]
+    },
+    {
+      "id": "doc-002",
+      "title": "Advanced Functional Programming",
+      "path": "docs/advanced-fp.md",
+      "category": "concept",
+      "tags": ["functional", "advanced", "monads"],
+      "summary": "Deep dive into functional programming concepts in Rust",
+      "word_count": 2000,
+      "chunk_ids": ["chunk-003"]
+    }
+  ],
+  "chunks": [
+    {
+      "chunk_id": "chunk-001",
+      "doc_id": "doc-001",
+      "doc_title": "Getting Started with Rust",
+      "heading": "Introduction",
+      "chunk_type": "text",
+      "token_count": 200,
+      "summary": "Introduction to Rust programming",
+      "previous_chunk_id": null,
+      "next_chunk_id": "chunk-002",
+      "path": "chunks/chunk-001-standard.md",
+      "related_chunks": [],
+      "chunk_level": "standard",
+      "parent_chunk_id": null,
+      "child_chunk_ids": []
+    },
+    {
+      "chunk_id": "chunk-002",
+      "doc_id": "doc-001",
+      "doc_title": "Getting Started with Rust",
+      "heading": "Basic Syntax",
+      "chunk_type": "text",
+      "token_count": 300,
+      "summary": "Basic Rust syntax and conventions",
+      "previous_chunk_id": "chunk-001",
+      "next_chunk_id": null,
+      "path": "chunks/chunk-002-standard.md",
+      "related_chunks": [{"chunk_id": "chunk-003", "similarity": 0.7}],
+      "chunk_level": "standard",
+      "parent_chunk_id": null,
+      "child_chunk_ids": []
+    },
+    {
+      "chunk_id": "chunk-003",
+      "doc_id": "doc-002",
+      "doc_title": "Advanced Functional Programming",
+      "heading": "Monads in Rust",
+      "chunk_type": "text",
+      "token_count": 400,
+      "summary": "Understanding monads through Result and Option",
+      "previous_chunk_id": null,
+      "next_chunk_id": null,
+      "path": "chunks/chunk-003-detailed.md",
+      "related_chunks": [{"chunk_id": "chunk-002", "similarity": 0.7}],
+      "chunk_level": "detailed",
+      "parent_chunk_id": null,
+      "child_chunk_ids": []
+    }
+  ],
+  "keywords": {
+    "rust": ["doc-001", "doc-002"],
+    "functional": ["doc-002"]
+  }
+}
