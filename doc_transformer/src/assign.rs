@@ -19,8 +19,7 @@ pub fn assign_ids(analyses: Vec<Analysis>) -> (Vec<Analysis>, HashMap<String, Id
     for analysis in &analyses {
         let parts: Vec<&str> = analysis.source_path.split('/').collect();
         let subcategory = if parts.len() > 1 {
-            parts
-                .get(parts.len().saturating_sub(2))
+            parts.get(parts.len().saturating_sub(2))
                 .map(|s| s.to_lowercase())
                 .unwrap_or_else(|| "general".to_string())
         } else {
@@ -29,9 +28,9 @@ pub fn assign_ids(analyses: Vec<Analysis>) -> (Vec<Analysis>, HashMap<String, Id
 
         let filename_stem = Path::new(&analysis.source_path)
             .file_stem()
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| "untitled".to_string());
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
         let mut slug = slugify(&filename_stem);
 

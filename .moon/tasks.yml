@@ -1,8 +1,7 @@
 # Moon task definitions for centralized-docs - RUST EDITION
 
-tasks:
-  # Task: Format code with rustfmt
-  fmt:
+# Task: Format code with rustfmt
+fmt:
   command: cargo fmt --all
   description: Format all Rust code
   inputs:
