@@ -102,7 +102,11 @@ pub fn build_and_write_index(
     }
 
     // Build knowledge graph (DAG) first so we can use it for related chunks
-    let dag = build_knowledge_dag(&documents, &chunks_result.chunks_metadata, &document_chunk_tags);
+    let dag = build_knowledge_dag(
+        &documents,
+        &chunks_result.chunks_metadata,
+        &document_chunk_tags,
+    );
     let dag_stats = dag.statistics();
 
     // Build chunk metadata for semantic navigation (with related chunks from DAG)
@@ -128,7 +132,11 @@ pub fn build_and_write_index(
             summary: chunk.summary.clone(),
             previous_chunk_id: chunk.previous_chunk_id.clone(),
             next_chunk_id: chunk.next_chunk_id.clone(),
-            path: format!("chunks/{}-{}.md", chunk.chunk_id.replace(['/', '#'], "-"), chunk.chunk_level.as_str()),
+            path: format!(
+                "chunks/{}-{}.md",
+                chunk.chunk_id.replace(['/', '#'], "-"),
+                chunk.chunk_level.as_str()
+            ),
             related_chunks,
             chunk_level: chunk.chunk_level.as_str().to_string(),
             parent_chunk_id: chunk.parent_chunk_id.clone(),
@@ -144,8 +152,9 @@ pub fn build_and_write_index(
     let mut node_importance: HashMap<String, f32> = HashMap::new();
     for doc in &documents {
         let reachable = dag.reachable_from(&doc.id);
-        let mut reachable_list: Vec<String> = reachable.into_iter()
-            .filter(|id| id != &doc.id)  // Exclude self
+        let mut reachable_list: Vec<String> = reachable
+            .into_iter()
+            .filter(|id| id != &doc.id) // Exclude self
             .collect();
         reachable_list.sort();
         reachability.insert(doc.id.clone(), reachable_list);
@@ -197,6 +206,15 @@ pub fn build_and_write_index(
     let index_file = output_dir.join("INDEX.json");
     fs::write(index_file, serde_json::to_string_pretty(&index)?)?;
 
+    // Build Tantivy index for faster searching
+    // This is optional - if it fails, we can still search via INDEX.json
+    if let Err(e) = crate::search::open_or_create_index(output_dir)
+        .and_then(|index| crate::search::index_documents(&index, documents))
+    {
+        eprintln!("Warning: Failed to build Tantivy index: {}", e);
+        eprintln!("Search will fall back to INDEX.json, but will be slower");
+    }
+
     Ok(())
 }
 
@@ -222,14 +240,22 @@ pub fn build_and_write_compass(
         chrono::Utc::now().to_rfc3339()
     );
 
-    compass.push_str(&format!("# Documentation Compass\n\n> **{} documents**\n\n", analyses.len()));
+    compass.push_str(&format!(
+        "# Documentation Compass\n\n> **{} documents**\n\n",
+        analyses.len()
+    ));
 
     // By category
     for category in &["tutorial", "concept", "ref", "ops", "meta"] {
         if let Some(docs) = by_category.get(*category) {
             compass.push_str(&format!("## {}\n\n", category.to_uppercase()));
             for (title, filename, tags) in docs.iter().take(5) {
-                let tag_str = tags.iter().take(2).map(|t| format!("`{}`", t)).collect::<Vec<_>>().join(" ");
+                let tag_str = tags
+                    .iter()
+                    .take(2)
+                    .map(|t| format!("`{}`", t))
+                    .collect::<Vec<_>>()
+                    .join(" ");
                 compass.push_str(&format!("- [{}](./docs/{}) {}\n", title, filename, tag_str));
             }
             compass.push('\n');
@@ -293,7 +319,11 @@ fn build_knowledge_dag(
         let node = GraphNode {
             id: chunk.chunk_id.clone(),
             node_type: NodeType::Chunk,
-            title: format!("{} - {}", chunk.doc_title, chunk.heading.as_ref().unwrap_or(&"Intro".to_string())),
+            title: format!(
+                "{} - {}",
+                chunk.doc_title,
+                chunk.heading.as_ref().unwrap_or(&"Intro".to_string())
+            ),
             category: None,
         };
         dag.add_node(node);
@@ -360,7 +390,12 @@ fn build_knowledge_dag(
             })
             .collect();
 
-        let related = detector.detect_relationships(&chunk.chunk_id, &chunk_tags, &chunk_category, &all_chunks_metadata);
+        let related = detector.detect_relationships(
+            &chunk.chunk_id,
+            &chunk_tags,
+            &chunk_category,
+            &all_chunks_metadata,
+        );
 
         for (related_id, weight) in related {
             let edge = GraphEdge {
