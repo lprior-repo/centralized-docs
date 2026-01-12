@@ -268,8 +268,75 @@ pub fn create_chunks_at_level(
             }
         }
 
-        current_chunk.push_str(line);
-        current_chunk.push('\n');
+        // Handle long lines that would exceed token limit by splitting on word boundaries
+        let line_tokens = estimate_tokens(line);
+        if line_tokens > target_tokens {
+            // Split long line into chunks at word boundaries
+            for word in line.split_whitespace() {
+                // Check if adding this word would exceed limit
+                let word_with_space = if current_chunk.is_empty() {
+                    word.to_string()
+                } else {
+                    format!(" {}", word)
+                };
+
+                let new_tokens = estimate_tokens(&current_chunk)
+                    .saturating_add(estimate_tokens(&word_with_space));
+
+                if new_tokens >= target_tokens && !current_chunk.is_empty() {
+                    // Emit current chunk
+                    let chunk_id = format!("{}#{}", doc_id, chunk_index);
+                    let summary = create_summary(&current_chunk);
+                    let token_count = estimate_tokens(&current_chunk);
+                    let chunk_type = detect_chunk_type(&current_chunk);
+
+                    chunks.push(Chunk {
+                        chunk_id,
+                        doc_id: doc_id.to_string(),
+                        doc_title: doc_title.to_string(),
+                        chunk_index,
+                        content: current_chunk.clone(),
+                        token_count,
+                        heading: current_heading.clone(),
+                        chunk_type,
+                        previous_chunk_id: chunk_index
+                            .checked_sub(1)
+                            .map(|prev| format!("{}#{}", doc_id, prev)),
+                        next_chunk_id: None,
+                        related_chunk_ids: Vec::new(),
+                        summary,
+                        chunk_level: level.clone(),
+                        parent_chunk_id: None,
+                        child_chunk_ids: Vec::new(),
+                    });
+
+                    chunk_index = chunk_index.saturating_add(1);
+                    context_buffer = get_context_tail(&current_chunk, match level {
+                        ChunkLevel::Summary => 30,
+                        ChunkLevel::Standard => 100,
+                        ChunkLevel::Detailed => 200,
+                    });
+                    current_chunk.clear();
+
+                    // Start new chunk with context
+                    if !context_buffer.is_empty() {
+                        current_chunk.push_str(&context_buffer);
+                        current_chunk.push(' ');
+                        context_buffer.clear();
+                    }
+                }
+
+                // Add word to current chunk
+                if !current_chunk.is_empty() && !current_chunk.ends_with(' ') && !current_chunk.ends_with('\n') {
+                    current_chunk.push(' ');
+                }
+                current_chunk.push_str(word);
+            }
+            current_chunk.push('\n');
+        } else {
+            current_chunk.push_str(line);
+            current_chunk.push('\n');
+        }
     }
 
     // Add final chunk
@@ -371,21 +438,33 @@ fn estimate_tokens(text: &str) -> usize {
 
 /// Create a summary of chunk content using functional composition
 fn create_summary(content: &str) -> String {
-    content
+    // Try to get meaningful fragments (>10 chars)
+    let fragments: Vec<&str> = content
         .split(['.', '\n'])
         .filter(|s| s.trim().len() > 10)
         .take(2)
-        .collect::<Vec<_>>()
-        .join(". ")
-        .pipe(|summary| {
-            let char_count = summary.chars().count();
-            if char_count > 200 {
-                let truncated: String = summary.chars().take(197).collect();
-                format!("{}...", truncated)
-            } else {
-                summary
-            }
-        })
+        .collect();
+
+    // If no long fragments, use any non-empty trimmed content
+    let summary = if fragments.is_empty() {
+        content
+            .split(['.', '\n'])
+            .map(|s| s.trim())
+            .find(|s| !s.is_empty())
+            .unwrap_or("")
+            .to_string()
+    } else {
+        fragments.join(". ")
+    };
+
+    // Truncate if too long
+    let char_count = summary.chars().count();
+    if char_count > 200 {
+        let truncated: String = summary.chars().take(197).collect();
+        format!("{}...", truncated)
+    } else {
+        summary
+    }
 }
 
 /// Generate URL-safe slug for document ID using functional composition
