@@ -2,7 +2,7 @@
 
 **Epic**: Code Safety
 **Severity**: Medium
-**Status**: Closed (Resolved 2026-01-11)
+**Status**: Open
 
 ---
 
@@ -99,41 +99,3 @@ fn test_extract_headers_malformed() {
     assert!(headers.is_empty() || headers.iter().all(|h| h.level > 0));
 }
 ```
-
----
-
-## RESOLUTION
-
-**Completed 2026-01-11**
-
-### Changes Made
-
-1. **src/scrape.rs:extract_title()** - Replaced `caps.get(1).expect(...)` with safe `if let Some(title_match) = caps.get(1)` pattern
-2. **src/scrape.rs:extract_headers()** - Replaced nested `.expect()` calls with safe `if let Some(level_match) = caps.get(1)` and `if let Some(text_match) = caps.get(2)` patterns
-3. **src/scrape.rs:extract_internal_links()** - Replaced `caps.get(2).expect(...)` with safe `if let Some(href_match) = caps.get(2)` pattern
-4. **src/transform.rs** - Refactored from regex-based to AST-based processing using pulldown_cmark. Old regex capture groups replaced with safe event matching patterns.
-5. **src/main.rs** - Added `#![deny(clippy::expect_used)]` lint to enforce no-panic guarantee at compile time (line 13)
-
-### Pattern Used
-
-All captures now use safe Option handling via `if let Some(match_obj) = caps.get(N)` instead of `.expect()`.
-
-**Before**:
-```rust
-let title = caps.get(1).expect("capture group 1").as_str();
-```
-
-**After**:
-```rust
-if let Some(title_match) = caps.get(1) {
-    let title = title_match.as_str();
-    // use title
-}
-```
-
-### Verification
-
-- No `.expect()` calls remain on regex captures in active code paths
-- `#![deny(clippy::expect_used)]` will prevent regression
-- All edge cases handled: missing groups, optional matches, and out-of-bounds indices gracefully skip processing rather than panic
-- Functional programming contract maintained: Option/Result composition with safe fallbacks
