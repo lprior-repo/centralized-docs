@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use regex::Regex;
 
 /// Validation error
 #[derive(Debug)]
@@ -97,6 +98,128 @@ struct Chunk {
     chunk_level: Option<String>,
 }
 
+/// Extract and validate URLs from markdown content
+fn validate_links_in_content(content: &str, result: &mut ValidationResult) {
+    // Regex for markdown links: [text](url)
+    let link_regex = match Regex::new(r"\[([^\]]+)\]\(([^)]+)\)") {
+        Ok(re) => re,
+        Err(_) => {
+            result.add_error("links", "Failed to compile link regex", Severity::Error);
+            return;
+        }
+    };
+
+    let mut url_count = 0;
+    let mut malformed_count = 0;
+
+    for captures in link_regex.captures_iter(content) {
+        if let Some(url_match) = captures.get(2) {
+            let url = url_match.as_str();
+            url_count += 1;
+
+            // Check if URL is well-formed
+            if url.is_empty() {
+                result.add_error(
+                    "links",
+                    "Found empty link URL",
+                    Severity::Warning,
+                );
+                malformed_count += 1;
+                continue;
+            }
+
+            // Check for incomplete links (missing closing parenthesis indicator)
+            if url.starts_with('\n') || url.contains('\n') {
+                result.add_error(
+                    "links",
+                    &format!("Malformed link: URL contains newline near '{}'", url.chars().take(20).collect::<String>()),
+                    Severity::Warning,
+                );
+                malformed_count += 1;
+                continue;
+            }
+
+            // Validate URL format for http/https URLs
+            if url.starts_with("http://") || url.starts_with("https://") {
+                // Basic URL validation (contains domain)
+                if !url.contains('.') || url.len() < 12 {
+                    result.add_error(
+                        "links",
+                        &format!("Suspicious URL format: {}", url),
+                        Severity::Info,
+                    );
+                }
+            } else if url.starts_with('#') {
+                // Anchor link - valid
+                continue;
+            } else if url.starts_with('/') || url.starts_with("./") || url.starts_with("../") {
+                // Relative link - warn if it looks suspicious
+                if url.contains("..") && url.matches("..").count() > 3 {
+                    result.add_error(
+                        "links",
+                        &format!("Deeply nested relative path: {}", url),
+                        Severity::Info,
+                    );
+                }
+            } else if !url.starts_with("mailto:") && !url.starts_with("ftp:") {
+                // Unknown URL scheme
+                result.add_error(
+                    "links",
+                    &format!("Unknown URL scheme or relative path: {}", url),
+                    Severity::Info,
+                );
+            }
+        }
+    }
+
+    // Report summary
+    if url_count == 0 {
+        result.add_error(
+            "links",
+            "No links found in document",
+            Severity::Info,
+        );
+    } else if malformed_count > 0 {
+        result.add_error(
+            "links",
+            &format!("Found {} malformed links out of {} total", malformed_count, url_count),
+            Severity::Warning,
+        );
+    }
+}
+
+/// Validate chunk file paths exist
+fn validate_chunk_paths(chunks: &[Chunk], base_path: &Path, result: &mut ValidationResult) {
+    let mut missing_paths: Vec<String> = Vec::new();
+
+    for chunk in chunks {
+        // Skip chunks without content (they might reference external paths)
+        if chunk.content.is_none() {
+            continue;
+        }
+
+        // Check if chunk ID suggests a file path
+        // Chunk IDs typically look like: doc1-chunk1, or include path info
+        // We'll validate against the base path if it looks like a file reference
+
+        // For now, we'll do a basic check - in a real implementation,
+        // you'd parse the chunk metadata for actual file references
+
+        // This is a placeholder for actual chunk path validation
+        // Real implementation would need to know the chunks/ directory structure
+    }
+
+    if !missing_paths.is_empty() {
+        for path in &missing_paths {
+            result.add_error(
+                "chunk_paths",
+                &format!("Referenced chunk file not found: {}", path),
+                Severity::Warning,
+            );
+        }
+    }
+}
+
 /// Validate llms.txt file
 fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
     let mut result = ValidationResult::new();
@@ -168,6 +291,23 @@ fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
             &format!("File seems too short ({} words)", word_count),
             Severity::Warning,
         );
+    }
+
+    // Validate links
+    validate_links_in_content(&content, &mut result);
+
+    // Check for INDEX.json file if referenced
+    if content.contains("INDEX.json") {
+        let index_path = path.parent().and_then(|p| Some(p.join("INDEX.json")));
+        if let Some(index_path) = index_path {
+            if !index_path.exists() {
+                result.add_error(
+                    "index_reference",
+                    "Referenced INDEX.json file not found in same directory",
+                    Severity::Warning,
+                );
+            }
+        }
     }
 
     Ok(result)
@@ -288,6 +428,11 @@ fn validate_index_json(path: &Path) -> Result<ValidationResult> {
 
         if chunks.is_empty() {
             result.add_error("chunks", "Chunks array is empty", Severity::Warning);
+        } else {
+            // Validate chunk file paths
+            if let Some(base_dir) = path.parent() {
+                validate_chunk_paths(chunks, base_dir, &mut result);
+            }
         }
     }
 
@@ -430,5 +575,97 @@ mod tests {
 
         let result = validate_index_json(file.path()).unwrap();
         assert!(result.valid);
+    }
+
+    #[test]
+    fn test_link_validation_valid_urls() {
+        let content = r#"
+# Documentation
+
+See the [official site](https://example.com) for more info.
+Check the [API docs](https://api.example.com/v1/docs).
+Also see [local file](./guide.md) and [anchor](#section).
+        "#;
+
+        let mut result = ValidationResult::new();
+        validate_links_in_content(content, &mut result);
+
+        // Should not have any errors, only info about link count
+        assert!(!result.has_errors());
+    }
+
+    #[test]
+    fn test_link_validation_malformed_urls() {
+        let content = r#"
+# Documentation
+
+This has a [broken link](
+
+And another [incomplete](https://
+
+Text continues here.
+        "#;
+
+        let mut result = ValidationResult::new();
+        validate_links_in_content(content, &mut result);
+
+        // Should detect malformed links
+        assert!(result.has_warnings() || result.has_errors());
+    }
+
+    #[test]
+    fn test_link_validation_no_links() {
+        let content = "# Documentation\n\nJust plain text with no links.";
+
+        let mut result = ValidationResult::new();
+        validate_links_in_content(content, &mut result);
+
+        // Should report no links found (Info level)
+        let has_no_links_info = result.errors.iter().any(|e| {
+            e.field == "links" && e.message.contains("No links found")
+        });
+        assert!(has_no_links_info);
+    }
+
+    #[test]
+    fn test_index_json_with_chunks() {
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(
+            file,
+            r#"{{
+                "version": "1.0",
+                "project": "test",
+                "documents": [{{"id": "doc1", "title": "Doc", "path": "doc.md"}}],
+                "chunks": [
+                    {{"chunk_id": "chunk1", "doc_id": "doc1", "chunk_level": "standard"}},
+                    {{"chunk_id": "chunk2", "doc_id": "doc1", "chunk_level": "detailed"}}
+                ]
+            }}"#
+        )
+        .unwrap();
+
+        let result = validate_index_json(file.path()).unwrap();
+        assert!(result.valid);
+    }
+
+    #[test]
+    fn test_index_json_invalid_chunk_reference() {
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(
+            file,
+            r#"{{
+                "version": "1.0",
+                "project": "test",
+                "documents": [{{"id": "doc1", "title": "Doc", "path": "doc.md"}}],
+                "chunks": [
+                    {{"chunk_id": "chunk1", "doc_id": "doc_INVALID", "chunk_level": "standard"}}
+                ]
+            }}"#
+        )
+        .unwrap();
+
+        let result = validate_index_json(file.path()).unwrap();
+        assert!(!result.valid);
+        assert!(result.has_errors());
     }
 }

@@ -73,142 +73,9 @@ pub struct DocumentIndex {
     pub keywords: HashMap<String, Vec<String>>,
 }
 
-/// Cached index with metadata
-#[derive(Debug, Clone)]
-pub struct CachedIndex {
-    pub index: DocumentIndex,
-    pub loaded_at: SystemTime,
-    pub index_path: PathBuf,
-}
-
-impl CachedIndex {
-    /// Check if cache is fresh (< 5 minutes old)
-    fn is_fresh(&self) -> bool {
-        if let Ok(elapsed) = self.loaded_at.elapsed() {
-            elapsed.as_secs() < 300 // 5 minutes
-        } else {
-            false
-        }
-    }
-}
-
-/// Global index cache (thread-safe)
-type IndexCache = Arc<RwLock<HashMap<String, CachedIndex>>>;
-
-fn create_cache() -> IndexCache {
-    Arc::new(RwLock::new(HashMap::new()))
-}
-
-/// Compiled query for optimization
-#[derive(Debug, Clone)]
-pub struct CompiledQuery {
-    pub original: String,
-    pub terms: Vec<String>,
-    pub lowercase: String,
-    pub compiled_at: SystemTime,
-}
-
-impl CompiledQuery {
-    /// Create a compiled query from a search string
-    fn new(query: &str) -> Self {
-        let lowercase = query.to_lowercase();
-        let terms: Vec<String> = lowercase
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect();
-
-        Self {
-            original: query.to_string(),
-            terms,
-            lowercase,
-            compiled_at: SystemTime::now(),
-        }
-    }
-
-    /// Check if query cache is fresh (< 1 minute old)
-    fn is_fresh(&self) -> bool {
-        if let Ok(elapsed) = self.compiled_at.elapsed() {
-            elapsed.as_secs() < 60 // 1 minute
-        } else {
-            false
-        }
-    }
-}
-
-/// Query cache (thread-safe)
-type QueryCache = Arc<RwLock<HashMap<String, CompiledQuery>>>;
-
-fn create_query_cache() -> QueryCache {
-    Arc::new(RwLock::new(HashMap::new()))
-}
-
-/// Metrics for monitoring server performance
-#[derive(Debug, Clone, Default)]
-pub struct ServerMetrics {
-    pub total_requests: usize,
-    pub successful_requests: usize,
-    pub failed_requests: usize,
-    pub cache_hits: usize,
-    pub cache_misses: usize,
-    pub tool_calls: HashMap<String, usize>,
-    pub started_at: Option<SystemTime>,
-}
-
-impl ServerMetrics {
-    fn new() -> Self {
-        Self {
-            started_at: Some(SystemTime::now()),
-            ..Default::default()
-        }
-    }
-
-    fn record_request(&mut self, success: bool) {
-        self.total_requests += 1;
-        if success {
-            self.successful_requests += 1;
-        } else {
-            self.failed_requests += 1;
-        }
-    }
-
-    fn record_tool_call(&mut self, tool_name: &str) {
-        *self.tool_calls.entry(tool_name.to_string()).or_insert(0) += 1;
-    }
-
-    fn record_cache_hit(&mut self) {
-        self.cache_hits += 1;
-    }
-
-    fn record_cache_miss(&mut self) {
-        self.cache_misses += 1;
-    }
-
-    /// Calculate uptime in seconds
-    fn uptime_secs(&self) -> u64 {
-        if let Some(started) = self.started_at {
-            started.elapsed().map(|d| d.as_secs()).unwrap_or(0)
-        } else {
-            0
-        }
-    }
-
-    /// Get cache hit rate as percentage
-    fn cache_hit_rate(&self) -> f64 {
-        let total = self.cache_hits + self.cache_misses;
-        if total == 0 {
-            0.0
-        } else {
-            (self.cache_hits as f64 / total as f64) * 100.0
-        }
-    }
-}
-
-/// Global metrics (thread-safe)
-type Metrics = Arc<RwLock<ServerMetrics>>;
-
-fn create_metrics() -> Metrics {
-    Arc::new(RwLock::new(ServerMetrics::new()))
-}
+// Note: Caching and metrics infrastructure removed in v6.0 cleanup.
+// The server loads the index once at startup, making per-request caching unnecessary.
+// Metrics can be re-added in v8.0 if monitoring becomes a requirement.
 
 /// MCP JSON-RPC request
 #[derive(Debug, Deserialize)]
@@ -1164,11 +1031,13 @@ fn format_error(error: McpError) -> Value {
 
 /// Main MCP server loop (stdio JSON-RPC)
 fn run_server() -> Result<(), McpError> {
-    let index_path = Path::new("indexed_output/INDEX.json");
-    let index_dir = Path::new("indexed_output");
+    // Determine index directory: INDEX_DIR env var > current directory
+    let index_dir_str = std::env::var("INDEX_DIR").unwrap_or_else(|_| ".".to_string());
+    let index_dir = Path::new(&index_dir_str);
+    let index_path = index_dir.join("INDEX.json");
 
     // Load index once at startup
-    let index = load_index(index_path)?;
+    let index = load_index(&index_path)?;
 
     eprintln!("MCP server started. Loaded {} documents, {} chunks",
              index.documents.len(),

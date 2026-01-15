@@ -28,7 +28,7 @@ pub enum ValidationError {
     #[error("Query cannot be empty")]
     EmptyQuery,
 
-    #[error("Query too long ({length} chars, max {max})")]
+    #[error("Query too long ({length} bytes, max {max})")]
     QueryTooLong { length: usize, max: usize },
 }
 
@@ -135,8 +135,8 @@ fn validate_file(content: &str) -> (usize, usize) {
 ///
 /// **Postconditions:**
 /// - Queries < 1 char (trimmed) rejected with EmptyQuery
-/// - Queries > 1000 chars rejected with QueryTooLong
-/// - Valid queries (1-1000) return Ok with trimmed query
+/// - Queries > 1000 bytes rejected with QueryTooLong
+/// - Valid queries (1-1000 bytes) return Ok with trimmed query
 ///
 /// **Invariants:**
 /// - No expensive operations on invalid input
@@ -147,7 +147,7 @@ fn validate_file(content: &str) -> (usize, usize) {
 ///
 /// Returns `ValidationError` for invalid queries:
 /// - `EmptyQuery`: Query is empty or whitespace-only after trimming
-/// - `QueryTooLong`: Query exceeds 1000 character limit
+/// - `QueryTooLong`: Query exceeds 1000 byte limit
 ///
 /// ## Example
 ///
