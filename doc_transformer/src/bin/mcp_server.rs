@@ -193,6 +193,82 @@ pub struct ExplainChunkParams {
 }
 
 // ============================================================================
+// CACHING INFRASTRUCTURE (v6.0)
+// ============================================================================
+
+/// Cached index with freshness tracking
+#[derive(Debug, Clone)]
+struct CachedIndex {
+    index: DocumentIndex,
+    loaded_at: SystemTime,
+    file_modified: SystemTime,
+}
+
+impl CachedIndex {
+    /// Check if cache is still fresh (< 5 minutes old)
+    fn is_fresh(&self) -> bool {
+        match SystemTime::now().duration_since(self.loaded_at) {
+            Ok(age) => age < Duration::from_secs(300), // 5 minutes
+            Err(_) => false,
+        }
+    }
+}
+
+/// Global cache for loaded indexes
+type IndexCache = Arc<RwLock<HashMap<PathBuf, CachedIndex>>>;
+
+/// Create a new index cache
+fn create_cache() -> IndexCache {
+    Arc::new(RwLock::new(HashMap::new()))
+}
+
+/// Load index with caching (5-minute TTL)
+fn load_index_with_cache(
+    index_path: &Path,
+    cache: &IndexCache,
+) -> Result<DocumentIndex, McpError> {
+    // Get file modification time for cache invalidation
+    let file_modified = std::fs::metadata(index_path)
+        .and_then(|m| m.modified())
+        .map_err(|e| McpError::IndexNotFound(format!("{}: {}", index_path.display(), e)))?;
+
+    // Try to get from cache
+    {
+        let cache_read = cache.read().map_err(|_| {
+            McpError::InvalidIndex("cache lock poisoned".to_string())
+        })?;
+
+        if let Some(cached) = cache_read.get(index_path) {
+            // Check if cache is fresh and file hasn't been modified
+            if cached.is_fresh() && cached.file_modified >= file_modified {
+                return Ok(cached.index.clone());
+            }
+        }
+    }
+
+    // Cache miss or stale - load fresh index
+    let index = load_index(index_path)?;
+
+    // Update cache
+    {
+        let mut cache_write = cache.write().map_err(|_| {
+            McpError::InvalidIndex("cache lock poisoned".to_string())
+        })?;
+
+        cache_write.insert(
+            index_path.to_path_buf(),
+            CachedIndex {
+                index: index.clone(),
+                loaded_at: SystemTime::now(),
+                file_modified,
+            },
+        );
+    }
+
+    Ok(index)
+}
+
+// ============================================================================
 // FUNCTIONAL CORE (Pure Logic)
 // ============================================================================
 
@@ -1001,10 +1077,13 @@ fn run_server() -> Result<(), McpError> {
     let index_dir = Path::new(&index_dir_str);
     let index_path = index_dir.join("INDEX.json");
 
-    // Load index once at startup
-    let index = load_index(&index_path)?;
+    // Create cache for hot-reload support (v6.0)
+    let cache = create_cache();
 
-    eprintln!("MCP server started. Loaded {} documents, {} chunks",
+    // Load index once at startup with caching
+    let index = load_index_with_cache(&index_path, &cache)?;
+
+    eprintln!("MCP server started (with caching). Loaded {} documents, {} chunks",
              index.documents.len(),
              index.chunks.len());
 
@@ -1024,8 +1103,11 @@ fn run_server() -> Result<(), McpError> {
         let request: McpRequest = serde_json::from_str(&line)
             .map_err(|e| McpError::InvalidRequest(format!("invalid JSON: {}", e)))?;
 
+        // Reload index with cache (enables hot-reload if file changed)
+        let current_index = load_index_with_cache(&index_path, &cache)?;
+
         // Handle request (functional core)
-        let response = handle_request(&request, &index, index_dir)
+        let response = handle_request(&request, &current_index, index_dir)
             .unwrap_or_else(|e| format_error(e));
 
         // Write response
