@@ -57,6 +57,7 @@ pub fn build_and_write_index(
     link_map: &HashMap<String, IdMapping>,
     chunks_result: &ChunksResult,
     output_dir: &Path,
+    project_name: &str,
 ) -> Result<()> {
     let mut documents = Vec::new();
     let mut chunks_metadata = Vec::new();
@@ -165,9 +166,12 @@ pub fn build_and_write_index(
         node_importance.insert(doc.id.clone(), dag.node_importance(&doc.id));
     }
 
+    let timestamp = chrono::Utc::now().to_rfc3339();
     let index = json!({
         "version": "5.0",
-        "generated": chrono::Utc::now().to_rfc3339(),
+        "project": project_name,
+        "updated": timestamp,
+        "generated": timestamp,
         "stats": {
             "doc_count": documents.len(),
             "chunk_count": chunks_result.total_chunks,

@@ -254,11 +254,11 @@ fn run_full_pipeline(test_dir: &Path, output_dir: &Path) -> Result<PipelineResul
     let (_analyses_with_ids, link_map) = assign::assign_ids(analyses.clone());
 
     // Phase 4: CHUNK
-    let chunks_result = chunk::chunk_all(&analyses, output_dir)
+    let chunks_result = chunk::chunk_all(&analyses, &link_map, output_dir)
         .context("Chunking phase failed")?;
 
     // Phase 5: INDEX
-    index::build_and_write_index(&analyses, &link_map, &chunks_result, output_dir)
+    index::build_and_write_index(&analyses, &link_map, &chunks_result, output_dir, "Test Project")
         .context("Indexing phase failed")?;
 
     Ok(PipelineResult {

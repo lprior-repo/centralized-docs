@@ -1,7 +1,9 @@
 use crate::analyze::Analysis;
+use crate::assign::IdMapping;
 use anyhow::Result;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -94,7 +96,11 @@ pub struct ChunksResult {
 /// Smart chunking that preserves semantic boundaries with hierarchical levels
 /// Implements contextual retrieval: each chunk knows its place in the document
 /// Creates chunks at three levels: summary (~128 tokens), standard (~512), detailed (~1024)
-pub fn chunk_all(analyses: &[Analysis], output_dir: &Path) -> Result<ChunksResult> {
+pub fn chunk_all(
+    analyses: &[Analysis],
+    link_map: &HashMap<String, IdMapping>,
+    output_dir: &Path,
+) -> Result<ChunksResult> {
     let chunks_dir = output_dir.join("chunks");
     fs::create_dir_all(&chunks_dir)?;
 
@@ -102,7 +108,11 @@ pub fn chunk_all(analyses: &[Analysis], output_dir: &Path) -> Result<ChunksResul
     let (all_chunks, summary_chunks, standard_chunks, detailed_chunks) = analyses.iter().fold(
         (Vec::new(), 0usize, 0usize, 0usize),
         |(mut chunks, sum_count, std_count, det_count), analysis| {
-            let doc_id = slugify(&analysis.source_path);
+            // Use the assigned document ID from link_map, falling back to slugified source path
+            let doc_id = link_map
+                .get(&analysis.source_path)
+                .map(|m| m.id.clone())
+                .unwrap_or_else(|| slugify(&analysis.source_path));
 
             // Create chunks at ALL THREE levels for hierarchical retrieval
             let summary = create_chunks_at_level(

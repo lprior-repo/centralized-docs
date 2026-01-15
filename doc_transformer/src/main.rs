@@ -534,7 +534,7 @@ fn run_index(
 
     // STEP 5: CHUNK (Hierarchical)
     println!("[STEP 5] CHUNK");
-    let chunks_result = chunk::chunk_all(&analyses, output)?;
+    let chunks_result = chunk::chunk_all(&analyses, &link_map, output)?;
     println!(
         "  Generated {} chunks from {} documents",
         chunks_result.total_chunks, chunks_result.document_count
@@ -547,7 +547,7 @@ fn run_index(
 
     // STEP 6: INDEX + GRAPH
     println!("[STEP 6] INDEX + GRAPH");
-    index::build_and_write_index(&analyses, &link_map, &chunks_result, output)?;
+    index::build_and_write_index(&analyses, &link_map, &chunks_result, output, project_name)?;
     index::build_and_write_compass(&analyses, &link_map, output)?;
     println!("  Created INDEX.json and COMPASS.md\n");
 
