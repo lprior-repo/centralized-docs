@@ -133,7 +133,7 @@ fn compile_query(query: &str) -> CompiledQuery {
 // ============================================================================
 
 /// Server metrics for observability
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ServerMetrics {
     pub total_requests: std::sync::atomic::AtomicUsize,
     pub successful_requests: std::sync::atomic::AtomicUsize,
@@ -141,10 +141,10 @@ pub struct ServerMetrics {
     pub cache_hits: std::sync::atomic::AtomicUsize,
     pub cache_misses: std::sync::atomic::AtomicUsize,
     pub tool_calls: RwLock<HashMap<String, usize>>,
-    pub started_at: std::sync::LazyLock<SystemTime>,
+    pub started_at: SystemTime,
 }
 
-/// Global metrics instance
+/// Global metrics instance (initialized when first accessed)
 static METRICS: std::sync::LazyLock<ServerMetrics> = std::sync::LazyLock::new(|| ServerMetrics {
     total_requests: std::sync::atomic::AtomicUsize::new(0),
     successful_requests: std::sync::atomic::AtomicUsize::new(0),
@@ -152,7 +152,7 @@ static METRICS: std::sync::LazyLock<ServerMetrics> = std::sync::LazyLock::new(||
     cache_hits: std::sync::atomic::AtomicUsize::new(0),
     cache_misses: std::sync::atomic::AtomicUsize::new(0),
     tool_calls: RwLock::new(HashMap::new()),
-    started_at: std::sync::LazyLock::new(SystemTime::now),
+    started_at: SystemTime::now(),
 });
 
 /// Record a request (success or failure)
@@ -383,12 +383,14 @@ fn load_index_with_cache(
         if let Some(cached) = cache_read.get(index_path) {
             // Check if cache is fresh and file hasn't been modified
             if cached.is_fresh() && cached.file_modified >= file_modified {
+                record_cache_hit(); // v6.0 metrics
                 return Ok(cached.index.clone());
             }
         }
     }
 
     // Cache miss or stale - load fresh index
+    record_cache_miss(); // v6.0 metrics
     let index = load_index(index_path)?;
 
     // Update cache
@@ -1248,9 +1250,19 @@ fn run_server() -> Result<(), McpError> {
         // Reload index with cache (enables hot-reload if file changed)
         let current_index = load_index_with_cache(&index_path, &cache)?;
 
-        // Handle request (functional core)
-        let response = handle_request(&request, &current_index, index_dir)
-            .unwrap_or_else(|e| format_error(e));
+        // Handle request (functional core) with metrics tracking (v6.0)
+        let response = handle_request(&request, &current_index, index_dir);
+        let is_success = response.is_ok();
+        record_request(is_success);
+
+        // Record tool call if this is a tools/call request
+        if request.method == "tools/call" {
+            if let Some(name) = request.params.get("name").and_then(|n| n.as_str()) {
+                record_tool_call(name);
+            }
+        }
+
+        let response = response.unwrap_or_else(|e| format_error(e));
 
         // Write response
         serde_json::to_writer(&mut stdout, &response)
