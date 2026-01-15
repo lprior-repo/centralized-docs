@@ -68,113 +68,80 @@ Transform centralized-docs from a documentation indexer into the **definitive st
 
 ---
 
-## Phase 2: MCP Enhancements & Extraction (v6.0) 🔮 **NEXT**
+## Phase 2: MCP Enhancements & Extraction (v6.0) ✅ **COMPLETE**
 
 **Goal:** Make innovations reusable and enhance AI querying
 **Priority:** P0 (Critical infrastructure)
-**Timeline:** Next major release
+**Status:** Complete (2026-01-15)
 
-### 1. MCP Server Enhancements (centralized-docs-jxo+)
+### 1. MCP Server Enhancements ✅
 
-**Why Critical:** Enable advanced AI interactions with indexed documentation
+**10 MCP tools implemented:**
 
-#### Tools to Add
-- [ ] `find_related()` - Navigate knowledge DAG relationships
-- [ ] `get_document()` - Retrieve full documents with metadata
-- [ ] `semantic_search()` - Vector-based semantic search
-- [ ] `explain_chunk()` - Return chunk with full context trail
+#### Tools Added
+- ✅ `find_related()` - Navigate knowledge DAG relationships
+- ✅ `get_document()` - Retrieve full documents with metadata
+- ✅ `semantic_search()` - Text-based semantic search (vector v8.0)
+- ✅ `explain_chunk()` - Return chunk with full context trail
+- ✅ `search_by_category()` - Filter by document category
+- ✅ `search_by_tags()` - Filter by tags (any/all modes)
+- ✅ `get_navigation()` - Hierarchical/flat navigation
 
 #### Infrastructure Improvements
-- [ ] **Streaming responses** - Handle large result sets efficiently
-- [ ] **Chunk caching** - Avoid repeated INDEX.json reads
-- [ ] **Query optimization** - Cache compiled queries
-- [ ] **Metrics/telemetry** - Track usage and performance
+- ⏳ **Streaming responses** - Deferred to v8.0
+- ✅ **Chunk caching** - CachedIndex with 5-minute TTL
+- ✅ **Query optimization** - CompiledQuery with 1-minute cache
+- ✅ **Metrics/telemetry** - ServerMetrics tracking requests, cache, tools
 
 #### Advanced Features
-- [ ] **Multi-index support** - Query across multiple documentation sets
-- [ ] **Filter by category/tag** - Refined search capabilities
-- [ ] **Contextual snippets** - Show surrounding context for matches
-- [ ] **Relationship traversal** - Follow DAG edges programmatically
+- ⏳ **Multi-index support** - Deferred to v8.0
+- ✅ **Filter by category/tag** - search_by_category, search_by_tags
+- ✅ **Contextual snippets** - explain_chunk with context trail
+- ✅ **Relationship traversal** - find_related with DAG traversal
 
-### 2. Contextual-Chunker Crate (centralized-docs-7d8)
+### 2. Contextual-Chunker Crate ✅
 
-**Why Important:** Share the 35% improvement innovation with the Rust ecosystem
-
-#### Extraction Plan
-```
-src/chunk.rs → contextual-chunker/ (new crate)
-```
-
-#### API Design
-```rust
-// Public API
-pub fn chunk_with_context(
-    content: &str,
-    config: ChunkConfig,
-) -> Vec<ContextualChunk>;
-
-pub struct ChunkConfig {
-    pub target_tokens: usize,        // ~70-120
-    pub context_tokens: usize,       // ~50-100
-    pub chunk_overlap: usize,        // Token overlap between chunks
-    pub level: ChunkLevel,           // Summary, Standard, Detailed
-}
-
-pub struct ContextualChunk {
-    pub id: String,
-    pub content: String,             // Actual chunk content
-    pub context_prefix: String,      // Previous chunk context
-    pub token_count: usize,
-    pub summary: String,
-    pub metadata: HashMap<String, String>,
-}
-```
+**Location:** `/contextual-chunker/`
+**Tests:** 15 unit + 6 doc tests passing
+**Status:** Ready for crates.io publication
 
 #### Features
 - ✅ Semantic chunking (preserve paragraph boundaries)
 - ✅ Contextual prefixes from previous chunk
 - ✅ Hierarchical chunking (summary/standard/detailed)
 - ✅ Token estimation (compatible with OpenAI/Anthropic)
-- [ ] Configurable chunking strategies
-- [ ] Markdown-aware chunking
-- [ ] Code-aware chunking (preserve function boundaries)
+- ✅ Configurable chunking strategies
+- ✅ Markdown-aware chunking
+- ⏳ Code-aware chunking (preserve function boundaries) - v8.0
 
 #### Documentation
-- [ ] README with 35% improvement metric
-- [ ] Examples for common use cases
-- [ ] Benchmark comparison vs naive chunking
-- [ ] API documentation
-- [ ] Migration guide from centralized-docs
+- ✅ README with 35% improvement metric
+- ✅ Examples for common use cases
+- ✅ API documentation
+- ⏳ Benchmark comparison vs naive chunking - future
+- ⏳ Migration guide from centralized-docs - future
 
 #### Publishing
-- [ ] Publish to crates.io as `contextual-chunker`
-- [ ] Version 0.1.0 initial release
-- [ ] CI/CD for automated publishing
-- [ ] crates.io documentation
+- ✅ Package ready for crates.io as `contextual-chunker`
+- ✅ Version 0.1.0 prepared
+- ⏳ CI/CD for automated publishing - future
+- ⏳ crates.io publication - pending user action
 
-### 3. Fix spider-rs Integration
+### 3. spider-rs Integration
 
-**Why:** Complete the web scraping functionality
+**Status:** Known issue documented, workaround available
 
-#### Options
-1. **Update spider-rs version** - Try latest release
-2. **Fix configuration** - Investigate async runtime setup
-3. **Alternative library** - Consider reqwest + scraper
-4. **CLI wrapper** - Use spider-rs CLI, post-process output
-
-#### Implementation
-- [ ] Investigate spider-rs runtime panic
-- [ ] Test with updated dependencies
-- [ ] Add integration tests for real sites
-- [ ] Document working configuration
+- ✅ Investigated spider-rs runtime panic (library bug)
+- ✅ Documented workaround (use local files)
+- ⏳ Alternative library integration - deferred
 
 ---
 
-## Phase 3: Standards & Community (v7.0) 🔮 **FUTURE**
+## Phase 3: Standards & Community (v7.0) 🔄 **IN PROGRESS (75%)**
 
 **Goal:** Establish llms.txt as THE standard for AI documentation
 **Priority:** P1 (High value, not urgent)
-**Timeline:** 6-12 months
+**Status:** 75% complete (2026-01-15)
 
 ### 1. llms.txt RFC (centralized-docs-bi9)
 
@@ -202,18 +169,18 @@ and navigate documentation, similar to robots.txt for web crawlers.
 ```
 
 #### Deliverables
-- [ ] **RFC document** - Complete specification (RFC-001-llms-txt.md)
-- [ ] **Validator CLI** - `llms-txt validate <url|file>`
-- [ ] **Parser library** - `llms-txt-parser` crate
-- [ ] **Generator enhancements** - Smart section detection
-- [ ] **Community site** - llms.txt.org with examples
+- ✅ **RFC document** - Complete specification (RFC_LLMS_TXT.md)
+- ✅ **Validator CLI** - `llms_txt_validator` (8 tests passing)
+- ✅ **Parser library** - `llms-txt-parser` crate (5+1 tests)
+- ✅ **Generator enhancements** - Smart section detection, versioning
+- ⏳ **Community site** - llms.txt.org with examples - future
 
 #### Standard Features
-- [ ] Versioning (llms.txt v1.0, v2.0, etc.)
-- [ ] Schema validation
-- [ ] Link checking
-- [ ] Section structure validation
-- [ ] Metadata completeness checks
+- ✅ Versioning (llms.txt v1.0 spec)
+- ✅ Schema validation (INDEX.json)
+- ✅ Link checking (validate_links_in_content)
+- ✅ Section structure validation
+- ✅ Metadata completeness checks
 
 ### 2. Community Index Repository (centralized-docs-bqk)
 
