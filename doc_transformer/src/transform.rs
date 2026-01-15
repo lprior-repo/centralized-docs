@@ -120,7 +120,7 @@ fn transform_file(
 }
 
 /// Parse markdown using pulldown-cmark with full CommonMark + GFM support
-fn parse_markdown(content: &str) -> Vec<Event> {
+fn parse_markdown(content: &str) -> Vec<Event<'_>> {
     let options = Options::all();
     let parser = Parser::new_ext(content, options);
     parser.collect()

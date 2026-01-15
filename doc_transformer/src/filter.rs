@@ -533,7 +533,7 @@ pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
 /// Note: This function is primarily for testing purposes but is made public
 /// to be accessible from integration tests in the tests/ directory.
 pub fn discover_test_files(root: &std::path::Path) -> Result<Vec<String>, anyhow::Error> {
-    use std::fs;
+    
     use walkdir::WalkDir;
 
     let mut files = Vec::new();
