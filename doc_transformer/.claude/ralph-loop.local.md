@@ -1,9 +1,9 @@
 ---
 active: true
-iteration: 7
-max_iterations: 50
+iteration: 1
+max_iterations: 20
 completion_promise: null
-started_at: "2026-01-15T06:35:56Z"
+started_at: "2026-01-15T07:17:30Z"
 ---
 
-Drive this to completion on everything in future state docs please so this has everything we need to get implemented please
+Implement v6.0 features from ROADMAP.md and PLAN_v6.md systematically. Start with MCP server enhancements, then contextual-chunker crate, then llms-txt validator.

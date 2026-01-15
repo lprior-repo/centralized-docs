@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexDocument {
     pub id: String,
     pub title: String,
@@ -24,7 +24,7 @@ pub struct IndexDocument {
     pub chunk_ids: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChunkMetadata {
     pub chunk_id: String,
     pub doc_id: String,
