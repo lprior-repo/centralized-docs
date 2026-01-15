@@ -189,8 +189,9 @@ fn validate_links_in_content(content: &str, result: &mut ValidationResult) {
 }
 
 /// Validate chunk file paths exist
+#[allow(unused_variables)]
 fn validate_chunk_paths(chunks: &[Chunk], base_path: &Path, result: &mut ValidationResult) {
-    let mut missing_paths: Vec<String> = Vec::new();
+    let missing_paths: Vec<String> = Vec::new();
 
     for chunk in chunks {
         // Skip chunks without content (they might reference external paths)
