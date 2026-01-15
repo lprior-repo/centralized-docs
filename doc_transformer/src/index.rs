@@ -46,7 +46,7 @@ pub struct ChunkMetadata {
     pub child_chunk_ids: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelatedChunk {
     pub chunk_id: String,
     pub similarity: f32,

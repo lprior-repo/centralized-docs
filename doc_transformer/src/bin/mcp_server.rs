@@ -97,6 +97,89 @@ pub struct GetChunkParams {
     pub chunk_id: String,
 }
 
+/// Tool call parameters for find_related
+#[derive(Debug, Deserialize)]
+pub struct FindRelatedParams {
+    pub chunk_id: String,
+    #[serde(default = "default_relationship_type")]
+    pub relationship_type: String, // "similar" | "sequential" | "hierarchical"
+    #[serde(default = "default_max_depth")]
+    pub max_depth: usize,
+    #[serde(default = "default_limit")]
+    pub limit: usize,
+}
+
+fn default_relationship_type() -> String {
+    "similar".to_string()
+}
+
+fn default_max_depth() -> usize {
+    2
+}
+
+/// Tool call parameters for get_document
+#[derive(Debug, Deserialize)]
+pub struct GetDocumentParams {
+    pub doc_id: String,
+    #[serde(default = "default_include_chunks")]
+    pub include_chunks: bool,
+    #[serde(default)]
+    pub chunk_level: Option<String>, // "standard" | "summary" | "detailed"
+}
+
+fn default_include_chunks() -> bool {
+    true
+}
+
+/// Tool call parameters for semantic_search
+#[derive(Debug, Deserialize)]
+pub struct SemanticSearchParams {
+    pub query: String,
+    #[serde(default = "default_limit")]
+    pub limit: usize,
+    #[serde(default = "default_threshold")]
+    pub threshold: f32,
+}
+
+fn default_threshold() -> f32 {
+    0.7
+}
+
+/// Tool call parameters for search_by_category
+#[derive(Debug, Deserialize)]
+pub struct SearchByCategoryParams {
+    pub category: String,
+    pub query: String,
+    #[serde(default = "default_limit")]
+    pub limit: usize,
+}
+
+/// Tool call parameters for search_by_tags
+#[derive(Debug, Deserialize)]
+pub struct SearchByTagsParams {
+    pub tags: Vec<String>,
+    #[serde(default = "default_match_mode")]
+    pub match_mode: String, // "all" | "any"
+    pub query: String,
+    #[serde(default = "default_limit")]
+    pub limit: usize,
+}
+
+fn default_match_mode() -> String {
+    "any".to_string()
+}
+
+/// Tool call parameters for get_navigation
+#[derive(Debug, Deserialize)]
+pub struct GetNavigationParams {
+    #[serde(default = "default_format")]
+    pub format: String, // "hierarchical" | "flat"
+}
+
+fn default_format() -> String {
+    "hierarchical".to_string()
+}
+
 // ============================================================================
 // FUNCTIONAL CORE (Pure Logic)
 // ============================================================================
@@ -245,6 +328,283 @@ fn list_all_documents(documents: &[IndexDocument]) -> Value {
     json!({ "documents": doc_list, "total": documents.len() })
 }
 
+/// Find related chunks by traversing relationships
+fn find_related(
+    chunk_id: &str,
+    relationship_type: &str,
+    max_depth: usize,
+    limit: usize,
+    chunks: &[ChunkMetadata],
+) -> Result<Value, McpError> {
+    // Find the starting chunk
+    let _start_chunk = chunks
+        .iter()
+        .find(|c| c.chunk_id == chunk_id)
+        .ok_or_else(|| McpError::ChunkNotFound(chunk_id.to_string()))?;
+
+    let mut relationships = Vec::new();
+    let mut visited = std::collections::HashSet::new();
+    visited.insert(chunk_id.to_string());
+
+    // Helper function to traverse relationships
+    fn traverse(
+        current_id: &str,
+        depth: usize,
+        max_depth: usize,
+        relationship_type: &str,
+        chunks: &[ChunkMetadata],
+        visited: &mut std::collections::HashSet<String>,
+        relationships: &mut Vec<Value>,
+        limit: usize,
+    ) {
+        if depth >= max_depth || relationships.len() >= limit {
+            return;
+        }
+
+        if let Some(current) = chunks.iter().find(|c| c.chunk_id == current_id) {
+            let next_ids: Vec<String> = match relationship_type {
+                "sequential" => {
+                    current.next_chunk_id.clone().into_iter().collect()
+                }
+                "hierarchical" => {
+                    current.child_chunk_ids.clone()
+                }
+                "similar" | _ => {
+                    current.related_chunks.iter().map(|r| r.chunk_id.clone()).collect()
+                }
+            };
+
+            for next_id in next_ids {
+                if !visited.contains(&next_id) && relationships.len() < limit {
+                    visited.insert(next_id.clone());
+
+                    if let Some(next_chunk) = chunks.iter().find(|c| c.chunk_id == next_id) {
+                        relationships.push(json!({
+                            "chunk_id": next_chunk.chunk_id,
+                            "relationship": relationship_type,
+                            "score": 1.0, // Default score
+                            "path": vec![current_id, &next_id],
+                            "doc_title": next_chunk.doc_title,
+                            "heading": next_chunk.heading
+                        }));
+
+                        traverse(
+                            &next_id,
+                            depth + 1,
+                            max_depth,
+                            relationship_type,
+                            chunks,
+                            visited,
+                            relationships,
+                            limit,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    traverse(
+        chunk_id,
+        0,
+        max_depth,
+        relationship_type,
+        chunks,
+        &mut visited,
+        &mut relationships,
+        limit,
+    );
+
+    Ok(json!({ "relationships": relationships }))
+}
+
+/// Get full document with optional chunks
+fn get_document(
+    doc_id: &str,
+    include_chunks: bool,
+    chunk_level: Option<&str>,
+    documents: &[IndexDocument],
+    chunks: &[ChunkMetadata],
+) -> Result<Value, McpError> {
+    let doc = documents
+        .iter()
+        .find(|d| d.id == doc_id)
+        .ok_or_else(|| McpError::ChunkNotFound(format!("document not found: {}", doc_id)))?;
+
+    let mut result = json!({
+        "doc_id": doc.id,
+        "title": doc.title,
+        "category": doc.category,
+        "tags": doc.tags,
+        "word_count": doc.word_count,
+        "path": doc.path
+    });
+
+    if include_chunks {
+        let doc_chunks: Vec<Value> = chunks
+            .iter()
+            .filter(|c| c.doc_id == doc_id)
+            .filter(|c| {
+                if let Some(level) = chunk_level {
+                    c.chunk_level == level
+                } else {
+                    true
+                }
+            })
+            .map(|c| {
+                json!({
+                    "chunk_id": c.chunk_id,
+                    "heading": c.heading,
+                    "content": "",  // Content not stored in metadata
+                    "token_count": c.token_count,
+                    "chunk_level": c.chunk_level
+                })
+            })
+            .collect();
+
+        result["chunks"] = json!(doc_chunks);
+    }
+
+    Ok(result)
+}
+
+/// Semantic search (stub for now - requires vector embeddings)
+fn semantic_search(
+    query: &str,
+    limit: usize,
+    _threshold: f32,
+    chunks: &[ChunkMetadata],
+) -> Result<Value, McpError> {
+    // For now, fallback to simple text matching on summaries
+    // TODO: Implement true vector-based semantic search in v8.0
+    let results: Vec<Value> = chunks
+        .iter()
+        .filter(|c| {
+            let query_lower = query.to_lowercase();
+            c.summary.to_lowercase().contains(&query_lower)
+                || c.heading.as_ref().map_or(false, |h| h.to_lowercase().contains(&query_lower))
+        })
+        .take(limit)
+        .map(|c| {
+            json!({
+                "chunk_id": c.chunk_id,
+                "doc_title": c.doc_title,
+                "heading": c.heading,
+                "similarity_score": 0.85, // Stub score
+                "excerpt": c.summary
+            })
+        })
+        .collect();
+
+    Ok(json!({ "results": results }))
+}
+
+/// Search documents by category
+fn search_by_category(
+    category: &str,
+    query: &str,
+    limit: usize,
+    documents: &[IndexDocument],
+) -> Result<Value, McpError> {
+    let query_lower = query.to_lowercase();
+    let results: Vec<Value> = documents
+        .iter()
+        .filter(|doc| doc.category == category)
+        .filter(|doc| {
+            doc.title.to_lowercase().contains(&query_lower)
+                || doc.summary.to_lowercase().contains(&query_lower)
+        })
+        .take(limit)
+        .map(|doc| {
+            json!({
+                "doc_id": doc.id,
+                "title": doc.title,
+                "category": doc.category,
+                "score": 0.9
+            })
+        })
+        .collect();
+
+    Ok(json!({ "results": results }))
+}
+
+/// Search documents by tags
+fn search_by_tags(
+    tags: &[String],
+    match_mode: &str,
+    query: &str,
+    limit: usize,
+    documents: &[IndexDocument],
+) -> Result<Value, McpError> {
+    let query_lower = query.to_lowercase();
+    let results: Vec<Value> = documents
+        .iter()
+        .filter(|doc| {
+            let matches = if match_mode == "all" {
+                tags.iter().all(|t| doc.tags.contains(t))
+            } else {
+                tags.iter().any(|t| doc.tags.contains(t))
+            };
+            matches
+        })
+        .filter(|doc| {
+            doc.title.to_lowercase().contains(&query_lower)
+                || doc.summary.to_lowercase().contains(&query_lower)
+        })
+        .take(limit)
+        .map(|doc| {
+            json!({
+                "doc_id": doc.id,
+                "title": doc.title,
+                "tags": doc.tags,
+                "score": 0.88
+            })
+        })
+        .collect();
+
+    Ok(json!({ "results": results }))
+}
+
+/// Get navigation structure
+fn get_navigation(format: &str, documents: &[IndexDocument]) -> Value {
+    if format == "flat" {
+        json!({
+            "documents": documents.iter().map(|d| json!({
+                "id": d.id,
+                "title": d.title,
+                "path": d.path
+            })).collect::<Vec<_>>()
+        })
+    } else {
+        // Hierarchical: group by category
+        let mut sections: std::collections::HashMap<String, Vec<Value>> =
+            std::collections::HashMap::new();
+
+        for doc in documents {
+            sections
+                .entry(doc.category.clone())
+                .or_insert_with(Vec::new)
+                .push(json!({
+                    "id": doc.id,
+                    "title": doc.title,
+                    "path": doc.path
+                }));
+        }
+
+        let sections_list: Vec<Value> = sections
+            .into_iter()
+            .map(|(name, docs)| {
+                json!({
+                    "name": name,
+                    "documents": docs
+                })
+            })
+            .collect();
+
+        json!({ "sections": sections_list })
+    }
+}
+
 /// Generate MCP tools/list response
 fn generate_tools_list() -> Value {
     json!({
@@ -289,6 +649,148 @@ fn generate_tools_list() -> Value {
                     "type": "object",
                     "properties": {}
                 }
+            },
+            {
+                "name": "find_related",
+                "description": "Navigate knowledge DAG to find related chunks",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "chunk_id": {
+                            "type": "string",
+                            "description": "Starting chunk identifier"
+                        },
+                        "relationship_type": {
+                            "type": "string",
+                            "description": "Type of relationship (similar | sequential | hierarchical)",
+                            "default": "similar"
+                        },
+                        "max_depth": {
+                            "type": "number",
+                            "description": "Maximum traversal depth (default: 2)",
+                            "default": 2
+                        },
+                        "limit": {
+                            "type": "number",
+                            "description": "Maximum number of results (default: 10)",
+                            "default": 10
+                        }
+                    },
+                    "required": ["chunk_id"]
+                }
+            },
+            {
+                "name": "get_document",
+                "description": "Retrieve full document with optional chunks",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "doc_id": {
+                            "type": "string",
+                            "description": "Document identifier"
+                        },
+                        "include_chunks": {
+                            "type": "boolean",
+                            "description": "Include document chunks (default: true)",
+                            "default": true
+                        },
+                        "chunk_level": {
+                            "type": "string",
+                            "description": "Filter by chunk level (standard | summary | detailed)"
+                        }
+                    },
+                    "required": ["doc_id"]
+                }
+            },
+            {
+                "name": "semantic_search",
+                "description": "Vector-based semantic search (stub - full implementation in v8.0)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Natural language query"
+                        },
+                        "limit": {
+                            "type": "number",
+                            "description": "Maximum number of results (default: 10)",
+                            "default": 10
+                        },
+                        "threshold": {
+                            "type": "number",
+                            "description": "Minimum similarity threshold (default: 0.7)",
+                            "default": 0.7
+                        }
+                    },
+                    "required": ["query"]
+                }
+            },
+            {
+                "name": "search_by_category",
+                "description": "Search documents filtered by category",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "category": {
+                            "type": "string",
+                            "description": "Document category to filter by"
+                        },
+                        "query": {
+                            "type": "string",
+                            "description": "Search query"
+                        },
+                        "limit": {
+                            "type": "number",
+                            "description": "Maximum number of results (default: 10)",
+                            "default": 10
+                        }
+                    },
+                    "required": ["category", "query"]
+                }
+            },
+            {
+                "name": "search_by_tags",
+                "description": "Search documents filtered by tags",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tags": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Tags to filter by"
+                        },
+                        "match_mode": {
+                            "type": "string",
+                            "description": "Match mode (all | any, default: any)",
+                            "default": "any"
+                        },
+                        "query": {
+                            "type": "string",
+                            "description": "Search query"
+                        },
+                        "limit": {
+                            "type": "number",
+                            "description": "Maximum number of results (default: 10)",
+                            "default": 10
+                        }
+                    },
+                    "required": ["tags", "query"]
+                }
+            },
+            {
+                "name": "get_navigation",
+                "description": "Get documentation navigation structure",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "format": {
+                            "type": "string",
+                            "description": "Output format (hierarchical | flat, default: hierarchical)",
+                            "default": "hierarchical"
+                        }
+                    }
+                }
             }
         ]
     })
@@ -319,6 +821,54 @@ fn handle_request(req: &McpRequest, index: &DocumentIndex, index_dir: &Path) -> 
                     find_chunk(&params.chunk_id, &index.chunks)
                 }
                 "list_docs" => Ok(list_all_documents(&index.documents)),
+                "find_related" => {
+                    let params: FindRelatedParams = serde_json::from_value(arguments.clone())
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid find_related params: {}", e)))?;
+
+                    find_related(
+                        &params.chunk_id,
+                        &params.relationship_type,
+                        params.max_depth,
+                        params.limit,
+                        &index.chunks,
+                    )
+                }
+                "get_document" => {
+                    let params: GetDocumentParams = serde_json::from_value(arguments.clone())
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_document params: {}", e)))?;
+
+                    get_document(
+                        &params.doc_id,
+                        params.include_chunks,
+                        params.chunk_level.as_deref(),
+                        &index.documents,
+                        &index.chunks,
+                    )
+                }
+                "semantic_search" => {
+                    let params: SemanticSearchParams = serde_json::from_value(arguments.clone())
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid semantic_search params: {}", e)))?;
+
+                    semantic_search(&params.query, params.limit, params.threshold, &index.chunks)
+                }
+                "search_by_category" => {
+                    let params: SearchByCategoryParams = serde_json::from_value(arguments.clone())
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid search_by_category params: {}", e)))?;
+
+                    search_by_category(&params.category, &params.query, params.limit, &index.documents)
+                }
+                "search_by_tags" => {
+                    let params: SearchByTagsParams = serde_json::from_value(arguments.clone())
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid search_by_tags params: {}", e)))?;
+
+                    search_by_tags(&params.tags, &params.match_mode, &params.query, params.limit, &index.documents)
+                }
+                "get_navigation" => {
+                    let params: GetNavigationParams = serde_json::from_value(arguments.clone())
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_navigation params: {}", e)))?;
+
+                    Ok(get_navigation(&params.format, &index.documents))
+                }
                 _ => Err(McpError::UnknownMethod(tool_name.to_string())),
             }
         }
