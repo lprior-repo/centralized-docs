@@ -4,13 +4,18 @@ A pure Rust CLI tool for transforming raw documentation into AI-optimized, searc
 
 ## Overview
 
-**centralized-docs** transforms markdown documentation into a semantic knowledge graph with:
-- 📑 Automatic metadata extraction (titles, headings, categories, tags)
-- 🔗 Knowledge Graph DAG (directed acyclic graph) with document relationships
-- 📝 Semantic chunking with contextual prefixes (AI-optimized)
-- 🔍 Full-text indexing with keyword search
-- 🧭 Navigation guide (COMPASS.md) for document discovery
-- ✅ Automated validation and quality checking
+**centralized-docs** (v5.0) is the **best documentation indexer for AI agents**, transforming any documentation into a semantic knowledge graph with:
+
+- 🕷️ **Web scraping** via spider-rs with sitemap.xml support
+- 🎯 **Content filtering** using BM25 relevance and text density pruning
+- 🤖 **llms.txt generation** - AI-first entry point files
+- 📑 **Automatic metadata extraction** (titles, headings, categories, tags)
+- 🔗 **Knowledge Graph DAG** with Jaccard similarity relationships
+- 📝 **Semantic chunking** with 50-100 token context prefixes
+- 🔍 **Full-text search** using Tantivy with BM25 scoring
+- 🧠 **Semantic similarity** via HNSW approximate nearest neighbor
+- 🧭 **Navigation guides** (COMPASS.md and AGENTS.md)
+- ✅ **Automated validation** and quality checking
 
 ## Quick Start
 
@@ -20,7 +25,37 @@ cd doc_transformer
 cargo build --release
 ```
 
-### Transform Documentation
+### Usage
+
+**Scrape a documentation website:**
+```bash
+./target/release/doc_transformer scrape https://docs.example.com \
+  --output ./scraped \
+  --sitemap \
+  --delay 250
+```
+
+**Index local markdown files:**
+```bash
+./target/release/doc_transformer index ./source_docs \
+  --output ./indexed \
+  --llms-txt
+```
+
+**One-shot scrape + index:**
+```bash
+./target/release/doc_transformer ingest https://docs.example.com \
+  --output ./indexed
+```
+
+**Search indexed documentation:**
+```bash
+./target/release/doc_transformer search "query terms" \
+  --index-dir ./indexed \
+  --limit 10
+```
+
+**Legacy mode (backward compatible):**
 ```bash
 ./target/release/doc_transformer ./source_docs ./output_index
 ```
@@ -28,10 +63,14 @@ cargo build --release
 ### Output Structure
 ```
 output_index/
-├── docs/                    # Transformed source documents
-├── chunks/                  # AI-optimized semantic chunks
-├── INDEX.json              # Complete searchable index
-└── COMPASS.md              # Navigation guide
+├── llms.txt                 # AI entry point (read this first!)
+├── llms-full.txt            # Full content for large context models
+├── AGENTS.md                # Instructions for AI coding agents
+├── INDEX.json               # Complete searchable index + knowledge graph
+├── COMPASS.md               # Human-readable navigation guide
+├── docs/                    # Transformed documents with YAML frontmatter
+├── chunks/                  # Semantic chunks with context prefixes
+└── .tantivy_index/          # Full-text search index
 ```
 
 ## Architecture
@@ -133,6 +172,7 @@ centralized-docs/
 
 ## Dependencies
 
+**Core:**
 - **petgraph** - Graph data structures (Knowledge DAG)
 - **serde** / **serde_json** - Serialization
 - **regex** - Pattern matching
@@ -142,9 +182,25 @@ centralized-docs/
 - **tokio** - Async runtime
 - **anyhow** - Error handling
 
+**v5.0 Web Scraping & Search:**
+- **spider** - Web scraping with sitemap support
+- **spider_transformations** - HTML to markdown conversion
+- **url** - URL parsing and manipulation
+- **scraper** - HTML parsing for content filtering
+- **tantivy** - Full-text search engine with BM25
+- **hnsw_rs** - Approximate nearest neighbor search
+- **readability** - Content extraction (Mozilla algorithm)
+- **pulldown-cmark** - Markdown parsing
+
 ## Version
 
-**v4.3** - Knowledge DAG with Anthropic Contextual Retrieval pattern
+**v5.0** - AI-Optimized Documentation Indexer with Web Scraping
+- Web scraping via spider-rs with sitemap support
+- Content filtering (BM25 + pruning algorithms)
+- llms.txt generation for AI entry points
+- Full-text search with Tantivy
+- HNSW semantic similarity search
+- CLI subcommands: scrape, index, ingest, search
 
 ## License
 

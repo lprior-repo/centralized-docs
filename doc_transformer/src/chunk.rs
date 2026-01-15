@@ -42,6 +42,14 @@ impl ChunkLevel {
         }
     }
 
+    fn context_tokens(&self) -> usize {
+        match self {
+            ChunkLevel::Summary => 30,
+            ChunkLevel::Standard => 100,
+            ChunkLevel::Detailed => 200,
+        }
+    }
+
     pub fn as_str(&self) -> &str {
         match self {
             ChunkLevel::Summary => "summary",
@@ -195,6 +203,41 @@ pub fn chunk_all(analyses: &[Analysis], output_dir: &Path) -> Result<ChunksResul
 /// - Summary (~128 tokens): High-level overview for quick retrieval
 /// - Standard (~512 tokens): Balanced detail for most use cases
 /// - Detailed (~1024 tokens): Full context for deep understanding
+/// Helper function to create a chunk from accumulated content (pure function)
+fn build_chunk(
+    current_chunk: &str,
+    doc_id: &str,
+    doc_title: &str,
+    chunk_index: usize,
+    current_heading: &Option<String>,
+    level: &ChunkLevel,
+) -> Chunk {
+    let chunk_id = format!("{}#{}", doc_id, chunk_index);
+    let summary = create_summary(current_chunk);
+    let token_count = estimate_tokens(current_chunk);
+    let chunk_type = detect_chunk_type(current_chunk);
+
+    Chunk {
+        chunk_id,
+        doc_id: doc_id.to_string(),
+        doc_title: doc_title.to_string(),
+        chunk_index,
+        content: current_chunk.to_string(),
+        token_count,
+        heading: current_heading.clone(),
+        chunk_type,
+        previous_chunk_id: chunk_index
+            .checked_sub(1)
+            .map(|prev| format!("{}#{}", doc_id, prev)),
+        next_chunk_id: None,
+        related_chunk_ids: Vec::new(),
+        summary,
+        chunk_level: level.clone(),
+        parent_chunk_id: None,
+        child_chunk_ids: Vec::new(),
+    }
+}
+
 pub fn create_chunks_at_level(
     content: &str,
     doc_id: &str,
@@ -218,41 +261,17 @@ pub fn create_chunks_at_level(
             || (current_tokens >= target_tokens && !current_chunk.is_empty());
 
         if should_split && !current_chunk.is_empty() {
-            let chunk_id = format!("{}#{}", doc_id, chunk_index);
-            let summary = create_summary(&current_chunk);
-            let token_count = estimate_tokens(&current_chunk);
-            let chunk_type = detect_chunk_type(&current_chunk);
-
-            chunks.push(Chunk {
-                chunk_id,
-                doc_id: doc_id.to_string(),
-                doc_title: doc_title.to_string(),
+            chunks.push(build_chunk(
+                &current_chunk,
+                doc_id,
+                doc_title,
                 chunk_index,
-                content: current_chunk.clone(),
-                token_count,
-                heading: current_heading.clone(),
-                chunk_type,
-                previous_chunk_id: chunk_index
-                    .checked_sub(1)
-                    .map(|prev| format!("{}#{}", doc_id, prev)),
-                next_chunk_id: None,
-                related_chunk_ids: Vec::new(),
-                summary,
-                chunk_level: level.clone(),
-                parent_chunk_id: None,
-                child_chunk_ids: Vec::new(),
-            });
+                &current_heading,
+                &level,
+            ));
 
             chunk_index = chunk_index.saturating_add(1);
-
-            // Context buffer size varies by level
-            let context_tokens = match level {
-                ChunkLevel::Summary => 30,
-                ChunkLevel::Standard => 100,
-                ChunkLevel::Detailed => 200,
-            };
-
-            context_buffer = get_context_tail(&current_chunk, context_tokens);
+            context_buffer = get_context_tail(&current_chunk, level.context_tokens());
             current_chunk.clear();
         }
 
@@ -270,34 +289,42 @@ pub fn create_chunks_at_level(
 
         current_chunk.push_str(line);
         current_chunk.push('\n');
+
+        // Check if we need to split after adding this line (for long paragraphs without H2s)
+        let current_tokens = estimate_tokens(&current_chunk);
+        if current_tokens >= target_tokens && !current_chunk.is_empty() {
+            chunks.push(build_chunk(
+                &current_chunk,
+                doc_id,
+                doc_title,
+                chunk_index,
+                &current_heading,
+                &level,
+            ));
+
+            chunk_index = chunk_index.saturating_add(1);
+            context_buffer = get_context_tail(&current_chunk, level.context_tokens());
+            current_chunk.clear();
+
+            // Add context to new chunk
+            if !context_buffer.is_empty() {
+                current_chunk.push_str(&context_buffer);
+                current_chunk.push('\n');
+                context_buffer.clear();
+            }
+        }
     }
 
     // Add final chunk
     if !current_chunk.is_empty() {
-        let chunk_id = format!("{}#{}", doc_id, chunk_index);
-        let summary = create_summary(&current_chunk);
-        let token_count = estimate_tokens(&current_chunk);
-        let chunk_type = detect_chunk_type(&current_chunk);
-
-        chunks.push(Chunk {
-            chunk_id,
-            doc_id: doc_id.to_string(),
-            doc_title: doc_title.to_string(),
+        chunks.push(build_chunk(
+            &current_chunk,
+            doc_id,
+            doc_title,
             chunk_index,
-            content: current_chunk,
-            token_count,
-            heading: current_heading,
-            chunk_type,
-            previous_chunk_id: chunk_index
-                .checked_sub(1)
-                .map(|prev| format!("{}#{}", doc_id, prev)),
-            next_chunk_id: None,
-            related_chunk_ids: Vec::new(),
-            summary,
-            chunk_level: level.clone(),
-            parent_chunk_id: None,
-            child_chunk_ids: Vec::new(),
-        });
+            &current_heading,
+            &level,
+        ));
     }
 
     // If no chunks created, create one from whole content
@@ -371,21 +398,34 @@ fn estimate_tokens(text: &str) -> usize {
 
 /// Create a summary of chunk content using functional composition
 fn create_summary(content: &str) -> String {
-    content
+    let summary = content
         .split(['.', '\n'])
         .filter(|s| s.trim().len() > 10)
         .take(2)
         .collect::<Vec<_>>()
-        .join(". ")
-        .pipe(|summary| {
-            let char_count = summary.chars().count();
-            if char_count > 200 {
-                let truncated: String = summary.chars().take(197).collect();
-                format!("{}...", truncated)
-            } else {
-                summary
-            }
-        })
+        .join(". ");
+
+    // If no summary could be generated (e.g., only headings), use first non-empty line
+    let summary = if summary.is_empty() {
+        content
+            .lines()
+            .find(|line| !line.trim().is_empty())
+            .unwrap_or("")
+            .to_string()
+    } else {
+        summary
+    };
+
+    // Truncate if too long
+    summary.pipe(|s| {
+        let char_count = s.chars().count();
+        if char_count > 200 {
+            let truncated: String = s.chars().take(197).collect();
+            format!("{}...", truncated)
+        } else {
+            s
+        }
+    })
 }
 
 /// Generate URL-safe slug for document ID using functional composition

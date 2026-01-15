@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use doc_transformer::chunk::{Chunk, ChunkLevel};
-use doc_transformer::graph::{EdgeType, GraphEdge, GraphNode, KnowledgeDAG, NodeType};
+use doc_transformer::graph::KnowledgeDAG;
 use doc_transformer::index::build_knowledge_dag;
 use std::collections::HashMap;
 
@@ -235,7 +235,7 @@ fn benchmark_tag_generation(c: &mut Criterion) {
 
     for n in [100, 1_000, 5_000, 10_000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(n), n, |b, &n| {
-            let chunks = generate_test_chunks(*n);
+            let chunks = generate_test_chunks(n);
 
             b.iter(|| generate_test_tags(black_box(&chunks)));
         });

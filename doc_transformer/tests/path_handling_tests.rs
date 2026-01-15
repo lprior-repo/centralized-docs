@@ -13,20 +13,26 @@ fn test_analyze_root_path_error() {
 
 #[test]
 fn test_analyze_empty_stem_fallback() {
-    // Hidden files like ".hidden" have empty stem
+    // In Rust, hidden files like ".hidden" actually have a stem of ".hidden"
     let hidden_file = ".hidden";
     let stem = Path::new(hidden_file).file_stem();
 
-    // .hidden should have empty stem
-    assert_eq!(stem.map(|s| s.is_empty()), Some(true), "Hidden file stem should be empty");
+    // .hidden should have stem of ".hidden", NOT empty
+    assert_eq!(stem.map(|s| s.is_empty()), Some(false), "Hidden file has non-empty stem");
+    assert_eq!(stem.unwrap().to_string_lossy(), ".hidden");
 
-    // With our fallback, empty stems become "untitled"
-    let title = stem
+    // Test actual empty stem case (root path has no stem)
+    let root = "/";
+    let root_stem = Path::new(root).file_stem();
+    assert!(root_stem.is_none(), "Root path has no stem");
+
+    // With our fallback, None stems become "untitled"
+    let title = root_stem
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| std::ffi::OsStr::new("untitled"))
         .to_string_lossy();
 
-    assert_eq!(title, "untitled", "Empty stem should fallback to 'untitled'");
+    assert_eq!(title, "untitled", "None stem should fallback to 'untitled'");
 }
 
 #[test]
@@ -41,11 +47,13 @@ fn test_analyze_valid_filename() {
 
 #[test]
 fn test_analyze_trailing_slash() {
-    // Path with trailing slash has no filename
+    // In Rust, path with trailing slash still has filename as the last component
     let trailing = "path/to/dir/";
     let file_name = Path::new(trailing).file_name();
 
-    assert!(file_name.is_none(), "Trailing slash removes filename");
+    // Rust Path keeps the last component even with trailing slash
+    assert!(file_name.is_some(), "Trailing slash keeps last component");
+    assert_eq!(file_name.unwrap().to_string_lossy(), "dir");
 }
 
 #[test]
@@ -63,20 +71,20 @@ fn test_config_empty_filename_pattern() {
 
 #[test]
 fn test_filename_comparison_with_filter() {
-    // Ensure we don't compare empty filenames as equal
+    // Test filename filtering behavior
     let root_path = "/";
     let dir_path = "some/dir/";
 
     let file1 = Path::new(root_path).file_name().filter(|s| !s.is_empty());
     let file2 = Path::new(dir_path).file_name().filter(|s| !s.is_empty());
 
-    // Both should be None after filtering
-    assert!(file1.is_none());
-    assert!(file2.is_none());
+    // Root has no filename (None), dir path has filename "dir"
+    assert!(file1.is_none(), "Root path has no filename");
+    assert!(file2.is_some(), "Dir path has filename");
+    assert_eq!(file2.unwrap().to_string_lossy(), "dir");
 
-    // Empty files should not match
-    assert_eq!(file1, file2, "Both should be None, not empty strings");
-    assert!(file1.is_none(), "Filtered empty should be None, not Some(empty)");
+    // They should not be equal
+    assert_ne!(file1.is_some(), file2.is_some());
 }
 
 #[test]
@@ -94,7 +102,7 @@ fn test_assign_ids_with_root_path_fallback() {
 
 #[test]
 fn test_transform_empty_filename_comparison() {
-    // When comparing filenames for link resolution, empty names should not match
+    // When comparing filenames for link resolution
     let src_path = "/";
     let resolved_path = "some/dir/";
 
@@ -105,11 +113,13 @@ fn test_transform_empty_filename_comparison() {
         .file_name()
         .filter(|s| !s.is_empty());
 
-    // Both should be None, and we shouldn't match them
-    assert!(src_file.is_none());
-    assert!(resolved_file.is_none());
-    assert_ne!(src_file.is_some(), true, "Should not treat empty as valid file");
-    assert_ne!(resolved_file.is_some(), true, "Should not treat empty as valid file");
+    // Root has no filename, dir path has filename
+    assert!(src_file.is_none(), "Root has no filename");
+    assert!(resolved_file.is_some(), "Dir path has filename");
+
+    // They should not match
+    assert!(!src_file.is_some(), "Root should not be treated as valid file");
+    assert!(resolved_file.is_some(), "Dir should be valid");
 }
 
 #[test]
@@ -149,15 +159,21 @@ fn test_empty_category_never_occurs() {
 
 #[test]
 fn test_path_with_only_extension() {
-    // File like ".gitignore" has no stem
+    // In Rust, file like ".gitignore" has stem of ".gitignore"
     let path = ".gitignore";
     let stem = Path::new(path).file_stem();
 
-    // .gitignore has empty stem
-    assert_eq!(stem.map(|s| s.is_empty()), Some(true));
+    // .gitignore has non-empty stem
+    assert_eq!(stem.map(|s| s.is_empty()), Some(false));
+    assert_eq!(stem.unwrap().to_string_lossy(), ".gitignore");
 
-    // Fallback should apply
-    let fallback = stem
+    // Test a path that actually has no stem (root)
+    let root = "/";
+    let root_stem = Path::new(root).file_stem();
+    assert!(root_stem.is_none());
+
+    // Fallback should apply to None
+    let fallback = root_stem
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| std::ffi::OsStr::new("untitled"))
         .to_string_lossy();

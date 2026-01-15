@@ -400,14 +400,21 @@ fn ensure_h1_ast(content: &mut String, title: &str) {
 fn content_has_blockquote_context(content: &str) -> bool {
     let events = parse_markdown(content);
 
-    for (i, event) in events.iter().enumerate() {
-        if matches!(event, Event::Start(Tag::BlockQuote(_))) {
-            // Check if next event contains "Context"
-            if let Some(Event::Text(text)) = events.get(i + 1) {
+    let mut in_blockquote = false;
+    for event in events.iter() {
+        match event {
+            Event::Start(Tag::BlockQuote(_)) => {
+                in_blockquote = true;
+            }
+            Event::End(TagEnd::BlockQuote(_)) => {
+                in_blockquote = false;
+            }
+            Event::Text(text) if in_blockquote => {
                 if text.contains("Context") {
                     return true;
                 }
             }
+            _ => {}
         }
     }
     false

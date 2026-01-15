@@ -43,22 +43,29 @@ impl IntegrationTestContext {
         path
     }
 
-    /// Get all markdown files in root directory
+    /// Get all markdown files recursively (excluding node_modules and .git)
     fn discover_files(&self) -> Vec<PathBuf> {
-        let mut files = Vec::new();
-        if let Ok(entries) = fs::read_dir(self.root()) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file()
+        use walkdir::WalkDir;
+
+        WalkDir::new(self.root())
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                let path = e.path();
+                // Exclude node_modules and .git directories
+                !path.components().any(|c| {
+                    matches!(c.as_os_str().to_str(), Some("node_modules" | ".git"))
+                })
+            })
+            .filter(|e| {
+                let path = e.path();
+                path.is_file()
                     && path.extension().map_or(false, |ext| {
                         matches!(ext.to_str(), Some("md" | "mdx" | "rst" | "txt"))
                     })
-                {
-                    files.push(path);
-                }
-            }
-        }
-        files
+            })
+            .map(|e| e.path().to_path_buf())
+            .collect()
     }
 }
 

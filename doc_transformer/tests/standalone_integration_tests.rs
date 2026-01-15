@@ -44,27 +44,35 @@ impl TestFixture {
     }
 
     fn discover_markdown(&self) -> Vec<String> {
-        let mut files = Vec::new();
+        use walkdir::WalkDir;
+
         let extensions = vec![".md", ".mdx", ".rst", ".txt"];
 
-        if let Ok(entries) = fs::read_dir(self.root()) {
-            for entry in entries.flatten() {
-                let path = entry.path();
+        WalkDir::new(self.root())
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                let path = e.path();
+                // Exclude node_modules and .git directories
+                !path.components().any(|c| {
+                    matches!(c.as_os_str().to_str(), Some("node_modules" | ".git"))
+                })
+            })
+            .filter_map(|e| {
+                let path = e.path();
                 if path.is_file() {
                     if let Some(ext) = path.extension() {
                         let ext_str = format!(".{}", ext.to_string_lossy());
-                        if extensions.iter().any(|e| *e == ext_str) {
+                        if extensions.iter().any(|ext| *ext == ext_str) {
                             if let Ok(rel) = path.strip_prefix(self.root()) {
-                                files.push(rel.to_string_lossy().to_string());
+                                return Some(rel.to_string_lossy().to_string());
                             }
                         }
                     }
                 }
-            }
-        }
-
-        files.sort();
-        files
+                None
+            })
+            .collect()
     }
 
     fn read_file(&self, rel_path: &str) -> String {

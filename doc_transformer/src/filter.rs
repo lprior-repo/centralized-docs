@@ -13,9 +13,28 @@ use readability::extractor;
 use scraper::{Html, Selector};
 use tap::Pipe;
 
+/// Strategy for content filtering (PLAN.md requirement)
+#[derive(Debug, Clone, PartialEq)]
+pub enum FilterStrategy {
+    /// Use pruning heuristics (text/link density)
+    Pruning,
+    /// Use BM25 query-based filtering
+    BM25,
+    /// No filtering (keep all content)
+    None,
+}
+
+impl Default for FilterStrategy {
+    fn default() -> Self {
+        FilterStrategy::Pruning
+    }
+}
+
 /// Configuration for content filtering
 #[derive(Debug, Clone)]
 pub struct FilterConfig {
+    /// Filtering strategy to use
+    pub strategy: FilterStrategy,
     /// Minimum text density threshold (0.0 - 1.0)
     pub density_threshold: f32,
     /// Minimum word count to keep a section
@@ -29,6 +48,7 @@ pub struct FilterConfig {
 impl Default for FilterConfig {
     fn default() -> Self {
         Self {
+            strategy: FilterStrategy::default(),
             density_threshold: 0.45,
             min_word_count: 10,
             remove_tags: vec![

@@ -358,7 +358,7 @@ fn build_vocabulary(document_tags: &[(String, Vec<String>, String)]) -> HashMap<
 }
 
 /// Build a knowledge graph DAG from documents and chunks
-fn build_knowledge_dag(
+pub fn build_knowledge_dag(
     documents: &[IndexDocument],
     chunks: &[crate::chunk::Chunk],
     document_tags: &[(String, Vec<String>, String)],

@@ -30,6 +30,12 @@ fn test_long_document_splits_on_token_limit() {
 
     let chunks = create_chunks_at_level(&content, "test-doc", "Test Doc", ChunkLevel::Summary);
 
+    // Debug output
+    eprintln!("Number of chunks created: {}", chunks.len());
+    for (i, chunk) in chunks.iter().enumerate() {
+        eprintln!("Chunk {}: {} tokens", i, chunk.token_count);
+    }
+
     // Summary level should split long content into multiple chunks
     assert!(chunks.len() > 1, "Long content should create multiple chunks at summary level");
 

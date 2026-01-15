@@ -26,6 +26,7 @@ use std::collections::HashMap;
 ///
 /// # Examples
 /// ```
+/// use doc_transformer::highlight::highlight_terms;
 /// let result = highlight_terms("Getting Started with Rust", "rust", true);
 /// assert!(result.contains("\x1b[1m"));  // Contains ANSI bold
 /// ```
@@ -85,9 +86,17 @@ fn compile_highlight_regex(term: &str) -> Result<Regex, regex::Error> {
     // Escape special regex characters
     let escaped = regex::escape(term);
 
-    // Add word boundaries: (?i) makes it case-insensitive
-    // \b uses word boundaries, ( ) creates a capture group for replacement
-    let pattern = format!(r"(?i)\b({})\b", escaped);
+    // Check if term contains only word characters
+    let is_word_only = term.chars().all(|c| c.is_alphanumeric() || c == '_');
+
+    // Add word boundaries only for purely word-based terms
+    // (?i) makes it case-insensitive, ( ) creates a capture group for replacement
+    let pattern = if is_word_only {
+        format!(r"(?i)\b({})\b", escaped)
+    } else {
+        // For terms with special characters like "C++", don't use word boundaries
+        format!(r"(?i)({})", escaped)
+    };
 
     Regex::new(&pattern)
 }
