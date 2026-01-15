@@ -212,7 +212,8 @@ fn build_chunk(
     current_heading: &Option<String>,
     level: &ChunkLevel,
 ) -> Chunk {
-    let chunk_id = format!("{}#{}", doc_id, chunk_index);
+    let level_str = level.as_str();
+    let chunk_id = format!("{}#{}-{}", doc_id, chunk_index, level_str);
     let summary = create_summary(current_chunk);
     let token_count = estimate_tokens(current_chunk);
     let chunk_type = detect_chunk_type(current_chunk);
@@ -228,7 +229,7 @@ fn build_chunk(
         chunk_type,
         previous_chunk_id: chunk_index
             .checked_sub(1)
-            .map(|prev| format!("{}#{}", doc_id, prev)),
+            .map(|prev| format!("{}#{}-{}", doc_id, prev, level_str)),
         next_chunk_id: None,
         related_chunk_ids: Vec::new(),
         summary,
@@ -329,7 +330,8 @@ pub fn create_chunks_at_level(
 
     // If no chunks created, create one from whole content
     if chunks.is_empty() {
-        let chunk_id = format!("{}#0", doc_id);
+        let level_str = level.as_str();
+        let chunk_id = format!("{}#0-{}", doc_id, level_str);
         let summary = create_summary(content);
         let token_count = estimate_tokens(content);
         let chunk_type = detect_chunk_type(content);

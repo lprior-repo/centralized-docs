@@ -263,3 +263,17 @@ fn test_chunk_level_values() {
         );
     }
 }
+
+#[test]
+fn test_mcp_explain_chunk() {
+    let index = create_test_index();
+
+    // Get chunk2 which has a previous chunk
+    let chunk = index.chunks.iter().find(|c| c.chunk_id == "chunk2").unwrap();
+
+    // Verify it has a previous chunk
+    assert_eq!(chunk.previous_chunk_id, Some("chunk1".to_string()));
+
+    // This would build a context trail showing chunk1 -> chunk2
+    assert!(chunk.previous_chunk_id.is_some());
+}

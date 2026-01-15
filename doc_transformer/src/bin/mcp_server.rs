@@ -319,6 +319,12 @@ fn default_format() -> String {
     "hierarchical".to_string()
 }
 
+/// Tool call parameters for explain_chunk
+#[derive(Debug, Deserialize)]
+pub struct ExplainChunkParams {
+    pub chunk_id: String,
+}
+
 // ============================================================================
 // FUNCTIONAL CORE (Pure Logic)
 // ============================================================================
@@ -779,6 +785,78 @@ fn get_navigation(format: &str, documents: &[IndexDocument]) -> Value {
     }
 }
 
+/// Explain a chunk with full context trail
+fn explain_chunk(chunk_id: &str, chunks: &[ChunkMetadata]) -> Result<Value, McpError> {
+    let chunk = chunks
+        .iter()
+        .find(|c| c.chunk_id == chunk_id)
+        .ok_or_else(|| McpError::ChunkNotFound(chunk_id.to_string()))?;
+
+    // Build context trail by traversing previous_chunk_id backwards
+    let mut context_trail = Vec::new();
+    let mut current_id = chunk.previous_chunk_id.as_ref();
+    let mut visited = std::collections::HashSet::new();
+
+    while let Some(prev_id) = current_id {
+        if visited.contains(prev_id) {
+            break; // Prevent cycles
+        }
+        visited.insert(prev_id.clone());
+
+        if let Some(prev_chunk) = chunks.iter().find(|c| &c.chunk_id == prev_id) {
+            context_trail.push(json!({
+                "chunk_id": prev_chunk.chunk_id,
+                "heading": prev_chunk.heading,
+                "excerpt": truncate_summary(&prev_chunk.summary, 100)
+            }));
+
+            current_id = prev_chunk.previous_chunk_id.as_ref();
+        } else {
+            break;
+        }
+    }
+
+    // Reverse to show chronological order (first -> current)
+    context_trail.reverse();
+
+    // Collect next chunks (sequential and children)
+    let mut next_chunks = Vec::new();
+    if let Some(next_id) = &chunk.next_chunk_id {
+        next_chunks.push(next_id.clone());
+    }
+    next_chunks.extend(chunk.child_chunk_ids.iter().cloned());
+
+    // Collect related chunks
+    let related_chunks: Vec<String> = chunk
+        .related_chunks
+        .iter()
+        .map(|r| r.chunk_id.clone())
+        .collect();
+
+    Ok(json!({
+        "chunk_id": chunk.chunk_id,
+        "doc_id": chunk.doc_id,
+        "doc_title": chunk.doc_title,
+        "heading": chunk.heading,
+        "chunk_type": chunk.chunk_type,
+        "token_count": chunk.token_count,
+        "summary": chunk.summary,
+        "chunk_level": chunk.chunk_level,
+        "context_trail": context_trail,
+        "next_chunks": next_chunks,
+        "related_chunks": related_chunks
+    }))
+}
+
+/// Truncate summary to max_chars characters
+fn truncate_summary(summary: &str, max_chars: usize) -> String {
+    if summary.len() <= max_chars {
+        summary.to_string()
+    } else {
+        format!("{}...", &summary[..max_chars])
+    }
+}
+
 /// Generate MCP tools/list response
 fn generate_tools_list() -> Value {
     json!({
@@ -965,6 +1043,20 @@ fn generate_tools_list() -> Value {
                         }
                     }
                 }
+            },
+            {
+                "name": "explain_chunk",
+                "description": "Return chunk with full context trail showing navigation path",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "chunk_id": {
+                            "type": "string",
+                            "description": "Chunk ID to explain"
+                        }
+                    },
+                    "required": ["chunk_id"]
+                }
             }
         ]
     })
@@ -1042,6 +1134,12 @@ fn handle_request(req: &McpRequest, index: &DocumentIndex, index_dir: &Path) -> 
                         .map_err(|e| McpError::InvalidRequest(format!("invalid get_navigation params: {}", e)))?;
 
                     Ok(get_navigation(&params.format, &index.documents))
+                }
+                "explain_chunk" => {
+                    let params: ExplainChunkParams = serde_json::from_value(arguments.clone())
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid explain_chunk params: {}", e)))?;
+
+                    explain_chunk(&params.chunk_id, &index.chunks)
                 }
                 _ => Err(McpError::UnknownMethod(tool_name.to_string())),
             }
@@ -1149,7 +1247,10 @@ mod tests {
         let tools_array = tools["tools"].as_array();
 
         assert!(tools_array.is_some());
-        assert_eq!(tools_array.map(Vec::len), Some(3));
+        // v6.0: Added 7 new tools (find_related, get_document, semantic_search,
+        // search_by_category, search_by_tags, get_navigation, explain_chunk)
+        // Total: 3 (v5.0) + 7 (v6.0) = 10 tools
+        assert_eq!(tools_array.map(Vec::len), Some(10));
     }
 
     #[test]
