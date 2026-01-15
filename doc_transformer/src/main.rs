@@ -139,9 +139,9 @@ enum Commands {
         #[arg(short, long, value_name = "DIR")]
         output: PathBuf,
 
-        /// Use sitemap.xml to discover pages (default: true)
-        #[arg(long, default_value = "true")]
-        sitemap: bool,
+        /// Disable sitemap.xml discovery (use crawling instead)
+        #[arg(long = "no-sitemap", action = clap::ArgAction::SetTrue)]
+        no_sitemap: bool,
 
         /// Regex pattern to filter URLs by path
         #[arg(short, long, value_name = "REGEX")]
@@ -246,7 +246,7 @@ async fn main() -> Result<()> {
         Some(Commands::Scrape {
             url,
             output,
-            sitemap,
+            no_sitemap,
             filter,
             delay,
             query,
@@ -255,7 +255,7 @@ async fn main() -> Result<()> {
             run_scrape(
                 &url,
                 &output,
-                sitemap,
+                !no_sitemap, // use sitemap unless --no-sitemap is passed
                 filter,
                 delay,
                 query.as_deref(),

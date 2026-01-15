@@ -35,9 +35,10 @@ tap = "1.0"
 strum = { version = "0.26", features = ["derive"] }
 itertools = "0.13"
 
-# Web scraping (spider-rs ecosystem) - CURRENT & BEST-IN-CLASS
-spider = { version = "2", default-features = false, features = ["sitemap"] }
-spider_transformations = "2"
+# Web scraping (spider-rs ecosystem) - Updated to latest
+# Note: sync feature enables tokio synchronization primitives
+spider = { version = "2.39", default-features = false, features = ["sitemap", "sync"] }
+spider_transformations = "2.37"
 
 # URL handling
 url = { version = "2.5", features = ["serde"] }

@@ -73,9 +73,151 @@ pub struct DocumentIndex {
     pub keywords: HashMap<String, Vec<String>>,
 }
 
-// Note: Caching and metrics infrastructure removed in v6.0 cleanup.
-// The server loads the index once at startup, making per-request caching unnecessary.
-// Metrics can be re-added in v8.0 if monitoring becomes a requirement.
+// ============================================================================
+// QUERY OPTIMIZATION (v6.0)
+// ============================================================================
+
+/// Compiled query with pre-tokenized terms
+#[derive(Debug, Clone)]
+pub struct CompiledQuery {
+    pub terms: Vec<String>,
+    pub compiled_at: SystemTime,
+}
+
+impl CompiledQuery {
+    /// Check if compiled query is still fresh (1 minute TTL)
+    pub fn is_fresh(&self) -> bool {
+        self.compiled_at
+            .elapsed()
+            .map(|d| d < Duration::from_secs(60))
+            .unwrap_or(false)
+    }
+}
+
+/// Global query cache for avoiding repeated parsing
+static QUERY_CACHE: std::sync::LazyLock<Arc<RwLock<HashMap<String, CompiledQuery>>>> =
+    std::sync::LazyLock::new(|| Arc::new(RwLock::new(HashMap::new())));
+
+/// Compile query with caching
+fn compile_query(query: &str) -> CompiledQuery {
+    // Try cache first
+    if let Ok(cache) = QUERY_CACHE.read() {
+        if let Some(cached) = cache.get(query) {
+            if cached.is_fresh() {
+                return cached.clone();
+            }
+        }
+    }
+
+    // Compile fresh query
+    let terms: Vec<String> = query
+        .split_whitespace()
+        .map(|s| s.to_lowercase())
+        .collect();
+
+    let compiled = CompiledQuery {
+        terms,
+        compiled_at: SystemTime::now(),
+    };
+
+    // Update cache
+    if let Ok(mut cache) = QUERY_CACHE.write() {
+        cache.insert(query.to_string(), compiled.clone());
+    }
+
+    compiled
+}
+
+// ============================================================================
+// METRICS & TELEMETRY (v6.0)
+// ============================================================================
+
+/// Server metrics for observability
+#[derive(Debug, Default)]
+pub struct ServerMetrics {
+    pub total_requests: std::sync::atomic::AtomicUsize,
+    pub successful_requests: std::sync::atomic::AtomicUsize,
+    pub failed_requests: std::sync::atomic::AtomicUsize,
+    pub cache_hits: std::sync::atomic::AtomicUsize,
+    pub cache_misses: std::sync::atomic::AtomicUsize,
+    pub tool_calls: RwLock<HashMap<String, usize>>,
+    pub started_at: std::sync::LazyLock<SystemTime>,
+}
+
+/// Global metrics instance
+static METRICS: std::sync::LazyLock<ServerMetrics> = std::sync::LazyLock::new(|| ServerMetrics {
+    total_requests: std::sync::atomic::AtomicUsize::new(0),
+    successful_requests: std::sync::atomic::AtomicUsize::new(0),
+    failed_requests: std::sync::atomic::AtomicUsize::new(0),
+    cache_hits: std::sync::atomic::AtomicUsize::new(0),
+    cache_misses: std::sync::atomic::AtomicUsize::new(0),
+    tool_calls: RwLock::new(HashMap::new()),
+    started_at: std::sync::LazyLock::new(SystemTime::now),
+});
+
+/// Record a request (success or failure)
+fn record_request(success: bool) {
+    use std::sync::atomic::Ordering;
+    METRICS.total_requests.fetch_add(1, Ordering::Relaxed);
+    if success {
+        METRICS.successful_requests.fetch_add(1, Ordering::Relaxed);
+    } else {
+        METRICS.failed_requests.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// Record a tool call
+fn record_tool_call(tool_name: &str) {
+    if let Ok(mut calls) = METRICS.tool_calls.write() {
+        *calls.entry(tool_name.to_string()).or_insert(0) += 1;
+    }
+}
+
+/// Record cache hit
+fn record_cache_hit() {
+    use std::sync::atomic::Ordering;
+    METRICS.cache_hits.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Record cache miss
+fn record_cache_miss() {
+    use std::sync::atomic::Ordering;
+    METRICS.cache_misses.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Get current metrics snapshot
+#[allow(dead_code)]
+fn get_metrics_snapshot() -> Value {
+    use std::sync::atomic::Ordering;
+    let total = METRICS.total_requests.load(Ordering::Relaxed);
+    let successful = METRICS.successful_requests.load(Ordering::Relaxed);
+    let cache_hits = METRICS.cache_hits.load(Ordering::Relaxed);
+    let cache_misses = METRICS.cache_misses.load(Ordering::Relaxed);
+
+    let cache_total = cache_hits + cache_misses;
+    let cache_hit_rate = if cache_total > 0 {
+        (cache_hits as f64 / cache_total as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    let uptime_secs = METRICS
+        .started_at
+        .elapsed()
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    json!({
+        "total_requests": total,
+        "successful_requests": successful,
+        "failed_requests": METRICS.failed_requests.load(Ordering::Relaxed),
+        "cache_hits": cache_hits,
+        "cache_misses": cache_misses,
+        "cache_hit_rate_percent": format!("{:.1}", cache_hit_rate),
+        "uptime_seconds": uptime_secs,
+        "tool_calls": METRICS.tool_calls.read().ok().map(|t| t.clone())
+    })
+}
 
 /// MCP JSON-RPC request
 #[derive(Debug, Deserialize)]
