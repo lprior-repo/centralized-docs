@@ -235,41 +235,6 @@ fn load_index(index_path: &Path) -> Result<DocumentIndex, McpError> {
         })
 }
 
-/// Load index with caching (avoids repeated INDEX.json reads)
-fn load_index_with_cache(index_path: &Path, cache: &IndexCache) -> Result<DocumentIndex, McpError> {
-    let path_str = index_path.to_string_lossy().to_string();
-
-    // Try to get from cache first
-    {
-        let cache_read = cache.read().map_err(|e| McpError::IoError(format!("cache lock error: {}", e)))?;
-
-        if let Some(cached) = cache_read.get(&path_str) {
-            if cached.is_fresh() {
-                return Ok(cached.index.clone());
-            }
-        }
-    }
-
-    // Cache miss or stale - load fresh index
-    let index = load_index(index_path)?;
-
-    // Update cache
-    {
-        let mut cache_write = cache.write().map_err(|e| McpError::IoError(format!("cache lock error: {}", e)))?;
-
-        cache_write.insert(
-            path_str,
-            CachedIndex {
-                index: index.clone(),
-                loaded_at: SystemTime::now(),
-                index_path: index_path.to_path_buf(),
-            },
-        );
-    }
-
-    Ok(index)
-}
-
 /// Search documents using Tantivy index (fallback to simple search on error)
 fn search_documents(
     index_dir: &Path,

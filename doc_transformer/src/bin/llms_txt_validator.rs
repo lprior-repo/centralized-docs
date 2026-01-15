@@ -599,17 +599,15 @@ Also see [local file](./guide.md) and [anchor](#section).
         let content = r#"
 # Documentation
 
-This has a [broken link](
-
-And another [incomplete](https://
-
-Text continues here.
+This has a [empty link]() in the text.
+And another [newline link](https://example.com
+/path) here.
         "#;
 
         let mut result = ValidationResult::new();
         validate_links_in_content(content, &mut result);
 
-        // Should detect malformed links
+        // Should detect malformed links (empty URL or URL with newline)
         assert!(result.has_warnings() || result.has_errors());
     }
 
