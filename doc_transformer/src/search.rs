@@ -279,7 +279,8 @@ pub fn search_index(
         // SAFETY: word_count from u64 field, typical values < 100k, well within f32 precision
         let score = score_document_simple(&title, &summary, query_str, word_count as f32);
 
-        let path = format!("docs/{}", id);
+        // Convert ID format (category/subcategory/slug) to filename format (category-subcategory-slug.md)
+        let path = format!("docs/{}.md", id.replace('/', "-"));
 
         results.push(SearchResult {
             id,

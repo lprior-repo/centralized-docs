@@ -105,7 +105,8 @@ fn analyze_single_file(
 }
 
 fn extract_title(content: &str, filename: &str) -> String {
-    let h1_regex = Regex::new(r"^# (.+)$").expect("valid h1 regex");
+    // (?m) enables multiline mode so ^ matches start of any line, not just start of string
+    let h1_regex = Regex::new(r"(?m)^# (.+)$").expect("valid h1 regex");
     if let Some(cap) = h1_regex.captures_iter(content).next() {
         if let Some(title_match) = cap.get(1) {
             return title_match.as_str().trim().to_string();

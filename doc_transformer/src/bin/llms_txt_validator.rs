@@ -336,13 +336,34 @@ fn print_results(result: &ValidationResult, path: &Path) {
     }
 }
 
+fn print_usage(program: &str) {
+    eprintln!("llms-txt-validator v1.0 - Validate llms.txt and INDEX.json files");
+    eprintln!();
+    eprintln!("Usage:");
+    eprintln!("  {} <llms.txt>              # Validate llms.txt file", program);
+    eprintln!("  {} --index <INDEX.json>    # Validate INDEX.json file", program);
+    eprintln!();
+    eprintln!("Options:");
+    eprintln!("  -h, --help      Show this help message");
+    eprintln!("  -V, --version   Show version information");
+}
+
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
+    // Handle --help and --version flags first
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        print_usage(&args[0]);
+        std::process::exit(0);
+    }
+
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        eprintln!("llms-txt-validator v1.0");
+        std::process::exit(0);
+    }
+
     if args.len() < 2 {
-        eprintln!("Usage:");
-        eprintln!("  {} <llms.txt>              # Validate llms.txt", args[0]);
-        eprintln!("  {} --index <INDEX.json>    # Validate INDEX.json", args[0]);
+        print_usage(&args[0]);
         std::process::exit(1);
     }
 

@@ -753,15 +753,19 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
 
                         return Ok(());
                     }
-                    Err(_) => {
-                        // Fall through to JSON-based search
-                        println!("Tantivy search failed, falling back to INDEX.json\n");
+                    Err(e) => {
+                        // Fall through to JSON-based search with informative message
+                        println!("Note: Advanced search unavailable for this query.");
+                        println!("  Reason: {}", e);
+                        println!("  Tip: Try simpler terms or remove special characters.");
+                        println!("  Falling back to basic search...\n");
                     }
                 }
             }
-            Err(_) => {
+            Err(e) => {
                 // Fall through to JSON-based search
-                println!("Tantivy index not found, using INDEX.json\n");
+                println!("Tantivy index not available: {}", e);
+                println!("Using INDEX.json for search\n");
             }
         }
     }
