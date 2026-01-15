@@ -42,6 +42,7 @@ pub struct SchemaFields {
 }
 
 /// Single search result with score
+#[allow(dead_code)] // Public API for library users
 #[derive(Debug, Clone)]
 pub struct SearchResult {
     pub id: String,
@@ -212,6 +213,7 @@ pub fn index_documents(
 /// # Returns
 ///
 /// Vector of SearchResult sorted by relevance (highest score first)
+#[allow(dead_code)] // Public API for library users
 pub fn search_index(
     index: &Index,
     query_str: &str,
@@ -319,6 +321,7 @@ pub fn search_index(
 /// # Returns
 ///
 /// BM25 score (higher = more relevant)
+#[allow(dead_code)] // Public API for library users
 pub fn score_document_simple(
     title: &str,
     summary: &str,

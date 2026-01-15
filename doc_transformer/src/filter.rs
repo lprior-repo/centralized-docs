@@ -14,6 +14,7 @@ use scraper::{Html, Selector};
 use tap::Pipe;
 
 /// Strategy for content filtering (PLAN.md requirement)
+#[allow(dead_code)] // Public API - all variants available for library users
 #[derive(Debug, Clone, PartialEq)]
 pub enum FilterStrategy {
     /// Use pruning heuristics (text/link density)
@@ -31,6 +32,7 @@ impl Default for FilterStrategy {
 }
 
 /// Configuration for content filtering
+#[allow(dead_code)] // Public API for library users
 #[derive(Debug, Clone)]
 pub struct FilterConfig {
     /// Filtering strategy to use
@@ -532,6 +534,7 @@ pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
 ///
 /// Note: This function is primarily for testing purposes but is made public
 /// to be accessible from integration tests in the tests/ directory.
+#[allow(dead_code)] // Test helper function for integration tests
 pub fn discover_test_files(root: &std::path::Path) -> Result<Vec<String>, anyhow::Error> {
     
     use walkdir::WalkDir;

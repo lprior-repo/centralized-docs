@@ -30,6 +30,7 @@ use std::collections::HashMap;
 /// let result = highlight_terms("Getting Started with Rust", "rust", true);
 /// assert!(result.contains("\x1b[1m"));  // Contains ANSI bold
 /// ```
+#[allow(dead_code)] // Public API for library users
 pub fn highlight_terms(text: &str, query: &str, use_color: bool) -> String {
     if !use_color {
         return text.to_string();

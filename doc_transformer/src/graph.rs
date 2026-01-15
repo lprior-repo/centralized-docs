@@ -70,6 +70,7 @@ pub struct KnowledgeDAG {
 }
 
 /// Edge data for petgraph
+#[allow(dead_code)] // Field needed for graph traversal context
 #[derive(Debug, Clone)]
 struct GraphEdgeData {
     edge_type: EdgeType,

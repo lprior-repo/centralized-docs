@@ -59,10 +59,12 @@ impl ValidationResult {
         });
     }
 
+    #[allow(dead_code)] // Reserved for programmatic validation result checking
     fn has_errors(&self) -> bool {
         self.errors.iter().any(|e| e.severity == Severity::Error)
     }
 
+    #[allow(dead_code)] // Reserved for programmatic validation result checking
     fn has_warnings(&self) -> bool {
         self.errors.iter().any(|e| e.severity == Severity::Warning)
     }

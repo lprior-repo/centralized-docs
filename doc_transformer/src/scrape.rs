@@ -59,8 +59,10 @@ pub struct ScrapeConfig {
     /// Enable content filtering to remove nav/footer/boilerplate (default: true)
     pub enable_filtering: bool,
     /// Maximum number of retries for failed requests (default: 3)
+    #[allow(dead_code)] // Reserved for retry logic implementation
     pub max_retries: u32,
     /// Enable exponential backoff for retries (default: true)
+    #[allow(dead_code)] // Reserved for retry logic implementation
     pub use_exponential_backoff: bool,
     /// Maximum size of a single page in bytes (default: 10MB) - DoS protection against huge files
     pub max_page_size_bytes: u64,

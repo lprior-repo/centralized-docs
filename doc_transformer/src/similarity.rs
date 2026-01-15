@@ -14,6 +14,7 @@ use hnsw_rs::prelude::DistCosine;
 use thiserror::Error;
 
 /// Errors that can occur during HNSW index operations.
+#[allow(dead_code)] // All error variants available for completeness
 #[derive(Debug, Error, Clone, PartialEq)]
 pub enum SimilarityError {
     /// Embedding dimensions do not match the index dimension.

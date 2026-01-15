@@ -95,10 +95,12 @@ impl CompiledQuery {
 }
 
 /// Global query cache for avoiding repeated parsing
+#[allow(dead_code)] // Caching infrastructure for future query optimization
 static QUERY_CACHE: std::sync::LazyLock<Arc<RwLock<HashMap<String, CompiledQuery>>>> =
     std::sync::LazyLock::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 /// Compile query with caching
+#[allow(dead_code)] // Caching infrastructure for future query optimization
 fn compile_query(query: &str) -> CompiledQuery {
     // Try cache first
     if let Ok(cache) = QUERY_CACHE.read() {

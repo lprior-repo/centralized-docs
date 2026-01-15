@@ -4,6 +4,7 @@ use std::fs;
 use std::path::Path;
 
 /// Configuration for knowledge graph construction parameters
+#[allow(dead_code)] // Public API for library users
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphConfig {
     /// Maximum number of related chunks to link per document (1-1000)
@@ -14,6 +15,7 @@ pub struct GraphConfig {
     pub hnsw_ef_construction: usize,
 }
 
+#[allow(dead_code)] // Public API for library users
 impl GraphConfig {
     /// Create GraphConfig with default values
     pub fn new() -> Self {

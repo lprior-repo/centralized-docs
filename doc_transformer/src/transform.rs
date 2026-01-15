@@ -127,6 +127,7 @@ fn parse_markdown(content: &str) -> Vec<Event<'_>> {
 }
 
 /// Render events back to markdown (via HTML intermediate for safety)
+#[allow(dead_code)] // Utility function for future markdown transformations
 fn render_markdown(events: Vec<Event>) -> String {
     let mut html = String::new();
     html::push_html(&mut html, events.into_iter());
