@@ -23,6 +23,12 @@ pub struct LlmsConfig {
     pub max_per_category: usize,
     /// Include full content in llms-full.txt (default: true)
     pub generate_full: bool,
+    /// llms.txt specification version (default: "1.0")
+    pub spec_version: String,
+    /// Project version (default: "0.1.0")
+    pub project_version: String,
+    /// Enable YAML frontmatter with metadata (default: true)
+    pub include_frontmatter: bool,
 }
 
 impl Default for LlmsConfig {
@@ -32,6 +38,9 @@ impl Default for LlmsConfig {
             project_description: "AI-optimized documentation index".to_string(),
             max_per_category: 5,
             generate_full: true,
+            spec_version: "1.0".to_string(),
+            project_version: "0.1.0".to_string(),
+            include_frontmatter: true,
         }
     }
 }
@@ -50,6 +59,18 @@ pub fn generate_llms_txt(
     output_dir: &Path,
 ) -> Result<()> {
     let mut content = String::new();
+
+    // Optional YAML frontmatter with metadata
+    if config.include_frontmatter {
+        content.push_str("---\n");
+        content.push_str(&format!("version: \"{}\"\n", config.spec_version));
+        content.push_str(&format!("project: \"{}\"\n", config.project_name));
+        content.push_str(&format!("project_version: \"{}\"\n", config.project_version));
+        content.push_str(&format!("updated: \"{}\"\n", chrono::Utc::now().format("%Y-%m-%d")));
+        content.push_str(&format!("documents: {}\n", analyses.len()));
+        content.push_str("index: \"./INDEX.json\"\n");
+        content.push_str("---\n\n");
+    }
 
     // H1: Project name (required)
     content.push_str(&format!("# {}\n\n", config.project_name));
@@ -75,68 +96,85 @@ pub fn generate_llms_txt(
         }
     }
 
-    // Getting Started (tutorials)
-    if let Some(tutorials) = by_category.get("tutorial") {
-        content.push_str("## Getting Started\n\n");
-        for (analysis, mapping) in tutorials.iter().take(config.max_per_category) {
-            let desc = truncate_summary(&analysis.first_paragraph, 60);
-            content.push_str(&format!(
-                "- [{}](./docs/{}): {}\n",
-                analysis.title, mapping.filename, desc
-            ));
+    // Smart section detection: only include sections with documents
+    let has_tutorials = by_category.contains_key("tutorial") && !by_category.get("tutorial").unwrap().is_empty();
+    let has_concepts = by_category.contains_key("concept") && !by_category.get("concept").unwrap().is_empty();
+    let has_refs = by_category.contains_key("ref") && !by_category.get("ref").unwrap().is_empty();
+    let has_ops = by_category.contains_key("ops") && !by_category.get("ops").unwrap().is_empty();
+    let has_meta = by_category.contains_key("meta") && !by_category.get("meta").unwrap().is_empty();
+
+    // Getting Started (tutorials) - only if documents exist
+    if has_tutorials {
+        if let Some(tutorials) = by_category.get("tutorial") {
+            content.push_str("## Getting Started\n\n");
+            for (analysis, mapping) in tutorials.iter().take(config.max_per_category) {
+                let desc = truncate_summary(&analysis.first_paragraph, 60);
+                content.push_str(&format!(
+                    "- [{}](./docs/{}): {}\n",
+                    analysis.title, mapping.filename, desc
+                ));
+            }
+            content.push('\n');
         }
-        content.push('\n');
     }
 
-    // Core Concepts
-    if let Some(concepts) = by_category.get("concept") {
-        content.push_str("## Core Concepts\n\n");
-        for (analysis, mapping) in concepts.iter().take(config.max_per_category) {
-            let desc = truncate_summary(&analysis.first_paragraph, 60);
-            content.push_str(&format!(
-                "- [{}](./docs/{}): {}\n",
-                analysis.title, mapping.filename, desc
-            ));
+    // Core Concepts - only if documents exist
+    if has_concepts {
+        if let Some(concepts) = by_category.get("concept") {
+            content.push_str("## Core Concepts\n\n");
+            for (analysis, mapping) in concepts.iter().take(config.max_per_category) {
+                let desc = truncate_summary(&analysis.first_paragraph, 60);
+                content.push_str(&format!(
+                    "- [{}](./docs/{}): {}\n",
+                    analysis.title, mapping.filename, desc
+                ));
+            }
+            content.push('\n');
         }
-        content.push('\n');
     }
 
-    // API Reference
-    if let Some(refs) = by_category.get("ref") {
-        content.push_str("## API Reference\n\n");
-        for (analysis, mapping) in refs.iter().take(config.max_per_category) {
-            let desc = truncate_summary(&analysis.first_paragraph, 60);
-            content.push_str(&format!(
-                "- [{}](./docs/{}): {}\n",
-                analysis.title, mapping.filename, desc
-            ));
+    // API Reference - only if documents exist
+    if has_refs {
+        if let Some(refs) = by_category.get("ref") {
+            content.push_str("## API Reference\n\n");
+            for (analysis, mapping) in refs.iter().take(config.max_per_category) {
+                let desc = truncate_summary(&analysis.first_paragraph, 60);
+                content.push_str(&format!(
+                    "- [{}](./docs/{}): {}\n",
+                    analysis.title, mapping.filename, desc
+                ));
+            }
+            content.push('\n');
         }
-        content.push('\n');
     }
 
-    // Operations
-    if let Some(ops) = by_category.get("ops") {
-        content.push_str("## Operations\n\n");
-        for (analysis, mapping) in ops.iter().take(config.max_per_category) {
-            let desc = truncate_summary(&analysis.first_paragraph, 60);
-            content.push_str(&format!(
-                "- [{}](./docs/{}): {}\n",
-                analysis.title, mapping.filename, desc
-            ));
+    // Operations - only if documents exist
+    if has_ops {
+        if let Some(ops) = by_category.get("ops") {
+            content.push_str("## Operations\n\n");
+            for (analysis, mapping) in ops.iter().take(config.max_per_category) {
+                let desc = truncate_summary(&analysis.first_paragraph, 60);
+                content.push_str(&format!(
+                    "- [{}](./docs/{}): {}\n",
+                    analysis.title, mapping.filename, desc
+                ));
+            }
+            content.push('\n');
         }
-        content.push('\n');
     }
 
-    // Optional section (meta)
-    if let Some(meta) = by_category.get("meta") {
-        content.push_str("## Optional\n\n");
-        for (analysis, mapping) in meta.iter().take(config.max_per_category) {
-            content.push_str(&format!(
-                "- [{}](./docs/{})\n",
-                analysis.title, mapping.filename
-            ));
+    // Optional section (meta) - only if documents exist
+    if has_meta {
+        if let Some(meta) = by_category.get("meta") {
+            content.push_str("## Optional\n\n");
+            for (analysis, mapping) in meta.iter().take(config.max_per_category) {
+                content.push_str(&format!(
+                    "- [{}](./docs/{})\n",
+                    analysis.title, mapping.filename
+                ));
+            }
+            content.push('\n');
         }
-        content.push('\n');
     }
 
     // Machine-readable index reference
