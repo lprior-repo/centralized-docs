@@ -1,7 +1,7 @@
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
 use crate::chunk::ChunksResult;
-use crate::graph::{EdgeType, GraphEdge, GraphNode, KnowledgeDAG, NodeType, RelationshipDetector};
+use crate::graph::{EdgeType, GraphEdge, GraphNode, KnowledgeDAG, NodeType};
 use crate::search;
 use crate::similarity::{build_index, query_neighbors};
 use anyhow::Result;
@@ -496,59 +496,14 @@ pub fn build_knowledge_dag(
                     }
                 }
             }
-            Err(_) => {
-                // Fallback to Jaccard similarity if HNSW fails (e.g., empty embeddings)
-                let detector = RelationshipDetector::new(SIMILARITY_THRESHOLD);
-                for chunk in chunks {
-                    let chunk_tags = document_tags
-                        .iter()
-                        .find(|(id, _, _)| id == &chunk.doc_id)
-                        .map(|(_, tags, _)| tags.clone())
-                        .unwrap_or_default();
-
-                    let chunk_category = document_tags
-                        .iter()
-                        .find(|(id, _, _)| id == &chunk.doc_id)
-                        .map(|(_, _, cat)| cat.clone())
-                        .unwrap_or_default();
-
-                    let all_chunks_metadata: Vec<(String, Vec<String>, String)> = chunks
-                        .iter()
-                        .filter(|c| c.chunk_id != chunk.chunk_id)
-                        .map(|c| {
-                            let tags = document_tags
-                                .iter()
-                                .find(|(id, _, _)| id == &c.doc_id)
-                                .map(|(_, t, _)| t.clone())
-                                .unwrap_or_default();
-
-                            let category = document_tags
-                                .iter()
-                                .find(|(id, _, _)| id == &c.doc_id)
-                                .map(|(_, _, cat)| cat.clone())
-                                .unwrap_or_default();
-
-                            (c.chunk_id.clone(), tags, category)
-                        })
-                        .collect();
-
-                    let related = detector.detect_relationships(
-                        &chunk.chunk_id,
-                        &chunk_tags,
-                        &chunk_category,
-                        &all_chunks_metadata,
-                    );
-
-                    for (related_id, weight) in related {
-                        let edge = GraphEdge {
-                            from: chunk.chunk_id.clone(),
-                            to: related_id,
-                            edge_type: EdgeType::Related,
-                            weight,
-                        };
-                        dag.add_edge(edge);
-                    }
-                }
+            Err(e) => {
+                // HNSW index build failed - skip related edges
+                // This can happen with empty embeddings or invalid vectors
+                eprintln!(
+                    "Warning: HNSW index build failed ({}), skipping related chunk edges",
+                    e
+                );
+                // Continue without adding related edges - document structure (parent/sequential) is preserved
             }
         }
     }

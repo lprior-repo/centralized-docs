@@ -184,23 +184,21 @@ impl KnowledgeDAG {
             .partition(|n| n.node_type == NodeType::Document);
 
         // Count edges by type using functional style
-        let edge_counts = [
+        let [sequential_edges, related_edges, reference_edges] = [
             EdgeType::Sequential,
             EdgeType::Related,
             EdgeType::References,
         ]
-        .into_iter()
-        .map(|t| self.edges_by_type(&t).len())
-        .collect::<Vec<_>>();
+        .map(|t| self.edges_by_type(&t).len());
 
         GraphStatistics {
             node_count: self.nodes_vec.len(),
             document_count: documents.len(),
             chunk_count: chunks.len(),
             edge_count: self.edges_vec.len(),
-            sequential_edges: edge_counts[0],
-            related_edges: edge_counts[1],
-            reference_edges: edge_counts[2],
+            sequential_edges,
+            related_edges,
+            reference_edges,
         }
     }
 
@@ -233,60 +231,40 @@ pub struct GraphStatistics {
     pub reference_edges: usize,
 }
 
-/// Relationship suggestion between chunks based on common tags/categories
-pub struct RelationshipDetector {
-    pub min_similarity: f32,
-}
-
-impl RelationshipDetector {
-    pub fn new(min_similarity: f32) -> Self {
-        Self { min_similarity }
+/// Calculate Jaccard similarity between two tag sets using functional composition
+///
+/// Returns 1.0 if both tag sets are empty (considered identical).
+/// Returns the Jaccard coefficient (intersection / union) otherwise.
+///
+/// # Examples
+///
+/// ```
+/// # use doc_transformer::graph::jaccard_similarity;
+/// let tags1 = vec!["rust".to_string(), "async".to_string()];
+/// let tags2 = vec!["rust".to_string(), "tokio".to_string()];
+/// let similarity = jaccard_similarity(&tags1, &tags2);
+/// assert!((similarity - 0.333).abs() < 0.01); // 1 common / 3 total
+/// ```
+pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
+    if tags1.is_empty() && tags2.is_empty() {
+        return 1.0;
     }
 
-    /// Calculate Jaccard similarity between two tag sets using functional composition
-    pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
-        if tags1.is_empty() && tags2.is_empty() {
-            return 1.0;
-        }
+    let set1: HashSet<_> = tags1.iter().collect();
+    let set2: HashSet<_> = tags2.iter().collect();
 
-        let set1: HashSet<_> = tags1.iter().collect();
-        let set2: HashSet<_> = tags2.iter().collect();
-
-        // SAFETY: Tag counts are small (< 100 typically), well within f32 precision (2^24)
-        (
-            set1.intersection(&set2).count() as f32,
-            set1.union(&set2).count() as f32,
-        )
-            .pipe(|(intersection, union)| {
-                if union == 0.0 {
-                    0.0
-                } else {
-                    intersection / union
-                }
-            })
-    }
-
-    /// Detect relationships between chunks based on metadata using functional composition
-    pub fn detect_relationships(
-        &self,
-        chunk_id: &str,
-        chunk_tags: &[String],
-        chunk_category: &str,
-        all_chunks: &[(String, Vec<String>, String)],
-    ) -> Vec<(String, f32)> {
-        all_chunks
-            .iter()
-            .filter(|(id, _, _)| id != chunk_id)
-            .filter_map(|(id, tags, category)| {
-                let tag_similarity = Self::jaccard_similarity(chunk_tags, tags);
-                let category_match = if category == chunk_category { 0.3 } else { 0.0 };
-
-                (tag_similarity * 0.7 + category_match).pipe(|combined| {
-                    (combined >= self.min_similarity).then(|| (id.clone(), combined))
-                })
-            })
-            .collect()
-    }
+    // SAFETY: Tag counts are small (< 100 typically), well within f32 precision (2^24)
+    (
+        set1.intersection(&set2).count() as f32,
+        set1.union(&set2).count() as f32,
+    )
+        .pipe(|(intersection, union)| {
+            if union == 0.0 {
+                0.0
+            } else {
+                intersection / union
+            }
+        })
 }
 
 #[cfg(test)]
@@ -345,7 +323,7 @@ mod tests {
         let tags1 = vec!["rust".to_string(), "cue".to_string()];
         let tags2 = vec!["rust".to_string(), "tour".to_string()];
 
-        let similarity = RelationshipDetector::jaccard_similarity(&tags1, &tags2);
+        let similarity = jaccard_similarity(&tags1, &tags2);
         // Intersection: ["rust"] = 1
         // Union: ["rust", "cue", "tour"] = 3
         // Jaccard = 1/3 ≈ 0.333
