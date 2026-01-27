@@ -294,26 +294,29 @@ mod tests {
     // === VALIDATION TESTS ===
 
     #[test]
-    fn test_reject_rule_with_all_none_criteria() {
+    fn test_reject_rule_with_all_none_criteria() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
   - category: "api"
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("no criteria"));
-        assert!(err_msg.contains("api"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("no criteria"));
+            assert!(err_msg.contains("api"));
+        }
+        Ok(())
     }
 
     #[test]
-    fn test_reject_rule_with_all_empty_arrays() {
+    fn test_reject_rule_with_all_empty_arrays() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
@@ -323,19 +326,22 @@ rules:
     path: []
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("no criteria"));
-        assert!(err_msg.contains("api"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("no criteria"));
+            assert!(err_msg.contains("api"));
+        }
+        Ok(())
     }
 
     #[test]
-    fn test_reject_rule_with_empty_strings_only() {
+    fn test_reject_rule_with_empty_strings_only() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
@@ -345,18 +351,21 @@ rules:
     path: [""]
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("no criteria"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("no criteria"));
+        }
+        Ok(())
     }
 
     #[test]
-    fn test_reject_rule_with_whitespace_only_strings() {
+    fn test_reject_rule_with_whitespace_only_strings() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
@@ -365,18 +374,21 @@ rules:
     content: [" "]
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("no criteria"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("no criteria"));
+        }
+        Ok(())
     }
 
     #[test]
-    fn test_accept_rule_with_single_filename_criterion() {
+    fn test_accept_rule_with_single_filename_criterion() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
@@ -384,19 +396,20 @@ rules:
     filename: ["reference"]
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_ok());
-        let config = result.unwrap();
+        let config = result?;
         assert_eq!(config.rules.len(), 1);
         assert_eq!(config.rules[0].category, "api");
+        Ok(())
     }
 
     #[test]
-    fn test_accept_rule_with_single_content_criterion() {
+    fn test_accept_rule_with_single_content_criterion() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
@@ -404,16 +417,17 @@ rules:
     content: ["example"]
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_ok());
+        Ok(())
     }
 
     #[test]
-    fn test_accept_rule_with_single_path_criterion() {
+    fn test_accept_rule_with_single_path_criterion() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
@@ -421,16 +435,17 @@ rules:
     path: ["/docs/guides/"]
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_ok());
+        Ok(())
     }
 
     #[test]
-    fn test_accept_rule_with_multiple_criteria() {
+    fn test_accept_rule_with_multiple_criteria() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
@@ -440,16 +455,17 @@ rules:
     path: ["/api/"]
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_ok());
+        Ok(())
     }
 
     #[test]
-    fn test_accept_rule_with_empty_criteria_but_some_populated() {
+    fn test_accept_rule_with_empty_criteria_but_some_populated() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
@@ -458,18 +474,19 @@ rules:
     content: ["metadata", "header"]
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_ok());
-        let config = result.unwrap();
+        let config = result?;
         assert_eq!(config.rules[0].category, "meta");
+        Ok(())
     }
 
     #[test]
-    fn test_multiple_rules_all_valid() {
+    fn test_multiple_rules_all_valid() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
@@ -481,18 +498,17 @@ rules:
     path: ["/guides/"]
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_ok());
-        let config = result.unwrap();
-        assert_eq!(config.rules.len(), 3);
+        Ok(())
     }
 
     #[test]
-    fn test_multiple_rules_one_invalid() {
+    fn test_multiple_rules_one_invalid() -> anyhow::Result<()> {
         let config_yaml = r#"
 default_category: "concept"
 rules:
@@ -503,14 +519,17 @@ rules:
     path: ["/guides/"]
 "#;
 
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("config.yaml");
-        fs::write(&config_path, config_yaml).unwrap();
+        fs::write(&config_path, config_yaml)?;
 
         let result = CategoryConfig::load_from_file(&config_path);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("broken"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("broken"));
+        }
+        Ok(())
     }
 
     #[test]
@@ -574,44 +593,48 @@ mod graph_config_tests {
     }
 
     #[test]
-    fn test_graph_config_load_valid_yaml() {
+    fn test_graph_config_load_valid_yaml() -> anyhow::Result<()> {
         let yaml_content = r#"
 max_related_chunks: 25
 hnsw_m: 20
 hnsw_ef_construction: 300
 "#;
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
-        fs::write(&config_path, yaml_content).unwrap();
+        fs::write(&config_path, yaml_content)?;
 
-        let config = GraphConfig::load_from_file(&config_path).unwrap();
+        let config = GraphConfig::load_from_file(&config_path)?;
         assert_eq!(config.max_related_chunks, 25);
         assert_eq!(config.hnsw_m, 20);
         assert_eq!(config.hnsw_ef_construction, 300);
+        Ok(())
     }
 
     #[test]
-    fn test_graph_config_with_params_valid() {
-        let config = GraphConfig::with_params(50, 32, 400).unwrap();
+    fn test_graph_config_with_params_valid() -> anyhow::Result<()> {
+        let config = GraphConfig::with_params(50, 32, 400)?;
         assert_eq!(config.max_related_chunks, 50);
         assert_eq!(config.hnsw_m, 32);
         assert_eq!(config.hnsw_ef_construction, 400);
+        Ok(())
     }
 
     #[test]
-    fn test_graph_config_with_params_min_values() {
-        let config = GraphConfig::with_params(1, 4, 50).unwrap();
+    fn test_graph_config_with_params_min_values() -> anyhow::Result<()> {
+        let config = GraphConfig::with_params(1, 4, 50)?;
         assert_eq!(config.max_related_chunks, 1);
         assert_eq!(config.hnsw_m, 4);
         assert_eq!(config.hnsw_ef_construction, 50);
+        Ok(())
     }
 
     #[test]
-    fn test_graph_config_with_params_max_values() {
-        let config = GraphConfig::with_params(1000, 64, 1000).unwrap();
+    fn test_graph_config_with_params_max_values() -> anyhow::Result<()> {
+        let config = GraphConfig::with_params(1000, 64, 1000)?;
         assert_eq!(config.max_related_chunks, 1000);
         assert_eq!(config.hnsw_m, 64);
         assert_eq!(config.hnsw_ef_construction, 1000);
+        Ok(())
     }
 
     // === max_related_chunks VALIDATION TESTS ===
@@ -620,43 +643,52 @@ hnsw_ef_construction: 300
     fn test_reject_max_related_chunks_zero() {
         let result = GraphConfig::with_params(0, 16, 200);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("max_related_chunks"));
-        assert!(err_msg.contains("at least 1"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("max_related_chunks"));
+            assert!(err_msg.contains("at least 1"));
+        }
     }
 
     #[test]
     fn test_reject_max_related_chunks_too_large() {
         let result = GraphConfig::with_params(1001, 16, 200);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("max_related_chunks"));
-        assert!(err_msg.contains("at most 1000"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("max_related_chunks"));
+            assert!(err_msg.contains("at most 1000"));
+        }
     }
 
     #[test]
     fn test_reject_max_related_chunks_way_too_large() {
         let result = GraphConfig::with_params(1_000_000, 16, 200);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("max_related_chunks"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("max_related_chunks"));
+        }
     }
 
     #[test]
-    fn test_load_yaml_max_related_chunks_zero() {
+    fn test_load_yaml_max_related_chunks_zero() -> anyhow::Result<()> {
         let yaml_content = r#"
 max_related_chunks: 0
 hnsw_m: 16
 hnsw_ef_construction: 200
 "#;
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
-        fs::write(&config_path, yaml_content).unwrap();
+        fs::write(&config_path, yaml_content)?;
 
         let result = GraphConfig::load_from_file(&config_path);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("max_related_chunks"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("max_related_chunks"));
+        }
+        Ok(())
     }
 
     // === hnsw_m VALIDATION TESTS ===
@@ -665,51 +697,62 @@ hnsw_ef_construction: 200
     fn test_reject_hnsw_m_too_small() {
         let result = GraphConfig::with_params(20, 3, 200);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("hnsw_m"));
-        assert!(err_msg.contains("at least 4"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("hnsw_m"));
+            assert!(err_msg.contains("at least 4"));
+        }
     }
 
     #[test]
     fn test_reject_hnsw_m_zero() {
         let result = GraphConfig::with_params(20, 0, 200);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("hnsw_m"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("hnsw_m"));
+        }
     }
 
     #[test]
     fn test_reject_hnsw_m_too_large() {
         let result = GraphConfig::with_params(20, 65, 200);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("hnsw_m"));
-        assert!(err_msg.contains("at most 64"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("hnsw_m"));
+            assert!(err_msg.contains("at most 64"));
+        }
     }
 
     #[test]
     fn test_reject_hnsw_m_way_too_large() {
         let result = GraphConfig::with_params(20, 256, 200);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("hnsw_m"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("hnsw_m"));
+        }
     }
 
     #[test]
-    fn test_load_yaml_hnsw_m_too_small() {
+    fn test_load_yaml_hnsw_m_too_small() -> anyhow::Result<()> {
         let yaml_content = r#"
 max_related_chunks: 20
 hnsw_m: 2
 hnsw_ef_construction: 200
 "#;
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
-        fs::write(&config_path, yaml_content).unwrap();
+        fs::write(&config_path, yaml_content)?;
 
         let result = GraphConfig::load_from_file(&config_path);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("hnsw_m"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("hnsw_m"));
+        }
+        Ok(())
     }
 
     // === hnsw_ef_construction VALIDATION TESTS ===
@@ -718,51 +761,62 @@ hnsw_ef_construction: 200
     fn test_reject_hnsw_ef_construction_too_small() {
         let result = GraphConfig::with_params(20, 16, 49);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("hnsw_ef_construction"));
-        assert!(err_msg.contains("at least 50"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("hnsw_ef_construction"));
+            assert!(err_msg.contains("at least 50"));
+        }
     }
 
     #[test]
     fn test_reject_hnsw_ef_construction_zero() {
         let result = GraphConfig::with_params(20, 16, 0);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("hnsw_ef_construction"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("hnsw_ef_construction"));
+        }
     }
 
     #[test]
     fn test_reject_hnsw_ef_construction_too_large() {
         let result = GraphConfig::with_params(20, 16, 1001);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("hnsw_ef_construction"));
-        assert!(err_msg.contains("at most 1000"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("hnsw_ef_construction"));
+            assert!(err_msg.contains("at most 1000"));
+        }
     }
 
     #[test]
     fn test_reject_hnsw_ef_construction_way_too_large() {
         let result = GraphConfig::with_params(20, 16, 10000);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("hnsw_ef_construction"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("hnsw_ef_construction"));
+        }
     }
 
     #[test]
-    fn test_load_yaml_hnsw_ef_construction_too_small() {
+    fn test_load_yaml_hnsw_ef_construction_too_small() -> anyhow::Result<()> {
         let yaml_content = r#"
 max_related_chunks: 20
 hnsw_m: 16
 hnsw_ef_construction: 25
 "#;
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
-        fs::write(&config_path, yaml_content).unwrap();
+        fs::write(&config_path, yaml_content)?;
 
         let result = GraphConfig::load_from_file(&config_path);
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("hnsw_ef_construction"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("hnsw_ef_construction"));
+        }
+        Ok(())
     }
 
     // === MULTIPLE PARAMETER FAILURES ===
@@ -772,107 +826,120 @@ hnsw_ef_construction: 25
         let result = GraphConfig::with_params(0, 2, 25);
         assert!(result.is_err());
         // Should report the first validation failure (max_related_chunks)
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("max_related_chunks"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("max_related_chunks"));
+        }
     }
 
     #[test]
-    fn test_load_yaml_multiple_invalid_parameters() {
+    fn test_load_yaml_multiple_invalid_parameters() -> anyhow::Result<()> {
         let yaml_content = r#"
 max_related_chunks: 2000
 hnsw_m: 100
 hnsw_ef_construction: 10000
 "#;
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
-        fs::write(&config_path, yaml_content).unwrap();
+        fs::write(&config_path, yaml_content)?;
 
         let result = GraphConfig::load_from_file(&config_path);
         assert!(result.is_err());
         // Should report the first validation failure
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("GraphConfig error"));
+        if let Err(e) = result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("GraphConfig error"));
+        }
+        Ok(())
     }
 
     // === EDGE CASES AND BOUNDARY TESTS ===
 
     #[test]
-    fn test_boundary_max_related_chunks_low() {
+    fn test_boundary_max_related_chunks_low() -> anyhow::Result<()> {
         // Test boundaries near minimum
         for value in 1..=5 {
-            let config = GraphConfig::with_params(value, 16, 200).unwrap();
+            let config = GraphConfig::with_params(value, 16, 200)?;
             assert_eq!(config.max_related_chunks, value);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_boundary_max_related_chunks_high() {
+    fn test_boundary_max_related_chunks_high() -> anyhow::Result<()> {
         // Test boundaries near maximum
         for value in 996..=1000 {
-            let config = GraphConfig::with_params(value, 16, 200).unwrap();
+            let config = GraphConfig::with_params(value, 16, 200)?;
             assert_eq!(config.max_related_chunks, value);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_boundary_hnsw_m_low() {
+    fn test_boundary_hnsw_m_low() -> anyhow::Result<()> {
         // Test boundaries near minimum
         for value in 4..=8 {
-            let config = GraphConfig::with_params(20, value, 200).unwrap();
+            let config = GraphConfig::with_params(20, value, 200)?;
             assert_eq!(config.hnsw_m, value);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_boundary_hnsw_m_high() {
+    fn test_boundary_hnsw_m_high() -> anyhow::Result<()> {
         // Test boundaries near maximum
         for value in 60..=64 {
-            let config = GraphConfig::with_params(20, value, 200).unwrap();
+            let config = GraphConfig::with_params(20, value, 200)?;
             assert_eq!(config.hnsw_m, value);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_boundary_hnsw_ef_construction_low() {
+    fn test_boundary_hnsw_ef_construction_low() -> anyhow::Result<()> {
         // Test boundaries near minimum
         for value in 50..=55 {
-            let config = GraphConfig::with_params(20, 16, value).unwrap();
+            let config = GraphConfig::with_params(20, 16, value)?;
             assert_eq!(config.hnsw_ef_construction, value);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_boundary_hnsw_ef_construction_high() {
+    fn test_boundary_hnsw_ef_construction_high() -> anyhow::Result<()> {
         // Test boundaries near maximum
         for value in 995..=1000 {
-            let config = GraphConfig::with_params(20, 16, value).unwrap();
+            let config = GraphConfig::with_params(20, 16, value)?;
             assert_eq!(config.hnsw_ef_construction, value);
         }
+        Ok(())
     }
 
     // === LOAD FROM FILE EDGE CASES ===
 
     #[test]
-    fn test_load_yaml_missing_file() {
-        let temp = TempDir::new().unwrap();
+    fn test_load_yaml_missing_file() -> anyhow::Result<()> {
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("nonexistent.yaml");
         let result = GraphConfig::load_from_file(&config_path);
         assert!(result.is_err());
+        Ok(())
     }
 
     #[test]
-    fn test_load_yaml_malformed() {
+    fn test_load_yaml_malformed() -> anyhow::Result<()> {
         let yaml_content = r#"
 max_related_chunks: "not_a_number"
 hnsw_m: 16
 hnsw_ef_construction: 200
 "#;
-        let temp = TempDir::new().unwrap();
+        let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
-        fs::write(&config_path, yaml_content).unwrap();
+        fs::write(&config_path, yaml_content)?;
 
         let result = GraphConfig::load_from_file(&config_path);
         assert!(result.is_err());
+        Ok(())
     }
 
     #[test]
@@ -885,24 +952,26 @@ hnsw_ef_construction: 200
     }
 
     #[test]
-    fn test_clone_preserves_validation() {
-        let config = GraphConfig::with_params(100, 32, 500).unwrap();
+    fn test_clone_preserves_validation() -> anyhow::Result<()> {
+        let config = GraphConfig::with_params(100, 32, 500)?;
         let cloned = config.clone();
         assert_eq!(cloned.max_related_chunks, 100);
         assert_eq!(cloned.hnsw_m, 32);
         assert_eq!(cloned.hnsw_ef_construction, 500);
+        Ok(())
     }
 
     #[test]
-    fn test_serialization_round_trip() {
-        let config = GraphConfig::with_params(50, 24, 350).unwrap();
-        let yaml = serde_yaml::to_string(&config).expect("Failed to serialize config in test");
-        let deserialized: GraphConfig = serde_yaml::from_str(&yaml).expect("Failed to deserialize config in test");
+    fn test_serialization_round_trip() -> anyhow::Result<()> {
+        let config = GraphConfig::with_params(50, 24, 350)?;
+        let yaml = serde_yaml::to_string(&config)?;
+        let deserialized: GraphConfig = serde_yaml::from_str(&yaml)?;
         assert_eq!(config.max_related_chunks, deserialized.max_related_chunks);
         assert_eq!(config.hnsw_m, deserialized.hnsw_m);
         assert_eq!(
             config.hnsw_ef_construction,
             deserialized.hnsw_ef_construction
         );
+        Ok(())
     }
 }

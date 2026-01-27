@@ -65,8 +65,14 @@ pub fn generate_llms_txt(
         content.push_str("---\n");
         content.push_str(&format!("version: \"{}\"\n", config.spec_version));
         content.push_str(&format!("project: \"{}\"\n", config.project_name));
-        content.push_str(&format!("project_version: \"{}\"\n", config.project_version));
-        content.push_str(&format!("updated: \"{}\"\n", chrono::Utc::now().format("%Y-%m-%d")));
+        content.push_str(&format!(
+            "project_version: \"{}\"\n",
+            config.project_version
+        ));
+        content.push_str(&format!(
+            "updated: \"{}\"\n",
+            chrono::Utc::now().format("%Y-%m-%d")
+        ));
         content.push_str(&format!("documents: {}\n", analyses.len()));
         content.push_str("index: \"./INDEX.json\"\n");
         content.push_str("---\n\n");

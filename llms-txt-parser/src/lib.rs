@@ -231,8 +231,8 @@ fn extract_frontmatter(content: &str) -> Result<(Option<Frontmatter>, String)> {
 
     // Parse frontmatter
     let fm_content = lines[1..end].join("\n");
-    let frontmatter: Frontmatter = serde_yaml::from_str(&fm_content)
-        .with_context(|| "Failed to parse YAML frontmatter")?;
+    let frontmatter: Frontmatter =
+        serde_yaml::from_str(&fm_content).with_context(|| "Failed to parse YAML frontmatter")?;
 
     // Body is everything after the closing ---
     let body = lines[end + 1..].join("\n");
@@ -272,7 +272,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_simple() {
+    fn test_parse_simple() -> anyhow::Result<()> {
         let content = r#"# My Project
 
 > A great project
@@ -286,16 +286,17 @@ mod tests {
 - [Concepts](./concepts.md)
 "#;
 
-        let llms_txt = parse_content(content).unwrap();
+        let llms_txt = parse_content(content)?;
         assert_eq!(llms_txt.project_name, "My Project");
         assert_eq!(llms_txt.description, Some("A great project".to_string()));
         assert_eq!(llms_txt.sections.len(), 2);
         assert_eq!(llms_txt.sections[0].title, "Getting Started");
         assert_eq!(llms_txt.sections[0].links.len(), 1);
+        Ok(())
     }
 
     #[test]
-    fn test_parse_with_frontmatter() {
+    fn test_parse_with_frontmatter() -> anyhow::Result<()> {
         let content = r#"---
 version: "1.0"
 project: "Test Project"
@@ -309,24 +310,30 @@ documents: 42
 ## Getting Started
 "#;
 
-        let llms_txt = parse_content(content).unwrap();
+        let llms_txt = parse_content(content)?;
         assert!(llms_txt.frontmatter.is_some());
-        let fm = llms_txt.frontmatter.as_ref().unwrap();
+        let fm = llms_txt
+            .frontmatter
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("frontmatter is None"))?;
         assert_eq!(fm.version, Some("1.0".to_string()));
         assert_eq!(fm.project, Some("Test Project".to_string()));
         assert_eq!(fm.documents, Some(42));
+        Ok(())
     }
 
     #[test]
-    fn test_parse_link() {
-        let link = parse_link("[Title](./path.md): Description").unwrap();
+    fn test_parse_link() -> anyhow::Result<()> {
+        let link = parse_link("[Title](./path.md): Description")
+            .ok_or_else(|| anyhow::anyhow!("parse_link returned None"))?;
         assert_eq!(link.text, "Title");
         assert_eq!(link.url, "./path.md");
         assert_eq!(link.description, Some("Description".to_string()));
+        Ok(())
     }
 
     #[test]
-    fn test_get_section() {
+    fn test_get_section() -> anyhow::Result<()> {
         let content = r#"# Project
 
 ## Getting Started
@@ -334,13 +341,14 @@ documents: 42
 Content here
 "#;
 
-        let llms_txt = parse_content(content).unwrap();
+        let llms_txt = parse_content(content)?;
         assert!(llms_txt.get_section("Getting Started").is_some());
         assert!(llms_txt.get_section("Missing").is_none());
+        Ok(())
     }
 
     #[test]
-    fn test_required_sections() {
+    fn test_required_sections() -> anyhow::Result<()> {
         let content = r#"# Project
 
 ## Getting Started
@@ -348,7 +356,8 @@ Content here
 ## API Reference
 "#;
 
-        let llms_txt = parse_content(content).unwrap();
+        let llms_txt = parse_content(content)?;
         assert!(llms_txt.has_required_sections());
+        Ok(())
     }
 }

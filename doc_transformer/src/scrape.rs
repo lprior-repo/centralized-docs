@@ -41,8 +41,9 @@ static HEADER_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("hardcoded regex pattern is valid"));
 
 #[expect(clippy::expect_used)]
-static LINK_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("hardcoded regex pattern is valid"));
+static LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("hardcoded regex pattern is valid")
+});
 
 /// Configuration for scraping a documentation site
 #[derive(Debug, Clone)]
@@ -458,9 +459,7 @@ fn validate_url(url: &str) -> Result<url::Url> {
 
     match parsed.scheme() {
         "http" | "https" => Ok(parsed),
-        scheme => anyhow::bail!(
-            "Invalid URL scheme '{scheme}': only http and https are supported"
-        ),
+        scheme => anyhow::bail!("Invalid URL scheme '{scheme}': only http and https are supported"),
     }
 }
 
@@ -470,9 +469,7 @@ fn validate_url(url: &str) -> Result<url::Url> {
 fn check_html_size(html: &str, max_size: u64) -> Result<()> {
     let size_bytes = html.len() as u64;
     if size_bytes > max_size {
-        anyhow::bail!(
-            "Page HTML too large: {size_bytes} bytes (limit: {max_size} bytes)"
-        );
+        anyhow::bail!("Page HTML too large: {size_bytes} bytes (limit: {max_size} bytes)");
     }
     Ok(())
 }
@@ -483,9 +480,7 @@ fn check_html_size(html: &str, max_size: u64) -> Result<()> {
 fn check_markdown_size(markdown: &str, max_size: u64) -> Result<()> {
     let size_bytes = markdown.len() as u64;
     if size_bytes > max_size {
-        anyhow::bail!(
-            "Page markdown too large: {size_bytes} bytes (limit: {max_size} bytes)"
-        );
+        anyhow::bail!("Page markdown too large: {size_bytes} bytes (limit: {max_size} bytes)");
     }
     Ok(())
 }
@@ -640,30 +635,31 @@ mod tests {
 
     #[test]
     fn test_url_to_slug_with_path() {
-        assert_eq!(
-            url_to_slug("https://example.com/docs/getting-started").unwrap(),
-            "docs-getting-started"
-        );
-        assert_eq!(
-            url_to_slug("https://example.com/api/v1/users.html").unwrap(),
-            "api-v1-users-html"
-        );
+        let result1 = url_to_slug("https://example.com/docs/getting-started");
+        assert!(matches!(result1, Ok(ref s) if s == "docs-getting-started"));
+
+        let result2 = url_to_slug("https://example.com/api/v1/users.html");
+        assert!(matches!(result2, Ok(ref s) if s == "api-v1-users-html"));
     }
 
     #[test]
     fn test_url_to_slug_root_url_uses_hostname() {
         // Root URLs should fall back to hostname
-        let result = url_to_slug("https://example.com/").unwrap();
-        assert_eq!(result, "example-com");
-        assert!(!result.is_empty(), "Slug from root URL must not be empty");
+        let result = url_to_slug("https://example.com/");
+        assert!(matches!(result, Ok(ref s) if s == "example-com"));
+        if let Ok(slug) = result {
+            assert!(!slug.is_empty(), "Slug from root URL must not be empty");
+        }
     }
 
     #[test]
     fn test_url_to_slug_no_path_uses_hostname() {
         // URLs without path should use hostname
-        let result = url_to_slug("https://docs.example.com").unwrap();
-        assert_eq!(result, "docs-example-com");
-        assert!(!result.is_empty(), "Slug must not be empty");
+        let result = url_to_slug("https://docs.example.com");
+        assert!(matches!(result, Ok(ref s) if s == "docs-example-com"));
+        if let Ok(slug) = result {
+            assert!(!slug.is_empty(), "Slug must not be empty");
+        }
     }
 
     #[test]
@@ -678,15 +674,16 @@ mod tests {
         ];
 
         for url in valid_urls {
-            let slug = url_to_slug(url).unwrap_or_else(|_| panic!("URL {url} should produce valid slug"));
-            assert!(
-                !slug.is_empty(),
-                "URL {url} produced empty slug"
-            );
-            assert!(
-                slug.chars().all(|c| c.is_alphanumeric() || c == '-'),
-                "Slug {slug} contains invalid characters"
-            );
+            let result = url_to_slug(url);
+            // Each valid URL should produce Ok result
+            assert!(result.is_ok(), "URL {url} should produce valid slug");
+            if let Ok(slug) = result {
+                assert!(!slug.is_empty(), "URL {url} produced empty slug");
+                assert!(
+                    slug.chars().all(|c| c.is_alphanumeric() || c == '-'),
+                    "Slug {slug} contains invalid characters"
+                );
+            }
         }
     }
 
@@ -699,19 +696,27 @@ mod tests {
 
     #[test]
     fn test_url_to_slug_special_characters_filtered() {
-        let slug = url_to_slug("https://example.com/docs/getting-started-2.0").unwrap();
-        // Should not contain dots, only hyphens and alphanumeric
-        assert!(!slug.contains("."));
-        assert!(slug.chars().all(|c| c.is_alphanumeric() || c == '-'));
+        let result = url_to_slug("https://example.com/docs/getting-started-2.0");
+        assert!(
+            result.is_ok(),
+            "Should parse valid URL with special characters"
+        );
+        if let Ok(slug) = result {
+            // Should not contain dots, only hyphens and alphanumeric
+            assert!(!slug.contains("."));
+            assert!(slug.chars().all(|c| c.is_alphanumeric() || c == '-'));
+        }
     }
 
     #[test]
     fn test_url_to_slug_truncates_long_paths() {
         // Create a URL with an extremely long path
-        let long_path = "https://example.com/".to_string()
-            + &"very-long-path-segment-".repeat(20); // Create 400+ char path
-        let slug = url_to_slug(&long_path).unwrap();
-        assert!(slug.len() <= 200, "Slug should be truncated to 200 chars");
+        let long_path = "https://example.com/".to_string() + &"very-long-path-segment-".repeat(20); // Create 400+ char path
+        let result = url_to_slug(&long_path);
+        assert!(result.is_ok(), "Should parse URL with long path");
+        if let Ok(slug) = result {
+            assert!(slug.len() <= 200, "Slug should be truncated to 200 chars");
+        }
     }
 
     #[test]
@@ -753,11 +758,10 @@ mod tests {
     // BM25 FILTERING TESTS
     // ============================================================================
 
-    fn create_test_page(markdown: &str, title: &str, url: &str) -> ScrapedPage {
+    fn create_test_page(markdown: &str, title: &str, url: &str) -> anyhow::Result<ScrapedPage> {
         let word_count = markdown.split_whitespace().count();
-        let slug = url_to_slug(url)
-            .expect("Test URL should produce valid slug");
-        ScrapedPage {
+        let slug = url_to_slug(url)?;
+        Ok(ScrapedPage {
             url: url.to_string(),
             markdown: markdown.to_string(),
             title: title.to_string(),
@@ -768,27 +772,27 @@ mod tests {
             filtered: false,
             elements_removed: 0,
             density_score: 1.0,
-        }
+        })
     }
 
     #[test]
-    fn test_filter_keeps_relevant_pages() {
+    fn test_filter_keeps_relevant_pages() -> anyhow::Result<()> {
         let pages = vec![
             create_test_page(
                 "Rust is a systems programming language that runs blazingly fast. Rust programming is great for systems development.",
                 "Rust Guide",
                 "https://example.com/rust-guide",
-            ),
+            )?,
             create_test_page(
                 "Python is a high-level programming language. Learn Python for web development.",
                 "Python Tutorial",
                 "https://example.com/python-tutorial",
-            ),
+            )?,
             create_test_page(
                 "JavaScript is the language of the web. Modern JavaScript powers interactive websites.",
                 "JavaScript Intro",
                 "https://example.com/js-intro",
-            ),
+            )?,
         ];
 
         let (kept, filtered_count) = filter_pages_by_relevance(pages, "rust programming", 0.1);
@@ -805,17 +809,18 @@ mod tests {
             kept.iter().any(|p| p.title.contains("Rust")),
             "Should keep Rust page"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_filter_all_filtered_out() {
+    fn test_filter_all_filtered_out() -> anyhow::Result<()> {
         let pages = vec![
-            create_test_page("Rust programming", "Rust Guide", "https://example.com/rust"),
+            create_test_page("Rust programming", "Rust Guide", "https://example.com/rust")?,
             create_test_page(
                 "Python tutorial",
                 "Python Guide",
                 "https://example.com/python",
-            ),
+            )?,
         ];
 
         // Use a very high threshold to filter everything out
@@ -823,13 +828,14 @@ mod tests {
 
         assert_eq!(kept.len(), 0, "High threshold should filter all pages");
         assert_eq!(filtered_count, pages.len(), "All pages should be filtered");
+        Ok(())
     }
 
     #[test]
-    fn test_filter_zero_threshold_keeps_all() {
+    fn test_filter_zero_threshold_keeps_all() -> anyhow::Result<()> {
         let pages = vec![
-            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
-            create_test_page("Python tutorial", "Python", "https://example.com/python"),
+            create_test_page("Rust programming", "Rust", "https://example.com/rust")?,
+            create_test_page("Python tutorial", "Python", "https://example.com/python")?,
         ];
         let original_count = pages.len();
 
@@ -844,13 +850,14 @@ mod tests {
             filtered_count, 0,
             "No pages should be filtered with threshold 0.0"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_filter_negative_threshold_keeps_all() {
+    fn test_filter_negative_threshold_keeps_all() -> anyhow::Result<()> {
         let pages = vec![
-            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
-            create_test_page("Python tutorial", "Python", "https://example.com/python"),
+            create_test_page("Rust programming", "Rust", "https://example.com/rust")?,
+            create_test_page("Python tutorial", "Python", "https://example.com/python")?,
         ];
         let original_count = pages.len();
 
@@ -865,13 +872,14 @@ mod tests {
             filtered_count, 0,
             "No pages should be filtered with negative threshold"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_filter_no_matches() {
+    fn test_filter_no_matches() -> anyhow::Result<()> {
         let pages = vec![
-            create_test_page("Rust programming", "Rust", "https://example.com/rust"),
-            create_test_page("Python tutorial", "Python", "https://example.com/python"),
+            create_test_page("Rust programming", "Rust", "https://example.com/rust")?,
+            create_test_page("Python tutorial", "Python", "https://example.com/python")?,
         ];
         let original_count = pages.len();
 
@@ -883,6 +891,7 @@ mod tests {
             filtered_count, original_count,
             "All pages should be filtered"
         );
+        Ok(())
     }
 
     #[test]
@@ -896,12 +905,12 @@ mod tests {
     }
 
     #[test]
-    fn test_filter_case_insensitive() {
+    fn test_filter_case_insensitive() -> anyhow::Result<()> {
         let pages = vec![create_test_page(
             "Rust programming language",
             "Rust",
             "https://example.com/rust",
-        )];
+        )?];
 
         let (kept_lower, _) = filter_pages_by_relevance(pages.clone(), "rust", 0.1);
         let (kept_upper, _) = filter_pages_by_relevance(pages.clone(), "RUST", 0.1);
@@ -910,17 +919,18 @@ mod tests {
         // All should return the same results
         assert_eq!(kept_lower.len(), kept_upper.len(), "Case should not matter");
         assert_eq!(kept_lower.len(), kept_mixed.len(), "Case should not matter");
+        Ok(())
     }
 
     #[test]
-    fn test_filter_multi_term_query() {
+    fn test_filter_multi_term_query() -> anyhow::Result<()> {
         let pages = vec![
             create_test_page(
                 "Rust is a systems programming language that guarantees memory safety.",
                 "Rust Guide",
                 "https://example.com/rust",
-            ),
-            create_test_page("JavaScript tutorial", "JS Guide", "https://example.com/js"),
+            )?,
+            create_test_page("JavaScript tutorial", "JS Guide", "https://example.com/js")?,
         ];
 
         // Multi-term query
@@ -935,18 +945,19 @@ mod tests {
             kept.iter().any(|p| p.title.contains("Rust")),
             "Should find rust page with multi-term query"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_filter_different_thresholds() {
+    fn test_filter_different_thresholds() -> anyhow::Result<()> {
         let pages = vec![
             create_test_page(
                 "Rust programming language systems",
                 "Rust",
                 "https://example.com/rust1",
-            ),
-            create_test_page("Rust", "Rust Short", "https://example.com/rust2"),
-            create_test_page("Python programming", "Python", "https://example.com/python"),
+            )?,
+            create_test_page("Rust", "Rust Short", "https://example.com/rust2")?,
+            create_test_page("Python programming", "Python", "https://example.com/python")?,
         ];
 
         let (kept_low, _) = filter_pages_by_relevance(pages.clone(), "rust", 0.1);
@@ -962,15 +973,16 @@ mod tests {
             kept_medium.len() >= kept_high.len(),
             "Medium threshold should keep more than high"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_filter_preserves_page_metadata() {
+    fn test_filter_preserves_page_metadata() -> anyhow::Result<()> {
         let original_page = create_test_page(
             "Rust programming guide with comprehensive examples",
             "Rust Guide",
             "https://example.com/rust-guide",
-        );
+        )?;
         let original_url = original_page.url.clone();
         let original_title = original_page.title.clone();
         let original_word_count = original_page.word_count;
@@ -990,15 +1002,16 @@ mod tests {
             filtered_page.word_count, original_word_count,
             "Word count should be preserved"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_filter_with_special_characters_in_query() {
+    fn test_filter_with_special_characters_in_query() -> anyhow::Result<()> {
         let pages = vec![create_test_page(
             "Rust-lang systems programming",
             "Rust",
             "https://example.com/rust",
-        )];
+        )?];
 
         // Query with special characters (should not crash)
         let result = std::panic::catch_unwind(|| {
@@ -1006,15 +1019,16 @@ mod tests {
         });
 
         assert!(result.is_ok(), "Should handle special characters in query");
+        Ok(())
     }
 
     #[test]
-    fn test_filter_empty_query() {
+    fn test_filter_empty_query() -> anyhow::Result<()> {
         let pages = vec![create_test_page(
             "Rust programming",
             "Rust",
             "https://example.com/rust",
-        )];
+        )?];
 
         let (kept, filtered_count) = filter_pages_by_relevance(pages.clone(), "", 0.1);
 
@@ -1025,15 +1039,16 @@ mod tests {
             pages.len(),
             "All pages should be filtered with empty query"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_filter_calculates_average_correctly() {
+    fn test_filter_calculates_average_correctly() -> anyhow::Result<()> {
         // Create pages with known word counts
         let pages = vec![
-            create_test_page("one two three four five", "Page 1", "https://example.com/1"), // 5 words
-            create_test_page("one two three", "Page 2", "https://example.com/2"), // 3 words
-            create_test_page("one two", "Page 3", "https://example.com/3"),       // 2 words
+            create_test_page("one two three four five", "Page 1", "https://example.com/1")?, // 5 words
+            create_test_page("one two three", "Page 2", "https://example.com/2")?, // 3 words
+            create_test_page("one two", "Page 3", "https://example.com/3")?,       // 2 words
         ];
         // Average: (5 + 3 + 2) / 3 = 3.33 words
 
@@ -1045,6 +1060,7 @@ mod tests {
             result.is_ok(),
             "Should calculate average document length without panicking"
         );
+        Ok(())
     }
 
     // ============================================================================
@@ -1063,8 +1079,11 @@ mod tests {
         let html = "x".repeat(1001);
         let result = check_html_size(&html, 1000);
         assert!(result.is_err(), "HTML exceeding limit should fail");
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(err_msg.contains("too large"), "Error should mention size");
+        // Additional check that we can format the error
+        if let Err(e) = &result {
+            let err_msg = e.to_string();
+            assert!(err_msg.contains("too large"), "Error should mention size");
+        }
     }
 
     #[test]
@@ -1079,11 +1098,14 @@ mod tests {
         let markdown = "x".repeat(5001);
         let result = check_markdown_size(&markdown, 5000);
         assert!(result.is_err(), "Markdown exceeding limit should fail");
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(
-            err_msg.contains("too large"),
-            "Error should mention markdown size"
-        );
+        // Additional check that we can format the error
+        if let Err(e) = &result {
+            let err_msg = e.to_string();
+            assert!(
+                err_msg.contains("too large"),
+                "Error should mention markdown size"
+            );
+        }
     }
 
     #[test]

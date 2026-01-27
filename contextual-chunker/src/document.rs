@@ -98,8 +98,7 @@ mod tests {
 
     #[test]
     fn test_document_validation() {
-        let valid_doc =
-            Document::new("id".to_string(), "title".to_string(), "".to_string());
+        let valid_doc = Document::new("id".to_string(), "title".to_string(), "".to_string());
         assert!(valid_doc.is_valid());
 
         let invalid_id = Document::new("".to_string(), "title".to_string(), "content".to_string());

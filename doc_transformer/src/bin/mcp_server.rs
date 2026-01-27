@@ -113,10 +113,7 @@ fn compile_query(query: &str) -> CompiledQuery {
     }
 
     // Compile fresh query
-    let terms: Vec<String> = query
-        .split_whitespace()
-        .map(str::to_lowercase)
-        .collect();
+    let terms: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
 
     let compiled = CompiledQuery {
         terms,
@@ -368,10 +365,7 @@ fn create_cache() -> IndexCache {
 }
 
 /// Load index with caching (5-minute TTL)
-fn load_index_with_cache(
-    index_path: &Path,
-    cache: &IndexCache,
-) -> Result<DocumentIndex, McpError> {
+fn load_index_with_cache(index_path: &Path, cache: &IndexCache) -> Result<DocumentIndex, McpError> {
     // Get file modification time for cache invalidation
     let file_modified = std::fs::metadata(index_path)
         .and_then(|m| m.modified())
@@ -379,9 +373,9 @@ fn load_index_with_cache(
 
     // Try to get from cache
     {
-        let cache_read = cache.read().map_err(|_| {
-            McpError::InvalidIndex("cache lock poisoned".to_string())
-        })?;
+        let cache_read = cache
+            .read()
+            .map_err(|_| McpError::InvalidIndex("cache lock poisoned".to_string()))?;
 
         if let Some(cached) = cache_read.get(index_path) {
             // Check if cache is fresh and file hasn't been modified
@@ -398,9 +392,9 @@ fn load_index_with_cache(
 
     // Update cache
     {
-        let mut cache_write = cache.write().map_err(|_| {
-            McpError::InvalidIndex("cache lock poisoned".to_string())
-        })?;
+        let mut cache_write = cache
+            .write()
+            .map_err(|_| McpError::InvalidIndex("cache lock poisoned".to_string()))?;
 
         cache_write.insert(
             index_path.to_path_buf(),
@@ -475,7 +469,8 @@ fn search_documents(
         .and_then(|idx| search::search_index(&idx, query, limit).ok())
         .filter(|results| !results.is_empty());
 
-    let results = tantivy_results.map_or_else(|| {
+    let results = tantivy_results.map_or_else(
+        || {
             // Fallback: simple text matching on documents
             fallback_docs
                 .iter()
@@ -483,7 +478,10 @@ fn search_documents(
                     let query_lower = query.to_lowercase();
                     doc.title.to_lowercase().contains(&query_lower)
                         || doc.summary.to_lowercase().contains(&query_lower)
-                        || doc.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
+                        || doc
+                            .tags
+                            .iter()
+                            .any(|t| t.to_lowercase().contains(&query_lower))
                 })
                 .take(limit)
                 .map(|doc| {
@@ -497,7 +495,8 @@ fn search_documents(
                     })
                 })
                 .collect::<Vec<_>>()
-        }, |search_results| {
+        },
+        |search_results| {
             search_results
                 .into_iter()
                 .map(|r| {
@@ -511,7 +510,8 @@ fn search_documents(
                     })
                 })
                 .collect::<Vec<_>>()
-        });
+        },
+    );
 
     Ok(json!({ "results": results }))
 }
@@ -598,15 +598,15 @@ fn find_related(
 
         if let Some(current) = chunks.iter().find(|c| c.chunk_id == current_id) {
             let next_ids: Vec<String> = match relationship_type {
-                "sequential" => {
-                    current.next_chunk_id.clone().into_iter().collect()
-                }
-                "hierarchical" => {
-                    current.child_chunk_ids.clone()
-                }
+                "sequential" => current.next_chunk_id.clone().into_iter().collect(),
+                "hierarchical" => current.child_chunk_ids.clone(),
                 _ => {
                     // Default to similar for any other type
-                    current.related_chunks.iter().map(|r| r.chunk_id.clone()).collect()
+                    current
+                        .related_chunks
+                        .iter()
+                        .map(|r| r.chunk_id.clone())
+                        .collect()
                 }
             };
 
@@ -712,7 +712,9 @@ fn semantic_search(
         .filter(|c| {
             let query_lower = query.to_lowercase();
             c.summary.to_lowercase().contains(&query_lower)
-                || c.heading.as_ref().is_some_and(|h| h.to_lowercase().contains(&query_lower))
+                || c.heading
+                    .as_ref()
+                    .is_some_and(|h| h.to_lowercase().contains(&query_lower))
         })
         .take(limit)
         .map(|c| {
@@ -1113,8 +1115,121 @@ fn generate_tools_list() -> Value {
     })
 }
 
+/// Route MCP tool/call request to appropriate tool handler
+fn handle_tool_call(
+    tool_name: &str,
+    arguments: &Value,
+    index: &DocumentIndex,
+    index_dir: &Path,
+) -> Result<Value, McpError> {
+    match tool_name {
+        "search_docs" => {
+            let params: SearchParams = serde_json::from_value(arguments.clone())
+                .map_err(|e| McpError::InvalidRequest(format!("invalid search params: {e}")))?;
+
+            search_documents(index_dir, &params.query, params.limit, &index.documents)
+        }
+        "get_chunk" => {
+            let params: GetChunkParams = serde_json::from_value(arguments.clone())
+                .map_err(|e| McpError::InvalidRequest(format!("invalid get_chunk params: {e}")))?;
+
+            find_chunk(&params.chunk_id, &index.chunks)
+        }
+        "list_docs" => Ok(list_all_documents(&index.documents)),
+        "find_related" => {
+            let params: FindRelatedParams =
+                serde_json::from_value(arguments.clone()).map_err(|e| {
+                    McpError::InvalidRequest(format!("invalid find_related params: {e}"))
+                })?;
+
+            find_related(
+                &params.chunk_id,
+                &params.relationship_type,
+                params.max_depth,
+                params.limit,
+                &index.chunks,
+            )
+        }
+        "get_document" => {
+            let params: GetDocumentParams =
+                serde_json::from_value(arguments.clone()).map_err(|e| {
+                    McpError::InvalidRequest(format!("invalid get_document params: {e}"))
+                })?;
+
+            get_document(
+                &params.doc_id,
+                params.include_chunks,
+                params.chunk_level.as_deref(),
+                &index.documents,
+                &index.chunks,
+            )
+        }
+        "semantic_search" => {
+            let params: SemanticSearchParams =
+                serde_json::from_value(arguments.clone()).map_err(|e| {
+                    McpError::InvalidRequest(format!("invalid semantic_search params: {e}"))
+                })?;
+
+            Ok(semantic_search(
+                &params.query,
+                params.limit,
+                params.threshold,
+                &index.chunks,
+            ))
+        }
+        "search_by_category" => {
+            let params: SearchByCategoryParams = serde_json::from_value(arguments.clone())
+                .map_err(|e| {
+                    McpError::InvalidRequest(format!("invalid search_by_category params: {e}"))
+                })?;
+
+            Ok(search_by_category(
+                &params.category,
+                &params.query,
+                params.limit,
+                &index.documents,
+            ))
+        }
+        "search_by_tags" => {
+            let params: SearchByTagsParams =
+                serde_json::from_value(arguments.clone()).map_err(|e| {
+                    McpError::InvalidRequest(format!("invalid search_by_tags params: {e}"))
+                })?;
+
+            Ok(search_by_tags(
+                &params.tags,
+                &params.match_mode,
+                &params.query,
+                params.limit,
+                &index.documents,
+            ))
+        }
+        "get_navigation" => {
+            let params: GetNavigationParams =
+                serde_json::from_value(arguments.clone()).map_err(|e| {
+                    McpError::InvalidRequest(format!("invalid get_navigation params: {e}"))
+                })?;
+
+            Ok(get_navigation(&params.format, &index.documents))
+        }
+        "explain_chunk" => {
+            let params: ExplainChunkParams =
+                serde_json::from_value(arguments.clone()).map_err(|e| {
+                    McpError::InvalidRequest(format!("invalid explain_chunk params: {e}"))
+                })?;
+
+            explain_chunk(&params.chunk_id, &index.chunks)
+        }
+        _ => Err(McpError::UnknownMethod(tool_name.to_string())),
+    }
+}
+
 /// Route MCP request to appropriate handler
-fn handle_request(req: &McpRequest, index: &DocumentIndex, index_dir: &Path) -> Result<Value, McpError> {
+fn handle_request(
+    req: &McpRequest,
+    index: &DocumentIndex,
+    index_dir: &Path,
+) -> Result<Value, McpError> {
     match req.method.as_str() {
         "tools/list" => Ok(generate_tools_list()),
         "tools/call" => {
@@ -1122,78 +1237,7 @@ fn handle_request(req: &McpRequest, index: &DocumentIndex, index_dir: &Path) -> 
                 .as_str()
                 .ok_or_else(|| McpError::InvalidRequest("missing tool name".to_string()))?;
 
-            let arguments = &req.params["arguments"];
-
-            match tool_name {
-                "search_docs" => {
-                    let params: SearchParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid search params: {e}")))?;
-
-                    search_documents(index_dir, &params.query, params.limit, &index.documents)
-                }
-                "get_chunk" => {
-                    let params: GetChunkParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_chunk params: {e}")))?;
-
-                    find_chunk(&params.chunk_id, &index.chunks)
-                }
-                "list_docs" => Ok(list_all_documents(&index.documents)),
-                "find_related" => {
-                    let params: FindRelatedParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid find_related params: {e}")))?;
-
-                    find_related(
-                        &params.chunk_id,
-                        &params.relationship_type,
-                        params.max_depth,
-                        params.limit,
-                        &index.chunks,
-                    )
-                }
-                "get_document" => {
-                    let params: GetDocumentParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_document params: {e}")))?;
-
-                    get_document(
-                        &params.doc_id,
-                        params.include_chunks,
-                        params.chunk_level.as_deref(),
-                        &index.documents,
-                        &index.chunks,
-                    )
-                }
-                "semantic_search" => {
-                    let params: SemanticSearchParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid semantic_search params: {e}")))?;
-
-                    Ok(semantic_search(&params.query, params.limit, params.threshold, &index.chunks))
-                }
-                "search_by_category" => {
-                    let params: SearchByCategoryParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid search_by_category params: {e}")))?;
-
-                    Ok(search_by_category(&params.category, &params.query, params.limit, &index.documents))
-                }
-                "search_by_tags" => {
-                    let params: SearchByTagsParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid search_by_tags params: {e}")))?;
-
-                    Ok(search_by_tags(&params.tags, &params.match_mode, &params.query, params.limit, &index.documents))
-                }
-                "get_navigation" => {
-                    let params: GetNavigationParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_navigation params: {e}")))?;
-
-                    Ok(get_navigation(&params.format, &index.documents))
-                }
-                "explain_chunk" => {
-                    let params: ExplainChunkParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid explain_chunk params: {e}")))?;
-
-                    explain_chunk(&params.chunk_id, &index.chunks)
-                }
-                _ => Err(McpError::UnknownMethod(tool_name.to_string())),
-            }
+            handle_tool_call(tool_name, &req.params["arguments"], index, index_dir)
         }
         method => Err(McpError::UnknownMethod(method.to_string())),
     }
@@ -1226,9 +1270,11 @@ fn run_server() -> Result<(), McpError> {
     // Load index once at startup with caching
     let index = load_index_with_cache(&index_path, &cache)?;
 
-    eprintln!("MCP server started (with caching). Loaded {} documents, {} chunks",
-             index.documents.len(),
-             index.chunks.len());
+    eprintln!(
+        "MCP server started (with caching). Loaded {} documents, {} chunks",
+        index.documents.len(),
+        index.chunks.len()
+    );
 
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();

@@ -19,7 +19,7 @@ use doc_transformer::chunk::{create_chunks_at_level, ChunkLevel};
 #[derive(Debug, Clone)]
 struct ChunkingEdgeCase {
     name: &'static str,
-    content: String,  // Changed from &'static str to String to allow format!()
+    content: String, // Changed from &'static str to String to allow format!()
     chunk_level: ChunkLevel,
     /// Expected minimum number of chunks
     expected_min_chunks: usize,
@@ -438,7 +438,11 @@ macro_rules! test_edge_cases {
                     );
                 }
 
-                println!("  ✓ Test '{}' passed with {} chunks", test_case.name, chunks.len());
+                println!(
+                    "  ✓ Test '{}' passed with {} chunks",
+                    test_case.name,
+                    chunks.len()
+                );
             }
         }
     };
@@ -480,9 +484,12 @@ fn test_chunking_all_levels() {
     assert!(!detailed.is_empty(), "Detailed level produced no chunks");
 
     // Token counts should increase with level (approximately)
-    let avg_summary_tokens: usize = summary.iter().map(|c| c.token_count).sum::<usize>() / summary.len();
-    let avg_standard_tokens: usize = standard.iter().map(|c| c.token_count).sum::<usize>() / standard.len();
-    let avg_detailed_tokens: usize = detailed.iter().map(|c| c.token_count).sum::<usize>() / detailed.len();
+    let avg_summary_tokens: usize =
+        summary.iter().map(|c| c.token_count).sum::<usize>() / summary.len();
+    let avg_standard_tokens: usize =
+        standard.iter().map(|c| c.token_count).sum::<usize>() / standard.len();
+    let avg_detailed_tokens: usize =
+        detailed.iter().map(|c| c.token_count).sum::<usize>() / detailed.len();
 
     println!(
         "Average tokens - Summary: {avg_summary_tokens}, Standard: {avg_standard_tokens}, Detailed: {avg_detailed_tokens}"
@@ -528,14 +535,12 @@ fn test_chunk_content_integrity() {
 #[test]
 fn test_unicode_integrity_in_chunks() {
     // Verify Unicode content is preserved correctly during chunking
-    let content = "# 文档标题\n\n## 第一部分\n\n这是中文内容。\n\n## 第二部分\n\nMore 中文 混合 English。";
+    let content =
+        "# 文档标题\n\n## 第一部分\n\n这是中文内容。\n\n## 第二部分\n\nMore 中文 混合 English。";
 
     let chunks = create_chunks_at_level(content, "doc", "Doc", ChunkLevel::Standard);
 
-    let combined = chunks
-        .iter()
-        .map(|c| c.content.clone())
-        .collect::<String>();
+    let combined = chunks.iter().map(|c| c.content.clone()).collect::<String>();
 
     // Verify Chinese characters are preserved
     assert!(combined.contains("文档标题"), "Chinese title lost");
@@ -571,7 +576,9 @@ fn test_chunk_type_detection_mixed_content() {
     // Each chunk should have a chunk_type (code, table, or prose)
     for chunk in chunks {
         assert!(
-            chunk.chunk_type == "code" || chunk.chunk_type == "table" || chunk.chunk_type == "prose",
+            chunk.chunk_type == "code"
+                || chunk.chunk_type == "table"
+                || chunk.chunk_type == "prose",
             "Invalid chunk type: {}",
             chunk.chunk_type
         );

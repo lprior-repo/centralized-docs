@@ -21,8 +21,9 @@ static H1_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?m)^# [^#]").expect("hardcoded regex pattern is valid"));
 
 #[expect(clippy::expect_used)]
-static TAGS_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"tags:\s*\[[^\]]{10,}\]").expect("hardcoded regex pattern is valid"));
+static TAGS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"tags:\s*\[[^\]]{10,}\]").expect("hardcoded regex pattern is valid")
+});
 
 /// Query validation errors
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -252,23 +253,20 @@ mod tests {
 
     #[test]
     fn test_validate_query_single_char() {
-        let result = validate_query("a");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "a");
+        assert_eq!(validate_query("a"), Ok("a"));
     }
 
     #[test]
     fn test_validate_query_normal() {
-        let result = validate_query("rust programming");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "rust programming");
+        assert_eq!(validate_query("rust programming"), Ok("rust programming"));
     }
 
     #[test]
     fn test_validate_query_trimmed() {
-        let result = validate_query("  rust programming  ");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "rust programming");
+        assert_eq!(
+            validate_query("  rust programming  "),
+            Ok("rust programming")
+        );
     }
 
     #[test]
@@ -276,7 +274,7 @@ mod tests {
         let query = "a".repeat(1000);
         let result = validate_query(&query);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 1000);
+        assert_eq!(result.map(|s| s.len()), Ok(1000));
     }
 
     #[test]
@@ -307,9 +305,7 @@ mod tests {
 
     #[test]
     fn test_validate_query_unicode() {
-        let result = validate_query("café rust");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "café rust");
+        assert_eq!(validate_query("café rust"), Ok("café rust"));
     }
 
     #[test]
@@ -317,8 +313,7 @@ mod tests {
         // Euro sign "€" is 3 bytes, so 333 reps = 999 bytes + "a" = 1000 bytes
         let query = format!("{}a", "€".repeat(333));
         assert_eq!(query.len(), 1000);
-        let result = validate_query(&query);
-        assert!(result.is_ok());
+        assert!(validate_query(&query).is_ok());
     }
 
     #[test]
@@ -338,17 +333,19 @@ mod tests {
 
     #[test]
     fn test_validate_query_special_chars() {
-        let result = validate_query("rust-lang & systems *2025*");
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "rust-lang & systems *2025*");
+        assert_eq!(
+            validate_query("rust-lang & systems *2025*"),
+            Ok("rust-lang & systems *2025*")
+        );
     }
 
     #[test]
     fn test_validate_query_error_message_empty() {
         let result = validate_query("");
         assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert_eq!(err.to_string(), "Query cannot be empty");
+        // Convert error to string for message validation
+        let err_str = result.as_ref().map_err(|e| e.to_string());
+        assert!(matches!(err_str, Err(ref msg) if msg == "Query cannot be empty"));
     }
 
     #[test]
@@ -356,9 +353,12 @@ mod tests {
         let query = "a".repeat(1001);
         let result = validate_query(&query);
         assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("1001"));
-        assert!(err.to_string().contains("1000"));
-        assert!(err.to_string().contains("too long"));
+        // Convert error to string for message validation
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("1001"));
+            assert!(msg.contains("1000"));
+            assert!(msg.contains("too long"));
+        }
     }
 }

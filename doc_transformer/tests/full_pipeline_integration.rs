@@ -164,7 +164,7 @@ Run `tool --help` for available commands.
         PipelineTestCase {
             name: "large_document",
             description: "Very large document to test chunking",
-            files: vec![],  // Will be created separately
+            files: vec![], // Will be created separately
             expected_min_documents: 1,
             expected_min_chunks: 10,
         },
@@ -243,8 +243,8 @@ fn generate_large_markdown(word_count: usize) -> String {
 /// Execute the full pipeline: discover → analyze → assign → chunk → index
 fn run_full_pipeline(test_dir: &Path, output_dir: &Path) -> Result<PipelineResult> {
     // Phase 1: DISCOVER
-    let (discovered_files, _manifest) = discover::discover_files(test_dir)
-        .context("Discovery phase failed")?;
+    let (discovered_files, _manifest) =
+        discover::discover_files(test_dir).context("Discovery phase failed")?;
 
     // Phase 2: ANALYZE
     let analyses = analyze::analyze_files(&discovered_files, test_dir, None)
@@ -254,12 +254,18 @@ fn run_full_pipeline(test_dir: &Path, output_dir: &Path) -> Result<PipelineResul
     let (_analyses_with_ids, link_map) = assign::assign_ids(analyses.clone());
 
     // Phase 4: CHUNK
-    let chunks_result = chunk::chunk_all(&analyses, &link_map, output_dir)
-        .context("Chunking phase failed")?;
+    let chunks_result =
+        chunk::chunk_all(&analyses, &link_map, output_dir).context("Chunking phase failed")?;
 
     // Phase 5: INDEX
-    index::build_and_write_index(&analyses, &link_map, &chunks_result, output_dir, "Test Project")
-        .context("Indexing phase failed")?;
+    index::build_and_write_index(
+        &analyses,
+        &link_map,
+        &chunks_result,
+        output_dir,
+        "Test Project",
+    )
+    .context("Indexing phase failed")?;
 
     Ok(PipelineResult {
         document_count: analyses.len(),
@@ -291,8 +297,14 @@ fn test_full_pipeline_empty_directory() -> Result<()> {
 
     let result = run_full_pipeline(ctx.root(), &output_dir)?;
 
-    assert_eq!(result.document_count, 0, "Empty directory should have 0 documents");
-    assert_eq!(result.chunk_count, 0, "Empty directory should have 0 chunks");
+    assert_eq!(
+        result.document_count, 0,
+        "Empty directory should have 0 documents"
+    );
+    assert_eq!(
+        result.chunk_count, 0,
+        "Empty directory should have 0 chunks"
+    );
 
     Ok(())
 }
@@ -309,7 +321,10 @@ fn test_full_pipeline_single_file() -> Result<()> {
     let output_dir = ctx.output_dir();
     let result = run_full_pipeline(ctx.root(), &output_dir)?;
 
-    assert!(result.document_count >= 1, "Should discover at least 1 document");
+    assert!(
+        result.document_count >= 1,
+        "Should discover at least 1 document"
+    );
     assert!(result.chunk_count >= 1, "Should create at least 1 chunk");
 
     Ok(())
@@ -383,10 +398,7 @@ fn test_full_pipeline_malformed_markdown() -> Result<()> {
     ctx.create_markdown_file("no-h1.md", "## Section\n\nContent without H1.")?;
 
     // Document with broken links
-    ctx.create_markdown_file(
-        "broken.md",
-        "# Doc\n\n[Incomplete](\n\nMore content.",
-    )?;
+    ctx.create_markdown_file("broken.md", "# Doc\n\n[Incomplete](\n\nMore content.")?;
 
     let output_dir = ctx.output_dir();
     let result = run_full_pipeline(ctx.root(), &output_dir)?;

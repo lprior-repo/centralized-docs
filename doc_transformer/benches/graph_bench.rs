@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use doc_transformer::chunk::{Chunk, ChunkLevel};
 use doc_transformer::graph::KnowledgeDAG;
 use doc_transformer::index::build_knowledge_dag;
@@ -175,11 +175,7 @@ fn benchmark_dag_construction(c: &mut Criterion) {
             let tags = black_box(generate_test_tags(&chunks));
 
             b.iter(|| {
-                build_dag_for_benchmark(
-                    black_box(&chunks),
-                    black_box(&documents),
-                    black_box(&tags),
-                )
+                build_dag_for_benchmark(black_box(&chunks), black_box(&documents), black_box(&tags))
             });
         });
     }
@@ -201,11 +197,7 @@ fn benchmark_dag_scaling(c: &mut Criterion) {
             let tags = black_box(generate_test_tags(&chunks));
 
             b.iter(|| {
-                build_dag_for_benchmark(
-                    black_box(&chunks),
-                    black_box(&documents),
-                    black_box(&tags),
-                )
+                build_dag_for_benchmark(black_box(&chunks), black_box(&documents), black_box(&tags))
             });
         });
     }

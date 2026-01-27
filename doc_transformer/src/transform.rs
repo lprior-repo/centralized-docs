@@ -323,12 +323,8 @@ fn rewrite_links_ast(
                     // Look up in link_map
                     let mut mapped_filename: Option<String> = None;
                     for (src_path, mapping) in link_map {
-                        let src_file = Path::new(src_path)
-                            .file_name()
-                            .filter(|s| !s.is_empty());
-                        let resolved_file = resolved_path
-                            .file_name()
-                            .filter(|s| !s.is_empty());
+                        let src_file = Path::new(src_path).file_name().filter(|s| !s.is_empty());
+                        let resolved_file = resolved_path.file_name().filter(|s| !s.is_empty());
 
                         if src_file == resolved_file && src_file.is_some()
                             || src_path.ends_with(&resolved_path.to_string_lossy().to_string())
@@ -471,9 +467,9 @@ struct RenderState {
 
 /// Convert events to markdown using stateful fold-based reconstruction
 fn events_to_markdown(events: Vec<Event>) -> String {
-    let final_state = events.into_iter().fold(
-        RenderState::default(),
-        |mut state, event| {
+    let final_state = events
+        .into_iter()
+        .fold(RenderState::default(), |mut state, event| {
             match event {
                 Event::Text(text) => state.output.push_str(&text),
                 Event::Code(code) => {
@@ -542,8 +538,7 @@ fn events_to_markdown(events: Vec<Event>) -> String {
                 }
             }
             state
-        },
-    );
+        });
 
     final_state.output
 }
@@ -710,8 +705,8 @@ mod tests {
         // External links should not be modified
         let link_map = HashMap::new();
 
-        let mut content = "[External](https://example.com) [Mailto](mailto:test@example.com)"
-            .to_string();
+        let mut content =
+            "[External](https://example.com) [Mailto](mailto:test@example.com)".to_string();
         let broken = rewrite_links_ast(&mut content, "/docs/source.md", &link_map);
 
         // No broken links for external links

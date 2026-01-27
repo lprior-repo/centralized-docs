@@ -120,7 +120,6 @@ impl KnowledgeDAG {
             .collect()
     }
 
-
     /// Get total edge weight for a node (sum of outgoing edge weights)
     pub fn node_importance(&self, node_id: &str) -> f32 {
         if let Some(&idx) = self.node_map.get(node_id) {
@@ -384,7 +383,6 @@ mod tests {
         assert_eq!(topo_order.len(), 3);
         assert_eq!(topo_order[0], "node1");
     }
-
 
     #[test]
     fn test_node_importance() {

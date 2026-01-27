@@ -49,16 +49,17 @@ The user has explicitly configured these rules. Do not second-guess them.
 
 ### Code Quality: Pure Functional Rust
 **Zero panics, zero unwraps, explicit errors:**
-- `unwrap()` and `expect()` are **forbidden** in production code
-- `panic!`, `todo!`, `unimplemented!` are **forbidden**
+- `unwrap()` and `expect()` are **ABSOLUTELY FORBIDDEN** - everywhere, always
+- `panic!`, `todo!`, `unimplemented!` are **ABSOLUTELY FORBIDDEN** - everywhere, always
 - All errors must use `Result<T, Error>` with proper propagation
 - Use functional patterns: `map`, `and_then`, `?` operator
 - For arithmetic: use `saturating_add`, `saturating_sub`, `checked_*` methods
 
-**Allowed in test code only:**
-- `unwrap()` in test assertions (with justification in comment)
-- `panic!()` in test setup (with comment explaining why)
-- Use `#[expect(clippy::expect_used)]` for hardcoded regex patterns
+**NO EXCEPTIONS** - Not in tests, not in examples, not in ANY code. Tests should use:
+- `assert!(matches!(result, Ok(value)))` for Ok results
+- `assert!(matches!(result, Err(e)))` for errors
+- `assert_eq!(result, Ok(expected))` for equality checks
+- Proper match patterns for Option/Result extraction
 
 ### Project Structure
 ```

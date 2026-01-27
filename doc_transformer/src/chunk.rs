@@ -105,7 +105,12 @@ struct ChunkConfig<'a> {
 }
 
 impl<'a> ChunkConfig<'a> {
-    fn new(doc_id: &'a str, doc_title: &'a str, level: &'a ChunkLevel, heading: &'a Option<String>) -> Self {
+    fn new(
+        doc_id: &'a str,
+        doc_title: &'a str,
+        level: &'a ChunkLevel,
+        heading: &'a Option<String>,
+    ) -> Self {
         Self {
             doc_id,
             doc_title,

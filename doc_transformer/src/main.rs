@@ -104,7 +104,8 @@ impl Default for IngestConfig {
 
 // Validation functions for HNSW graph parameters
 fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
-    let value = s.parse::<usize>()
+    let value = s
+        .parse::<usize>()
         .map_err(|_| format!("max_related_chunks must be a positive integer, got '{s}'"))?;
 
     if value < 1 {
@@ -118,11 +119,14 @@ fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
 }
 
 fn validate_hnsw_m(s: &str) -> Result<usize, String> {
-    let value = s.parse::<usize>()
+    let value = s
+        .parse::<usize>()
         .map_err(|_| format!("hnsw_m must be a positive integer, got '{s}'"))?;
 
     if value < 4 {
-        return Err("hnsw_m must be at least 4 for proper connectivity (too sparse otherwise)".to_string());
+        return Err(
+            "hnsw_m must be at least 4 for proper connectivity (too sparse otherwise)".to_string(),
+        );
     }
     if value > 64 {
         return Err("hnsw_m must be at most 64 for reasonable performance".to_string());
@@ -132,14 +136,19 @@ fn validate_hnsw_m(s: &str) -> Result<usize, String> {
 }
 
 fn validate_hnsw_ef_construction(s: &str) -> Result<usize, String> {
-    let value = s.parse::<usize>()
+    let value = s
+        .parse::<usize>()
         .map_err(|_| format!("hnsw_ef_construction must be a positive integer, got '{s}'"))?;
 
     if value < 50 {
-        return Err("hnsw_ef_construction must be at least 50 for acceptable build quality".to_string());
+        return Err(
+            "hnsw_ef_construction must be at least 50 for acceptable build quality".to_string(),
+        );
     }
     if value > 800 {
-        return Err("hnsw_ef_construction must be at most 800 for reasonable build times".to_string());
+        return Err(
+            "hnsw_ef_construction must be at most 800 for reasonable build times".to_string(),
+        );
     }
 
     Ok(value)
@@ -401,9 +410,7 @@ fn validate_query_length(query: &Option<&str>) -> Result<()> {
     if let Some(q) = query {
         let byte_count = q.len();
         if byte_count > MAX_QUERY_LENGTH {
-            anyhow::bail!(
-                "Query too long ({byte_count} bytes, maximum {MAX_QUERY_LENGTH})"
-            );
+            anyhow::bail!("Query too long ({byte_count} bytes, maximum {MAX_QUERY_LENGTH})");
         }
     }
 
@@ -466,7 +473,10 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
     println!("{}\n", "=".repeat(70));
 
     println!("[SCRAPE] Target: {url}");
-    println!("  Options: sitemap={}, delay={}ms", config.use_sitemap, config.delay);
+    println!(
+        "  Options: sitemap={}, delay={}ms",
+        config.use_sitemap, config.delay
+    );
     if let Some(ref f) = config.filter {
         println!("  Filter: {f}");
     }
@@ -523,7 +533,10 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     println!("{}\n", "=".repeat(70));
 
     // Log graph configuration parameters if provided
-    if config.max_related_chunks.is_some() || config.hnsw_m.is_some() || config.hnsw_ef_construction.is_some() {
+    if config.max_related_chunks.is_some()
+        || config.hnsw_m.is_some()
+        || config.hnsw_ef_construction.is_some()
+    {
         println!("[CONFIG] Graph Parameters:");
         if let Some(n) = config.max_related_chunks {
             println!("  max_related_chunks: {n} (default: 20)");
@@ -593,7 +606,13 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
 
     // STEP 6: INDEX + GRAPH
     println!("[STEP 6] INDEX + GRAPH");
-    index::build_and_write_index(&analyses, &link_map, &chunks_result, output, &config.project_name)?;
+    index::build_and_write_index(
+        &analyses,
+        &link_map,
+        &chunks_result,
+        output,
+        &config.project_name,
+    )?;
     index::build_and_write_compass(&analyses, &link_map, output)?;
     println!("  Created INDEX.json and COMPASS.md\n");
 
@@ -724,15 +743,12 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
     const MAX_QUERY_WORDS: usize = 100;
 
     // Validate query using centralized validation
-    let query = validate::validate_query(query)
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let query = validate::validate_query(query).map_err(|e| anyhow::anyhow!("{e}"))?;
 
     // Validate word count (additional constraint beyond basic validation)
     let word_count = query.split_whitespace().count();
     if word_count > MAX_QUERY_WORDS {
-        anyhow::bail!(
-            "Query has too many terms ({word_count} words, max {MAX_QUERY_WORDS})"
-        );
+        anyhow::bail!("Query has too many terms ({word_count} words, max {MAX_QUERY_WORDS})");
     }
 
     let index_path = index_dir.join("INDEX.json");
@@ -946,10 +962,13 @@ mod tests {
         let result = validate_query_length(&query);
 
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("1001"));
-        assert!(err_msg.contains("1000"));
-        assert!(err_msg.contains("too long"));
+        // Convert error to string for validation without unwrap
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("1001"));
+            assert!(msg.contains("1000"));
+            assert!(msg.contains("too long"));
+        }
     }
 
     #[test]
@@ -969,8 +988,11 @@ mod tests {
         let result = validate_query_length(&query);
 
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("1002"));
+        // Convert error to string for validation without unwrap
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("1002"));
+        }
     }
 
     #[test]
@@ -1022,8 +1044,11 @@ mod tests {
         let result = validate_query_length(&query);
 
         assert!(result.is_err());
-        let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("10000"));
+        // Convert error to string for validation without unwrap
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("10000"));
+        }
     }
 
     #[test]

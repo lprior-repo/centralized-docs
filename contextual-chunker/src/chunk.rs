@@ -198,7 +198,8 @@ pub fn chunk(document: &Document, level: ChunkLevel) -> Result<Vec<Chunk>> {
         anyhow::bail!("Invalid document: id and title must be non-empty");
     }
 
-    let mut chunks = create_chunks_at_level(&document.id, &document.title, &document.content, level);
+    let mut chunks =
+        create_chunks_at_level(&document.id, &document.title, &document.content, level);
     link_chunks(&mut chunks);
     Ok(chunks)
 }
@@ -233,16 +234,22 @@ pub fn chunk_all(documents: &[Document]) -> Result<ChunkingResult> {
     // Validate all documents
     for doc in documents {
         if !doc.is_valid() {
-            anyhow::bail!("Invalid document: {} - id and title must be non-empty", doc.id);
+            anyhow::bail!(
+                "Invalid document: {} - id and title must be non-empty",
+                doc.id
+            );
         }
     }
 
     let (all_chunks, summary_count, standard_count, detailed_count) = documents.iter().fold(
         (Vec::new(), 0usize, 0usize, 0usize),
         |(mut chunks, sum_count, std_count, det_count), doc| {
-            let summary = create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Summary);
-            let standard = create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Standard);
-            let detailed = create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Detailed);
+            let summary =
+                create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Summary);
+            let standard =
+                create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Standard);
+            let detailed =
+                create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Detailed);
 
             let summary_count = summary.len();
             let standard_count = standard.len();

@@ -53,9 +53,9 @@ impl IntegrationTestContext {
             .filter(|e| {
                 let path = e.path();
                 // Exclude node_modules and .git directories
-                !path.components().any(|c| {
-                    matches!(c.as_os_str().to_str(), Some("node_modules" | ".git"))
-                })
+                !path
+                    .components()
+                    .any(|c| matches!(c.as_os_str().to_str(), Some("node_modules" | ".git")))
             })
             .filter(|e| {
                 let path = e.path();
@@ -77,9 +77,13 @@ impl IntegrationTestContext {
 #[derive(Debug, Clone)]
 struct TestCase {
     name: &'static str,
+    #[allow(dead_code)] // Field is part of test documentation, may be used for debugging
     description: &'static str,
+    #[allow(dead_code)] // Field is part of test data structure
     files: Vec<(&'static str, String)>, // (path, content) - content is String to allow format!()
+    #[allow(dead_code)] // Field is part of test expectations
     expected_min_files: usize,
+    #[allow(dead_code)] // Field is part of test expectations
     should_succeed: bool,
 }
 
@@ -663,7 +667,6 @@ fn test_deeply_nested_structure() {
     // Note: This discovers at first level, nested files not found
     // This documents the actual behavior of simple discovery
     println!("Discovered {} files at root level", files.len());
-    assert!(files.len() >= 0, "Should handle nested structures");
 }
 
 #[test]
@@ -735,10 +738,6 @@ fn test_duplicate_filenames_different_dirs() {
 
     // Note: Root-level discovery won't find nested files
     println!("Discovered {} files", files.len());
-    assert!(
-        files.len() >= 0,
-        "Should handle duplicate filenames in different dirs"
-    );
 }
 
 #[test]

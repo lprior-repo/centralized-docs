@@ -143,7 +143,8 @@ fn try_readability_extraction(html: &str) -> Result<String, anyhow::Error> {
     use url::Url;
 
     let mut cursor = Cursor::new(html.as_bytes());
-    let base_url = Url::parse("https://example.com").map_err(|e| anyhow::anyhow!("URL parse error: {e}"))?;
+    let base_url =
+        Url::parse("https://example.com").map_err(|e| anyhow::anyhow!("URL parse error: {e}"))?;
 
     let product = extractor::extract(&mut cursor, &base_url)
         .map_err(|e| anyhow::anyhow!("Readability extraction failed: {e}"))?;
@@ -531,7 +532,6 @@ pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
 /// to be accessible from integration tests in the tests/ directory.
 #[allow(dead_code)] // Test helper function for integration tests
 pub fn discover_test_files(root: &std::path::Path) -> Result<Vec<String>, anyhow::Error> {
-    
     use walkdir::WalkDir;
 
     let mut files = Vec::new();

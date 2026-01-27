@@ -256,59 +256,52 @@ mod tests {
     fn test_build_index_nan() {
         let embeddings = vec![vec![1.0, f32::NAN, 0.0]];
         let result = build_index(&embeddings);
-        assert!(matches!(
-            result,
-            Err(SimilarityError::InvalidEmbedding(_))
-        ));
+        assert!(matches!(result, Err(SimilarityError::InvalidEmbedding(_))));
     }
 
     #[test]
     fn test_build_index_infinity() {
         let embeddings = vec![vec![1.0, f32::INFINITY, 0.0]];
         let result = build_index(&embeddings);
-        assert!(matches!(
-            result,
-            Err(SimilarityError::InvalidEmbedding(_))
-        ));
+        assert!(matches!(result, Err(SimilarityError::InvalidEmbedding(_))));
     }
 
     #[test]
-    fn test_query_neighbors_success() {
+    fn test_query_neighbors_success() -> anyhow::Result<()> {
         let embeddings = vec![
             vec![1.0, 0.0, 0.0],
             vec![0.0, 1.0, 0.0],
             vec![0.0, 0.0, 1.0],
         ];
 
-        let index = build_index(&embeddings).ok().unwrap_or_else(|| {
-            panic!("Failed to build index in test - this is test code only")
-        });
+        let index = build_index(&embeddings)?;
         let query = vec![0.9, 0.1, 0.0];
-        let result = query_neighbors(&index, &query, 2);
+        let neighbors = query_neighbors(&index, &query, 2)?;
 
-        assert!(result.is_ok());
-        let neighbors = result.ok().unwrap_or_else(|| {
-            panic!("Failed to query neighbors in test - this is test code only")
-        });
         println!("neighbors: {neighbors:?}");
         assert_eq!(neighbors.len(), 2);
         // HNSW is approximate, so we check that the expected neighbor is in results
         // and that results are sorted by similarity (descending)
-        assert!(neighbors.iter().any(|(idx, _)| *idx == 0), "index 0 should be in neighbors");
+        assert!(
+            neighbors.iter().any(|(idx, _)| *idx == 0),
+            "index 0 should be in neighbors"
+        );
         let mut prev_sim = f32::MAX;
         for (_, sim) in &neighbors {
-            assert!(*sim <= prev_sim, "neighbors not sorted by similarity: got {sim} after {prev_sim}");
+            assert!(
+                *sim <= prev_sim,
+                "neighbors not sorted by similarity: got {sim} after {prev_sim}"
+            );
             prev_sim = *sim;
         }
+        Ok(())
     }
 
     #[test]
-    fn test_query_neighbors_dimension_mismatch() {
+    fn test_query_neighbors_dimension_mismatch() -> anyhow::Result<()> {
         let embeddings = vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]];
 
-        let index = build_index(&embeddings).ok().unwrap_or_else(|| {
-            panic!("Failed to build index in test - this is test code only")
-        });
+        let index = build_index(&embeddings)?;
         let query = vec![1.0, 0.0]; // Wrong dimension
         let result = query_neighbors(&index, &query, 1);
 
@@ -319,85 +312,72 @@ mod tests {
                 got: 2
             })
         ));
+        Ok(())
     }
 
     #[test]
-    fn test_query_neighbors_nan() {
+    fn test_query_neighbors_nan() -> anyhow::Result<()> {
         let embeddings = vec![vec![1.0, 0.0, 0.0]];
 
-        let index = build_index(&embeddings).ok().unwrap_or_else(|| {
-            panic!("Failed to build index in test - this is test code only")
-        });
+        let index = build_index(&embeddings)?;
         let query = vec![f32::NAN, 0.0, 0.0];
         let result = query_neighbors(&index, &query, 1);
 
-        assert!(matches!(
-            result,
-            Err(SimilarityError::InvalidEmbedding(_))
-        ));
+        assert!(matches!(result, Err(SimilarityError::InvalidEmbedding(_))));
+        Ok(())
     }
 
     #[test]
-    fn test_query_neighbors_top_k_exceeds_size() {
+    fn test_query_neighbors_top_k_exceeds_size() -> anyhow::Result<()> {
         let embeddings = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
 
-        let index = build_index(&embeddings).ok().unwrap_or_else(|| {
-            panic!("Failed to build index in test - this is test code only")
-        });
+        let index = build_index(&embeddings)?;
         let query = vec![1.0, 0.0];
-        let result = query_neighbors(&index, &query, 10);
+        let neighbors = query_neighbors(&index, &query, 10)?;
 
-        assert!(result.is_ok());
-        let neighbors = result.ok().unwrap_or_else(|| {
-            panic!("Failed to query neighbors in test - this is test code only")
-        });
         // HNSW is approximate and may return fewer results than available
         // Should return at least 1, but may not return all 2
         assert!(!neighbors.is_empty(), "Should return at least 1 neighbor");
-        assert!(neighbors.len() <= 2, "Should not return more than available");
+        assert!(
+            neighbors.len() <= 2,
+            "Should not return more than available"
+        );
+        Ok(())
     }
 
     #[test]
-    fn test_similarity_to_self_is_one() {
+    fn test_similarity_to_self_is_one() -> anyhow::Result<()> {
         let embeddings = vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]];
 
-        let index = build_index(&embeddings).ok().unwrap_or_else(|| {
-            panic!("Failed to build index in test - this is test code only")
-        });
+        let index = build_index(&embeddings)?;
         let query = vec![1.0, 0.0, 0.0]; // Same as first embedding
-        let result = query_neighbors(&index, &query, 1);
+        let result = query_neighbors(&index, &query, 1)?;
 
-        assert!(result.is_ok());
-        let neighbors = result.ok().unwrap_or_else(|| {
-            panic!("Failed to query neighbors in test - this is test code only")
-        });
-        assert_eq!(neighbors[0].0, 0);
+        assert_eq!(result[0].0, 0);
         // Similarity to self should be very close to 1.0
-        assert!((neighbors[0].1 - 1.0).abs() < 0.01);
+        assert!((result[0].1 - 1.0).abs() < 0.01);
+        Ok(())
     }
 
     #[test]
-    fn test_results_sorted_by_similarity() {
+    fn test_results_sorted_by_similarity() -> anyhow::Result<()> {
         let embeddings = vec![
             vec![1.0, 0.0, 0.0], // Far from query
             vec![0.0, 1.0, 0.0], // Medium distance
             vec![0.5, 0.5, 0.0], // Close to query
         ];
 
-        let index = build_index(&embeddings).ok().unwrap_or_else(|| {
-            panic!("Failed to build index in test - this is test code only")
-        });
+        let index = build_index(&embeddings)?;
         let query = vec![0.6, 0.6, 0.0];
-        let result = query_neighbors(&index, &query, 3);
-
-        assert!(result.is_ok());
-        let neighbors = result.ok().unwrap_or_else(|| {
-            panic!("Failed to query neighbors in test - this is test code only")
-        });
+        let neighbors = query_neighbors(&index, &query, 3)?;
 
         // HNSW is approximate - may return fewer results than requested
         // Verify we got at least 2 results to check sorting
-        assert!(neighbors.len() >= 2, "Expected at least 2 neighbors, got {}", neighbors.len());
+        assert!(
+            neighbors.len() >= 2,
+            "Expected at least 2 neighbors, got {}",
+            neighbors.len()
+        );
 
         // Results should be sorted by descending similarity
         for i in 0..neighbors.len().saturating_sub(1) {
@@ -410,6 +390,7 @@ mod tests {
                 neighbors[i + 1].1
             );
         }
+        Ok(())
     }
 
     #[test]
@@ -426,17 +407,16 @@ mod tests {
     }
 
     #[test]
-    fn test_query_all_zeros() {
+    fn test_query_all_zeros() -> anyhow::Result<()> {
         let embeddings = vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]];
 
-        let index = build_index(&embeddings).ok().unwrap_or_else(|| {
-            panic!("Failed to build index in test - this is test code only")
-        });
+        let index = build_index(&embeddings)?;
         let query = vec![0.0, 0.0, 0.0];
         let result = query_neighbors(&index, &query, 1);
 
         // Should succeed - all zeros is valid
         assert!(result.is_ok());
+        Ok(())
     }
 
     #[test]

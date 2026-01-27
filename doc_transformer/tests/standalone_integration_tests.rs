@@ -54,9 +54,9 @@ impl TestFixture {
             .filter(|e| {
                 let path = e.path();
                 // Exclude node_modules and .git directories
-                !path.components().any(|c| {
-                    matches!(c.as_os_str().to_str(), Some("node_modules" | ".git"))
-                })
+                !path
+                    .components()
+                    .any(|c| matches!(c.as_os_str().to_str(), Some("node_modules" | ".git")))
             })
             .filter_map(|e| {
                 let path = e.path();

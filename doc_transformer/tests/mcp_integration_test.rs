@@ -9,6 +9,7 @@ struct DocumentIndex {
     documents: Vec<IndexDocument>,
     chunks: Vec<ChunkMetadata>,
     #[serde(default)]
+    #[allow(dead_code)] // Field is part of deserialized structure, not used in tests
     keywords: HashMap<String, Vec<String>>,
 }
 
@@ -173,7 +174,11 @@ fn test_mcp_find_related_sequential() {
     let index = create_test_index();
 
     // Find next chunk
-    let chunk1 = index.chunks.iter().find(|c| c.chunk_id == "chunk1").unwrap();
+    let chunk1 = index
+        .chunks
+        .iter()
+        .find(|c| c.chunk_id == "chunk1")
+        .unwrap();
     assert_eq!(chunk1.next_chunk_id, Some("chunk2".to_string()));
 
     // Verify sequential relationship
@@ -219,8 +224,7 @@ fn test_index_structure_integrity() {
     let index = create_test_index();
 
     // Verify all chunk doc_ids reference existing documents
-    let doc_ids: std::collections::HashSet<_> =
-        index.documents.iter().map(|d| &d.id).collect();
+    let doc_ids: std::collections::HashSet<_> = index.documents.iter().map(|d| &d.id).collect();
 
     for chunk in &index.chunks {
         assert!(
@@ -268,7 +272,11 @@ fn test_mcp_explain_chunk() {
     let index = create_test_index();
 
     // Get chunk2 which has a previous chunk
-    let chunk = index.chunks.iter().find(|c| c.chunk_id == "chunk2").unwrap();
+    let chunk = index
+        .chunks
+        .iter()
+        .find(|c| c.chunk_id == "chunk2")
+        .unwrap();
 
     // Verify it has a previous chunk
     assert_eq!(chunk.previous_chunk_id, Some("chunk1".to_string()));

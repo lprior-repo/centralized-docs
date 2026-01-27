@@ -465,15 +465,24 @@ pub fn build_knowledge_dag(
                         .map(|(_, _, cat)| cat.clone())
                         .unwrap_or_default();
 
-                    let query_embedding =
-                        generate_embedding_from_tags(&chunk_tags, &chunk_category, &vocabulary, embedding_dim);
+                    let query_embedding = generate_embedding_from_tags(
+                        &chunk_tags,
+                        &chunk_category,
+                        &vocabulary,
+                        embedding_dim,
+                    );
 
                     // Query HNSW for top-k neighbors (k+1 to account for self)
-                    if let Ok(neighbors) = query_neighbors(&index, &query_embedding, MAX_RELATED_CHUNKS + 1) {
+                    if let Ok(neighbors) =
+                        query_neighbors(&index, &query_embedding, MAX_RELATED_CHUNKS + 1)
+                    {
                         let mut added_edges: usize = 0;
                         for (neighbor_idx, similarity) in neighbors {
                             // Skip self-edges and low-similarity matches
-                            if neighbor_idx != i && similarity >= SIMILARITY_THRESHOLD && added_edges < MAX_RELATED_CHUNKS {
+                            if neighbor_idx != i
+                                && similarity >= SIMILARITY_THRESHOLD
+                                && added_edges < MAX_RELATED_CHUNKS
+                            {
                                 let edge = GraphEdge {
                                     from: chunk.chunk_id.clone(),
                                     to: chunks[neighbor_idx].chunk_id.clone(),
@@ -624,9 +633,7 @@ mod tests {
 
         println!("Total chunks: {N}");
         println!("Related edges: {related_edges}");
-        println!(
-            "Max expected (N * {MAX_RELATED_CHUNKS}): {max_expected_related_edges}"
-        );
+        println!("Max expected (N * {MAX_RELATED_CHUNKS}): {max_expected_related_edges}");
         println!("Total edges: {}", stats.edge_count);
 
         // Assert that related edges are bounded by O(n log n), not O(n²)
@@ -640,7 +647,10 @@ mod tests {
         let quadratic_edges = N * (N - 1) / 2;
         println!("Quadratic would be: {quadratic_edges} edges");
         // SAFETY: Edge counts in tests are small (< 10k), well within f64 precision (2^53)
-        println!("Ratio: {:.2}% of quadratic", (related_edges as f64 / quadratic_edges as f64) * 100.0);
+        println!(
+            "Ratio: {:.2}% of quadratic",
+            (related_edges as f64 / quadratic_edges as f64) * 100.0
+        );
 
         // Verify we're not in quadratic territory (should be < 20% of quadratic)
         assert!(

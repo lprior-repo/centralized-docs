@@ -46,6 +46,7 @@ impl TestContext {
         path
     }
 
+    #[allow(dead_code)] // Helper method for potential future use
     fn output_dir(&self) -> PathBuf {
         self.root().join("output")
     }
@@ -62,7 +63,6 @@ struct PipelineTestCase {
     files: Vec<(&'static str, String)>, // (path, content) - content is String to allow format!()
     should_succeed: bool,
     expected_document_count: Option<usize>,
-    expected_chunk_count_min: Option<usize>,
 }
 
 fn pipeline_test_cases() -> Vec<PipelineTestCase> {
@@ -73,7 +73,6 @@ fn pipeline_test_cases() -> Vec<PipelineTestCase> {
             files: vec![],
             should_succeed: true,
             expected_document_count: Some(0),
-            expected_chunk_count_min: Some(0),
         },
 
         // Single file: minimal valid markdown
@@ -84,7 +83,6 @@ fn pipeline_test_cases() -> Vec<PipelineTestCase> {
             ],
             should_succeed: true,
             expected_document_count: Some(1),
-            expected_chunk_count_min: Some(1),
         },
 
         // Single file: typical documentation
@@ -119,7 +117,6 @@ tool --help
             ],
             should_succeed: true,
             expected_document_count: Some(1),
-            expected_chunk_count_min: Some(3),  // Summary, standard, detailed
         },
 
         // Multiple files with hierarchy
@@ -132,7 +129,6 @@ tool --help
             ],
             should_succeed: true,
             expected_document_count: Some(3),
-            expected_chunk_count_min: Some(9),  // At least 3 per document
         },
 
         // Large file: stress test content
@@ -143,7 +139,6 @@ tool --help
             ],
             should_succeed: true,
             expected_document_count: Some(1),
-            expected_chunk_count_min: Some(10),
         },
 
         // Unicode content: internationalization
@@ -189,7 +184,6 @@ Folgen Sie diesen Schritten:
             ],
             should_succeed: true,
             expected_document_count: Some(1),
-            expected_chunk_count_min: Some(1),
         },
 
         // Malformed markdown: missing H1
@@ -200,7 +194,6 @@ Folgen Sie diesen Schritten:
             ],
             should_succeed: true,  // Should still process (assign ID as title)
             expected_document_count: Some(1),
-            expected_chunk_count_min: Some(1),
         },
 
         // Malformed markdown: broken links
@@ -211,7 +204,6 @@ Folgen Sie diesen Schritten:
             ],
             should_succeed: true,
             expected_document_count: Some(1),
-            expected_chunk_count_min: Some(1),
         },
 
         // Special characters in filenames
@@ -223,7 +215,6 @@ Folgen Sie diesen Schritten:
             ],
             should_succeed: true,
             expected_document_count: Some(2),
-            expected_chunk_count_min: Some(2),
         },
 
         // Deeply nested directory structure
@@ -235,7 +226,6 @@ Folgen Sie diesen Schritten:
             ],
             should_succeed: true,
             expected_document_count: Some(2),
-            expected_chunk_count_min: Some(2),
         },
 
         // Mixed markdown variants
@@ -276,7 +266,6 @@ Use `cargo build` to compile your project.
             ],
             should_succeed: true,
             expected_document_count: Some(1),
-            expected_chunk_count_min: Some(3),
         },
 
         // Frontmatter variations
@@ -298,7 +287,6 @@ Content goes here.
             ],
             should_succeed: true,
             expected_document_count: Some(1),
-            expected_chunk_count_min: Some(1),
         },
     ]
 }

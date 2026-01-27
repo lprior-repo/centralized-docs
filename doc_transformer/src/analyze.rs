@@ -256,8 +256,7 @@ fn extract_first_paragraph(content: &str) -> String {
 
 fn has_table(content: &str) -> bool {
     #[expect(clippy::expect_used)]
-    let re = Regex::new(r"\|.*\|.*\|")
-        .expect("hardcoded regex pattern is valid");
+    let re = Regex::new(r"\|.*\|.*\|").expect("hardcoded regex pattern is valid");
     re.is_match(content)
 }
 
@@ -286,8 +285,7 @@ fn detect_category(filename: &str, content: &str) -> String {
         || content_lower.contains("## step")
         || {
             #[expect(clippy::expect_used)]
-            let step_re = Regex::new(r"^\d+\.\s+")
-                .expect("hardcoded regex pattern is valid");
+            let step_re = Regex::new(r"^\d+\.\s+").expect("hardcoded regex pattern is valid");
             step_re.is_match(content)
         }
     {

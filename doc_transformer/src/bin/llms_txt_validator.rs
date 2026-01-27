@@ -12,11 +12,11 @@
 //!   llms-txt-validator --url <url>      # Validate remote llms.txt
 
 use anyhow::{Context, Result};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use regex::Regex;
 
 /// Validation error
 #[derive(Debug)]
@@ -121,11 +121,7 @@ fn validate_links_in_content(content: &str, result: &mut ValidationResult) {
 
             // Check if URL is well-formed
             if url.is_empty() {
-                result.add_error(
-                    "links",
-                    "Found empty link URL",
-                    Severity::Warning,
-                );
+                result.add_error("links", "Found empty link URL", Severity::Warning);
                 malformed_count += 1;
                 continue;
             }
@@ -134,7 +130,10 @@ fn validate_links_in_content(content: &str, result: &mut ValidationResult) {
             if url.starts_with('\n') || url.contains('\n') {
                 result.add_error(
                     "links",
-                    &format!("Malformed link: URL contains newline near '{}'", url.chars().take(20).collect::<String>()),
+                    &format!(
+                        "Malformed link: URL contains newline near '{}'",
+                        url.chars().take(20).collect::<String>()
+                    ),
                     Severity::Warning,
                 );
                 malformed_count += 1;
@@ -176,11 +175,7 @@ fn validate_links_in_content(content: &str, result: &mut ValidationResult) {
 
     // Report summary
     if url_count == 0 {
-        result.add_error(
-            "links",
-            "No links found in document",
-            Severity::Info,
-        );
+        result.add_error("links", "No links found in document", Severity::Info);
     } else if malformed_count > 0 {
         result.add_error(
             "links",
@@ -234,8 +229,8 @@ fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
     }
 
     // Read content
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {}", path.display()))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
 
     // Check file is not empty
     if content.trim().is_empty() {
@@ -327,8 +322,8 @@ fn validate_index_json(path: &Path) -> Result<ValidationResult> {
     }
 
     // Read and parse JSON
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {}", path.display()))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
 
     let index: IndexJson = match serde_json::from_str(&content) {
         Ok(idx) => idx,
@@ -340,15 +335,27 @@ fn validate_index_json(path: &Path) -> Result<ValidationResult> {
 
     // Validate required fields
     if index.version.is_none() {
-        result.add_error("version", "Missing required field: version", Severity::Error);
+        result.add_error(
+            "version",
+            "Missing required field: version",
+            Severity::Error,
+        );
     }
 
     if index.project.is_none() {
-        result.add_error("project", "Missing required field: project", Severity::Error);
+        result.add_error(
+            "project",
+            "Missing required field: project",
+            Severity::Error,
+        );
     }
 
     if index.updated.is_none() {
-        result.add_error("updated", "Missing required field: updated", Severity::Warning);
+        result.add_error(
+            "updated",
+            "Missing required field: updated",
+            Severity::Warning,
+        );
     }
 
     // Validate documents
@@ -386,7 +393,11 @@ fn validate_index_json(path: &Path) -> Result<ValidationResult> {
             }
         }
     } else {
-        result.add_error("documents", "Missing required field: documents", Severity::Error);
+        result.add_error(
+            "documents",
+            "Missing required field: documents",
+            Severity::Error,
+        );
     }
 
     // Validate chunks
@@ -412,7 +423,10 @@ fn validate_index_json(path: &Path) -> Result<ValidationResult> {
             if !doc_ids.contains(&chunk.doc_id) {
                 result.add_error(
                     "chunks",
-                    &format!("Chunk {} references non-existent document: {}", chunk.chunk_id, chunk.doc_id),
+                    &format!(
+                        "Chunk {} references non-existent document: {}",
+                        chunk.chunk_id, chunk.doc_id
+                    ),
                     Severity::Error,
                 );
             }
@@ -452,13 +466,23 @@ fn print_results(result: &ValidationResult, path: &Path) {
         return;
     }
 
-    let error_count = result.errors.iter().filter(|e| e.severity == Severity::Error).count();
-    let warning_count = result.errors.iter().filter(|e| e.severity == Severity::Warning).count();
-    let info_count = result.errors.iter().filter(|e| e.severity == Severity::Info).count();
+    let error_count = result
+        .errors
+        .iter()
+        .filter(|e| e.severity == Severity::Error)
+        .count();
+    let warning_count = result
+        .errors
+        .iter()
+        .filter(|e| e.severity == Severity::Warning)
+        .count();
+    let info_count = result
+        .errors
+        .iter()
+        .filter(|e| e.severity == Severity::Info)
+        .count();
 
-    println!(
-        "\n📊 Found {error_count} errors, {warning_count} warnings, {info_count} info"
-    );
+    println!("\n📊 Found {error_count} errors, {warning_count} warnings, {info_count} info");
 
     for error in &result.errors {
         let symbol = match error.severity {
@@ -547,48 +571,37 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[test]
-    fn test_valid_llms_txt() {
-        // Test code: unwrap is acceptable for test setup
-        let mut file = NamedTempFile::new().unwrap_or_else(|e| {
-            panic!("Failed to create temp file in test: {e}")
-        });
+    fn test_valid_llms_txt() -> anyhow::Result<()> {
+        let mut file = NamedTempFile::new()?;
         writeln!(
             file,
             "# Project\n\n## Getting Started\n\n## Core Concepts\n\n## API Reference\n\nSee INDEX.json"
-        )
-        .unwrap_or_else(|e| panic!("Failed to write to temp file in test: {e}"));
+        )?;
 
-        let result = validate_llms_txt(file.path())
-            .unwrap_or_else(|e| panic!("Failed to validate llms.txt in test: {e}"));
+        let result = validate_llms_txt(file.path())?;
         assert!(result.valid);
+        Ok(())
     }
 
     #[test]
-    fn test_empty_llms_txt() {
-        // Test code: unwrap is acceptable for test setup
-        let file = NamedTempFile::new().unwrap_or_else(|e| {
-            panic!("Failed to create temp file in test: {e}")
-        });
-        let result = validate_llms_txt(file.path())
-            .unwrap_or_else(|e| panic!("Failed to validate llms.txt in test: {e}"));
+    fn test_empty_llms_txt() -> anyhow::Result<()> {
+        let file = NamedTempFile::new()?;
+        let result = validate_llms_txt(file.path())?;
         assert!(!result.valid);
+        Ok(())
     }
 
     #[test]
-    fn test_valid_index_json() {
-        // Test code: unwrap is acceptable for test setup
-        let mut file = NamedTempFile::new().unwrap_or_else(|e| {
-            panic!("Failed to create temp file in test: {e}")
-        });
+    fn test_valid_index_json() -> anyhow::Result<()> {
+        let mut file = NamedTempFile::new()?;
         writeln!(
             file,
             r#"{{"version": "1.0", "project": "test", "documents": [{{"id": "1", "title": "Doc", "path": "doc.md"}}]}}"#
-        )
-        .unwrap_or_else(|e| panic!("Failed to write to temp file in test: {e}"));
+        )?;
 
-        let result = validate_index_json(file.path())
-            .unwrap_or_else(|e| panic!("Failed to validate index JSON in test: {e}"));
+        let result = validate_index_json(file.path())?;
         assert!(result.valid);
+        Ok(())
     }
 
     #[test]
@@ -633,18 +646,16 @@ And another [newline link](https://example.com
         validate_links_in_content(content, &mut result);
 
         // Should report no links found (Info level)
-        let has_no_links_info = result.errors.iter().any(|e| {
-            e.field == "links" && e.message.contains("No links found")
-        });
+        let has_no_links_info = result
+            .errors
+            .iter()
+            .any(|e| e.field == "links" && e.message.contains("No links found"));
         assert!(has_no_links_info);
     }
 
     #[test]
-    fn test_index_json_with_chunks() {
-        // Test code: unwrap is acceptable for test setup
-        let mut file = NamedTempFile::new().unwrap_or_else(|e| {
-            panic!("Failed to create temp file in test: {e}")
-        });
+    fn test_index_json_with_chunks() -> anyhow::Result<()> {
+        let mut file = NamedTempFile::new()?;
         writeln!(
             file,
             r#"{{
@@ -656,20 +667,16 @@ And another [newline link](https://example.com
                     {{"chunk_id": "chunk2", "doc_id": "doc1", "chunk_level": "detailed"}}
                 ]
             }}"#
-        )
-        .unwrap_or_else(|e| panic!("Failed to write to temp file in test: {e}"));
+        )?;
 
-        let result = validate_index_json(file.path())
-            .unwrap_or_else(|e| panic!("Failed to validate index JSON in test: {e}"));
+        let result = validate_index_json(file.path())?;
         assert!(result.valid);
+        Ok(())
     }
 
     #[test]
-    fn test_index_json_invalid_chunk_reference() {
-        // Test code: unwrap is acceptable for test setup
-        let mut file = NamedTempFile::new().unwrap_or_else(|e| {
-            panic!("Failed to create temp file in test: {e}")
-        });
+    fn test_index_json_invalid_chunk_reference() -> anyhow::Result<()> {
+        let mut file = NamedTempFile::new()?;
         writeln!(
             file,
             r#"{{
@@ -680,12 +687,11 @@ And another [newline link](https://example.com
                     {{"chunk_id": "chunk1", "doc_id": "doc_INVALID", "chunk_level": "standard"}}
                 ]
             }}"#
-        )
-        .unwrap_or_else(|e| panic!("Failed to write to temp file in test: {e}"));
+        )?;
 
-        let result = validate_index_json(file.path())
-            .unwrap_or_else(|e| panic!("Failed to validate index JSON in test: {e}"));
+        let result = validate_index_json(file.path())?;
         assert!(!result.valid);
         assert!(result.has_errors());
+        Ok(())
     }
 }

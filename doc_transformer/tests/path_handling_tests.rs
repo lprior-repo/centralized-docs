@@ -18,7 +18,11 @@ fn test_analyze_empty_stem_fallback() {
     let stem = Path::new(hidden_file).file_stem();
 
     // .hidden should have stem of ".hidden", NOT empty
-    assert_eq!(stem.map(|s| s.is_empty()), Some(false), "Hidden file has non-empty stem");
+    assert_eq!(
+        stem.map(|s| s.is_empty()),
+        Some(false),
+        "Hidden file has non-empty stem"
+    );
     assert_eq!(stem.unwrap().to_string_lossy(), ".hidden");
 
     // Test actual empty stem case (root path has no stem)
@@ -106,9 +110,7 @@ fn test_transform_empty_filename_comparison() {
     let src_path = "/";
     let resolved_path = "some/dir/";
 
-    let src_file = Path::new(src_path)
-        .file_name()
-        .filter(|s| !s.is_empty());
+    let src_file = Path::new(src_path).file_name().filter(|s| !s.is_empty());
     let resolved_file = Path::new(resolved_path)
         .file_name()
         .filter(|s| !s.is_empty());
@@ -118,14 +120,17 @@ fn test_transform_empty_filename_comparison() {
     assert!(resolved_file.is_some(), "Dir path has filename");
 
     // They should not match
-    assert!(src_file.is_none(), "Root should not be treated as valid file");
+    assert!(
+        src_file.is_none(),
+        "Root should not be treated as valid file"
+    );
     assert!(resolved_file.is_some(), "Dir should be valid");
 }
 
 #[test]
 fn test_utf8_handling_in_path() {
     // Test that valid UTF-8 paths work correctly
-    let valid_path = "path/to/файл.md";  // Cyrillic characters
+    let valid_path = "path/to/файл.md"; // Cyrillic characters
     let stem = Path::new(valid_path).file_stem();
 
     assert!(stem.is_some(), "UTF-8 path should parse correctly");
@@ -208,11 +213,13 @@ fn test_concurrent_path_operations() {
     // Ensure our changes don't break concurrent access
     use std::thread;
 
-    let paths = ["/",
+    let paths = [
+        "/",
         "docs/api.md",
         ".hidden",
         "path/to/file.txt",
-        "trailing/dir/"];
+        "trailing/dir/",
+    ];
 
     let handles: Vec<_> = paths
         .iter()

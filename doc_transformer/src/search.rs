@@ -28,7 +28,7 @@ use std::path::Path;
 use tantivy::collector::TopDocs;
 use tantivy::doc;
 use tantivy::query::QueryParser;
-use tantivy::schema::{Field, Schema, Value, TEXT, STORED};
+use tantivy::schema::{Field, Schema, Value, STORED, TEXT};
 use tantivy::Index;
 
 /// Schema field indices (cached for performance)
@@ -149,10 +149,7 @@ pub fn open_or_create_index(index_path: &Path) -> Result<Index> {
 /// # Returns
 ///
 /// Success on commit, error if any operation fails
-pub fn index_documents(
-    index: &Index,
-    documents: Vec<crate::index::IndexDocument>,
-) -> Result<()> {
+pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument>) -> Result<()> {
     let (_schema, fields) = create_schema();
 
     // Create writer with buffer size for batch operations
@@ -214,16 +211,11 @@ pub fn index_documents(
 ///
 /// Vector of SearchResult sorted by relevance (highest score first)
 #[allow(dead_code)] // Public API for library users
-pub fn search_index(
-    index: &Index,
-    query_str: &str,
-    limit: usize,
-) -> Result<Vec<SearchResult>> {
+pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<SearchResult>> {
     let (_schema, fields) = create_schema();
 
     // Validate query using centralized validation
-    let query_str = crate::validate::validate_query(query_str)
-        .map_err(|e| anyhow!("{e}"))?;
+    let query_str = crate::validate::validate_query(query_str).map_err(|e| anyhow!("{e}"))?;
 
     // Get reader for searching
     let reader = index.reader()?;
@@ -295,7 +287,11 @@ pub fn search_index(
     }
 
     // Sort by score descending (Tantivy already does this, but make sure)
-    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     Ok(results)
 }
@@ -322,12 +318,7 @@ pub fn search_index(
 ///
 /// BM25 score (higher = more relevant)
 #[allow(dead_code)] // Public API for library users
-pub fn score_document_simple(
-    title: &str,
-    summary: &str,
-    query: &str,
-    word_count: f32,
-) -> f32 {
+pub fn score_document_simple(title: &str, summary: &str, query: &str, word_count: f32) -> f32 {
     let k1 = 1.2;
     let b = 0.75;
 
@@ -370,7 +361,7 @@ mod tests {
         let dir = TempDir::new()?;
         let index_path = dir.path();
 
-        let index = open_or_create_index(index_path)?;
+        let _index = open_or_create_index(index_path)?;
         assert!(index_path.join(".tantivy_index").exists());
 
         Ok(())
