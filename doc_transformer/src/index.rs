@@ -499,10 +499,7 @@ pub fn build_knowledge_dag(
             Err(e) => {
                 // HNSW index build failed - skip related edges
                 // This can happen with empty embeddings or invalid vectors
-                eprintln!(
-                    "Warning: HNSW index build failed ({}), skipping related chunk edges",
-                    e
-                );
+                eprintln!("Warning: HNSW index build failed ({e}), skipping related chunk edges");
                 // Continue without adding related edges - document structure (parent/sequential) is preserved
             }
         }

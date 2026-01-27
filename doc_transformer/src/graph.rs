@@ -245,6 +245,7 @@ pub struct GraphStatistics {
 /// let similarity = jaccard_similarity(&tags1, &tags2);
 /// assert!((similarity - 0.333).abs() < 0.01); // 1 common / 3 total
 /// ```
+#[allow(dead_code)] // Public API kept for future use in scoring HNSW candidates
 pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
     if tags1.is_empty() && tags2.is_empty() {
         return 1.0;
