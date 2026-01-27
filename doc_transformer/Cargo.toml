@@ -8,8 +8,8 @@ name = "doc_transformer"
 path = "src/main.rs"
 
 [[bin]]
-name = "mcp_server"
-path = "src/bin/mcp_server.rs"
+name = "llms_txt_validator"
+path = "src/bin/llms_txt_validator.rs"
 
 [lib]
 name = "doc_transformer"
