@@ -131,7 +131,8 @@ def bb-show [--task: string = ""] {
 # Gate: Prevent submission of unvalidated work
 def assert-can-submit [t: record] {
   if ($t.status? | default "") != "IN_PROGRESS" {
-    error make { msg: $"Task ($t.id) must be IN_PROGRESS to submit (was: ($t.status?))." }
+    let st = ($t.status? | default "")
+    error make { msg: $"Task ($t.id) must be IN_PROGRESS to submit, current status is ($st)." }
   }
   if (($t.claim.agent_id? | default "") | str length) == 0 {
     error make { msg: $"Task ($t.id) missing claim.agent_id." }
@@ -141,7 +142,8 @@ def assert-can-submit [t: record] {
 # Gate: Prevent review without validation evidence
 def assert-can-review [t: record] {
   if ($t.status? | default "") != "READY_FOR_REVIEW" {
-    error make { msg: $"Task ($t.id) must be READY_FOR_REVIEW to review (was: ($t.status?))." }
+    let st = ($t.status? | default "")
+    error make { msg: $"Task ($t.id) must be READY_FOR_REVIEW to review, current status is ($st)." }
   }
   let commit = ($t.submission.commit? | default "" | str trim)
   if ($commit | str length) == 0 {
@@ -156,7 +158,8 @@ def assert-can-review [t: record] {
 # Gate: Prevent merging unreviewed code
 def assert-can-merge [t: record] {
   if ($t.status? | default "") != "APPROVED" {
-    error make { msg: $"Task ($t.id) must be APPROVED to merge (was: ($t.status?))." }
+    let st = ($t.status? | default "")
+    error make { msg: $"Task ($t.id) must be APPROVED to merge, current status is ($st)." }
   }
   if (($t.review.decision? | default "") | str trim) != "APPROVED" {
     error make { msg: $"Task ($t.id) review decision is not APPROVED." }
@@ -460,7 +463,7 @@ def cmd-review-reject [
   let bb2 = (bb-log (task-replace $bb $updated_task) $reviewer_id $"Rejected ($task_id): ($notes)")
 
   bb-save $bb2
-  print $"✓ READY_FOR_REVIEW → IN_PROGRESS (rework): ($task_id)"
+  print $"✓ READY_FOR_REVIEW → IN_PROGRESS for rework: ($task_id)"
   print $"  Reviewer notes: ($notes)"
 }
 
