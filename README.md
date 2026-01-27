@@ -21,8 +21,8 @@ A pure Rust CLI tool for transforming raw documentation into AI-optimized, searc
 
 ### Build
 ```bash
-cd doc_transformer
-cargo build --release
+moon run :build      # Build release binaries (cached)
+moon run :install    # Install to ~/.local/bin
 ```
 
 ### Usage
@@ -137,14 +137,9 @@ See `docs/INDEXER.md` for complete integration guide.
 ## Testing
 
 ```bash
-# Run all tests
-cargo test --all-features
-
-# Run specific tests
-cargo test graph::tests::
-
-# With output
-cargo test -- --nocapture
+moon run :test       # Run all tests
+moon run :ci         # Full CI pipeline
+moon run :quick      # Quick format + lint check
 ```
 
 ## Project Structure
