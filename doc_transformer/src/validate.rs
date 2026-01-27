@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
-use tap::Pipe;
 use thiserror::Error;
 
 // Lazy-initialized regex patterns for validation
@@ -36,11 +35,19 @@ pub enum ValidationError {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct FileValidationResult {
+    pub file_path: String,
+    pub errors: Vec<String>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ValidationResult {
     pub files_checked: usize,
     pub files_passed: usize,
     pub total_errors: usize,
     pub total_warnings: usize,
+    pub failed_files: Vec<FileValidationResult>,
 }
 
 /// Validate all files using functional composition with fold
@@ -53,51 +60,67 @@ pub fn validate_all(output_dir: &Path) -> Result<ValidationResult> {
             files_passed: 0,
             total_errors: 0,
             total_warnings: 0,
+            failed_files: Vec::new(),
         });
     }
 
-    fs::read_dir(docs_dir)?
+    let file_results: Vec<(String, Vec<String>, Vec<String>)> = fs::read_dir(docs_dir)?
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
-        .filter_map(|path| fs::read_to_string(&path).ok())
-        .map(|content| validate_file(&content))
-        .fold(
-            (0usize, 0usize, 0usize, 0usize),
-            |(checked, passed, errors, warnings), (e, w)| {
-                (
-                    checked.saturating_add(1),
-                    passed.saturating_add(if e == 0 { 1 } else { 0 }),
-                    errors.saturating_add(e),
-                    warnings.saturating_add(w),
-                )
-            },
-        )
-        .pipe(
-            |(files_checked, files_passed, total_errors, total_warnings)| {
-                Ok(ValidationResult {
-                    files_checked,
-                    files_passed,
-                    total_errors,
-                    total_warnings,
-                })
-            },
-        )
+        .filter_map(|path| {
+            let path_str = path.display().to_string();
+            fs::read_to_string(&path)
+                .ok()
+                .map(|content| (path_str, content))
+        })
+        .map(|(path, content)| {
+            let (errors, warnings) = validate_file(&content);
+            (path, errors, warnings)
+        })
+        .collect();
+
+    let files_checked = file_results.len();
+    let total_errors = file_results.iter().map(|(_, e, _)| e.len()).sum();
+    let total_warnings = file_results.iter().map(|(_, _, w)| w.len()).sum();
+    let files_passed = file_results.iter().filter(|(_, e, _)| e.is_empty()).count();
+
+    let failed_files = file_results
+        .into_iter()
+        .filter(|(_, e, w)| !e.is_empty() || !w.is_empty())
+        .map(|(file_path, errors, warnings)| FileValidationResult {
+            file_path,
+            errors,
+            warnings,
+        })
+        .collect();
+
+    Ok(ValidationResult {
+        files_checked,
+        files_passed,
+        total_errors,
+        total_warnings,
+        failed_files,
+    })
 }
 
-fn validate_file(content: &str) -> (usize, usize) {
-    let mut errors: usize = 0;
-    let mut warnings: usize = 0;
+fn validate_file(content: &str) -> (Vec<String>, Vec<String>) {
+    let mut errors = Vec::new();
+    let mut warnings = Vec::new();
 
     // V001: single_h1
     let h1_count = H1_REGEX.find_iter(content).count();
-    if h1_count != 1 {
-        errors = errors.saturating_add(1);
+    if h1_count == 0 {
+        errors.push("Missing H1 heading".to_string());
+    } else if h1_count > 1 {
+        errors.push(format!(
+            "Multiple H1 headings found ({h1_count}), should have exactly one"
+        ));
     }
 
     // V002: frontmatter_exists
     if !content.starts_with("---") {
-        errors = errors.saturating_add(1);
+        errors.push("Missing frontmatter (should start with ---)".to_string());
     }
 
     // V003: required_fields
@@ -106,23 +129,23 @@ fn validate_file(content: &str) -> (usize, usize) {
     let search_portion: String = content.chars().take(search_chars).collect();
     for field in &required {
         if !search_portion.contains(field) {
-            errors = errors.saturating_add(1);
+            errors.push(format!("Missing required field: {field}"));
         }
     }
 
     // V006: min_tags
     if !TAGS_REGEX.is_match(content) {
-        warnings = warnings.saturating_add(1);
+        warnings.push("Insufficient tags (should have at least 10 characters of tags)".to_string());
     }
 
     // V007: has_context
     if !content.contains("> **Context**:") {
-        warnings = warnings.saturating_add(1);
+        warnings.push("Missing context section (> **Context**:)".to_string());
     }
 
     // V008: has_see_also
     if !content.contains("## See Also") {
-        warnings = warnings.saturating_add(1);
+        warnings.push("Missing 'See Also' section".to_string());
     }
 
     (errors, warnings)
@@ -197,7 +220,8 @@ mod tests {
         let (errors, _warnings) = validate_file(content);
         // Should pass - has frontmatter and single H1
         assert_eq!(
-            errors, 0,
+            errors.len(),
+            0,
             "Document with H1 at start should have 0 errors for H1 check"
         );
     }
@@ -208,7 +232,8 @@ mod tests {
         let (errors, _warnings) = validate_file(content);
         // Should pass - H1 exists even though not at very start
         assert_eq!(
-            errors, 0,
+            errors.len(),
+            0,
             "Document with H1 in middle should have 0 errors for H1 check"
         );
     }
@@ -218,7 +243,14 @@ mod tests {
         let content = "---\nid: test\ntitle: Test\ncategory: ref\ntags: [\"test\", \"example\"]\n---\n\n# One\n\n# Two\n\nContent.";
         let (errors, _warnings) = validate_file(content);
         // Should fail - has 2 H1s
-        assert!(errors >= 1, "Document with multiple H1s should have errors");
+        assert!(
+            !errors.is_empty(),
+            "Document with multiple H1s should have errors"
+        );
+        assert!(
+            errors.iter().any(|e| e.contains("Multiple H1")),
+            "Should report multiple H1s"
+        );
     }
 
     #[test]
@@ -226,7 +258,11 @@ mod tests {
         let content = "---\nid: test\ntitle: Test\ncategory: ref\ntags: [\"test\", \"example\"]\n---\n\n## Only H2\n\nContent.";
         let (errors, _warnings) = validate_file(content);
         // Should fail - no H1
-        assert!(errors >= 1, "Document with no H1 should have errors");
+        assert!(!errors.is_empty(), "Document with no H1 should have errors");
+        assert!(
+            errors.iter().any(|e| e.contains("Missing H1")),
+            "Should report missing H1"
+        );
     }
 
     // ============================================================================
