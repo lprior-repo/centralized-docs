@@ -523,15 +523,8 @@ fn url_to_slug(url: &str) -> Result<String> {
     // Get path and normalize
     let path = parsed.path().trim_matches('/');
 
-    // If path is empty, use hostname as fallback
-    let raw_slug = if path.is_empty() {
-        parsed
-            .host_str()
-            .ok_or_else(|| anyhow::anyhow!("URL has no host for slug generation"))?
-            .replace(['.', '-'], "-")
-    } else {
-        path.replace(['/', '.'], "-")
-    };
+    // Use path, or empty string if no path
+    let raw_slug = path.replace(['/', '.'], "-");
 
     // Filter to filesystem-safe characters (alphanumeric + hyphens)
     let slug = raw_slug
@@ -547,7 +540,14 @@ fn url_to_slug(url: &str) -> Result<String> {
         slug
     };
 
-    // Validate non-empty
+    // Fallback to "index" if slug is empty after filtering
+    let slug = if slug.trim().is_empty() {
+        "index".to_string()
+    } else {
+        slug
+    };
+
+    // Validate non-empty (should always pass after fallback)
     validate_slug(&slug)?;
 
     Ok(slug)
@@ -643,20 +643,20 @@ mod tests {
     }
 
     #[test]
-    fn test_url_to_slug_root_url_uses_hostname() {
-        // Root URLs should fall back to hostname
+    fn test_url_to_slug_root_url_uses_index() {
+        // Root URLs should fall back to "index"
         let result = url_to_slug("https://example.com/");
-        assert!(matches!(result, Ok(ref s) if s == "example-com"));
+        assert!(matches!(result, Ok(ref s) if s == "index"));
         if let Ok(slug) = result {
             assert!(!slug.is_empty(), "Slug from root URL must not be empty");
         }
     }
 
     #[test]
-    fn test_url_to_slug_no_path_uses_hostname() {
-        // URLs without path should use hostname
+    fn test_url_to_slug_no_path_uses_index() {
+        // URLs without path should use "index"
         let result = url_to_slug("https://docs.example.com");
-        assert!(matches!(result, Ok(ref s) if s == "docs-example-com"));
+        assert!(matches!(result, Ok(ref s) if s == "index"));
         if let Ok(slug) = result {
             assert!(!slug.is_empty(), "Slug must not be empty");
         }
@@ -706,6 +706,26 @@ mod tests {
             assert!(!slug.contains("."));
             assert!(slug.chars().all(|c| c.is_alphanumeric() || c == '-'));
         }
+    }
+
+    #[test]
+    fn test_url_to_slug_special_chars_only_uses_index() {
+        // URLs with only special characters should fall back to "index"
+        let result1 = url_to_slug("https://example.com/???");
+        assert!(matches!(result1, Ok(ref s) if s == "index"));
+
+        let result2 = url_to_slug("https://example.com/@@@");
+        assert!(matches!(result2, Ok(ref s) if s == "index"));
+
+        let result3 = url_to_slug("https://example.com/!!!");
+        assert!(matches!(result3, Ok(ref s) if s == "index"));
+    }
+
+    #[test]
+    fn test_url_to_slug_multiple_slashes_uses_index() {
+        // Multiple slashes should be treated as root and use index
+        let result = url_to_slug("https://example.com///");
+        assert!(matches!(result, Ok(ref s) if s == "index"));
     }
 
     #[test]
