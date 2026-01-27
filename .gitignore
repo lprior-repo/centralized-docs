@@ -47,6 +47,9 @@ temp/
 *.log
 logs/
 
+# Documentation archive (spam completion reports)
+.archive/
+
 # Vendor directory (if not committed)
 # vendor/
 

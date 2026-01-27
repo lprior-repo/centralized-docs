@@ -81,7 +81,7 @@ output_index/
 2. **ANALYZE** - Extract metadata (titles, headings, categories)
 3. **ASSIGN IDs** - Generate hierarchical document IDs
 4. **TRANSFORM** - Apply standard formatting and frontmatter
-5. **CHUNK** - Semantic splitting with context prefixes (~170 tokens/chunk)
+5. **CHUNK** - Semantic splitting with context prefixes (~512 tokens/chunk)
 6. **INDEX** - Build searchable index (INDEX.json)
 7. **VALIDATE** - Quality checks and validation
 

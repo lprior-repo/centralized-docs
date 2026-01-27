@@ -13,9 +13,8 @@ Transform centralized-docs from a documentation indexer into the **definitive st
 
 1. **Semantic chunking** with contextual prefixes (35% fewer retrieval failures)
 2. **llms.txt** as the standard AI entry point (like robots.txt for AI)
-3. **MCP server** for AI to query documentation
-4. **Community indexes** for sharing pre-built documentation indexes
-5. **Standalone crates** making innovations reusable
+3. **Community indexes** for sharing pre-built documentation indexes
+4. **Standalone crates** making innovations reusable
 
 ---
 
@@ -51,7 +50,6 @@ Transform centralized-docs from a documentation indexer into the **definitive st
 - ✅ AGENTS.md for AI agent guidance
 
 #### Infrastructure
-- ✅ MCP server with 3 tools (search_docs, get_chunk, list_docs)
 - ✅ Benchmark suite validating O(n log n) scaling
 - ✅ Comprehensive documentation
 - ✅ Production readiness validation
@@ -60,46 +58,20 @@ Transform centralized-docs from a documentation indexer into the **definitive st
 - **DAG Building:** 2.3ms for 100 chunks (85x better than target)
 - **Scaling:** O(n log n) verified via benchmarks
 - **Chunking:** 727 chunks from 18 docs in < 5s
-- **MCP Server:** < 10ms query responses
 
 ### Known Limitations
 - spider-rs runtime panic (library bug, workaround available)
-- Chunk sizes larger than spec (~512 tokens vs ~170 tokens)
+- Chunk sizes: ~512 tokens (standard), ~128 (summary), ~1024 (detailed)
 
 ---
 
-## Phase 2: MCP Enhancements & Extraction (v6.0) ✅ **COMPLETE**
+## Phase 2: Crate Extraction (v6.0) ⏳ **IN PROGRESS**
 
-**Goal:** Make innovations reusable and enhance AI querying
-**Priority:** P0 (Critical infrastructure)
-**Status:** Complete (2026-01-15)
+**Goal:** Make innovations reusable as standalone crates
+**Priority:** P2 (Future enhancement)
+**Status:** Partial - contextual-chunker ready, not yet published
 
-### 1. MCP Server Enhancements ✅
-
-**10 MCP tools implemented:**
-
-#### Tools Added
-- ✅ `find_related()` - Navigate knowledge DAG relationships
-- ✅ `get_document()` - Retrieve full documents with metadata
-- ✅ `semantic_search()` - Text-based semantic search (vector v8.0)
-- ✅ `explain_chunk()` - Return chunk with full context trail
-- ✅ `search_by_category()` - Filter by document category
-- ✅ `search_by_tags()` - Filter by tags (any/all modes)
-- ✅ `get_navigation()` - Hierarchical/flat navigation
-
-#### Infrastructure Improvements
-- ⏳ **Streaming responses** - Deferred to v8.0
-- ✅ **Chunk caching** - CachedIndex with 5-minute TTL
-- ✅ **Query optimization** - CompiledQuery with 1-minute cache
-- ✅ **Metrics/telemetry** - ServerMetrics tracking requests, cache, tools
-
-#### Advanced Features
-- ⏳ **Multi-index support** - Deferred to v8.0
-- ✅ **Filter by category/tag** - search_by_category, search_by_tags
-- ✅ **Contextual snippets** - explain_chunk with context trail
-- ✅ **Relationship traversal** - find_related with DAG traversal
-
-### 2. Contextual-Chunker Crate ✅
+### 1. Contextual-Chunker Crate ✅
 
 **Location:** `/contextual-chunker/`
 **Tests:** 15 unit + 6 doc tests passing

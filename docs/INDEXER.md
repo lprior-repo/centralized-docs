@@ -60,7 +60,7 @@ word_count: 1234
 
 1. **Split on H2 boundaries** - Each section (## Heading) becomes a chunk boundary
 2. **Prepend context** - Last 50-100 tokens from previous chunk for context
-3. **Estimate tokens** - Simple: ~4 chars = 1 token, target ~170 tokens/chunk
+3. **Estimate tokens** - Simple: ~4 chars = 1 token, target ~512 tokens/chunk (standard)
 4. **Extract navigation** - Each chunk knows:
    - `previous_chunk_id` - Link to prior chunk
    - `next_chunk_id` - Link to next chunk
@@ -100,7 +100,7 @@ Build comprehensive searchable index in `INDEX.json`:
   "stats": {
     "doc_count": 36,
     "chunk_count": 156,
-    "avg_chunk_size_tokens": 170
+    "avg_chunk_size_tokens": 512
   },
   "documents": [
     {
@@ -135,7 +135,7 @@ Build comprehensive searchable index in `INDEX.json`:
   "navigation": {
     "type": "contextual_retrieval",
     "strategy": "50-100 token context prefix + H2 boundaries",
-    "avg_tokens_per_chunk": 170
+    "avg_tokens_per_chunk": 512
   }
 }
 ```
