@@ -512,6 +512,181 @@ pub fn build_knowledge_dag(
 mod tests {
     use super::*;
     use crate::chunk::{Chunk, ChunkLevel};
+    use std::collections::HashMap;
+
+    /// Generate synthetic test chunks with realistic structure
+    fn generate_test_chunks(n: usize) -> Vec<Chunk> {
+        let docs_per_batch = (n as f64).sqrt().ceil() as usize;
+        let chunks_per_doc = n.div_ceil(docs_per_batch);
+
+        let mut chunks = Vec::with_capacity(n);
+
+        for doc_idx in 0..docs_per_batch {
+            let doc_id = format!("doc_{doc_idx:04}");
+            let doc_title = format!("Document {doc_idx}");
+
+            for chunk_idx in 0..chunks_per_doc {
+                if chunks.len() >= n {
+                    break;
+                }
+
+                let chunk_id = format!("chunk_{doc_idx}_{chunk_idx:04}");
+                let previous_chunk_id = if chunk_idx > 0 {
+                    Some(format!(
+                        "chunk_{}_{:04}",
+                        doc_idx,
+                        chunk_idx.saturating_sub(1)
+                    ))
+                } else {
+                    None
+                };
+
+                let next_chunk_id = if chunk_idx.saturating_add(1) < chunks_per_doc {
+                    Some(format!(
+                        "chunk_{}_{:04}",
+                        doc_idx,
+                        chunk_idx.saturating_add(1)
+                    ))
+                } else {
+                    None
+                };
+
+                let chunk = Chunk {
+                    chunk_id,
+                    doc_id: doc_id.clone(),
+                    doc_title: doc_title.clone(),
+                    chunk_index: chunk_idx,
+                    content: format!(
+                        "Content for chunk {chunk_idx} in document {doc_idx}. This is sample documentation text."
+                    ),
+                    token_count: 256_usize.saturating_add(chunk_idx % 256),
+                    heading: Some(format!("Section {chunk_idx}")),
+                    chunk_type: "standard".to_string(),
+                    previous_chunk_id,
+                    next_chunk_id,
+                    related_chunk_ids: Vec::new(),
+                    summary: format!("Summary of chunk {chunk_idx} in doc {doc_idx}"),
+                    chunk_level: ChunkLevel::Standard,
+                    parent_chunk_id: None,
+                    child_chunk_ids: Vec::new(),
+                };
+
+                chunks.push(chunk);
+            }
+        }
+
+        chunks
+    }
+
+    /// Generate synthetic index documents
+    fn generate_test_docs(chunks: &[Chunk]) -> Vec<IndexDocument> {
+        let mut docs_map: HashMap<String, Vec<String>> = HashMap::new();
+        let mut docs_titles: HashMap<String, String> = HashMap::new();
+
+        for chunk in chunks {
+            docs_map
+                .entry(chunk.doc_id.clone())
+                .or_default()
+                .push(chunk.chunk_id.clone());
+            docs_titles
+                .entry(chunk.doc_id.clone())
+                .or_insert_with(|| chunk.doc_title.clone());
+        }
+
+        docs_map
+            .into_iter()
+            .enumerate()
+            .map(|(idx, (doc_id, chunk_ids))| {
+                let title = docs_titles
+                    .get(&doc_id)
+                    .cloned()
+                    .unwrap_or_else(|| format!("Document {idx}"));
+
+                IndexDocument {
+                    id: doc_id.clone(),
+                    title,
+                    path: format!("/docs/doc_{idx}.md"),
+                    category: format!("Category {}", idx % 5),
+                    tags: vec![
+                        format!("tag_{}", idx % 3),
+                        format!("tag_{}", idx.saturating_add(1) % 3),
+                        format!("tag_{}", idx.saturating_add(2) % 3),
+                    ],
+                    summary: format!("Summary for document {idx}"),
+                    word_count: 1000_usize.saturating_add(idx.saturating_mul(100)),
+                    chunk_ids,
+                }
+            })
+            .collect()
+    }
+
+    /// Generate document tags for relationship detection
+    fn generate_test_tags(chunks: &[Chunk]) -> Vec<(String, Vec<String>, String)> {
+        let mut docs_map: HashMap<String, Vec<String>> = HashMap::new();
+        let mut docs_categories: HashMap<String, String> = HashMap::new();
+
+        for chunk in chunks {
+            docs_map
+                .entry(chunk.doc_id.clone())
+                .or_default()
+                .push(chunk.chunk_id.clone());
+            docs_categories
+                .entry(chunk.doc_id.clone())
+                .or_insert_with_key(|doc_id| {
+                    let doc_num: usize = doc_id
+                        .strip_prefix("doc_")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(0);
+                    format!("Category {}", doc_num % 5)
+                });
+        }
+
+        docs_map
+            .into_iter()
+            .enumerate()
+            .map(|(idx, (doc_id, _))| {
+                let category = docs_categories
+                    .get(&doc_id)
+                    .cloned()
+                    .unwrap_or_else(|| format!("Category {}", idx % 5));
+
+                let tags = vec![
+                    format!("tag_{}", idx % 3),
+                    format!("tag_{}", idx.saturating_add(1) % 3),
+                    format!("tag_{}", idx.saturating_add(2) % 3),
+                    "documentation".to_string(),
+                    format!("section_{}", idx.saturating_div(10) % 10),
+                ];
+
+                (doc_id, tags, category)
+            })
+            .collect()
+    }
+
+    /// Test HNSW edge count linearity across multiple scales
+    /// Verifies that edge count grows linearly (O(n)) not quadratically (O(n²))
+    #[test]
+    fn test_hnsw_edge_count_linear() {
+        for n in [10, 100, 1000] {
+            let chunks = generate_test_chunks(n);
+            let docs = generate_test_docs(&chunks);
+            let tags = generate_test_tags(&chunks);
+
+            let dag = build_knowledge_dag(&docs, &chunks, &tags);
+
+            // N × max_related_chunks × safety_factor (1.5)
+            // max_related_chunks = 20 in build_knowledge_dag
+            let max_edges = n.saturating_mul(20).saturating_mul(15).saturating_div(10);
+
+            assert!(
+                dag.edges_vec.len() < max_edges,
+                "Edge count {} exceeds linear bound {} for {} chunks",
+                dag.edges_vec.len(),
+                max_edges,
+                n
+            );
+        }
+    }
 
     /// Test that edge count is O(n log n), not O(n²)
     /// With HNSW, we expect at most MAX_RELATED_CHUNKS edges per node
