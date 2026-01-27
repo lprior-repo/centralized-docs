@@ -26,7 +26,7 @@ fn test_no_h2_headers_simple() {
 fn test_long_document_splits_on_token_limit() {
     // Test that long content is split at token boundaries
     let long_paragraph = "paragraph text ".repeat(200);
-    let content = format!("# Title\n\n{}", long_paragraph);
+    let content = format!("# Title\n\n{long_paragraph}");
 
     let chunks = create_chunks_at_level(&content, "test-doc", "Test Doc", ChunkLevel::Summary);
 
@@ -41,8 +41,8 @@ fn test_long_document_splits_on_token_limit() {
 
     // All chunks should have content
     for (i, chunk) in chunks.iter().enumerate() {
-        assert!(!chunk.content.trim().is_empty(), "Chunk {} is empty", i);
-        assert!(chunk.token_count > 0, "Chunk {} has no tokens", i);
+        assert!(!chunk.content.trim().is_empty(), "Chunk {i} is empty");
+        assert!(chunk.token_count > 0, "Chunk {i} has no tokens");
     }
 }
 

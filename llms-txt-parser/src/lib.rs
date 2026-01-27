@@ -140,28 +140,28 @@ pub fn parse_content(content: &str) -> Result<LlmsTxt> {
         let line = lines[i].trim();
 
         // H1: Project name
-        if line.starts_with("# ") {
-            project_name = line[2..].trim().to_string();
+        if let Some(stripped) = line.strip_prefix("# ") {
+            project_name = stripped.trim().to_string();
             i += 1;
             continue;
         }
 
         // Blockquote: Description
-        if line.starts_with("> ") {
-            description = Some(line[2..].trim().to_string());
+        if let Some(stripped) = line.strip_prefix("> ") {
+            description = Some(stripped.trim().to_string());
             i += 1;
             continue;
         }
 
         // H2: Section heading
-        if line.starts_with("## ") {
+        if let Some(stripped) = line.strip_prefix("## ") {
             // Save previous section
             if let Some(section) = current_section.take() {
                 sections.push(section);
             }
 
             current_section = Some(Section {
-                title: line[3..].trim().to_string(),
+                title: stripped.trim().to_string(),
                 content: String::new(),
                 links: Vec::new(),
             });
@@ -170,9 +170,8 @@ pub fn parse_content(content: &str) -> Result<LlmsTxt> {
         }
 
         // Parse list items (links)
-        if line.starts_with("- ") {
+        if let Some(link_text) = line.strip_prefix("- ") {
             if let Some(section) = &mut current_section {
-                let link_text = &line[2..];
                 if let Some(link) = parse_link(link_text) {
                     section.links.push(link);
                 } else {
@@ -253,8 +252,8 @@ fn parse_link(text: &str) -> Option<Link> {
 
     // Check for description after the link
     let rest = text[middle + end + 1..].trim();
-    let description = if rest.starts_with(':') {
-        Some(rest[1..].trim().to_string())
+    let description = if let Some(stripped) = rest.strip_prefix(':') {
+        Some(stripped.trim().to_string())
     } else if !rest.is_empty() {
         Some(rest.to_string())
     } else {

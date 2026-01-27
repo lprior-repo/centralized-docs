@@ -217,7 +217,7 @@ pub fn build_and_write_index(
     if let Err(e) = search::open_or_create_index(output_dir)
         .and_then(|index| search::index_documents(&index, documents))
     {
-        eprintln!("Warning: Failed to build Tantivy index: {}", e);
+        eprintln!("Warning: Failed to build Tantivy index: {e}");
         eprintln!("Search will fall back to INDEX.json, but will be slower");
     }
 
@@ -259,10 +259,10 @@ pub fn build_and_write_compass(
                 let tag_str = tags
                     .iter()
                     .take(2)
-                    .map(|t| format!("`{}`", t))
+                    .map(|t| format!("`{t}`"))
                     .collect::<Vec<_>>()
                     .join(" ");
-                compass.push_str(&format!("- [{}](./docs/{}) {}\n", title, filename, tag_str));
+                compass.push_str(&format!("- [{title}](./docs/{filename}) {tag_str}\n"));
             }
             compass.push('\n');
         }
@@ -340,20 +340,20 @@ fn generate_embedding_from_tags(
 /// Build vocabulary from all tags and categories
 fn build_vocabulary(document_tags: &[(String, Vec<String>, String)]) -> HashMap<String, usize> {
     let mut vocab = HashMap::new();
-    let mut idx = 0;
+    let mut idx: usize = 0;
 
     for (_, tags, category) in document_tags {
         // Add category to vocabulary
         if !vocab.contains_key(category) && !category.is_empty() {
             vocab.insert(category.clone(), idx);
-            idx += 1;
+            idx = idx.saturating_add(1);
         }
 
         // Add tags to vocabulary
         for tag in tags {
             if !vocab.contains_key(tag) && !tag.is_empty() {
                 vocab.insert(tag.clone(), idx);
-                idx += 1;
+                idx = idx.saturating_add(1);
             }
         }
     }
@@ -449,7 +449,7 @@ pub fn build_knowledge_dag(
             .collect();
 
         // Build HNSW index for O(log n) nearest neighbor search
-        match build_index(embeddings) {
+        match build_index(&embeddings) {
             Ok(index) => {
                 // Query top-k neighbors for each chunk
                 for (i, chunk) in chunks.iter().enumerate() {
@@ -470,7 +470,7 @@ pub fn build_knowledge_dag(
 
                     // Query HNSW for top-k neighbors (k+1 to account for self)
                     if let Ok(neighbors) = query_neighbors(&index, &query_embedding, MAX_RELATED_CHUNKS + 1) {
-                        let mut added_edges = 0;
+                        let mut added_edges: usize = 0;
                         for (neighbor_idx, similarity) in neighbors {
                             // Skip self-edges and low-similarity matches
                             if neighbor_idx != i && similarity >= SIMILARITY_THRESHOLD && added_edges < MAX_RELATED_CHUNKS {
@@ -481,7 +481,7 @@ pub fn build_knowledge_dag(
                                     weight: similarity,
                                 };
                                 dag.add_edge(edge);
-                                added_edges += 1;
+                                added_edges = added_edges.saturating_add(1);
                             }
                         }
                     }
@@ -562,12 +562,12 @@ mod tests {
         // Create test documents
         let documents: Vec<IndexDocument> = (0..10)
             .map(|i| IndexDocument {
-                id: format!("doc_{}", i),
-                title: format!("Document {}", i),
-                path: format!("/path/doc_{}.md", i),
+                id: format!("doc_{i}"),
+                title: format!("Document {i}"),
+                path: format!("/path/doc_{i}.md"),
                 category: format!("category_{}", i % 3), // 3 categories
                 tags: vec![format!("tag_{}", i % 5), format!("tag_{}", (i + 1) % 5)], // 5 tags
-                summary: format!("Summary for document {}", i),
+                summary: format!("Summary for document {i}"),
                 word_count: 100,
                 chunk_ids: vec![],
             })
@@ -576,13 +576,13 @@ mod tests {
         // Create test chunks
         let chunks: Vec<Chunk> = (0..N)
             .map(|i| Chunk {
-                chunk_id: format!("chunk_{}", i),
+                chunk_id: format!("chunk_{i}"),
                 doc_id: format!("doc_{}", i % 10),
                 doc_title: format!("Document {}", i % 10),
                 chunk_index: i,
-                content: format!("Content for chunk {}", i),
+                content: format!("Content for chunk {i}"),
                 token_count: 100,
-                heading: Some(format!("Heading {}", i)),
+                heading: Some(format!("Heading {i}")),
                 chunk_type: "standard".to_string(),
                 previous_chunk_id: if i > 0 {
                     Some(format!("chunk_{}", i - 1))
@@ -591,7 +591,7 @@ mod tests {
                 },
                 next_chunk_id: Some(format!("chunk_{}", i + 1)),
                 related_chunk_ids: vec![],
-                summary: format!("Summary {}", i),
+                summary: format!("Summary {i}"),
                 chunk_level: ChunkLevel::Standard,
                 parent_chunk_id: None,
                 child_chunk_ids: vec![],
@@ -602,7 +602,7 @@ mod tests {
         let document_tags: Vec<(String, Vec<String>, String)> = (0..10)
             .map(|i| {
                 (
-                    format!("doc_{}", i),
+                    format!("doc_{i}"),
                     vec![format!("tag_{}", i % 5), format!("tag_{}", (i + 1) % 5)],
                     format!("category_{}", i % 3),
                 )
@@ -622,11 +622,10 @@ mod tests {
         // Count related edges
         let related_edges = dag.edges_by_type(&EdgeType::Related).len();
 
-        println!("Total chunks: {}", N);
-        println!("Related edges: {}", related_edges);
+        println!("Total chunks: {N}");
+        println!("Related edges: {related_edges}");
         println!(
-            "Max expected (N * {}): {}",
-            MAX_RELATED_CHUNKS, max_expected_related_edges
+            "Max expected (N * {MAX_RELATED_CHUNKS}): {max_expected_related_edges}"
         );
         println!("Total edges: {}", stats.edge_count);
 
@@ -634,14 +633,12 @@ mod tests {
         // With HNSW and MAX_RELATED_CHUNKS=5, we expect at most N*5 related edges
         assert!(
             related_edges <= max_expected_related_edges,
-            "Related edges {} exceeds O(n log n) bound {}. This indicates O(n²) behavior!",
-            related_edges,
-            max_expected_related_edges
+            "Related edges {related_edges} exceeds O(n log n) bound {max_expected_related_edges}. This indicates O(n²) behavior!"
         );
 
         // For comparison: O(n²) would be 100*99/2 = 4950 edges
         let quadratic_edges = N * (N - 1) / 2;
-        println!("Quadratic would be: {} edges", quadratic_edges);
+        println!("Quadratic would be: {quadratic_edges} edges");
         // SAFETY: Edge counts in tests are small (< 10k), well within f64 precision (2^53)
         println!("Ratio: {:.2}% of quadratic", (related_edges as f64 / quadratic_edges as f64) * 100.0);
 

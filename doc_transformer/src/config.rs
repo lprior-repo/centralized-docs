@@ -175,19 +175,22 @@ impl CategoryConfig {
     /// Check if criteria has at least one non-empty, non-None criterion
     fn has_valid_criteria(criteria: &MatchCriteria) -> bool {
         // Check filename: must be Some with non-empty vec containing non-empty strings
-        let has_filename = criteria.filename.as_ref().map_or(false, |v| {
-            !v.is_empty() && v.iter().any(|s| !s.trim().is_empty())
-        });
+        let has_filename = criteria
+            .filename
+            .as_ref()
+            .is_some_and(|v| !v.is_empty() && v.iter().any(|s| !s.trim().is_empty()));
 
         // Check content: must be Some with non-empty vec containing non-empty strings
-        let has_content = criteria.content.as_ref().map_or(false, |v| {
-            !v.is_empty() && v.iter().any(|s| !s.trim().is_empty())
-        });
+        let has_content = criteria
+            .content
+            .as_ref()
+            .is_some_and(|v| !v.is_empty() && v.iter().any(|s| !s.trim().is_empty()));
 
         // Check path: must be Some with non-empty vec containing non-empty strings
-        let has_path = criteria.path.as_ref().map_or(false, |v| {
-            !v.is_empty() && v.iter().any(|s| !s.trim().is_empty())
-        });
+        let has_path = criteria
+            .path
+            .as_ref()
+            .is_some_and(|v| !v.is_empty() && v.iter().any(|s| !s.trim().is_empty()));
 
         // At least one criterion must be valid
         has_filename || has_content || has_path

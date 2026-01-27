@@ -86,6 +86,7 @@ pub struct CompiledQuery {
 
 impl CompiledQuery {
     /// Check if compiled query is still fresh (1 minute TTL)
+    #[must_use]
     pub fn is_fresh(&self) -> bool {
         self.compiled_at
             .elapsed()
@@ -114,7 +115,7 @@ fn compile_query(query: &str) -> CompiledQuery {
     // Compile fresh query
     let terms: Vec<String> = query
         .split_whitespace()
-        .map(|s| s.to_lowercase())
+        .map(str::to_lowercase)
         .collect();
 
     let compiled = CompiledQuery {
@@ -197,6 +198,7 @@ fn get_metrics_snapshot() -> Value {
     let cache_misses = METRICS.cache_misses.load(Ordering::Relaxed);
 
     let cache_total = cache_hits + cache_misses;
+    #[expect(clippy::cast_precision_loss)]
     let cache_hit_rate = if cache_total > 0 {
         (cache_hits as f64 / cache_total as f64) * 100.0
     } else {
@@ -229,7 +231,7 @@ pub struct McpRequest {
     pub params: Value,
 }
 
-/// Tool call parameters for search_docs
+/// Tool call parameters for `search_docs`
 #[derive(Debug, Deserialize)]
 pub struct SearchParams {
     pub query: String,
@@ -237,17 +239,17 @@ pub struct SearchParams {
     pub limit: usize,
 }
 
-fn default_limit() -> usize {
+const fn default_limit() -> usize {
     10
 }
 
-/// Tool call parameters for get_chunk
+/// Tool call parameters for `get_chunk`
 #[derive(Debug, Deserialize)]
 pub struct GetChunkParams {
     pub chunk_id: String,
 }
 
-/// Tool call parameters for find_related
+/// Tool call parameters for `find_related`
 #[derive(Debug, Deserialize)]
 pub struct FindRelatedParams {
     pub chunk_id: String,
@@ -263,11 +265,11 @@ fn default_relationship_type() -> String {
     "similar".to_string()
 }
 
-fn default_max_depth() -> usize {
+const fn default_max_depth() -> usize {
     2
 }
 
-/// Tool call parameters for get_document
+/// Tool call parameters for `get_document`
 #[derive(Debug, Deserialize)]
 pub struct GetDocumentParams {
     pub doc_id: String,
@@ -277,11 +279,11 @@ pub struct GetDocumentParams {
     pub chunk_level: Option<String>, // "standard" | "summary" | "detailed"
 }
 
-fn default_include_chunks() -> bool {
+const fn default_include_chunks() -> bool {
     true
 }
 
-/// Tool call parameters for semantic_search
+/// Tool call parameters for `semantic_search`
 #[derive(Debug, Deserialize)]
 pub struct SemanticSearchParams {
     pub query: String,
@@ -291,11 +293,11 @@ pub struct SemanticSearchParams {
     pub threshold: f32,
 }
 
-fn default_threshold() -> f32 {
+const fn default_threshold() -> f32 {
     0.7
 }
 
-/// Tool call parameters for search_by_category
+/// Tool call parameters for `search_by_category`
 #[derive(Debug, Deserialize)]
 pub struct SearchByCategoryParams {
     pub category: String,
@@ -304,7 +306,7 @@ pub struct SearchByCategoryParams {
     pub limit: usize,
 }
 
-/// Tool call parameters for search_by_tags
+/// Tool call parameters for `search_by_tags`
 #[derive(Debug, Deserialize)]
 pub struct SearchByTagsParams {
     pub tags: Vec<String>,
@@ -319,7 +321,7 @@ fn default_match_mode() -> String {
     "any".to_string()
 }
 
-/// Tool call parameters for get_navigation
+/// Tool call parameters for `get_navigation`
 #[derive(Debug, Deserialize)]
 pub struct GetNavigationParams {
     #[serde(default = "default_format")]
@@ -330,7 +332,7 @@ fn default_format() -> String {
     "hierarchical".to_string()
 }
 
-/// Tool call parameters for explain_chunk
+/// Tool call parameters for `explain_chunk`
 #[derive(Debug, Deserialize)]
 pub struct ExplainChunkParams {
     pub chunk_id: String,
@@ -351,10 +353,9 @@ struct CachedIndex {
 impl CachedIndex {
     /// Check if cache is still fresh (< 5 minutes old)
     fn is_fresh(&self) -> bool {
-        match SystemTime::now().duration_since(self.loaded_at) {
-            Ok(age) => age < Duration::from_secs(300), // 5 minutes
-            Err(_) => false,
-        }
+        SystemTime::now()
+            .duration_since(self.loaded_at)
+            .is_ok_and(|age| age < Duration::from_secs(300))
     }
 }
 
@@ -434,7 +435,7 @@ fn load_index(index_path: &Path) -> Result<DocumentIndex, McpError> {
                 .iter()
                 .map(|v| serde_json::from_value(v.clone()))
                 .collect::<Result<Vec<IndexDocument>, _>>()
-                .map_err(|e| McpError::InvalidIndex(format!("invalid document: {}", e)))?;
+                .map_err(|e| McpError::InvalidIndex(format!("invalid document: {e}")))?;
 
             let chunks = index_json["chunks"]
                 .as_array()
@@ -442,7 +443,7 @@ fn load_index(index_path: &Path) -> Result<DocumentIndex, McpError> {
                 .iter()
                 .map(|v| serde_json::from_value(v.clone()))
                 .collect::<Result<Vec<ChunkMetadata>, _>>()
-                .map_err(|e| McpError::InvalidIndex(format!("invalid chunk: {}", e)))?;
+                .map_err(|e| McpError::InvalidIndex(format!("invalid chunk: {e}")))?;
 
             let keywords = index_json
                 .get("keywords")
@@ -474,23 +475,7 @@ fn search_documents(
         .and_then(|idx| search::search_index(&idx, query, limit).ok())
         .filter(|results| !results.is_empty());
 
-    let results = tantivy_results
-        .map(|search_results| {
-            search_results
-                .into_iter()
-                .map(|r| {
-                    json!({
-                        "id": r.id,
-                        "title": r.title,
-                        "summary": r.summary,
-                        "category": r.category,
-                        "score": r.score,
-                        "path": r.path
-                    })
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_else(|| {
+    let results = tantivy_results.map_or_else(|| {
             // Fallback: simple text matching on documents
             fallback_docs
                 .iter()
@@ -509,6 +494,20 @@ fn search_documents(
                         "category": doc.category,
                         "score": 1.0,
                         "path": doc.path
+                    })
+                })
+                .collect::<Vec<_>>()
+        }, |search_results| {
+            search_results
+                .into_iter()
+                .map(|r| {
+                    json!({
+                        "id": r.id,
+                        "title": r.title,
+                        "summary": r.summary,
+                        "category": r.category,
+                        "score": r.score,
+                        "path": r.path
                     })
                 })
                 .collect::<Vec<_>>()
@@ -581,6 +580,8 @@ fn find_related(
     visited.insert(chunk_id.to_string());
 
     // Helper function to traverse relationships
+    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::items_after_statements)]
     fn traverse(
         current_id: &str,
         depth: usize,
@@ -603,7 +604,8 @@ fn find_related(
                 "hierarchical" => {
                     current.child_chunk_ids.clone()
                 }
-                "similar" | _ => {
+                _ => {
+                    // Default to similar for any other type
                     current.related_chunks.iter().map(|r| r.chunk_id.clone()).collect()
                 }
             };
@@ -663,7 +665,7 @@ fn get_document(
     let doc = documents
         .iter()
         .find(|d| d.id == doc_id)
-        .ok_or_else(|| McpError::ChunkNotFound(format!("document not found: {}", doc_id)))?;
+        .ok_or_else(|| McpError::ChunkNotFound(format!("document not found: {doc_id}")))?;
 
     let mut result = json!({
         "doc_id": doc.id,
@@ -678,13 +680,7 @@ fn get_document(
         let doc_chunks: Vec<Value> = chunks
             .iter()
             .filter(|c| c.doc_id == doc_id)
-            .filter(|c| {
-                if let Some(level) = chunk_level {
-                    c.chunk_level == level
-                } else {
-                    true
-                }
-            })
+            .filter(|c| chunk_level.is_none_or(|level| c.chunk_level == level))
             .map(|c| {
                 json!({
                     "chunk_id": c.chunk_id,
@@ -708,7 +704,7 @@ fn semantic_search(
     limit: usize,
     _threshold: f32,
     chunks: &[ChunkMetadata],
-) -> Result<Value, McpError> {
+) -> serde_json::Value {
     // For now, fallback to simple text matching on summaries
     // TODO: Implement true vector-based semantic search in v8.0
     let results: Vec<Value> = chunks
@@ -716,7 +712,7 @@ fn semantic_search(
         .filter(|c| {
             let query_lower = query.to_lowercase();
             c.summary.to_lowercase().contains(&query_lower)
-                || c.heading.as_ref().map_or(false, |h| h.to_lowercase().contains(&query_lower))
+                || c.heading.as_ref().is_some_and(|h| h.to_lowercase().contains(&query_lower))
         })
         .take(limit)
         .map(|c| {
@@ -730,7 +726,7 @@ fn semantic_search(
         })
         .collect();
 
-    Ok(json!({ "results": results }))
+    json!({ "results": results })
 }
 
 /// Search documents by category
@@ -739,7 +735,7 @@ fn search_by_category(
     query: &str,
     limit: usize,
     documents: &[IndexDocument],
-) -> Result<Value, McpError> {
+) -> serde_json::Value {
     let query_lower = query.to_lowercase();
     let results: Vec<Value> = documents
         .iter()
@@ -759,7 +755,7 @@ fn search_by_category(
         })
         .collect();
 
-    Ok(json!({ "results": results }))
+    json!({ "results": results })
 }
 
 /// Search documents by tags
@@ -769,7 +765,7 @@ fn search_by_tags(
     query: &str,
     limit: usize,
     documents: &[IndexDocument],
-) -> Result<Value, McpError> {
+) -> serde_json::Value {
     let query_lower = query.to_lowercase();
     let results: Vec<Value> = documents
         .iter()
@@ -796,7 +792,7 @@ fn search_by_tags(
         })
         .collect();
 
-    Ok(json!({ "results": results }))
+    json!({ "results": results })
 }
 
 /// Get navigation structure
@@ -817,7 +813,7 @@ fn get_navigation(format: &str, documents: &[IndexDocument]) -> Value {
         for doc in documents {
             sections
                 .entry(doc.category.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(json!({
                     "id": doc.id,
                     "title": doc.title,
@@ -902,7 +898,7 @@ fn explain_chunk(chunk_id: &str, chunks: &[ChunkMetadata]) -> Result<Value, McpE
     }))
 }
 
-/// Truncate summary to max_chars characters
+/// Truncate summary to `max_chars` characters
 fn truncate_summary(summary: &str, max_chars: usize) -> String {
     if summary.len() <= max_chars {
         summary.to_string()
@@ -912,6 +908,7 @@ fn truncate_summary(summary: &str, max_chars: usize) -> String {
 }
 
 /// Generate MCP tools/list response
+#[expect(clippy::too_many_lines)]
 fn generate_tools_list() -> Value {
     json!({
         "tools": [
@@ -1130,20 +1127,20 @@ fn handle_request(req: &McpRequest, index: &DocumentIndex, index_dir: &Path) -> 
             match tool_name {
                 "search_docs" => {
                     let params: SearchParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid search params: {}", e)))?;
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid search params: {e}")))?;
 
                     search_documents(index_dir, &params.query, params.limit, &index.documents)
                 }
                 "get_chunk" => {
                     let params: GetChunkParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_chunk params: {}", e)))?;
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_chunk params: {e}")))?;
 
                     find_chunk(&params.chunk_id, &index.chunks)
                 }
                 "list_docs" => Ok(list_all_documents(&index.documents)),
                 "find_related" => {
                     let params: FindRelatedParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid find_related params: {}", e)))?;
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid find_related params: {e}")))?;
 
                     find_related(
                         &params.chunk_id,
@@ -1155,7 +1152,7 @@ fn handle_request(req: &McpRequest, index: &DocumentIndex, index_dir: &Path) -> 
                 }
                 "get_document" => {
                     let params: GetDocumentParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_document params: {}", e)))?;
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_document params: {e}")))?;
 
                     get_document(
                         &params.doc_id,
@@ -1167,31 +1164,31 @@ fn handle_request(req: &McpRequest, index: &DocumentIndex, index_dir: &Path) -> 
                 }
                 "semantic_search" => {
                     let params: SemanticSearchParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid semantic_search params: {}", e)))?;
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid semantic_search params: {e}")))?;
 
-                    semantic_search(&params.query, params.limit, params.threshold, &index.chunks)
+                    Ok(semantic_search(&params.query, params.limit, params.threshold, &index.chunks))
                 }
                 "search_by_category" => {
                     let params: SearchByCategoryParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid search_by_category params: {}", e)))?;
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid search_by_category params: {e}")))?;
 
-                    search_by_category(&params.category, &params.query, params.limit, &index.documents)
+                    Ok(search_by_category(&params.category, &params.query, params.limit, &index.documents))
                 }
                 "search_by_tags" => {
                     let params: SearchByTagsParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid search_by_tags params: {}", e)))?;
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid search_by_tags params: {e}")))?;
 
-                    search_by_tags(&params.tags, &params.match_mode, &params.query, params.limit, &index.documents)
+                    Ok(search_by_tags(&params.tags, &params.match_mode, &params.query, params.limit, &index.documents))
                 }
                 "get_navigation" => {
                     let params: GetNavigationParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_navigation params: {}", e)))?;
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid get_navigation params: {e}")))?;
 
                     Ok(get_navigation(&params.format, &index.documents))
                 }
                 "explain_chunk" => {
                     let params: ExplainChunkParams = serde_json::from_value(arguments.clone())
-                        .map_err(|e| McpError::InvalidRequest(format!("invalid explain_chunk params: {}", e)))?;
+                        .map_err(|e| McpError::InvalidRequest(format!("invalid explain_chunk params: {e}")))?;
 
                     explain_chunk(&params.chunk_id, &index.chunks)
                 }
@@ -1203,7 +1200,7 @@ fn handle_request(req: &McpRequest, index: &DocumentIndex, index_dir: &Path) -> 
 }
 
 /// Format error as JSON-RPC error response
-fn format_error(error: McpError) -> Value {
+fn format_error(error: &McpError) -> Value {
     json!({
         "error": {
             "code": -32603,
@@ -1247,7 +1244,7 @@ fn run_server() -> Result<(), McpError> {
 
         // Parse request
         let request: McpRequest = serde_json::from_str(&line)
-            .map_err(|e| McpError::InvalidRequest(format!("invalid JSON: {}", e)))?;
+            .map_err(|e| McpError::InvalidRequest(format!("invalid JSON: {e}")))?;
 
         // Reload index with cache (enables hot-reload if file changed)
         let current_index = load_index_with_cache(&index_path, &cache)?;
@@ -1264,7 +1261,7 @@ fn run_server() -> Result<(), McpError> {
             }
         }
 
-        let response = response.unwrap_or_else(|e| format_error(e));
+        let response = response.unwrap_or_else(|e| format_error(&e));
 
         // Write response
         serde_json::to_writer(&mut stdout, &response)
@@ -1284,7 +1281,7 @@ fn run_server() -> Result<(), McpError> {
 
 fn main() {
     if let Err(e) = run_server() {
-        eprintln!("MCP server error: {}", e);
+        eprintln!("MCP server error: {e}");
         std::process::exit(1);
     }
 }
@@ -1305,12 +1302,12 @@ mod tests {
     #[test]
     fn test_format_error() {
         let error = McpError::UnknownMethod("test_method".to_string());
-        let formatted = format_error(error);
+        let formatted = format_error(&error);
 
         assert_eq!(formatted["error"]["code"], -32603);
         assert!(formatted["error"]["message"]
             .as_str()
-            .map_or(false, |s| s.contains("unknown method")));
+            .is_some_and(|s| s.contains("unknown method")));
     }
 
     #[test]

@@ -60,7 +60,7 @@ fn test_analyze_trailing_slash() {
 fn test_config_empty_filename_pattern() {
     // Empty filename pattern should not match empty stems
     let empty_stem = "";
-    let patterns = vec!["api".to_string(), "reference".to_string()];
+    let patterns = ["api".to_string(), "reference".to_string()];
 
     let matches = patterns
         .iter()
@@ -118,7 +118,7 @@ fn test_transform_empty_filename_comparison() {
     assert!(resolved_file.is_some(), "Dir path has filename");
 
     // They should not match
-    assert!(!src_file.is_some(), "Root should not be treated as valid file");
+    assert!(src_file.is_none(), "Root should not be treated as valid file");
     assert!(resolved_file.is_some(), "Dir should be valid");
 }
 
@@ -208,13 +208,11 @@ fn test_concurrent_path_operations() {
     // Ensure our changes don't break concurrent access
     use std::thread;
 
-    let paths = vec![
-        "/",
+    let paths = ["/",
         "docs/api.md",
         ".hidden",
         "path/to/file.txt",
-        "trailing/dir/",
-    ];
+        "trailing/dir/"];
 
     let handles: Vec<_> = paths
         .iter()

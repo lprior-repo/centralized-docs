@@ -32,14 +32,17 @@ use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
 
+#[expect(clippy::expect_used)]
 static H1_TITLE_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("valid H1 regex"));
+    LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("hardcoded regex pattern is valid"));
 
+#[expect(clippy::expect_used)]
 static HEADER_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid header regex"));
+    LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("hardcoded regex pattern is valid"));
 
+#[expect(clippy::expect_used)]
 static LINK_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex"));
+    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("hardcoded regex pattern is valid"));
 
 /// Configuration for scraping a documentation site
 #[derive(Debug, Clone)]
@@ -244,7 +247,7 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                     pages.push(scraped);
                 }
                 Err(e) => {
-                    let error_msg = format!("Failed to transform page: {}", e);
+                    let error_msg = format!("Failed to transform page: {e}");
                     errors.push((url.to_string(), error_msg));
                 }
             }
@@ -303,8 +306,8 @@ fn transform_page(
     let selector_config = if enable_filtering {
         let mut exclude_tags: Vec<String> = filter_config.remove_tags.clone();
         for pattern in &filter_config.nav_patterns {
-            exclude_tags.push(format!(".{}", pattern));
-            exclude_tags.push(format!("#{}", pattern));
+            exclude_tags.push(format!(".{pattern}"));
+            exclude_tags.push(format!("#{pattern}"));
         }
         Some(SelectorConfiguration {
             root_selector: None,
@@ -351,8 +354,7 @@ fn transform_page(
 
     // Generate slug from URL (with validation for non-empty)
     let slug = url_to_slug(&url).context(format!(
-        "Failed to generate slug for URL {}: ensure URL has a valid path or hostname",
-        url
+        "Failed to generate slug for URL {url}: ensure URL has a valid path or hostname"
     ))?;
 
     Ok(ScrapedPage {
@@ -457,8 +459,7 @@ fn validate_url(url: &str) -> Result<url::Url> {
     match parsed.scheme() {
         "http" | "https" => Ok(parsed),
         scheme => anyhow::bail!(
-            "Invalid URL scheme '{}': only http and https are supported",
-            scheme
+            "Invalid URL scheme '{scheme}': only http and https are supported"
         ),
     }
 }
@@ -470,9 +471,7 @@ fn check_html_size(html: &str, max_size: u64) -> Result<()> {
     let size_bytes = html.len() as u64;
     if size_bytes > max_size {
         anyhow::bail!(
-            "Page HTML too large: {} bytes (limit: {} bytes)",
-            size_bytes,
-            max_size
+            "Page HTML too large: {size_bytes} bytes (limit: {max_size} bytes)"
         );
     }
     Ok(())
@@ -485,9 +484,7 @@ fn check_markdown_size(markdown: &str, max_size: u64) -> Result<()> {
     let size_bytes = markdown.len() as u64;
     if size_bytes > max_size {
         anyhow::bail!(
-            "Page markdown too large: {} bytes (limit: {} bytes)",
-            size_bytes,
-            max_size
+            "Page markdown too large: {size_bytes} bytes (limit: {max_size} bytes)"
         );
     }
     Ok(())
@@ -681,16 +678,14 @@ mod tests {
         ];
 
         for url in valid_urls {
-            let slug = url_to_slug(url).expect(&format!("URL {} should produce valid slug", url));
+            let slug = url_to_slug(url).unwrap_or_else(|_| panic!("URL {url} should produce valid slug"));
             assert!(
                 !slug.is_empty(),
-                "URL {} produced empty slug",
-                url
+                "URL {url} produced empty slug"
             );
             assert!(
                 slug.chars().all(|c| c.is_alphanumeric() || c == '-'),
-                "Slug {} contains invalid characters",
-                slug
+                "Slug {slug} contains invalid characters"
             );
         }
     }
@@ -799,7 +794,7 @@ mod tests {
         let (kept, filtered_count) = filter_pages_by_relevance(pages, "rust programming", 0.1);
 
         // Should keep at least the Rust guide
-        assert!(kept.len() >= 1, "Should keep at least 1 Rust-related page");
+        assert!(!kept.is_empty(), "Should keep at least 1 Rust-related page");
         assert!(
             filtered_count >= 1,
             "Should filter out at least 1 non-Rust page"
@@ -933,7 +928,7 @@ mod tests {
 
         // Should find pages containing any of these terms
         assert!(
-            kept.len() >= 1,
+            !kept.is_empty(),
             "Should find pages matching multi-term query"
         );
         assert!(
@@ -1204,9 +1199,8 @@ mod tests {
 
         // With 500MB limit and 5MB pages, should allow ~100 pages
         assert!(
-            pages_before_limit >= 90 && pages_before_limit <= 110,
-            "Should allow ~100 5MB pages in 500MB budget, got: {}",
-            pages_before_limit
+            (90..=110).contains(&pages_before_limit),
+            "Should allow ~100 5MB pages in 500MB budget, got: {pages_before_limit}"
         );
     }
 }

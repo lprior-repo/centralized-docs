@@ -2,7 +2,6 @@
 ///
 /// Tests the complete MCP server with all tools against a real INDEX.json
 use doc_transformer::index::{ChunkMetadata, IndexDocument};
-use serde_json::{json, Value};
 use std::collections::HashMap;
 
 #[derive(Debug, serde::Deserialize)]

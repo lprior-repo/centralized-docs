@@ -8,20 +8,20 @@ use std::collections::HashMap;
 /// Each chunk represents a section of a document
 fn generate_test_chunks(n: usize) -> Vec<Chunk> {
     let docs_per_batch = (n as f64).sqrt().ceil() as usize;
-    let chunks_per_doc = (n + docs_per_batch - 1) / docs_per_batch;
+    let chunks_per_doc = n.div_ceil(docs_per_batch);
 
     let mut chunks = Vec::with_capacity(n);
 
     for doc_idx in 0..docs_per_batch {
-        let doc_id = format!("doc_{:04}", doc_idx);
-        let doc_title = format!("Document {}", doc_idx);
+        let doc_id = format!("doc_{doc_idx:04}");
+        let doc_title = format!("Document {doc_idx}");
 
         for chunk_idx in 0..chunks_per_doc {
             if chunks.len() >= n {
                 break;
             }
 
-            let chunk_id = format!("chunk_{}_{:04}", doc_idx, chunk_idx);
+            let chunk_id = format!("chunk_{doc_idx}_{chunk_idx:04}");
             let previous_chunk_id = if chunk_idx > 0 {
                 Some(format!("chunk_{}_{:04}", doc_idx, chunk_idx - 1))
             } else {
@@ -40,16 +40,15 @@ fn generate_test_chunks(n: usize) -> Vec<Chunk> {
                 doc_title: doc_title.clone(),
                 chunk_index: chunk_idx,
                 content: format!(
-                    "Content for chunk {} in document {}. This is sample documentation text.",
-                    chunk_idx, doc_idx
+                    "Content for chunk {chunk_idx} in document {doc_idx}. This is sample documentation text."
                 ),
                 token_count: 256 + (chunk_idx % 256),
-                heading: Some(format!("Section {}", chunk_idx)),
+                heading: Some(format!("Section {chunk_idx}")),
                 chunk_type: "standard".to_string(),
                 previous_chunk_id,
                 next_chunk_id,
                 related_chunk_ids: Vec::new(),
-                summary: format!("Summary of chunk {} in doc {}", chunk_idx, doc_idx),
+                summary: format!("Summary of chunk {chunk_idx} in doc {doc_idx}"),
                 chunk_level: ChunkLevel::Standard,
                 parent_chunk_id: None,
                 child_chunk_ids: Vec::new(),
@@ -71,7 +70,7 @@ fn generate_test_documents(chunks: &[Chunk]) -> Vec<doc_transformer::index::Inde
     for chunk in chunks {
         docs_map
             .entry(chunk.doc_id.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(chunk.chunk_id.clone());
         docs_titles
             .entry(chunk.doc_id.clone())
@@ -85,19 +84,19 @@ fn generate_test_documents(chunks: &[Chunk]) -> Vec<doc_transformer::index::Inde
             let title = docs_titles
                 .get(&doc_id)
                 .cloned()
-                .unwrap_or_else(|| format!("Document {}", idx));
+                .unwrap_or_else(|| format!("Document {idx}"));
 
             doc_transformer::index::IndexDocument {
                 id: doc_id.clone(),
                 title,
-                path: format!("/docs/doc_{}.md", idx),
+                path: format!("/docs/doc_{idx}.md"),
                 category: format!("Category {}", idx % 5),
                 tags: vec![
                     format!("tag_{}", idx % 3),
                     format!("tag_{}", (idx + 1) % 3),
                     format!("tag_{}", (idx + 2) % 3),
                 ],
-                summary: format!("Summary for document {}", idx),
+                summary: format!("Summary for document {idx}"),
                 word_count: 1000 + idx * 100,
                 chunk_ids,
             }
@@ -114,7 +113,7 @@ fn generate_test_tags(chunks: &[Chunk]) -> Vec<(String, Vec<String>, String)> {
     for chunk in chunks {
         docs_map
             .entry(chunk.doc_id.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(chunk.chunk_id.clone());
         docs_categories
             .entry(chunk.doc_id.clone())

@@ -97,11 +97,11 @@ pub fn generate_llms_txt(
     }
 
     // Smart section detection: only include sections with documents
-    let has_tutorials = by_category.contains_key("tutorial") && !by_category.get("tutorial").unwrap().is_empty();
-    let has_concepts = by_category.contains_key("concept") && !by_category.get("concept").unwrap().is_empty();
-    let has_refs = by_category.contains_key("ref") && !by_category.get("ref").unwrap().is_empty();
-    let has_ops = by_category.contains_key("ops") && !by_category.get("ops").unwrap().is_empty();
-    let has_meta = by_category.contains_key("meta") && !by_category.get("meta").unwrap().is_empty();
+    let has_tutorials = by_category.get("tutorial").is_some_and(|v| !v.is_empty());
+    let has_concepts = by_category.get("concept").is_some_and(|v| !v.is_empty());
+    let has_refs = by_category.get("ref").is_some_and(|v| !v.is_empty());
+    let has_ops = by_category.get("ops").is_some_and(|v| !v.is_empty());
+    let has_meta = by_category.get("meta").is_some_and(|v| !v.is_empty());
 
     // Getting Started (tutorials) - only if documents exist
     if has_tutorials {
@@ -255,7 +255,7 @@ fn truncate_summary(text: &str, max_len: usize) -> String {
         cleaned
     } else {
         let truncated: String = cleaned.chars().take(max_len.saturating_sub(3)).collect();
-        format!("{}...", truncated)
+        format!("{truncated}...")
     }
 }
 
@@ -307,7 +307,7 @@ pub fn generate_agents_md(
 
     content.push_str("### Document Categories\n\n");
     for (cat, count) in &categories {
-        content.push_str(&format!("- **{}**: {} documents\n", cat, count));
+        content.push_str(&format!("- **{cat}**: {count} documents\n"));
     }
     content.push('\n');
 

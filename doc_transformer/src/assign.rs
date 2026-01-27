@@ -40,7 +40,7 @@ pub fn assign_ids(analyses: Vec<Analysis>) -> (Vec<Analysis>, HashMap<String, Id
         *count = count.saturating_add(1);
 
         if *count > 1 {
-            slug = format!("{}-{}", slug, count);
+            slug = format!("{slug}-{count}");
         }
 
         let doc_id = format!("{}/{}/{}", analysis.category, subcategory, slug);

@@ -15,20 +15,15 @@ use tap::Pipe;
 
 /// Strategy for content filtering (PLAN.md requirement)
 #[allow(dead_code)] // Public API - all variants available for library users
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum FilterStrategy {
     /// Use pruning heuristics (text/link density)
+    #[default]
     Pruning,
     /// Use BM25 query-based filtering
     BM25,
     /// No filtering (keep all content)
     None,
-}
-
-impl Default for FilterStrategy {
-    fn default() -> Self {
-        FilterStrategy::Pruning
-    }
 }
 
 /// Configuration for content filtering
@@ -148,10 +143,10 @@ fn try_readability_extraction(html: &str) -> Result<String, anyhow::Error> {
     use url::Url;
 
     let mut cursor = Cursor::new(html.as_bytes());
-    let base_url = Url::parse("https://example.com").map_err(|e| anyhow::anyhow!("URL parse error: {}", e))?;
+    let base_url = Url::parse("https://example.com").map_err(|e| anyhow::anyhow!("URL parse error: {e}"))?;
 
     let product = extractor::extract(&mut cursor, &base_url)
-        .map_err(|e| anyhow::anyhow!("Readability extraction failed: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Readability extraction failed: {e}"))?;
 
     // Return the extracted HTML content
     Ok(product.content)
@@ -192,7 +187,7 @@ fn fallback_prune_html(html: &str, config: &FilterConfig) -> FilterResult {
         .nav_patterns
         .iter()
         .flat_map(|pattern| {
-            [format!(".{}", pattern), format!("#{}", pattern)]
+            [format!(".{pattern}"), format!("#{pattern}")]
                 .into_iter()
                 .filter_map(|sel_str| Selector::parse(&sel_str).ok())
                 .map(|sel| document.select(&sel).count())
@@ -272,7 +267,7 @@ pub fn extract_main_content(document: &Html, config: &FilterConfig) -> String {
         .iter()
         .filter_map(|tag| Selector::parse(tag).ok())
         .chain(config.nav_patterns.iter().flat_map(|pattern| {
-            [format!(".{}", pattern), format!("#{}", pattern)]
+            [format!(".{pattern}"), format!("#{pattern}")]
                 .into_iter()
                 .filter_map(|s| Selector::parse(&s).ok())
         }))
@@ -604,8 +599,8 @@ mod tests {
         // Edge case: avg_doc_length is 0.0 (empty corpus)
         // Should NOT panic, should NOT return NaN/Inf
         let score = bm25_score("rust programming", "rust", 0.0);
-        assert!(score.is_finite(), "Score must be finite, got {}", score);
-        assert!(score >= 0.0, "Score must be non-negative, got {}", score);
+        assert!(score.is_finite(), "Score must be finite, got {score}");
+        assert!(score >= 0.0, "Score must be non-negative, got {score}");
         assert!(
             score > 0.0,
             "Score should be > 0.0 for matching document with fallback"
@@ -617,8 +612,8 @@ mod tests {
         // Edge case: avg_doc_length is negative (invalid input)
         // Should use safe default instead
         let score = bm25_score("hello world", "hello", -100.0);
-        assert!(score.is_finite(), "Score must be finite, got {}", score);
-        assert!(score >= 0.0, "Score must be non-negative, got {}", score);
+        assert!(score.is_finite(), "Score must be finite, got {score}");
+        assert!(score >= 0.0, "Score must be non-negative, got {score}");
     }
 
     #[test]

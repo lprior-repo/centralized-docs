@@ -1,161 +1,174 @@
-# Moon task definitions for centralized-docs - RUST EDITION
+$schema: "https://moonrepo.dev/schemas/tasks.json"
+
+# Moon Task Configuration - centralized-docs Pipeline
+# All commands use cargo with system Rust toolchain
 
 tasks:
-  # Task: Format code with rustfmt
+  # ============================================================================
+  # STAGE 1: CODE FORMATTING & LINTING
+  # ============================================================================
+
   fmt:
-  command: cargo fmt --all
-  description: Format all Rust code
-  inputs:
-    - "**/*.rs"
-  outputs:
-    - "**/*.rs"
-  cache: false
+    command: "cargo fmt --all --check"
+    description: "Check code formatting (rustfmt)"
+    inputs:
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "rustfmt.toml"
+    options:
+      cache: true
+      runInCI: true
 
-# Task: Run clippy linter
-lint:
-  command: cargo clippy --all-targets --all-features -- -D warnings
-  description: Run Clippy static analysis and linting
-  inputs:
-    - "**/*.rs"
-    - Cargo.toml
-    - Cargo.lock
-  outputs:
-    - target/clippy-output.json
-  cache: true
-  cacheable: true
-  deps:
-    - fmt
+  fmt-fix:
+    command: "cargo fmt --all"
+    description: "Auto-fix code formatting"
+    inputs:
+      - "**/*.rs"
+      - "Cargo.toml"
+    options:
+      cache: false  # Never cache - always format
 
-# Task: Run tests with coverage
-test:
-  command: cargo test --all-features --verbose
-  description: Run all tests
-  inputs:
-    - "**/*.rs"
-    - Cargo.toml
-    - "**/*_test.rs"
-  outputs:
-    - target/debug/deps/
-  cache: true
-  deps:
-    - fmt
+  clippy:
+    command: "cargo clippy --workspace --all-targets --all-features -- -D warnings"
+    description: "Lint with Clippy (strict mode)"
+    inputs:
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.lock"
+      - ".clippy.toml"
+    options:
+      cache: true
+      runInCI: true
 
-# Task: Run tests in short mode (TCR)
-test-short:
-  command: cargo test --lib --all-features
-  description: Run unit tests (TCR short mode)
-  inputs:
-    - "**/*.rs"
-    - Cargo.toml
-  cache: true
-  deps:
-    - fmt
+  # ============================================================================
+  # STAGE 2: TESTING
+  # ============================================================================
 
-# Task: Build binary
-build:
-  command: cargo build --release
-  description: Build the release binary
-  inputs:
-    - "**/*.rs"
-    - Cargo.toml
-  outputs:
-    - target/release/doc_transformer
-  cache: true
-  deps:
-    - lint
-    - test
+  test:
+    command: "cargo test --workspace --all-features"
+    description: "Run all tests"
+    inputs:
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.lock"
+    options:
+      cache: true
+      runInCI: true
 
-# Task: Build debug binary
-build-debug:
-  command: cargo build
-  description: Build the debug binary
-  inputs:
-    - "**/*.rs"
-    - Cargo.toml
-  cache: true
-  deps:
-    - fmt
+  test-doc:
+    command: "cargo test --doc --workspace"
+    description: "Run documentation tests"
+    inputs:
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.lock"
+    options:
+      cache: true
+      runInCI: true
 
-# Task: Run the binary
-run:
-  command: cargo run --release
-  description: Run the release binary
-  cache: false
-  deps:
-    - build
+  # ============================================================================
+  # STAGE 3: BUILD
+  # ============================================================================
 
-# Task: Full quality gate pipeline
-quality:
-  command: echo "Running Rust quality checks..."
-  description: Run all quality gates (fmt → lint → test)
-  cache: false
-  deps:
-    - fmt
-    - lint
-    - test
-  local: true
+  build:
+    command: "cargo build --release --workspace"
+    description: "Build release binaries"
+    inputs:
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.lock"
+    outputs:
+      - "target/release/doc_transformer"
+      - "target/release/mcp_server"
+      - "target/release/llms-txt-validator"
+    options:
+      cache: true
+      runInCI: true
 
-# Task: CI/CD full pipeline
-ci:
-  command: echo "Running full CI pipeline..."
-  description: Run complete CI (quality → build)
-  cache: false
-  deps:
-    - quality
-    - build
-  local: true
+  build-docs:
+    command: "cargo doc --no-deps --document-private-items"
+    description: "Generate Rust documentation"
+    inputs:
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.lock"
+    options:
+      cache: true
+      runInCI: true
 
-# Task: Development loop
-dev:
-  command: echo "Running in development mode..."
-  description: Development mode (with cargo watch)
-  cache: false
-  deps:
-    - fmt
-    - lint
-    - test
-  watch: true
+  # ============================================================================
+  # COMPOSITE PIPELINES
+  # ============================================================================
 
-# Task: Clean build artifacts and cache
-clean:
-  command: |
-    cargo clean
-    rm -rf target/ bin/ dist/ .moon/cache
-  description: Clean all generated files and caches
-  cache: false
-  local: true
+  quick:
+    command: "true"
+    description: "Fast lint check (format + clippy in parallel)"
+    deps:
+      - "~:fmt"      # ~ prefix runs in parallel
+      - "~:clippy"
+    options:
+      cache: false  # Composite task - deps handle caching
 
-# Task: Check dependencies for updates
-deps-check:
-  command: cargo outdated
-  description: Check for outdated dependencies
-  cache: false
-  local: true
+  ci:
+    command: "true"
+    description: "Full CI pipeline (all checks in parallel where possible)"
+    deps:
+      - "~:fmt"        # Parallel: formatting
+      - "~:clippy"     # Parallel: linting
+      - "~:test"       # Parallel: tests
+      - "~:test-doc"   # Parallel: doc tests
+      - "build"        # Sequential: needs tests to pass
+      - "build-docs"   # Sequential: needs clippy
+    options:
+      cache: false  # Composite task - deps handle caching
 
-# Task: Update dependencies
-deps-update:
-  command: cargo update
-  description: Update all dependencies
-  cache: false
-  local: true
-  inputs:
-    - Cargo.toml
-  outputs:
-    - Cargo.lock
+  # ============================================================================
+  # CONVENIENCE
+  # ============================================================================
 
-# Task: Generate documentation
-doc:
-  command: cargo doc --no-deps --open
-  description: Generate and open documentation
-  outputs:
-    - target/doc/
-  cache: true
+  install:
+    command: "mkdir -p ~/.local/bin && cargo build --release --workspace && cp target/release/doc_transformer ~/.local/bin/doc_transformer && cp target/release/mcp_server ~/.local/bin/mcp_server && cp target/release/llms-txt-validator ~/.local/bin/llms-txt-validator && chmod +x ~/.local/bin/doc_transformer ~/.local/bin/mcp_server ~/.local/bin/llms-txt-validator && echo '✅ Installed binaries to ~/.local/bin'"
+    description: "Install binaries to ~/.local/bin (system-wide)"
+    options:
+      cache: false
+      runInCI: false
 
-# Task: Check code
-check:
-  command: cargo check --all-features
-  description: Quick syntax and type check
-  inputs:
-    - "**/*.rs"
-    - Cargo.toml
-  cache: true
+  dev:
+    command: "true"
+    description: "Quick development workflow: build + install"
+    deps:
+      - "build"
+      - "install"
+    options:
+      cache: false
+
+  clean:
+    command: "cargo clean"
+    description: "Clean build artifacts"
+    options:
+      cache: false
+
+  check:
+    command: "cargo check --workspace --all-features"
+    description: "Fast type check without building"
+    inputs:
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.lock"
+    options:
+      cache: true
+      runInCI: false
+
+  # ============================================================================
+  # QUALITY GATES
+  # ============================================================================
+
+  quality:
+    command: "true"
+    description: "Run all quality gates (fmt + clippy + test)"
+    deps:
+      - "fmt"
+      - "clippy"
+      - "test"
+    options:
+      cache: false

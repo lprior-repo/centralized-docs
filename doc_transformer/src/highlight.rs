@@ -93,10 +93,10 @@ fn compile_highlight_regex(term: &str) -> Result<Regex, regex::Error> {
     // Add word boundaries only for purely word-based terms
     // (?i) makes it case-insensitive, ( ) creates a capture group for replacement
     let pattern = if is_word_only {
-        format!(r"(?i)\b({})\b", escaped)
+        format!(r"(?i)\b({escaped})\b")
     } else {
         // For terms with special characters like "C++", don't use word boundaries
-        format!(r"(?i)({})", escaped)
+        format!(r"(?i)({escaped})")
     };
 
     Regex::new(&pattern)

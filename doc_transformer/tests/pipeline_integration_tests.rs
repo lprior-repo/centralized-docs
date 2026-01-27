@@ -60,7 +60,7 @@ impl IntegrationTestContext {
             .filter(|e| {
                 let path = e.path();
                 path.is_file()
-                    && path.extension().map_or(false, |ext| {
+                    && path.extension().is_some_and(|ext| {
                         matches!(ext.to_str(), Some("md" | "mdx" | "rst" | "txt"))
                     })
             })
@@ -520,10 +520,9 @@ fn generate_large_markdown(word_count: usize) -> String {
     let mut section = 1;
 
     while words < word_count {
-        content.push_str(&format!("## Section {}\n\n", section));
+        content.push_str(&format!("## Section {section}\n\n"));
         content.push_str(&format!(
-            "This is section {} with content about topic {}. ",
-            section, section
+            "This is section {section} with content about topic {section}. "
         ));
         content.push_str("It provides information and documentation. ");
         content.push_str("The pipeline should handle this gracefully. ");
@@ -544,7 +543,7 @@ fn generate_large_markdown(word_count: usize) -> String {
 /// Format test results nicely
 fn print_test_result(name: &str, passed: bool, message: &str) {
     let status = if passed { "✓ PASS" } else { "✗ FAIL" };
-    println!("{}: {} - {}", status, name, message);
+    println!("{status}: {name} - {message}");
 }
 
 // =============================================================================
@@ -605,7 +604,7 @@ fn test_discover_excludes_ignored_directories() {
     // This test documents the actual behavior
     println!("Discovered {} files (including nested)", files.len());
     assert!(
-        files.len() >= 1,
+        !files.is_empty(),
         "Should discover at least the root guide file"
     );
 }
@@ -844,7 +843,7 @@ fn test_coverage_summary() {
     }
 
     for (category, count) in &categories {
-        println!("  {} tests: {}", category, count);
+        println!("  {category} tests: {count}");
     }
 
     println!("\n{}", "=".repeat(70));

@@ -32,10 +32,80 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
+/// Configuration for the index command
+#[derive(Debug, Clone)]
+struct IndexConfig {
+    generate_llms: bool,
+    project_name: String,
+    project_desc: String,
+    category_config: Option<PathBuf>,
+    max_related_chunks: Option<usize>,
+    hnsw_m: Option<usize>,
+    hnsw_ef_construction: Option<usize>,
+}
+
+impl Default for IndexConfig {
+    fn default() -> Self {
+        Self {
+            generate_llms: true,
+            project_name: "Documentation".to_string(),
+            project_desc: "AI-optimized documentation index".to_string(),
+            category_config: None,
+            max_related_chunks: None,
+            hnsw_m: None,
+            hnsw_ef_construction: None,
+        }
+    }
+}
+
+/// Configuration for the scrape command
+#[derive(Debug, Clone)]
+struct ScrapeCommandConfig {
+    use_sitemap: bool,
+    filter: Option<String>,
+    delay: u64,
+    query: Option<String>,
+    threshold: f32,
+}
+
+impl Default for ScrapeCommandConfig {
+    fn default() -> Self {
+        Self {
+            use_sitemap: true,
+            filter: None,
+            delay: 250,
+            query: None,
+            threshold: 0.1,
+        }
+    }
+}
+
+/// Configuration for the ingest command
+#[derive(Debug, Clone)]
+struct IngestConfig {
+    filter: Option<String>,
+    delay: u64,
+    query: Option<String>,
+    threshold: f32,
+    project_name: Option<String>,
+}
+
+impl Default for IngestConfig {
+    fn default() -> Self {
+        Self {
+            filter: None,
+            delay: 250,
+            query: None,
+            threshold: 0.1,
+            project_name: None,
+        }
+    }
+}
+
 // Validation functions for HNSW graph parameters
 fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
     let value = s.parse::<usize>()
-        .map_err(|_| format!("max_related_chunks must be a positive integer, got '{}'", s))?;
+        .map_err(|_| format!("max_related_chunks must be a positive integer, got '{s}'"))?;
 
     if value < 1 {
         return Err("max_related_chunks must be at least 1".to_string());
@@ -49,7 +119,7 @@ fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
 
 fn validate_hnsw_m(s: &str) -> Result<usize, String> {
     let value = s.parse::<usize>()
-        .map_err(|_| format!("hnsw_m must be a positive integer, got '{}'", s))?;
+        .map_err(|_| format!("hnsw_m must be a positive integer, got '{s}'"))?;
 
     if value < 4 {
         return Err("hnsw_m must be at least 4 for proper connectivity (too sparse otherwise)".to_string());
@@ -63,7 +133,7 @@ fn validate_hnsw_m(s: &str) -> Result<usize, String> {
 
 fn validate_hnsw_ef_construction(s: &str) -> Result<usize, String> {
     let value = s.parse::<usize>()
-        .map_err(|_| format!("hnsw_ef_construction must be a positive integer, got '{}'", s))?;
+        .map_err(|_| format!("hnsw_ef_construction must be a positive integer, got '{s}'"))?;
 
     if value < 50 {
         return Err("hnsw_ef_construction must be at least 50 for acceptable build quality".to_string());
@@ -252,16 +322,14 @@ async fn main() -> Result<()> {
             query,
             threshold,
         }) => {
-            run_scrape(
-                &url,
-                &output,
-                !no_sitemap, // use sitemap unless --no-sitemap is passed
+            let config = ScrapeCommandConfig {
+                use_sitemap: !no_sitemap,
                 filter,
                 delay,
-                query.as_deref(),
+                query,
                 threshold,
-            )
-            .await
+            };
+            run_scrape(&url, &output, &config).await
         }
 
         Some(Commands::Index {
@@ -274,17 +342,18 @@ async fn main() -> Result<()> {
             max_related_chunks,
             hnsw_m,
             hnsw_ef_construction,
-        }) => run_index(
-            &source,
-            &output,
-            category_config.as_deref(),
-            llms_txt,
-            &project_name,
-            &project_desc,
-            max_related_chunks,
-            hnsw_m,
-            hnsw_ef_construction,
-        ),
+        }) => {
+            let config = IndexConfig {
+                generate_llms: llms_txt,
+                project_name,
+                project_desc,
+                category_config,
+                max_related_chunks,
+                hnsw_m,
+                hnsw_ef_construction,
+            };
+            run_index(&source, &output, &config)
+        }
 
         Some(Commands::Ingest {
             url,
@@ -294,22 +363,21 @@ async fn main() -> Result<()> {
             query,
             threshold,
             project_name,
-        }) => run_ingest(&url, &output, filter, delay, query, threshold, project_name).await,
+        }) => {
+            let config = IngestConfig {
+                filter,
+                delay,
+                query,
+                threshold,
+                project_name,
+            };
+            run_ingest(&url, &output, &config).await
+        }
 
         None => {
             // Legacy mode: two positional arguments
             if let (Some(source), Some(output)) = (cli.source_dir, cli.output_dir) {
-                run_index(
-                    &source,
-                    &output,
-                    None,
-                    true,
-                    "Documentation",
-                    "AI-optimized documentation index",
-                    None,
-                    None,
-                    None,
-                )
+                run_index(&source, &output, &IndexConfig::default())
             } else {
                 eprintln!("Usage: doc_transformer <SOURCE> <OUTPUT>");
                 eprintln!("   or: doc_transformer scrape <URL> --output <DIR>");
@@ -334,9 +402,7 @@ fn validate_query_length(query: &Option<&str>) -> Result<()> {
         let byte_count = q.len();
         if byte_count > MAX_QUERY_LENGTH {
             anyhow::bail!(
-                "Query too long ({} bytes, maximum {})",
-                byte_count,
-                MAX_QUERY_LENGTH
+                "Query too long ({byte_count} bytes, maximum {MAX_QUERY_LENGTH})"
             );
         }
     }
@@ -375,14 +441,11 @@ fn apply_query_filter(
             println!("\n  WARNING: All pages filtered out by query.");
             println!("  Consider lowering the --threshold value.");
             anyhow::bail!(
-                "All {} pages filtered out by query '{}' (threshold: {})",
-                filtered_count,
-                q,
-                threshold
+                "All {filtered_count} pages filtered out by query '{q}' (threshold: {threshold})"
             );
         }
 
-        println!("  Filtered by relevance: {} pages removed", filtered_count);
+        println!("  Filtered by relevance: {filtered_count} pages removed");
         println!("  Kept: {} pages matching \"{}\"", kept_pages.len(), q);
 
         Ok(kept_pages)
@@ -393,55 +456,48 @@ fn apply_query_filter(
 }
 
 /// Run the scrape command
-async fn run_scrape(
-    url: &str,
-    output: &PathBuf,
-    use_sitemap: bool,
-    filter: Option<String>,
-    delay: u64,
-    query: Option<&str>,
-    threshold: f32,
-) -> Result<()> {
+async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> Result<()> {
     // Validate query length before processing (prevents DoS)
-    validate_query_length(&query)?;
+    let query_ref = config.query.as_deref();
+    validate_query_length(&query_ref)?;
 
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER v5.0 - SCRAPE");
     println!("{}\n", "=".repeat(70));
 
-    println!("[SCRAPE] Target: {}", url);
-    println!("  Options: sitemap={}, delay={}ms", use_sitemap, delay);
-    if let Some(ref f) = filter {
-        println!("  Filter: {}", f);
+    println!("[SCRAPE] Target: {url}");
+    println!("  Options: sitemap={}, delay={}ms", config.use_sitemap, config.delay);
+    if let Some(ref f) = config.filter {
+        println!("  Filter: {f}");
     }
     println!();
 
-    let config = scrape::ScrapeConfig {
+    let scrape_config = scrape::ScrapeConfig {
         base_url: url.to_string(),
-        use_sitemap,
-        path_filter: filter,
-        delay_ms: delay,
+        use_sitemap: config.use_sitemap,
+        path_filter: config.filter.clone(),
+        delay_ms: config.delay,
         ..Default::default()
     };
 
     println!("[SCRAPE] Starting crawl...");
-    let mut result = scrape::scrape_site(&config).await?;
+    let mut result = scrape::scrape_site(&scrape_config).await?;
 
     println!("  Discovered: {} URLs", result.total_urls);
     println!("  Scraped: {} pages", result.success_count);
     println!("  Errors: {}", result.error_count);
 
     // Apply BM25 filtering if query is provided (extracted common logic)
-    result.pages = apply_query_filter(result.pages, query, threshold)?;
+    result.pages = apply_query_filter(result.pages, query_ref, config.threshold)?;
     result.success_count = result.pages.len();
 
     if !result.errors.is_empty() {
         println!("\n  Error details:");
         for (url, err) in result.errors.iter().take(5) {
-            println!("    - {}: {}", url, err);
+            println!("    - {url}: {err}");
         }
         if result.errors.len() > 5 {
-            println!("    ... and {} more", result.errors.len().saturating_sub(5));
+            println!("    ... and {}", result.errors.len().saturating_sub(5));
         }
     }
 
@@ -461,32 +517,22 @@ async fn run_scrape(
 }
 
 /// Run the index command (main pipeline)
-fn run_index(
-    source: &Path,
-    output: &Path,
-    category_config: Option<&Path>,
-    generate_llms: bool,
-    project_name: &str,
-    project_desc: &str,
-    max_related_chunks: Option<usize>,
-    hnsw_m: Option<usize>,
-    hnsw_ef_construction: Option<usize>,
-) -> Result<()> {
+fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER v5.0 (Knowledge DAG + llms.txt)");
     println!("{}\n", "=".repeat(70));
 
     // Log graph configuration parameters if provided
-    if max_related_chunks.is_some() || hnsw_m.is_some() || hnsw_ef_construction.is_some() {
+    if config.max_related_chunks.is_some() || config.hnsw_m.is_some() || config.hnsw_ef_construction.is_some() {
         println!("[CONFIG] Graph Parameters:");
-        if let Some(n) = max_related_chunks {
-            println!("  max_related_chunks: {} (default: 20)", n);
+        if let Some(n) = config.max_related_chunks {
+            println!("  max_related_chunks: {n} (default: 20)");
         }
-        if let Some(m) = hnsw_m {
-            println!("  hnsw_m: {} (default: 16)", m);
+        if let Some(m) = config.hnsw_m {
+            println!("  hnsw_m: {m} (default: 16)");
         }
-        if let Some(ef) = hnsw_ef_construction {
-            println!("  hnsw_ef_construction: {} (default: 200)", ef);
+        if let Some(ef) = config.hnsw_ef_construction {
+            println!("  hnsw_ef_construction: {ef} (default: 200)");
         }
         println!();
     }
@@ -507,7 +553,7 @@ fn run_index(
 
     // STEP 2: ANALYZE
     println!("[STEP 2] ANALYZE");
-    let analyses = analyze::analyze_files(&files, source, category_config)?;
+    let analyses = analyze::analyze_files(&files, source, config.category_config.as_deref())?;
     let categories = analyze::count_categories(&analyses);
     println!("  Processed {} files", analyses.len());
     println!(
@@ -547,16 +593,16 @@ fn run_index(
 
     // STEP 6: INDEX + GRAPH
     println!("[STEP 6] INDEX + GRAPH");
-    index::build_and_write_index(&analyses, &link_map, &chunks_result, output, project_name)?;
+    index::build_and_write_index(&analyses, &link_map, &chunks_result, output, &config.project_name)?;
     index::build_and_write_compass(&analyses, &link_map, output)?;
     println!("  Created INDEX.json and COMPASS.md\n");
 
     // STEP 7: LLMS.TXT + AGENTS.MD
-    if generate_llms {
+    if config.generate_llms {
         println!("[STEP 7] LLMS.TXT + AGENTS.MD");
         let llms_config = llms::LlmsConfig {
-            project_name: project_name.to_string(),
-            project_description: project_desc.to_string(),
+            project_name: config.project_name.clone(),
+            project_description: config.project_desc.clone(),
             generate_full: true,
             ..Default::default()
         };
@@ -593,7 +639,7 @@ fn run_index(
         "Validation: {}/{} passed",
         validation_result.files_passed, validation_result.files_checked
     );
-    if generate_llms {
+    if config.generate_llms {
         println!("Entry:      llms.txt (AI should read this first)");
     }
     println!("{}\n", "=".repeat(70));
@@ -602,15 +648,14 @@ fn run_index(
 }
 
 /// Run the ingest command (scrape + index)
-async fn run_ingest(
-    url: &str,
-    output: &Path,
-    filter: Option<String>,
-    delay: u64,
-    query: Option<String>,
-    threshold: f32,
-    project_name: Option<String>,
-) -> Result<()> {
+async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<()> {
+    // Extract fields from config
+    let filter = config.filter.clone();
+    let delay = config.delay;
+    let query = config.query.clone();
+    let threshold = config.threshold;
+    let project_name = config.project_name.clone();
+
     // Validate query length before processing (prevents DoS)
     let query_ref = query.as_deref();
     validate_query_length(&query_ref)?;
@@ -622,7 +667,7 @@ async fn run_ingest(
     // Phase 1: Scrape
     println!("[PHASE 1] SCRAPE\n");
 
-    let config = scrape::ScrapeConfig {
+    let scrape_config = scrape::ScrapeConfig {
         base_url: url.to_string(),
         use_sitemap: true,
         path_filter: filter,
@@ -630,7 +675,7 @@ async fn run_ingest(
         ..Default::default()
     };
 
-    let mut scrape_result = scrape::scrape_site(&config).await?;
+    let mut scrape_result = scrape::scrape_site(&scrape_config).await?;
     println!(
         "  Scraped {} pages from {}",
         scrape_result.success_count, url
@@ -658,17 +703,13 @@ async fn run_ingest(
     });
 
     // Use the scrape directory as source for indexing
-    run_index(
-        &scrape_dir,
-        output,
-        None,
-        true,
-        &name,
-        &format!("Documentation scraped from {}", url),
-        None, // max_related_chunks
-        None, // hnsw_m
-        None, // hnsw_ef_construction
-    )?;
+    let index_config = IndexConfig {
+        generate_llms: true,
+        project_name: name.clone(),
+        project_desc: format!("Documentation scraped from {url}"),
+        ..Default::default()
+    };
+    run_index(&scrape_dir, output, &index_config)?;
 
     Ok(())
 }
@@ -684,15 +725,13 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
 
     // Validate query using centralized validation
     let query = validate::validate_query(query)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     // Validate word count (additional constraint beyond basic validation)
     let word_count = query.split_whitespace().count();
     if word_count > MAX_QUERY_WORDS {
         anyhow::bail!(
-            "Query has too many terms ({} words, max {})",
-            word_count,
-            MAX_QUERY_WORDS
+            "Query has too many terms ({word_count} words, max {MAX_QUERY_WORDS})"
         );
     }
 
@@ -704,7 +743,7 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER SEARCH - Tantivy + BM25");
     println!("{}\n", "=".repeat(70));
-    println!("Query: \"{}\"", query);
+    println!("Query: \"{query}\"");
 
     // Try Tantivy index first
     let tantivy_available = doc_transformer::search::open_or_create_index(index_dir).is_ok();
@@ -718,7 +757,7 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
                         println!("Using Tantivy index\n");
 
                         if results.is_empty() {
-                            println!("No results found for \"{}\"", query);
+                            println!("No results found for \"{query}\"");
                         } else {
                             println!("Results:\n");
                             for (i, result) in results.iter().enumerate() {
@@ -726,7 +765,7 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
                                 let summary_short = if result.summary.chars().count() > 80 {
                                     let truncated: String =
                                         result.summary.chars().take(77).collect();
-                                    format!("{}...", truncated)
+                                    format!("{truncated}...")
                                 } else {
                                     result.summary.clone()
                                 };
@@ -739,7 +778,7 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
                                     result.score
                                 );
                                 println!("   Path: {}", result.path);
-                                println!("   {}\n", summary_short);
+                                println!("   {summary_short}\n");
                             }
 
                             println!("{}", "=".repeat(70));
@@ -756,7 +795,7 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
                     Err(e) => {
                         // Fall through to JSON-based search with informative message
                         println!("Note: Advanced search unavailable for this query.");
-                        println!("  Reason: {}", e);
+                        println!("  Reason: {e}");
                         println!("  Tip: Try simpler terms or remove special characters.");
                         println!("  Falling back to basic search...\n");
                     }
@@ -764,7 +803,7 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
             }
             Err(e) => {
                 // Fall through to JSON-based search
-                println!("Tantivy index not available: {}", e);
+                println!("Tantivy index not available: {e}");
                 println!("Using INDEX.json for search\n");
             }
         }
@@ -807,7 +846,7 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
         .map(|doc| {
             let title = doc["title"].as_str().unwrap_or("");
             let summary = doc["summary"].as_str().unwrap_or("");
-            let searchable = format!("{} {}", title, summary);
+            let searchable = format!("{title} {summary}");
             let score = filter::bm25_score(&searchable, query, avg_doc_length);
             (score, doc)
         })
@@ -819,7 +858,7 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
 
     // Display results
     if results.is_empty() {
-        println!("No results found for \"{}\"", query);
+        println!("No results found for \"{query}\"");
     } else {
         println!("Results:\n");
         for (i, (score, doc)) in results.iter().take(limit).enumerate() {
@@ -831,7 +870,7 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
             // Truncate summary
             let summary_short = if summary.chars().count() > 80 {
                 let truncated: String = summary.chars().take(77).collect();
-                format!("{}...", truncated)
+                format!("{truncated}...")
             } else {
                 summary.to_string()
             };
@@ -843,8 +882,8 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
                 title,
                 score
             );
-            println!("   Path: {}", path);
-            println!("   {}\n", summary_short);
+            println!("   Path: {path}");
+            println!("   {summary_short}\n");
         }
 
         println!("{}", "=".repeat(70));

@@ -82,7 +82,7 @@ fn analyze_single_file(
     let category = if let Some(config) = category_config {
         let filename = Path::new(source_path)
             .file_name()
-            .ok_or_else(|| anyhow::anyhow!("Invalid path: no filename in {}", source_path))?
+            .ok_or_else(|| anyhow::anyhow!("Invalid path: no filename in {source_path}"))?
             .to_string_lossy();
         config.detect_category(&filename, &clean_content, source_path)
     } else {
@@ -106,7 +106,8 @@ fn analyze_single_file(
 
 fn extract_title(content: &str, filename: &str) -> String {
     // (?m) enables multiline mode so ^ matches start of any line, not just start of string
-    let h1_regex = Regex::new(r"(?m)^# (.+)$").expect("valid h1 regex");
+    #[expect(clippy::expect_used)]
+    let h1_regex = Regex::new(r"(?m)^# (.+)$").expect("hardcoded regex pattern is valid");
     if let Some(cap) = h1_regex.captures_iter(content).next() {
         if let Some(title_match) = cap.get(1) {
             return title_match.as_str().trim().to_string();
@@ -176,7 +177,8 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
 
 /// Extract headings from content using functional composition
 fn extract_headings(content: &str) -> Vec<Heading> {
-    let regex = Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid heading regex");
+    #[expect(clippy::expect_used)]
+    let regex = Regex::new(r"^(#{1,6})\s+(.+)$").expect("hardcoded regex pattern is valid");
 
     content
         .lines()
@@ -203,7 +205,8 @@ fn extract_headings(content: &str) -> Vec<Heading> {
 
 /// Extract links from content using functional composition
 fn extract_links(content: &str) -> Vec<Link> {
-    let regex = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid link regex");
+    #[expect(clippy::expect_used)]
+    let regex = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("hardcoded regex pattern is valid");
 
     regex
         .captures_iter(content)
@@ -252,9 +255,10 @@ fn extract_first_paragraph(content: &str) -> String {
 }
 
 fn has_table(content: &str) -> bool {
-    Regex::new(r"\|.*\|.*\|")
-        .expect("valid table regex")
-        .is_match(content)
+    #[expect(clippy::expect_used)]
+    let re = Regex::new(r"\|.*\|.*\|")
+        .expect("hardcoded regex pattern is valid");
+    re.is_match(content)
 }
 
 fn detect_category(filename: &str, content: &str) -> String {
@@ -280,9 +284,12 @@ fn detect_category(filename: &str, content: &str) -> String {
         || content_lower.contains("step 1")
         || content_lower.contains("step 2")
         || content_lower.contains("## step")
-        || Regex::new(r"^\d+\.\s+")
-            .expect("valid step regex")
-            .is_match(&content_lower)
+        || {
+            #[expect(clippy::expect_used)]
+            let step_re = Regex::new(r"^\d+\.\s+")
+                .expect("hardcoded regex pattern is valid");
+            step_re.is_match(content)
+        }
     {
         return "tutorial".to_string();
     }

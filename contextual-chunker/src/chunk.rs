@@ -311,7 +311,7 @@ fn create_chunks_at_level(
             || (current_tokens >= target_tokens && !current_chunk.is_empty());
 
         if should_split && !current_chunk.is_empty() {
-            let chunk_id = format!("{}#{}", doc_id, chunk_index);
+            let chunk_id = format!("{doc_id}#{chunk_index}");
             let summary = create_summary(&current_chunk);
             let token_count = estimate_tokens(&current_chunk);
             let chunk_type = detect_chunk_type(&current_chunk);
@@ -327,7 +327,7 @@ fn create_chunks_at_level(
                 chunk_type,
                 previous_chunk_id: chunk_index
                     .checked_sub(1)
-                    .map(|prev| format!("{}#{}", doc_id, prev)),
+                    .map(|prev| format!("{doc_id}#{prev}")),
                 next_chunk_id: None,
                 summary,
                 chunk_level: level,
@@ -363,7 +363,7 @@ fn create_chunks_at_level(
 
     // Add final chunk
     if !current_chunk.is_empty() {
-        let chunk_id = format!("{}#{}", doc_id, chunk_index);
+        let chunk_id = format!("{doc_id}#{chunk_index}");
         let summary = create_summary(&current_chunk);
         let token_count = estimate_tokens(&current_chunk);
         let chunk_type = detect_chunk_type(&current_chunk);
@@ -379,7 +379,7 @@ fn create_chunks_at_level(
             chunk_type,
             previous_chunk_id: chunk_index
                 .checked_sub(1)
-                .map(|prev| format!("{}#{}", doc_id, prev)),
+                .map(|prev| format!("{doc_id}#{prev}")),
             next_chunk_id: None,
             summary,
             chunk_level: level,
@@ -389,7 +389,7 @@ fn create_chunks_at_level(
     }
 
     if chunks.is_empty() {
-        let chunk_id = format!("{}#0", doc_id);
+        let chunk_id = format!("{doc_id}#0");
         let summary = create_summary(content);
         let token_count = estimate_tokens(content);
         let chunk_type = detect_chunk_type(content);
@@ -448,7 +448,7 @@ fn create_summary(content: &str) -> String {
             let char_count = summary.chars().count();
             if char_count > 200 {
                 let truncated: String = summary.chars().take(197).collect();
-                format!("{}...", truncated)
+                format!("{truncated}...")
             } else {
                 summary
             }

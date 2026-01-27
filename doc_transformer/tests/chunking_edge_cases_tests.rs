@@ -485,8 +485,7 @@ fn test_chunking_all_levels() {
     let avg_detailed_tokens: usize = detailed.iter().map(|c| c.token_count).sum::<usize>() / detailed.len();
 
     println!(
-        "Average tokens - Summary: {}, Standard: {}, Detailed: {}",
-        avg_summary_tokens, avg_standard_tokens, avg_detailed_tokens
+        "Average tokens - Summary: {avg_summary_tokens}, Standard: {avg_standard_tokens}, Detailed: {avg_detailed_tokens}"
     );
 
     // Detailed level should have higher target than summary

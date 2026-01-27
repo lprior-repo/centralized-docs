@@ -126,7 +126,7 @@ pub fn open_or_create_index(index_path: &Path) -> Result<Index> {
     // Create new index
     fs::create_dir_all(&index_dir)?;
     let (schema, _fields) = create_schema();
-    Index::create_in_dir(&index_dir, schema).map_err(|e| anyhow!("Failed to create index: {}", e))
+    Index::create_in_dir(&index_dir, schema).map_err(|e| anyhow!("Failed to create index: {e}"))
 }
 
 /// Index a batch of documents into Tantivy
@@ -223,7 +223,7 @@ pub fn search_index(
 
     // Validate query using centralized validation
     let query_str = crate::validate::validate_query(query_str)
-        .map_err(|e| anyhow!("{}", e))?;
+        .map_err(|e| anyhow!("{e}"))?;
 
     // Get reader for searching
     let reader = index.reader()?;
@@ -233,7 +233,7 @@ pub fn search_index(
     let query_parser = QueryParser::for_index(index, vec![fields.content]);
     let query = query_parser
         .parse_query(query_str)
-        .map_err(|e| anyhow!("Invalid query: {}", e))?;
+        .map_err(|e| anyhow!("Invalid query: {e}"))?;
 
     // Execute search and get top results
     let top_docs = searcher.search(&query, &TopDocs::with_limit(limit))?;
@@ -262,7 +262,7 @@ pub fn search_index(
             .get_first(fields.summary)
             .map(tantivy::schema::OwnedValue::from)
             .and_then(|v| v.as_ref().as_str().map(|s| s.to_string()))
-            .unwrap_or_else(String::new);
+            .unwrap_or_default();
 
         let category = retrieved_doc
             .get_first(fields.category)
@@ -331,7 +331,7 @@ pub fn score_document_simple(
     let k1 = 1.2;
     let b = 0.75;
 
-    let document = format!("{} {}", title, summary);
+    let document = format!("{title} {summary}");
     let doc_words: Vec<&str> = document.split_whitespace().collect();
     // SAFETY: Document length (title + summary) typically < 1000 words, well within f32 precision
     let doc_length = doc_words.len() as f32;

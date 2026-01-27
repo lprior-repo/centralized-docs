@@ -1,16 +1,22 @@
-# Moon workspace configuration
-$schema: 'https://moonrepo.dev/schemas/workspace.json'
+$schema: "https://moonrepo.dev/schemas/workspace.json"
+
+# Project locations
+projects:
+  globs:
+    - "doc_transformer"
+    - "contextual-chunker"
+    - "llms-txt-parser"
 
 # VCS configuration
 vcs:
-  manager: git
-  defaultBranch: main
+  manager: "git"
+  defaultBranch: "main"
 
-# Projects configuration
-projects:
-  - 'doc_transformer'
+# Version constraint
+versionConstraint: ">=1.20.0"
 
-# Runner configuration
-runner:
-  cacheLifetime: '7 days'
-  logRunningCommand: true
+# LOCAL CACHE CONFIGURATION
+# Enable Moon's built-in cache for faster builds
+# Remote cache is optional - set MOON_REMOTE_CACHE_URL env var to use
+ hasher:
+  optimization: 'performance'

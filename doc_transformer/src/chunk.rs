@@ -18,11 +18,13 @@ use tap::Pipe;
 // 3. If a pattern were invalid, tests would fail immediately
 //
 // Using `.expect()` here is acceptable per BEAD-006 Option A: "Keep LazyLock + Add Compile-Time Test"
+#[expect(clippy::expect_used)]
 static H2_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^## (.+)$").expect("valid H2 regex"));
+    LazyLock::new(|| Regex::new(r"^## (.+)$").expect("hardcoded regex pattern is valid"));
 
+#[expect(clippy::expect_used)]
 static TABLE_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\|.*\|").expect("valid table regex"));
+    LazyLock::new(|| Regex::new(r"\|.*\|").expect("hardcoded regex pattern is valid"));
 
 /// Chunk level for hierarchical retrieval
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -91,6 +93,26 @@ pub struct ChunksResult {
     pub summary_chunks: usize,
     pub standard_chunks: usize,
     pub detailed_chunks: usize,
+}
+
+/// Configuration for building chunks - groups document metadata and chunking parameters
+#[derive(Debug, Clone)]
+struct ChunkConfig<'a> {
+    doc_id: &'a str,
+    doc_title: &'a str,
+    level: &'a ChunkLevel,
+    heading: &'a Option<String>,
+}
+
+impl<'a> ChunkConfig<'a> {
+    fn new(doc_id: &'a str, doc_title: &'a str, level: &'a ChunkLevel, heading: &'a Option<String>) -> Self {
+        Self {
+            doc_id,
+            doc_title,
+            level,
+            heading,
+        }
+    }
 }
 
 /// Smart chunking that preserves semantic boundaries with hierarchical levels
@@ -213,37 +235,31 @@ pub fn chunk_all(
 /// - Summary (~128 tokens): High-level overview for quick retrieval
 /// - Standard (~512 tokens): Balanced detail for most use cases
 /// - Detailed (~1024 tokens): Full context for deep understanding
-/// Helper function to create a chunk from accumulated content (pure function)
-fn build_chunk(
-    current_chunk: &str,
-    doc_id: &str,
-    doc_title: &str,
-    chunk_index: usize,
-    current_heading: &Option<String>,
-    level: &ChunkLevel,
-) -> Chunk {
-    let level_str = level.as_str();
-    let chunk_id = format!("{}#{}-{}", doc_id, chunk_index, level_str);
+///
+/// Helper function to create a chunk from accumulated content (pure function).
+fn build_chunk(current_chunk: &str, chunk_index: usize, config: &ChunkConfig<'_>) -> Chunk {
+    let level_str = config.level.as_str();
+    let chunk_id = format!("{}#{}-{}", config.doc_id, chunk_index, level_str);
     let summary = create_summary(current_chunk);
     let token_count = estimate_tokens(current_chunk);
     let chunk_type = detect_chunk_type(current_chunk);
 
     Chunk {
         chunk_id,
-        doc_id: doc_id.to_string(),
-        doc_title: doc_title.to_string(),
+        doc_id: config.doc_id.to_string(),
+        doc_title: config.doc_title.to_string(),
         chunk_index,
         content: current_chunk.to_string(),
         token_count,
-        heading: current_heading.clone(),
+        heading: config.heading.clone(),
         chunk_type,
         previous_chunk_id: chunk_index
             .checked_sub(1)
-            .map(|prev| format!("{}#{}-{}", doc_id, prev, level_str)),
+            .map(|prev| format!("{}#{}-{}", config.doc_id, prev, level_str)),
         next_chunk_id: None,
         related_chunk_ids: Vec::new(),
         summary,
-        chunk_level: level.clone(),
+        chunk_level: config.level.clone(),
         parent_chunk_id: None,
         child_chunk_ids: Vec::new(),
     }
@@ -272,14 +288,8 @@ pub fn create_chunks_at_level(
             || (current_tokens >= target_tokens && !current_chunk.is_empty());
 
         if should_split && !current_chunk.is_empty() {
-            chunks.push(build_chunk(
-                &current_chunk,
-                doc_id,
-                doc_title,
-                chunk_index,
-                &current_heading,
-                &level,
-            ));
+            let config = ChunkConfig::new(doc_id, doc_title, &level, &current_heading);
+            chunks.push(build_chunk(&current_chunk, chunk_index, &config));
 
             chunk_index = chunk_index.saturating_add(1);
             context_buffer = get_context_tail(&current_chunk, level.context_tokens());
@@ -304,14 +314,8 @@ pub fn create_chunks_at_level(
         // Check if we need to split after adding this line (for long paragraphs without H2s)
         let current_tokens = estimate_tokens(&current_chunk);
         if current_tokens >= target_tokens && !current_chunk.is_empty() {
-            chunks.push(build_chunk(
-                &current_chunk,
-                doc_id,
-                doc_title,
-                chunk_index,
-                &current_heading,
-                &level,
-            ));
+            let config = ChunkConfig::new(doc_id, doc_title, &level, &current_heading);
+            chunks.push(build_chunk(&current_chunk, chunk_index, &config));
 
             chunk_index = chunk_index.saturating_add(1);
             context_buffer = get_context_tail(&current_chunk, level.context_tokens());
@@ -328,41 +332,14 @@ pub fn create_chunks_at_level(
 
     // Add final chunk
     if !current_chunk.is_empty() {
-        chunks.push(build_chunk(
-            &current_chunk,
-            doc_id,
-            doc_title,
-            chunk_index,
-            &current_heading,
-            &level,
-        ));
+        let config = ChunkConfig::new(doc_id, doc_title, &level, &current_heading);
+        chunks.push(build_chunk(&current_chunk, chunk_index, &config));
     }
 
     // If no chunks created, create one from whole content
     if chunks.is_empty() {
-        let level_str = level.as_str();
-        let chunk_id = format!("{}#0-{}", doc_id, level_str);
-        let summary = create_summary(content);
-        let token_count = estimate_tokens(content);
-        let chunk_type = detect_chunk_type(content);
-
-        chunks.push(Chunk {
-            chunk_id,
-            doc_id: doc_id.to_string(),
-            doc_title: doc_title.to_string(),
-            chunk_index: 0,
-            content: content.to_string(),
-            token_count,
-            heading: None,
-            chunk_type,
-            previous_chunk_id: None,
-            next_chunk_id: None,
-            related_chunk_ids: Vec::new(),
-            summary,
-            chunk_level: level,
-            parent_chunk_id: None,
-            child_chunk_ids: Vec::new(),
-        });
+        let config = ChunkConfig::new(doc_id, doc_title, &level, &None);
+        chunks.push(build_chunk(content, 0, &config));
     }
 
     chunks
@@ -433,7 +410,7 @@ fn create_summary(content: &str) -> String {
         let char_count = s.chars().count();
         if char_count > 200 {
             let truncated: String = s.chars().take(197).collect();
-            format!("{}...", truncated)
+            format!("{truncated}...")
         } else {
             s
         }
@@ -502,7 +479,7 @@ mod tests {
         let summary = create_summary(content);
         assert!(!summary.is_empty());
         // Should handle Chinese characters without panicking
-        assert!(summary.len() > 0);
+        assert!(!summary.is_empty());
     }
 
     #[test]
@@ -551,7 +528,7 @@ mod tests {
         let tokens = estimate_tokens(text);
         assert!(tokens > 0);
         // Roughly 4 chars per token
-        assert!(tokens >= 3 && tokens <= 4);
+        assert!((3..=4).contains(&tokens));
     }
 
     #[test]

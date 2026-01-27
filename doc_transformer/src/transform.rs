@@ -66,10 +66,10 @@ fn transform_file(
             analysis.source_path
         );
         for (idx, link) in broken_links.iter().enumerate().take(10) {
-            eprintln!("  {}: {}", idx + 1, link);
+            eprintln!("  {}: {}", idx.saturating_add(1), link);
         }
         if broken_links.len() > 10 {
-            eprintln!("  ... and {} more", broken_links.len() - 10);
+            eprintln!("  ... and {} more", broken_links.len().saturating_sub(10));
         }
     }
 
@@ -100,7 +100,7 @@ fn transform_file(
     let tags = generate_tags(analysis);
     let tags_str = tags
         .iter()
-        .map(|t| format!("\"{}\"", t))
+        .map(|t| format!("\"{t}\""))
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -110,7 +110,7 @@ fn transform_file(
     );
 
     // Assemble final content
-    let final_content = format!("{}\n\n{}", frontmatter, content);
+    let final_content = format!("{frontmatter}\n\n{content}");
 
     // Write file
     let output_file = docs_dir.join(filename);
@@ -340,7 +340,7 @@ fn rewrite_links_ast(
 
                     if let Some(new_filename) = mapped_filename {
                         // Format as ./filename without extra spaces
-                        CowStr::from(format!("./{}", new_filename))
+                        CowStr::from(format!("./{new_filename}"))
                     } else {
                         broken_links.push(url_str.clone());
                         dest_url.clone()

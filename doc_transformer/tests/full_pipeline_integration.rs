@@ -115,7 +115,7 @@ fn test_cases() -> Vec<PipelineTestCase> {
             description: "Standard documentation with sections",
             files: vec![(
                 "guide.md",
-                r#"# Getting Started
+                r"# Getting Started
 
 This is a comprehensive guide.
 
@@ -135,7 +135,7 @@ Run `tool --help` for available commands.
 
 - [API Documentation](../api.md)
 - [Examples](../examples.md)
-"#,
+",
             )],
             expected_min_documents: 1,
             expected_min_chunks: 3,
@@ -174,7 +174,7 @@ Run `tool --help` for available commands.
             description: "International content with emoji and special characters",
             files: vec![(
                 "international.md",
-                r#"# Documentation 文档 📚
+                r"# Documentation 文档 📚
 
 ## German 🇩🇪
 
@@ -189,7 +189,7 @@ Dies ist eine Dokumentation mit Umlauten: äöü ÄÖÜ
 π ≈ 3.14159, e ≈ 2.71828, φ = (1 + √5) / 2
 
 Content should handle all Unicode correctly.
-"#,
+",
             )],
             expected_min_documents: 1,
             expected_min_chunks: 1,
@@ -350,7 +350,7 @@ fn test_full_pipeline_unicode_content() -> Result<()> {
     let index_path = output_dir.join("INDEX.json");
     if index_path.exists() {
         let content = fs::read_to_string(&index_path)?;
-        assert!(content.len() > 0, "Index should be non-empty");
+        assert!(!content.is_empty(), "Index should be non-empty");
     }
 
     Ok(())

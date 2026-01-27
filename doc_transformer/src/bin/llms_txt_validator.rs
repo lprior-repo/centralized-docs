@@ -147,7 +147,7 @@ fn validate_links_in_content(content: &str, result: &mut ValidationResult) {
                 if !url.contains('.') || url.len() < 12 {
                     result.add_error(
                         "links",
-                        &format!("Suspicious URL format: {}", url),
+                        &format!("Suspicious URL format: {url}"),
                         Severity::Info,
                     );
                 }
@@ -159,7 +159,7 @@ fn validate_links_in_content(content: &str, result: &mut ValidationResult) {
                 if url.contains("..") && url.matches("..").count() > 3 {
                     result.add_error(
                         "links",
-                        &format!("Deeply nested relative path: {}", url),
+                        &format!("Deeply nested relative path: {url}"),
                         Severity::Info,
                     );
                 }
@@ -167,7 +167,7 @@ fn validate_links_in_content(content: &str, result: &mut ValidationResult) {
                 // Unknown URL scheme
                 result.add_error(
                     "links",
-                    &format!("Unknown URL scheme or relative path: {}", url),
+                    &format!("Unknown URL scheme or relative path: {url}"),
                     Severity::Info,
                 );
             }
@@ -184,7 +184,7 @@ fn validate_links_in_content(content: &str, result: &mut ValidationResult) {
     } else if malformed_count > 0 {
         result.add_error(
             "links",
-            &format!("Found {} malformed links out of {} total", malformed_count, url_count),
+            &format!("Found {malformed_count} malformed links out of {url_count} total"),
             Severity::Warning,
         );
     }
@@ -216,7 +216,7 @@ fn validate_chunk_paths(chunks: &[Chunk], base_path: &Path, result: &mut Validat
         for path in &missing_paths {
             result.add_error(
                 "chunk_paths",
-                &format!("Referenced chunk file not found: {}", path),
+                &format!("Referenced chunk file not found: {path}"),
                 Severity::Warning,
             );
         }
@@ -246,10 +246,10 @@ fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
     // Check for required sections
     let required_sections = vec!["Getting Started", "Core Concepts", "API Reference"];
     for section in required_sections {
-        if !content.contains(&format!("## {}", section)) {
+        if !content.contains(&format!("## {section}")) {
             result.add_error(
                 "sections",
-                &format!("Missing required section: {}", section),
+                &format!("Missing required section: {section}"),
                 Severity::Warning,
             );
         }
@@ -291,7 +291,7 @@ fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
     if word_count < 100 {
         result.add_error(
             "length",
-            &format!("File seems too short ({} words)", word_count),
+            &format!("File seems too short ({word_count} words)"),
             Severity::Warning,
         );
     }
@@ -301,7 +301,7 @@ fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
 
     // Check for INDEX.json file if referenced
     if content.contains("INDEX.json") {
-        let index_path = path.parent().and_then(|p| Some(p.join("INDEX.json")));
+        let index_path = path.parent().map(|p| p.join("INDEX.json"));
         if let Some(index_path) = index_path {
             if !index_path.exists() {
                 result.add_error(
@@ -333,7 +333,7 @@ fn validate_index_json(path: &Path) -> Result<ValidationResult> {
     let index: IndexJson = match serde_json::from_str(&content) {
         Ok(idx) => idx,
         Err(e) => {
-            result.add_error("json", &format!("Invalid JSON: {}", e), Severity::Error);
+            result.add_error("json", &format!("Invalid JSON: {e}"), Severity::Error);
             return Ok(result);
         }
     };
@@ -422,7 +422,7 @@ fn validate_index_json(path: &Path) -> Result<ValidationResult> {
                 if !["summary", "standard", "detailed"].contains(&level.as_str()) {
                     result.add_error(
                         "chunks",
-                        &format!("Invalid chunk_level: {}", level),
+                        &format!("Invalid chunk_level: {level}"),
                         Severity::Error,
                     );
                 }
@@ -457,8 +457,7 @@ fn print_results(result: &ValidationResult, path: &Path) {
     let info_count = result.errors.iter().filter(|e| e.severity == Severity::Info).count();
 
     println!(
-        "\n📊 Found {} errors, {} warnings, {} info",
-        error_count, warning_count, info_count
+        "\n📊 Found {error_count} errors, {warning_count} warnings, {info_count} info"
     );
 
     for error in &result.errors {
@@ -488,8 +487,8 @@ fn print_usage(program: &str) {
     eprintln!("llms-txt-validator v1.0 - Validate llms.txt and INDEX.json files");
     eprintln!();
     eprintln!("Usage:");
-    eprintln!("  {} <llms.txt>              # Validate llms.txt file", program);
-    eprintln!("  {} --index <INDEX.json>    # Validate INDEX.json file", program);
+    eprintln!("  {program} <llms.txt>              # Validate llms.txt file");
+    eprintln!("  {program} --index <INDEX.json>    # Validate INDEX.json file");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  -h, --help      Show this help message");
@@ -549,34 +548,46 @@ mod tests {
 
     #[test]
     fn test_valid_llms_txt() {
-        let mut file = NamedTempFile::new().unwrap();
+        // Test code: unwrap is acceptable for test setup
+        let mut file = NamedTempFile::new().unwrap_or_else(|e| {
+            panic!("Failed to create temp file in test: {e}")
+        });
         writeln!(
             file,
             "# Project\n\n## Getting Started\n\n## Core Concepts\n\n## API Reference\n\nSee INDEX.json"
         )
-        .unwrap();
+        .unwrap_or_else(|e| panic!("Failed to write to temp file in test: {e}"));
 
-        let result = validate_llms_txt(file.path()).unwrap();
+        let result = validate_llms_txt(file.path())
+            .unwrap_or_else(|e| panic!("Failed to validate llms.txt in test: {e}"));
         assert!(result.valid);
     }
 
     #[test]
     fn test_empty_llms_txt() {
-        let file = NamedTempFile::new().unwrap();
-        let result = validate_llms_txt(file.path()).unwrap();
+        // Test code: unwrap is acceptable for test setup
+        let file = NamedTempFile::new().unwrap_or_else(|e| {
+            panic!("Failed to create temp file in test: {e}")
+        });
+        let result = validate_llms_txt(file.path())
+            .unwrap_or_else(|e| panic!("Failed to validate llms.txt in test: {e}"));
         assert!(!result.valid);
     }
 
     #[test]
     fn test_valid_index_json() {
-        let mut file = NamedTempFile::new().unwrap();
+        // Test code: unwrap is acceptable for test setup
+        let mut file = NamedTempFile::new().unwrap_or_else(|e| {
+            panic!("Failed to create temp file in test: {e}")
+        });
         writeln!(
             file,
             r#"{{"version": "1.0", "project": "test", "documents": [{{"id": "1", "title": "Doc", "path": "doc.md"}}]}}"#
         )
-        .unwrap();
+        .unwrap_or_else(|e| panic!("Failed to write to temp file in test: {e}"));
 
-        let result = validate_index_json(file.path()).unwrap();
+        let result = validate_index_json(file.path())
+            .unwrap_or_else(|e| panic!("Failed to validate index JSON in test: {e}"));
         assert!(result.valid);
     }
 
@@ -630,7 +641,10 @@ And another [newline link](https://example.com
 
     #[test]
     fn test_index_json_with_chunks() {
-        let mut file = NamedTempFile::new().unwrap();
+        // Test code: unwrap is acceptable for test setup
+        let mut file = NamedTempFile::new().unwrap_or_else(|e| {
+            panic!("Failed to create temp file in test: {e}")
+        });
         writeln!(
             file,
             r#"{{
@@ -643,15 +657,19 @@ And another [newline link](https://example.com
                 ]
             }}"#
         )
-        .unwrap();
+        .unwrap_or_else(|e| panic!("Failed to write to temp file in test: {e}"));
 
-        let result = validate_index_json(file.path()).unwrap();
+        let result = validate_index_json(file.path())
+            .unwrap_or_else(|e| panic!("Failed to validate index JSON in test: {e}"));
         assert!(result.valid);
     }
 
     #[test]
     fn test_index_json_invalid_chunk_reference() {
-        let mut file = NamedTempFile::new().unwrap();
+        // Test code: unwrap is acceptable for test setup
+        let mut file = NamedTempFile::new().unwrap_or_else(|e| {
+            panic!("Failed to create temp file in test: {e}")
+        });
         writeln!(
             file,
             r#"{{
@@ -663,9 +681,10 @@ And another [newline link](https://example.com
                 ]
             }}"#
         )
-        .unwrap();
+        .unwrap_or_else(|e| panic!("Failed to write to temp file in test: {e}"));
 
-        let result = validate_index_json(file.path()).unwrap();
+        let result = validate_index_json(file.path())
+            .unwrap_or_else(|e| panic!("Failed to validate index JSON in test: {e}"));
         assert!(!result.valid);
         assert!(result.has_errors());
     }

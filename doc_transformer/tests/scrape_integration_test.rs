@@ -15,7 +15,7 @@ fn test_scrape_pipeline_simulation() {
     
     println!("=== Scrape Pipeline Simulation Test ===");
     println!("This test verifies PLAN.md requirement: 'Real site test'");
-    println!("");
+    println!();
     
     // Verify scrape.rs module exists and has required functions
     assert!(
@@ -44,12 +44,12 @@ fn test_scrape_pipeline_simulation() {
     println!("✅ Scrape command exists and is properly configured");
     println!("✅ All required modules (scrape.rs, filter.rs) exist");
     println!("✅ CLI interface matches PLAN.md specification");
-    println!("");
+    println!();
     println!("Note: Actual network scraping test would require:");
     println!("  - Network connectivity");
     println!("  - External test site (e.g., example.com)");
     println!("  - Longer execution time");
-    println!("");
+    println!();
     println!("This simulation confirms all components are ready for real use.");
 }
 

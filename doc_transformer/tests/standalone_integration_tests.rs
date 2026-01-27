@@ -46,7 +46,7 @@ impl TestFixture {
     fn discover_markdown(&self) -> Vec<String> {
         use walkdir::WalkDir;
 
-        let extensions = vec![".md", ".mdx", ".rst", ".txt"];
+        let extensions = [".md", ".mdx", ".rst", ".txt"];
 
         WalkDir::new(self.root())
             .into_iter()
@@ -358,7 +358,7 @@ fn test_case_sensitivity_filenames() {
     let files = fixture.discover_markdown();
     // On case-sensitive systems: 2 files
     // On case-insensitive systems: 1 file (last write wins)
-    assert!(files.len() >= 1);
+    assert!(!files.is_empty());
 }
 
 #[test]
@@ -392,7 +392,7 @@ fn generate_large_doc(word_count: usize) -> String {
     let mut section = 1;
 
     while words < word_count && section < 100 {
-        doc.push_str(&format!("## Section {}\n\n", section));
+        doc.push_str(&format!("## Section {section}\n\n"));
         doc.push_str("This section contains documentation content. ");
         doc.push_str("It tests the pipeline's ability to handle large files. ");
         doc.push_str("Performance should remain good despite document size. ");

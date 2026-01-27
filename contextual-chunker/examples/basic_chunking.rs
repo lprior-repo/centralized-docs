@@ -108,7 +108,7 @@ If all tests pass, you're ready to go!
     if let Some(first_chunk) = result.chunks.first() {
         println!("First chunk: {}", first_chunk.chunk_id);
         if let Some(next_id) = &first_chunk.next_chunk_id {
-            println!("Next chunk: {}", next_id);
+            println!("Next chunk: {next_id}");
         }
     }
 

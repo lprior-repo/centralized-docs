@@ -16,11 +16,13 @@ use thiserror::Error;
 // 3. If a pattern were invalid, tests would fail immediately
 //
 // Using `.expect()` here is acceptable per BEAD-006 Option A: "Keep LazyLock + Add Compile-Time Test"
+#[expect(clippy::expect_used)]
 static H1_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?m)^# [^#]").expect("valid H1 regex"));
+    LazyLock::new(|| Regex::new(r"(?m)^# [^#]").expect("hardcoded regex pattern is valid"));
 
+#[expect(clippy::expect_used)]
 static TAGS_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"tags:\s*\[[^\]]{10,}\]").expect("valid tags regex"));
+    LazyLock::new(|| Regex::new(r"tags:\s*\[[^\]]{10,}\]").expect("hardcoded regex pattern is valid"));
 
 /// Query validation errors
 #[derive(Debug, Error, PartialEq, Eq)]

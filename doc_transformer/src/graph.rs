@@ -359,9 +359,9 @@ mod tests {
 
         for i in 1..=3 {
             dag.add_node(GraphNode {
-                id: format!("node{}", i),
+                id: format!("node{i}"),
                 node_type: NodeType::Chunk,
-                title: format!("Node {}", i),
+                title: format!("Node {i}"),
                 category: None,
             });
         }
@@ -399,15 +399,15 @@ mod tests {
 
         for i in 1..=3 {
             dag.add_node(GraphNode {
-                id: format!("spoke{}", i),
+                id: format!("spoke{i}"),
                 node_type: NodeType::Chunk,
-                title: format!("Spoke {}", i),
+                title: format!("Spoke {i}"),
                 category: None,
             });
 
             dag.add_edge(GraphEdge {
                 from: "hub".to_string(),
-                to: format!("spoke{}", i),
+                to: format!("spoke{i}"),
                 edge_type: EdgeType::Parent,
                 weight: 0.5,
             });
