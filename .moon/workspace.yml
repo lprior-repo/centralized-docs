@@ -14,9 +14,3 @@ vcs:
 
 # Version constraint
 versionConstraint: ">=1.20.0"
-
-# LOCAL CACHE CONFIGURATION
-# Enable Moon's built-in cache for faster builds
-# Remote cache is optional - set MOON_REMOTE_CACHE_URL env var to use
- hasher:
-  optimization: 'performance'
