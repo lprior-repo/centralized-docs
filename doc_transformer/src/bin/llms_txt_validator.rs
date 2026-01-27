@@ -521,10 +521,14 @@ fn print_usage(program: &str) {
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
+    let program = args
+        .first()
+        .map(|s| s.as_str())
+        .unwrap_or("llms-txt-validator");
 
     // Handle --help and --version flags first
     if args.iter().any(|a| a == "--help" || a == "-h") {
-        print_usage(&args[0]);
+        print_usage(program);
         std::process::exit(0);
     }
 
@@ -534,7 +538,7 @@ fn main() -> Result<()> {
     }
 
     if args.len() < 2 {
-        print_usage(&args[0]);
+        print_usage(program);
         std::process::exit(1);
     }
 
