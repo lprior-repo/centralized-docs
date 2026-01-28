@@ -154,7 +154,7 @@ fn build_dag_for_benchmark(
     chunks: &[Chunk],
     document_tags: &[(String, Vec<String>, String)],
 ) -> KnowledgeDAG {
-    build_knowledge_dag(documents, chunks, document_tags, None, None, None)
+    build_knowledge_dag(documents, chunks, document_tags, None, None, None).unwrap()
 }
 
 fn benchmark_dag_with_metrics(c: &mut Criterion) {

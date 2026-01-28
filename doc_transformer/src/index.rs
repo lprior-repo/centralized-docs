@@ -122,7 +122,7 @@ pub fn build_and_write_index(
         max_related_chunks,
         hnsw_m,
         hnsw_ef_construction,
-    );
+    )?;
     let dag_stats = dag.statistics();
 
     // Build chunk metadata for semantic navigation (with related chunks from DAG)
@@ -350,7 +350,9 @@ fn generate_embedding_from_tags(
 }
 
 /// Build vocabulary from all tags and categories
-fn build_vocabulary(document_tags: &[(String, Vec<String>, String)]) -> HashMap<String, usize> {
+fn build_vocabulary(
+    document_tags: &[(String, Vec<String>, String)],
+) -> Result<HashMap<String, usize>> {
     let mut vocab = HashMap::new();
     let mut idx: usize = 0;
 
@@ -358,19 +360,23 @@ fn build_vocabulary(document_tags: &[(String, Vec<String>, String)]) -> HashMap<
         // Add category to vocabulary
         if !vocab.contains_key(category) && !category.is_empty() {
             vocab.insert(category.clone(), idx);
-            idx += 1;
+            idx = idx.checked_add(1).ok_or_else(|| {
+                anyhow::anyhow!("Vocabulary index overflow - too many unique tags/categories")
+            })?;
         }
 
         // Add tags to vocabulary
         for tag in tags {
             if !vocab.contains_key(tag) && !tag.is_empty() {
                 vocab.insert(tag.clone(), idx);
-                idx += 1;
+                idx = idx.checked_add(1).ok_or_else(|| {
+                    anyhow::anyhow!("Vocabulary index overflow - too many unique tags/categories")
+                })?;
             }
         }
     }
 
-    vocab
+    Ok(vocab)
 }
 
 /// Build a knowledge graph DAG from documents and chunks
@@ -383,7 +389,7 @@ pub fn build_knowledge_dag(
     max_related_chunks: Option<usize>,
     hnsw_m: Option<usize>,
     hnsw_ef_construction: Option<usize>,
-) -> KnowledgeDAG {
+) -> Result<KnowledgeDAG> {
     let mut dag = KnowledgeDAG::new();
 
     // Add document nodes
@@ -442,7 +448,7 @@ pub fn build_knowledge_dag(
 
     if !chunks.is_empty() {
         // Build vocabulary from all tags and categories
-        let vocabulary = build_vocabulary(document_tags);
+        let vocabulary = build_vocabulary(document_tags)?;
         let embedding_dim = vocabulary.len().max(1); // At least 1 dimension
 
         // Generate embeddings for all chunks
@@ -524,7 +530,7 @@ pub fn build_knowledge_dag(
         }
     }
 
-    dag
+    Ok(dag)
 }
 
 #[cfg(test)]
@@ -691,13 +697,14 @@ mod tests {
     /// Test HNSW edge count linearity across multiple scales
     /// Verifies that edge count grows linearly (O(n)) not quadratically (O(n²))
     #[test]
+    #[allow(clippy::unwrap_used)]
     fn test_hnsw_edge_count_linear() {
         for n in [10, 100, 1000] {
             let chunks = generate_test_chunks(n);
             let docs = generate_test_docs(&chunks);
             let tags = generate_test_tags(&chunks);
 
-            let dag = build_knowledge_dag(&docs, &chunks, &tags, None, None, None);
+            let dag = build_knowledge_dag(&docs, &chunks, &tags, None, None, None).unwrap();
 
             // N × max_related_chunks × safety_factor (1.5)
             // max_related_chunks = 20 in build_knowledge_dag
@@ -716,6 +723,7 @@ mod tests {
     /// Test that edge count is O(n log n), not O(n²)
     /// With HNSW, we expect at most max_related edges per node
     #[test]
+    #[allow(clippy::unwrap_used)]
     fn test_knowledge_dag_edge_count_is_linear() {
         const N: usize = 100;
         const MAX_RELATED: usize = 5;
@@ -773,7 +781,8 @@ mod tests {
             .collect();
 
         // Build the DAG
-        let dag = build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None);
+        let dag =
+            build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None).unwrap();
 
         // Get statistics
         let stats = dag.statistics();
@@ -817,6 +826,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unwrap_used)]
     fn test_build_vocabulary() {
         let document_tags = vec![
             (
@@ -831,7 +841,7 @@ mod tests {
             ),
         ];
 
-        let vocab = build_vocabulary(&document_tags);
+        let vocab = build_vocabulary(&document_tags).unwrap();
 
         // Should have 3 unique tags (rust, programming, web) + 2 categories (tutorial, guide) = 5 total
         // "rust" appears in both documents but is only counted once
@@ -867,12 +877,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unwrap_used)]
     fn test_empty_chunks_no_crash() {
         let documents = vec![];
         let chunks = vec![];
         let document_tags = vec![];
 
-        let dag = build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None);
+        let dag =
+            build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None).unwrap();
 
         let stats = dag.statistics();
         assert_eq!(stats.node_count, 0);
