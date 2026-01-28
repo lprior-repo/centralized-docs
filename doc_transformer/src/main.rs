@@ -389,12 +389,9 @@ async fn main() -> Result<()> {
             if let (Some(source), Some(output)) = (cli.source_dir, cli.output_dir) {
                 run_index(&source, &output, &IndexConfig::default())
             } else {
-                eprintln!("Usage: doc_transformer <SOURCE> <OUTPUT>");
-                eprintln!("   or: doc_transformer scrape <URL> --output <DIR>");
-                eprintln!("   or: doc_transformer index <SOURCE> --output <DIR>");
-                eprintln!("   or: doc_transformer ingest <URL> --output <DIR>");
-                eprintln!("\nRun 'doc_transformer --help' for more information.");
-                std::process::exit(1);
+                anyhow::bail!(
+                    "Usage: doc_transformer <SOURCE> <OUTPUT>\n   or: doc_transformer scrape <URL> --output <DIR>\n   or: doc_transformer index <SOURCE> --output <DIR>\n   or: doc_transformer ingest <URL> --output <DIR>\n\nRun 'doc_transformer --help' for more information."
+                );
             }
         }
     }
@@ -586,11 +583,10 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
 
     // Validate non-empty: must have at least one file to index
     if files.is_empty() {
-        eprintln!(
-            "Error: No markdown files found in {}. Please check the path or add .md files.",
+        anyhow::bail!(
+            "No markdown files found in {}. Please check the path or add .md files.",
             source.display()
         );
-        std::process::exit(1);
     }
 
     // STEP 2: ANALYZE
@@ -874,16 +870,17 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
 
     println!("Searching {} documents\n", documents.len());
 
-    // Calculate average document length for BM25
-    let total_words: usize = documents
-        .iter()
-        .filter_map(|d| d["word_count"].as_u64())
-        .filter_map(|c| usize::try_from(c).ok())
-        .sum();
-    let avg_doc_length = if !documents.is_empty() && total_words > 0 {
-        // SAFETY: Document counts and word counts are small (< 10k documents, < 1M words)
-        // well within f32 precision (2^24 ≈ 16.7M)
-        total_words as f32 / documents.len() as f32
+    let avg_doc_length = if !documents.is_empty() {
+        let total_words: usize = documents
+            .iter()
+            .filter_map(|d| d["word_count"].as_u64())
+            .filter_map(|c| usize::try_from(c).ok())
+            .sum();
+        if total_words > 0 {
+            total_words as f32 / documents.len() as f32
+        } else {
+            100.0
+        }
     } else {
         100.0
     };

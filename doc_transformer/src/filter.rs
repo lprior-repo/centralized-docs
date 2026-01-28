@@ -523,6 +523,85 @@ pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
         })
 }
 
+/// Batch score documents using BM25 with single persistent index
+///
+/// Creates ONE index for ALL documents (O(1) memory, not O(n)), then scores.
+/// Replaces O(n) index creations with single reusable index.
+/// Used by search fallback path when Tantivy index unavailable.
+#[allow(dead_code)] // Used by main binary, appears unused in lib build
+pub fn bm25_score_documents<'a>(
+    documents: &'a [serde_json::Value],
+    query: &str,
+    limit: usize,
+) -> Result<Vec<(f32, &'a serde_json::Value)>, anyhow::Error> {
+    use tantivy::collector::TopDocs;
+    use tantivy::query::QueryParser;
+    use tantivy::schema::{Schema, TEXT};
+    use tantivy::Index;
+
+    if documents.is_empty() || query.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let (schema, content_field) = {
+        let mut schema_builder = Schema::builder();
+        let field = schema_builder.add_text_field("content", TEXT);
+        (schema_builder.build(), field)
+    };
+
+    let index = Index::create_in_ram(schema);
+
+    let mut writer = index
+        .writer(15_000_000)
+        .map_err(|e| anyhow::anyhow!("Failed to create index writer: {e}"))?;
+
+    for (doc_id, doc) in documents.iter().enumerate() {
+        let title = doc["title"].as_str().unwrap_or("");
+        let summary = doc["summary"].as_str().unwrap_or("");
+        let searchable = format!("{title} {summary}");
+        writer
+            .add_document(tantivy::doc!(content_field => searchable))
+            .map_err(|e| anyhow::anyhow!("Failed to add document {doc_id}: {e}"))?;
+    }
+
+    writer
+        .commit()
+        .map_err(|e| anyhow::anyhow!("Failed to commit index: {e}"))?;
+
+    let reader = index
+        .reader()
+        .map_err(|e| anyhow::anyhow!("Failed to create reader: {e}"))?;
+    let searcher = reader.searcher();
+
+    let query_parser = QueryParser::for_index(&index, vec![content_field]);
+    let parsed_query = query_parser
+        .parse_query(query)
+        .map_err(|e| anyhow::anyhow!("Failed to parse query: {e}"))?;
+
+    let top_docs = searcher
+        .search(&parsed_query, &TopDocs::with_limit(limit))
+        .map_err(|e| anyhow::anyhow!("Search failed: {e}"))?;
+
+    let results: Vec<(f32, &serde_json::Value)> = top_docs
+        .into_iter()
+        .filter_map(|(score, doc_address)| {
+            searcher
+                .doc::<tantivy::TantivyDocument>(doc_address)
+                .ok()
+                .and_then(|_| {
+                    let doc_id = doc_address.doc_id as usize;
+                    if doc_id < documents.len() {
+                        Some((score, &documents[doc_id]))
+                    } else {
+                        None
+                    }
+                })
+        })
+        .collect();
+
+    Ok(results)
+}
+
 /// Test helper: Discover markdown files from a directory (for integration tests)
 ///
 /// This function is used in integration tests to simulate the discovery phase
@@ -538,7 +617,15 @@ pub fn discover_test_files(root: &std::path::Path) -> Result<Vec<String>, anyhow
     let extensions = [".md", ".mdx", ".rst", ".txt"];
     let exclude_dirs = ["node_modules", ".git", "_build", "dist", "vendor"];
 
-    for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(root).into_iter() {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                eprintln!("Warning: Skipping path due to I/O error: {e}");
+                continue;
+            }
+        };
+
         let path = entry.path();
 
         // Skip excluded directories

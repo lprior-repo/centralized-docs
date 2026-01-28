@@ -26,7 +26,15 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     let extensions = [".md", ".mdx", ".rst", ".txt"];
     let exclude_dirs = ["node_modules", ".git", "_build", "dist", "vendor"];
 
-    for entry in WalkDir::new(source_dir).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(source_dir).into_iter() {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                eprintln!("Warning: Skipping path due to I/O error: {e}");
+                continue;
+            }
+        };
+
         let path = entry.path();
 
         // Skip excluded directories
