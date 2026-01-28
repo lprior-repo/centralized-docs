@@ -613,6 +613,9 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
         &chunks_result,
         output,
         &config.project_name,
+        config.max_related_chunks,
+        config.hnsw_m,
+        config.hnsw_ef_construction,
     )?;
     index::build_and_write_compass(&analyses, &link_map, output)?;
     println!("  Created INDEX.json and COMPASS.md\n");
@@ -811,7 +814,7 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
                     }
                     Err(e) => {
                         // Fall through to JSON-based search with informative message
-                        println!("Note: Advanced search unavailable for this query.");
+                        println!("Note: Query contains special characters unsupported by advanced search.");
                         println!("  Reason: {e}");
                         println!("  Tip: Try simpler terms or remove special characters.");
                         println!("  Falling back to basic search...\n");

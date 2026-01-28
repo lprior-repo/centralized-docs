@@ -224,7 +224,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
     // Parse query
     let query_parser = QueryParser::for_index(index, vec![fields.content]);
     let query = query_parser
-        .parse_query(&query_str_sanitized)
+        .parse_query(&crate::validate::sanitize_query(query_str))
         .map_err(|e| anyhow!("Invalid query: {e}"))?;
 
     // Execute search and get top results

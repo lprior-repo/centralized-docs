@@ -49,6 +49,63 @@ println!("Created {} chunks across {} levels",
 );
 ```
 
+## Using the Chunker Trait
+
+The crate provides a `Chunker` trait for flexible, extensible chunking strategies:
+
+```rust
+use contextual_chunker::{Chunker, ContextualChunker, Document};
+
+// Use factory methods for common configurations
+let summary_chunker = ContextualChunker::summary();   // ~128 tokens
+let standard_chunker = ContextualChunker::standard(); // ~512 tokens
+let detailed_chunker = ContextualChunker::detailed(); // ~1024 tokens
+
+let doc = Document::new(
+    "guide".to_string(),
+    "Guide".to_string(),
+    "## Intro\nContent".to_string(),
+);
+
+let chunks = standard_chunker.chunk(&doc)?;
+```
+
+### Custom Configuration
+
+Create custom chunkers with specific parameters:
+
+```rust
+use contextual_chunker::{Chunker, ContextualChunker, Document, ChunkLevel};
+
+// Custom level with 800 tokens and 150 context tokens
+let custom_chunker = ContextualChunker::new(ChunkLevel::Standard, 150);
+
+let doc = Document::new(
+    "custom".to_string(),
+    "Custom Doc".to_string(),
+    "Content here...".to_string(),
+);
+
+let chunks = custom_chunker.chunk(&doc)?;
+```
+
+### Implementing Custom Chunkers
+
+Define your own chunking strategies by implementing the `Chunker` trait:
+
+```rust
+use contextual_chunker::{Chunker, Document, Chunk};
+
+struct SimpleChunker;
+
+impl Chunker for SimpleChunker {
+    fn chunk(&self, doc: &Document) -> anyhow::Result<Vec<Chunk>> {
+        // Your custom chunking logic
+        Ok(vec![])
+    }
+}
+```
+
 ## How It Works
 
 ### 3-Level Hierarchy
