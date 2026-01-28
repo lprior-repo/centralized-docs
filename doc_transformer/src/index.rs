@@ -53,6 +53,7 @@ pub struct RelatedChunk {
     pub similarity: f32,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_and_write_index(
     analyses: &[Analysis],
     link_map: &HashMap<String, IdMapping>,
@@ -373,6 +374,7 @@ fn build_vocabulary(document_tags: &[(String, Vec<String>, String)]) -> HashMap<
 }
 
 /// Build a knowledge graph DAG from documents and chunks
+#[allow(clippy::too_many_arguments)]
 pub fn build_knowledge_dag(
     documents: &[IndexDocument],
     chunks: &[Chunk],
@@ -713,8 +715,9 @@ mod tests {
     #[test]
     fn test_knowledge_dag_edge_count_is_linear() {
         const N: usize = 100;
-        let max_related_chunks: Option<usize> = Some(5);
-        let max_related = max_related_chunks.unwrap_or(5);
+        const MAX_RELATED: usize = 5;
+        let max_related_chunks: Option<usize> = Some(MAX_RELATED);
+        let max_related = MAX_RELATED;
 
         // Create test documents
         let documents: Vec<IndexDocument> = (0..10)
