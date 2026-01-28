@@ -229,7 +229,7 @@ mod tests {
 
         let chunk = convert_chunk(cc_chunk);
 
-        assert_eq!(chunk.chunk_id, "test#0");
+        assert_eq!(chunk.chunk_id, "test#0-standard");
         assert_eq!(chunk.chunk_level, contextual_chunker::ChunkLevel::Standard);
         assert!(chunk.related_chunk_ids.is_empty()); // Populated later by graph
 

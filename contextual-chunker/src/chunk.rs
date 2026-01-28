@@ -57,6 +57,21 @@ impl ChunkLevel {
     }
 }
 
+/// Generate a chunk ID with hierarchical level suffix
+///
+/// # Format
+///
+/// `{doc_id}#{chunk_index}-{level}`
+///
+/// # Examples
+///
+/// - `test-doc#0-summary`
+/// - `test-doc#1-standard`
+/// - `test-doc#2-detailed`
+fn generate_chunk_id(doc_id: &str, chunk_index: usize, level: ChunkLevel) -> String {
+    format!("{doc_id}#{chunk_index}-{}", level.as_str())
+}
+
 /// A semantic chunk of a document
 ///
 /// Chunks preserve document context through:
@@ -66,8 +81,8 @@ impl ChunkLevel {
 ///
 /// # Chunk ID Format
 ///
-/// Chunk IDs use format: `{doc_id}#{chunk_index}`
-/// Example: `guides-intro#0`, `guides-intro#1`
+/// Chunk IDs use format: `{doc_id}#{chunk_index}-{level}`
+/// Example: `guides-intro#0-summary`, `guides-intro#1-standard`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
     /// Unique chunk identifier: {doc_id}#{index}
@@ -318,7 +333,7 @@ fn create_chunks_at_level(
             || (current_tokens >= target_tokens && !current_chunk.is_empty());
 
         if should_split && !current_chunk.is_empty() {
-            let chunk_id = format!("{doc_id}#{chunk_index}");
+            let chunk_id = generate_chunk_id(doc_id, chunk_index, level);
             let summary = create_summary(&current_chunk);
             let token_count = estimate_tokens(&current_chunk);
             let chunk_type = detect_chunk_type(&current_chunk);
@@ -334,7 +349,7 @@ fn create_chunks_at_level(
                 chunk_type,
                 previous_chunk_id: chunk_index
                     .checked_sub(1)
-                    .map(|prev| format!("{doc_id}#{prev}")),
+                    .map(|prev| generate_chunk_id(doc_id, prev, level)),
                 next_chunk_id: None,
                 summary,
                 chunk_level: level,
@@ -370,7 +385,7 @@ fn create_chunks_at_level(
 
     // Add final chunk
     if !current_chunk.is_empty() {
-        let chunk_id = format!("{doc_id}#{chunk_index}");
+        let chunk_id = generate_chunk_id(doc_id, chunk_index, level);
         let summary = create_summary(&current_chunk);
         let token_count = estimate_tokens(&current_chunk);
         let chunk_type = detect_chunk_type(&current_chunk);
@@ -386,7 +401,7 @@ fn create_chunks_at_level(
             chunk_type,
             previous_chunk_id: chunk_index
                 .checked_sub(1)
-                .map(|prev| format!("{doc_id}#{prev}")),
+                .map(|prev| generate_chunk_id(doc_id, prev, level)),
             next_chunk_id: None,
             summary,
             chunk_level: level,
@@ -396,7 +411,7 @@ fn create_chunks_at_level(
     }
 
     if chunks.is_empty() {
-        let chunk_id = format!("{doc_id}#0");
+        let chunk_id = generate_chunk_id(doc_id, 0, level);
         let summary = create_summary(content);
         let token_count = estimate_tokens(content);
         let chunk_type = detect_chunk_type(content);
