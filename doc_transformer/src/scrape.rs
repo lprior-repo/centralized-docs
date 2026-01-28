@@ -236,7 +236,12 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                 Ok(scraped) => {
                     // Track cumulative size for DoS protection (total content limit)
                     let page_size = scraped.markdown.len() as u64;
-                    total_content_size = total_content_size.saturating_add(page_size);
+                    total_content_size =
+                        total_content_size.checked_add(page_size).ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Integer overflow: total content size would exceed u64::MAX"
+                            )
+                        })?;
 
                     // Check if total content exceeds limit (streaming attack protection)
                     if total_content_size > config.max_total_size_bytes {
@@ -323,15 +328,14 @@ fn transform_page(
 
     // Transform HTML to Markdown using spider_transformations
     // Args: page, config, url_selector, selector_config, clean_selectors
-    let mut markdown =
+    let markdown =
         content::transform_content(page, &transform_config, &None, &selector_config, &None);
 
     // Apply additional markdown-level content filtering
-    let filtered = if enable_filtering {
-        markdown = filter_markdown(&markdown, &filter_config);
-        true
+    let (markdown, filtered) = if enable_filtering {
+        (filter_markdown(&markdown, &filter_config), true)
     } else {
-        false
+        (markdown, false)
     };
 
     // Enforce markdown size limit (memory exhaustion protection)
