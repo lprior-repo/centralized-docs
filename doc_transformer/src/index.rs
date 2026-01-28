@@ -358,14 +358,14 @@ fn build_vocabulary(document_tags: &[(String, Vec<String>, String)]) -> HashMap<
         // Add category to vocabulary
         if !vocab.contains_key(category) && !category.is_empty() {
             vocab.insert(category.clone(), idx);
-            idx = idx.saturating_add(1);
+            idx += 1;
         }
 
         // Add tags to vocabulary
         for tag in tags {
             if !vocab.contains_key(tag) && !tag.is_empty() {
                 vocab.insert(tag.clone(), idx);
-                idx = idx.saturating_add(1);
+                idx += 1;
             }
         }
     }
