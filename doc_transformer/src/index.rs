@@ -375,6 +375,7 @@ fn build_vocabulary(document_tags: &[(String, Vec<String>, String)]) -> HashMap<
 
 /// Build a knowledge graph DAG from documents and chunks
 #[allow(clippy::too_many_arguments)]
+#[allow(unused_variables)]
 pub fn build_knowledge_dag(
     documents: &[IndexDocument],
     chunks: &[Chunk],
@@ -490,7 +491,7 @@ pub fn build_knowledge_dag(
 
                     // Query HNSW for top-k neighbors (k+1 to account for self)
                     if let Ok(neighbors) =
-                        query_neighbors(&index, &query_embedding, max_related + 1)
+                        query_neighbors(&index, &query_embedding, max_related.saturating_add(1))
                     {
                         let mut added_edges: usize = 0;
                         for (neighbor_idx, similarity) in neighbors {
@@ -716,7 +717,6 @@ mod tests {
     fn test_knowledge_dag_edge_count_is_linear() {
         const N: usize = 100;
         const MAX_RELATED: usize = 5;
-        let max_related_chunks: Option<usize> = Some(MAX_RELATED);
         let max_related = MAX_RELATED;
 
         // Create test documents

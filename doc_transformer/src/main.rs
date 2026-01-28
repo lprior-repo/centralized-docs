@@ -527,8 +527,36 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
     Ok(())
 }
 
+/// Validate output path is a directory or can be created
+fn validate_output_path(path: &Path) -> Result<()> {
+    if path.exists() {
+        if !path.is_dir() {
+            anyhow::bail!(
+                "Output path must be a directory, but got: {}",
+                path.display()
+            );
+        }
+    } else {
+        let parent = path
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Invalid output path: {}", path.display()))?;
+
+        if !parent.exists() {
+            anyhow::bail!("Parent directory does not exist: {}", parent.display());
+        }
+
+        if !parent.is_dir() {
+            anyhow::bail!("Parent path is not a directory: {}", parent.display());
+        }
+    }
+
+    Ok(())
+}
+
 /// Run the index command (main pipeline)
 fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
+    validate_output_path(output)?;
+
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER v5.0 (Knowledge DAG + llms.txt)");
     println!("{}\n", "=".repeat(70));

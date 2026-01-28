@@ -106,6 +106,7 @@ fn validate_dimensions(embeddings: &[Vec<f32>]) -> Result<usize, SimilarityError
 /// - `SimilarityError::DimensionMismatch` if embeddings have inconsistent dimensions
 /// - `SimilarityError::InvalidEmbedding` if any embedding contains `NaN` or Infinity
 /// - `SimilarityError::IndexBuildFailed` if HNSW construction fails
+#[allow(dead_code)]
 pub fn build_index(embeddings: &[Vec<f32>]) -> Result<HnswIndex, SimilarityError> {
     build_index_with_params(embeddings, None, None)
 }

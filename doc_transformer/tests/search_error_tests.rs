@@ -57,11 +57,10 @@ fn test_trailing_operator_produces_helpful_error() {
     assert!(result.is_err(), "Query with trailing operator should fail");
     let error = result.unwrap_err().to_string();
 
-    assert!(error.len() > 0, "Error message should not be empty");
+    assert!(!error.is_empty(), "Error message should not be empty");
     assert!(
         error.to_lowercase().contains("invalid") || error.to_lowercase().contains("syntax"),
-        "Error should indicate a parsing/syntax issue, got: {}",
-        error
+        "Error should indicate a parsing/syntax issue, got: {error}"
     );
 }
 
@@ -78,11 +77,10 @@ fn test_unclosed_quote_produces_helpful_error() {
     assert!(result.is_err(), "Query with unclosed quote should fail");
     let error = result.unwrap_err().to_string();
 
-    assert!(error.len() > 0, "Error message should not be empty");
+    assert!(!error.is_empty(), "Error message should not be empty");
     assert!(
         error.to_lowercase().contains("invalid") || error.to_lowercase().contains("syntax"),
-        "Error should indicate a parsing/syntax issue, got: {}",
-        error
+        "Error should indicate a parsing/syntax issue, got: {error}"
     );
 }
 
@@ -102,11 +100,10 @@ fn test_unbalanced_parentheses_produces_helpful_error() {
     );
     let error = result.unwrap_err().to_string();
 
-    assert!(error.len() > 0, "Error message should not be empty");
+    assert!(!error.is_empty(), "Error message should not be empty");
     assert!(
         error.to_lowercase().contains("invalid") || error.to_lowercase().contains("syntax"),
-        "Error should indicate a parsing/syntax issue, got: {}",
-        error
+        "Error should indicate a parsing/syntax issue, got: {error}"
     );
 }
 
@@ -145,8 +142,7 @@ fn test_error_message_mentions_special_characters() {
             || error.contains("<")
             || error.to_lowercase().contains("tag")
             || error.to_lowercase().contains("syntax"),
-        "Error should mention special characters, tags, or syntax issues, got: {}",
-        error
+        "Error should mention special characters, tags, or syntax issues, got: {error}"
     );
 }
 
@@ -166,8 +162,7 @@ fn test_error_message_provides_guidance() {
 
     assert!(
         error.len() > 20,
-        "Error message should provide some detail, got: {}",
-        error
+        "Error message should provide some detail, got: {error}"
     );
 }
 
@@ -184,7 +179,7 @@ fn test_cli_special_character_error_message() {
             "--quiet",
             "transform",
             temp_dir.path().to_str().unwrap(),
-            &output_dir.to_str().unwrap(),
+            output_dir.to_str().unwrap(),
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -223,21 +218,19 @@ fn test_cli_special_character_error_message() {
 
     child.wait().expect("Failed to wait for search command");
 
-    let output = format!("{}\n{}", stdout, stderr);
+    let output = format!("{stdout}\n{stderr}");
 
     assert!(
         output.to_lowercase().contains("special")
             || output.to_lowercase().contains("character")
             || output.to_lowercase().contains("unsupported"),
-        "CLI output should mention special characters or unsupported features.\nOutput: {}",
-        output
+        "CLI output should mention special characters or unsupported features.\nOutput: {output}"
     );
 
     assert!(
         output.to_lowercase().contains("fallback")
             || output.to_lowercase().contains("basic search"),
-        "CLI output should indicate fallback to basic search.\nOutput: {}",
-        output
+        "CLI output should indicate fallback to basic search.\nOutput: {output}"
     );
 }
 
@@ -254,7 +247,7 @@ fn test_cli_error_message_explicit_about_special_chars() {
             "--quiet",
             "transform",
             temp_dir.path().to_str().unwrap(),
-            &output_dir.to_str().unwrap(),
+            output_dir.to_str().unwrap(),
         ])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -300,8 +293,7 @@ fn test_cli_error_message_explicit_about_special_chars() {
     // Expected (per bead spec): "Note: Query contains special characters unsupported by advanced search."
     assert!(
         output.contains("Note: Query contains special characters unsupported by advanced search"),
-        "Main error message should explicitly mention special characters in the main note.\nCurrent output:\n{}",
-        output
+        "Main error message should explicitly mention special characters in the main note.\nCurrent output:\n{output}"
     );
 }
 
@@ -319,7 +311,7 @@ fn test_special_character_tag_succeeds_after_sanitization() {
     // See issue doc-tx-6aq close reason: "Partially completed - sanitize_query deferred to future bead"
     // Current behavior: queries with special characters fail, they are not sanitized
     if let Err(e) = &result {
-        eprintln!("Error: {:?}", e);
+        eprintln!("Error: {e:?}");
     }
 
     assert!(

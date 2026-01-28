@@ -52,6 +52,7 @@ pub struct ChunksResult {
 /// Maps doc_transformer's Analysis type to the simpler Document type
 /// used by contextual-chunker. Uses link_map to get the assigned doc ID,
 /// falling back to slugified source path.
+#[allow(clippy::panic)]
 fn analysis_to_document(analysis: &Analysis, link_map: &HashMap<String, IdMapping>) -> Document {
     let doc_id = link_map
         .get(&analysis.source_path)
