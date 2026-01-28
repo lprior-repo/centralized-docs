@@ -5,6 +5,7 @@
 pub mod analyze;
 pub mod assign;
 pub mod chunk;
+pub mod chunking_adapter;
 pub mod config;
 pub mod discover;
 pub mod filter;

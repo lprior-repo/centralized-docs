@@ -194,7 +194,10 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     let binding = website.get_pages();
     let scraped_pages = binding.as_ref();
 
-    let total_urls = scraped_pages.map(|p| p.len()).unwrap_or(0);
+    let total_urls = match scraped_pages {
+        Some(pages) => pages.len(),
+        None => 0,
+    };
 
     if let Some(spider_pages) = scraped_pages {
         for page in spider_pages.iter() {

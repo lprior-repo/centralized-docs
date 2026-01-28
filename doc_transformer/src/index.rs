@@ -1,6 +1,6 @@
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
-use crate::chunk::ChunksResult;
+use crate::chunking_adapter::{Chunk, ChunksResult};
 use crate::graph::{EdgeType, GraphEdge, GraphNode, KnowledgeDAG, NodeType};
 use crate::search;
 use crate::similarity::{build_index, query_neighbors};
@@ -364,7 +364,7 @@ fn build_vocabulary(document_tags: &[(String, Vec<String>, String)]) -> HashMap<
 /// Build a knowledge graph DAG from documents and chunks
 pub fn build_knowledge_dag(
     documents: &[IndexDocument],
-    chunks: &[crate::chunk::Chunk],
+    chunks: &[Chunk],
     document_tags: &[(String, Vec<String>, String)],
 ) -> KnowledgeDAG {
     let mut dag = KnowledgeDAG::new();
@@ -511,7 +511,8 @@ pub fn build_knowledge_dag(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chunk::{Chunk, ChunkLevel};
+    use crate::chunking_adapter::Chunk;
+    use contextual_chunker::ChunkLevel;
     use std::collections::HashMap;
 
     /// Generate synthetic test chunks with realistic structure

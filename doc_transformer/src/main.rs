@@ -15,6 +15,7 @@
 mod analyze;
 mod assign;
 mod chunk;
+mod chunking_adapter;
 mod config;
 mod discover;
 mod filter;
@@ -593,7 +594,7 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
 
     // STEP 5: CHUNK (Hierarchical)
     println!("[STEP 5] CHUNK");
-    let chunks_result = chunk::chunk_all(&analyses, &link_map, output)?;
+    let chunks_result = chunking_adapter::chunk_all(&analyses, &link_map, output)?;
     println!(
         "  Generated {} chunks from {} documents",
         chunks_result.total_chunks, chunks_result.document_count
