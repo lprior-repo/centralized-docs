@@ -3,7 +3,7 @@ use crate::assign::IdMapping;
 use crate::chunking_adapter::{Chunk, ChunksResult};
 use crate::graph::{EdgeType, GraphEdge, GraphNode, KnowledgeDAG, NodeType};
 use crate::search;
-use crate::similarity::{build_index, query_neighbors};
+use crate::similarity::{build_index_with_params, query_neighbors};
 use anyhow::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -58,6 +58,9 @@ pub fn build_and_write_index(
     chunks_result: &ChunksResult,
     output_dir: &Path,
     project_name: &str,
+    max_related_chunks: Option<usize>,
+    hnsw_m: Option<usize>,
+    hnsw_ef_construction: Option<usize>,
 ) -> Result<()> {
     let mut documents = Vec::new();
     let mut chunks_metadata = Vec::new();
@@ -109,6 +112,9 @@ pub fn build_and_write_index(
         &documents,
         &chunks_result.chunks_metadata,
         &document_chunk_tags,
+        max_related_chunks,
+        hnsw_m,
+        hnsw_ef_construction,
     );
     let dag_stats = dag.statistics();
 
@@ -366,6 +372,9 @@ pub fn build_knowledge_dag(
     documents: &[IndexDocument],
     chunks: &[Chunk],
     document_tags: &[(String, Vec<String>, String)],
+    max_related_chunks: Option<usize>,
+    hnsw_m: Option<usize>,
+    hnsw_ef_construction: Option<usize>,
 ) -> KnowledgeDAG {
     let mut dag = KnowledgeDAG::new();
 
@@ -420,7 +429,7 @@ pub fn build_knowledge_dag(
     }
 
     // Detect and add related chunk edges using HNSW (O(n log n) instead of O(n²))
-    const MAX_RELATED_CHUNKS: usize = 5;
+    let max_related = max_related_chunks.unwrap_or(5);
     const SIMILARITY_THRESHOLD: f32 = 0.3;
 
     if !chunks.is_empty() {
@@ -449,7 +458,7 @@ pub fn build_knowledge_dag(
             .collect();
 
         // Build HNSW index for O(log n) nearest neighbor search
-        match build_index(&embeddings) {
+        match build_index_with_params(&embeddings, hnsw_m, hnsw_ef_construction) {
             Ok(index) => {
                 // Query top-k neighbors for each chunk
                 for (i, chunk) in chunks.iter().enumerate() {
@@ -474,14 +483,14 @@ pub fn build_knowledge_dag(
 
                     // Query HNSW for top-k neighbors (k+1 to account for self)
                     if let Ok(neighbors) =
-                        query_neighbors(&index, &query_embedding, MAX_RELATED_CHUNKS + 1)
+                        query_neighbors(&index, &query_embedding, max_related + 1)
                     {
                         let mut added_edges: usize = 0;
                         for (neighbor_idx, similarity) in neighbors {
                             // Skip self-edges and low-similarity matches
                             if neighbor_idx != i
                                 && similarity >= SIMILARITY_THRESHOLD
-                                && added_edges < MAX_RELATED_CHUNKS
+                                && added_edges < max_related
                             {
                                 let edge = GraphEdge {
                                     from: chunk.chunk_id.clone(),
@@ -673,7 +682,7 @@ mod tests {
             let docs = generate_test_docs(&chunks);
             let tags = generate_test_tags(&chunks);
 
-            let dag = build_knowledge_dag(&docs, &chunks, &tags);
+            let dag = build_knowledge_dag(&docs, &chunks, &tags, None, None, None);
 
             // N × max_related_chunks × safety_factor (1.5)
             // max_related_chunks = 20 in build_knowledge_dag
@@ -690,11 +699,11 @@ mod tests {
     }
 
     /// Test that edge count is O(n log n), not O(n²)
-    /// With HNSW, we expect at most MAX_RELATED_CHUNKS edges per node
+    /// With HNSW, we expect at most max_related edges per node
     #[test]
     fn test_knowledge_dag_edge_count_is_linear() {
         const N: usize = 100;
-        const MAX_RELATED_CHUNKS: usize = 5;
+        let max_related = max_related_chunks.unwrap_or(5);
 
         // Create test documents
         let documents: Vec<IndexDocument> = (0..10)
@@ -747,25 +756,25 @@ mod tests {
             .collect();
 
         // Build the DAG
-        let dag = build_knowledge_dag(&documents, &chunks, &document_tags);
+        let dag = build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None);
 
         // Get statistics
         let stats = dag.statistics();
 
         // Total edges include: parent edges (N), sequential edges (≈N), and related edges
-        // Related edges should be at most N * MAX_RELATED_CHUNKS
-        let max_expected_related_edges = N * MAX_RELATED_CHUNKS;
+        // Related edges should be at most N * max_related
+        let max_expected_related_edges = N * max_related;
 
         // Count related edges
         let related_edges = dag.edges_by_type(&EdgeType::Related).len();
 
         println!("Total chunks: {N}");
         println!("Related edges: {related_edges}");
-        println!("Max expected (N * {MAX_RELATED_CHUNKS}): {max_expected_related_edges}");
+        println!("Max expected (N * {max_related}): {max_expected_related_edges}");
         println!("Total edges: {}", stats.edge_count);
 
         // Assert that related edges are bounded by O(n log n), not O(n²)
-        // With HNSW and MAX_RELATED_CHUNKS=5, we expect at most N*5 related edges
+        // With HNSW and max_related=5, we expect at most N*5 related edges
         assert!(
             related_edges <= max_expected_related_edges,
             "Related edges {related_edges} exceeds O(n log n) bound {max_expected_related_edges}. This indicates O(n²) behavior!"
@@ -846,7 +855,7 @@ mod tests {
         let chunks = vec![];
         let document_tags = vec![];
 
-        let dag = build_knowledge_dag(&documents, &chunks, &document_tags);
+        let dag = build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None);
 
         let stats = dag.statistics();
         assert_eq!(stats.node_count, 0);

@@ -107,19 +107,51 @@ fn validate_dimensions(embeddings: &[Vec<f32>]) -> Result<usize, SimilarityError
 /// - `SimilarityError::InvalidEmbedding` if any embedding contains `NaN` or Infinity
 /// - `SimilarityError::IndexBuildFailed` if HNSW construction fails
 pub fn build_index(embeddings: &[Vec<f32>]) -> Result<HnswIndex, SimilarityError> {
-    // Validate dimensions first
+    build_index_with_params(embeddings, None, None)
+}
+
+/// Builds an HNSW index from a collection of embeddings with custom HNSW parameters.
+///
+/// # Arguments
+///
+/// * `embeddings` - Collection of embeddings to index
+/// * `hnsw_m` - Optional number of neighbors (4-64). If None, defaults to 16.
+/// * `hnsw_ef_construction` - Optional construction effort (50-800). If None, defaults to 200.
+///
+/// # Examples
+///
+/// ```
+/// # use doc_transformer::similarity::{build_index_with_params, SimilarityError};
+/// let embeddings = vec![
+///     vec![1.0, 0.0, 0.0],
+///     vec![0.0, 1.0, 0.0],
+///     vec![0.0, 0.0, 1.0],
+/// ];
+///
+/// let index = build_index_with_params(&embeddings, Some(32), Some(400))?;
+/// # Ok::<(), SimilarityError>(())
+/// ```
+///
+/// # Errors
+///
+/// - `SimilarityError::EmptyEmbeddings` if input is empty
+/// - `SimilarityError::DimensionMismatch` if embeddings have inconsistent dimensions
+/// - `SimilarityError::InvalidEmbedding` if any embedding contains `NaN` or Infinity
+/// - `SimilarityError::IndexBuildFailed` if HNSW construction fails
+pub fn build_index_with_params(
+    embeddings: &[Vec<f32>],
+    hnsw_m: Option<usize>,
+    hnsw_ef_construction: Option<usize>,
+) -> Result<HnswIndex, SimilarityError> {
     let dimension = validate_dimensions(embeddings)?;
 
-    // Validate all embeddings for NaN/Infinity
     embeddings
         .iter()
         .try_for_each(|emb| validate_embedding(emb))?;
 
-    // Build HNSW index with recommended parameters
-    // M = 16 (number of neighbors), ef_construction = 200 (search quality)
     let nb_elem = embeddings.len();
-    let max_nb_connection = 16;
-    let ef_construction = 200;
+    let max_nb_connection = hnsw_m.unwrap_or(16);
+    let ef_construction = hnsw_ef_construction.unwrap_or(200);
 
     let hnsw = Hnsw::<f32, DistCosine>::new(
         max_nb_connection,
@@ -129,7 +161,6 @@ pub fn build_index(embeddings: &[Vec<f32>]) -> Result<HnswIndex, SimilarityError
         DistCosine {},
     );
 
-    // Insert all embeddings with their indices
     let data_with_id: Vec<(&Vec<f32>, usize)> = embeddings
         .iter()
         .enumerate()
@@ -431,5 +462,29 @@ mod tests {
         let embeddings = vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]];
         let result = validate_dimensions(&embeddings);
         assert_eq!(result, Ok(2));
+    }
+
+    #[test]
+    fn test_build_index_with_custom_hnsw_params() {
+        let embeddings = vec![
+            vec![1.0, 0.0, 0.0],
+            vec![0.0, 1.0, 0.0],
+            vec![0.0, 0.0, 1.0],
+        ];
+
+        let result = build_index_with_params(&embeddings, Some(32), Some(400));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_index_with_default_hnsw_params() {
+        let embeddings = vec![
+            vec![1.0, 0.0, 0.0],
+            vec![0.0, 1.0, 0.0],
+            vec![0.0, 0.0, 1.0],
+        ];
+
+        let result = build_index_with_params(&embeddings, None, None);
+        assert!(result.is_ok());
     }
 }
