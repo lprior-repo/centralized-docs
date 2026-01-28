@@ -264,6 +264,9 @@ fn run_full_pipeline(test_dir: &Path, output_dir: &Path) -> Result<PipelineResul
         &chunks_result,
         output_dir,
         "Test Project",
+        None, // max_related_chunks
+        None, // hnsw_m
+        None, // hnsw_ef_construction
     )
     .context("Indexing phase failed")?;
 

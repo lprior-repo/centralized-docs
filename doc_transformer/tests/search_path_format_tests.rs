@@ -18,6 +18,7 @@ fn create_test_index_with_hierarchical_id(dir: &Path) -> anyhow::Result<()> {
         word_count: 20,
         tags: vec![],
         chunk_ids: vec![],
+        headings: vec![],
     }];
 
     let index = doc_transformer::search::open_or_create_index(dir)?;
@@ -90,6 +91,7 @@ fn test_search_result_single_segment_id() {
         word_count: 15,
         tags: vec![],
         chunk_ids: vec![],
+        headings: vec![],
     }];
 
     let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
@@ -124,6 +126,7 @@ fn test_search_result_path_matches_index_json_format() {
         word_count: 10,
         tags: vec![],
         chunk_ids: vec![],
+        headings: vec![],
     };
 
     let docs = vec![test_doc.clone()];
