@@ -1,0 +1,18 @@
+[
+  {
+    "id": "doc-tx-5w0",
+    "title": "FEATURE: Search Only Indexes Title+Summary, Not Full Document Content",
+    "description": "## CONTEXT BLOCK\n\n- **File/Function:** `doc_transformer/src/search.rs:163` - `index_documents()` and `doc_transformer/src/index.rs:99`\n- **The Smell:** The code indexes only `title + summary + path` for search, meaning terms that appear only in the document body (like section headings \"API Reference\") are never searchable. Users searching for \"API\" get no results even when documents contain \"## API Reference\".\n\n**Evidence:**\n```bash\n$ ./doc_transformer search \"API\" --index-dir /tmp/test_output\nQuery: \"API\"\nUsing Tantivy index\nNo results found for \"API\"\n```\n\nBut the source document contains:\n```markdown\n## API Reference\nThe main function is `process()` which takes input and returns output.\n```\n\nCode at `search.rs:163`:\n```rust\nlet searchable_content = format!(\"{} {} {}\", doc.title, doc.summary, doc.path);\n```\n\nCode at `index.rs:99`:\n```rust\nsummary: analysis.first_paragraph.clone(),  // Only first paragraph!\n```\n\n## SPECIFICATION BLOCK (The \"One-Shot\" Instructions)\n\n1. **EARS (Easy Approach to Requirements Syntax):**\n   - When a user searches for a term, the search shall find documents where that term appears in any heading (H1-H6).\n   - When a user searches for a term, the search should optionally find documents where that term appears in the full body text.\n\n2. **DbC (Design by Contract):**\n   - *Preconditions:* Documents have been analyzed with heading extraction.\n   - *Postconditions:* Search results include documents where query terms appear in headings.\n   - *Invariant:* If a heading contains query term, that document appears in results.\n\n3. **Schema \u0026 Edge Cases:**\n   - Fix: Expand searchable content to include headings:\n     ```rust\n     // In search.rs index_documents():\n     let headings_text = doc.headings.iter()\n         .map(|h| h.text.as_str())\n         .collect::\u003cVec\u003c_\u003e\u003e()\n         .join(\" \");\n     let searchable_content = format!(\n         \"{} {} {} {}\",\n         doc.title, doc.summary, doc.path, headings_text\n     );\n     ```\n   - Edge cases to handle:\n     - Document with many headings → may dominate search results\n     - Code in headings → should still be searchable\n     - Very long heading text → no special truncation needed\n     - Heading-only search mode (optional) → `--in:headings` flag",
+    "status": "in_progress",
+    "priority": 2,
+    "issue_type": "feature",
+    "created_at": "2026-01-15T01:44:04.345731124-06:00",
+    "created_by": "lewis",
+    "updated_at": "2026-01-27T20:49:07.413838922-06:00",
+    "labels": [
+      "content-coverage",
+      "qa-audit",
+      "search"
+    ]
+  }
+]

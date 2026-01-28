@@ -1,0 +1,52 @@
+---
+llms_version: "1.0"
+project: "Docker"
+url: "https://docs.docker.com"
+updated: "2026-01-15"
+language: "en"
+categories: ["tutorial", "reference", "guide"]
+tags: ["docker", "containers", "virtualization", "devops"]
+version: "25.0.0"
+---
+
+# Docker Documentation
+
+> Securely build, share and run applications anywhere
+
+Docker is an open platform for developing, shipping, and running applications. Docker enables you to separate your applications from your infrastructure so you can deliver software quickly.
+
+## Getting Started
+
+- [What is Docker?](https://docs.docker.com/get-started/overview/): Understand Docker fundamentals
+- [Install Docker](https://docs.docker.com/engine/install/): Install Docker Engine on your platform
+- [Hello World](https://docs.docker.com/get-started/hello-world/): Run your first container
+- [Quickstart](https://docs.docker.com/guides/): Quickstart guides for common use cases
+
+## Core Concepts
+
+- [Images](https://docs.docker.com/get-started/basics/): Docker images explained
+- [Containers](https://docs.docker.com/get-started/basics/): Running containers
+- [Dockerfile](https://docs.docker.com/engine/reference/builder/): Build images with Dockerfiles
+- [Compose](https://docs.docker.com/compose/): Define multi-container applications
+- [Networking](https://docs.docker.com/network/): Container networking fundamentals
+
+## API Reference
+
+- [CLI Reference](https://docs.docker.com/engine/reference/commandline/): Complete Docker CLI documentation
+- [Dockerfile Reference](https://docs.docker.com/engine/reference/builder/): Dockerfile instruction reference
+- [Compose Reference](https://docs.docker.com/compose/compose-file/): docker-compose file format
+- [API Reference](https://docs.docker.com/engine/api/): Docker Engine API
+
+## Operations
+
+- [Best Practices](https://docs.docker.com/develop/dev-best-practices/): Writing efficient Dockerfiles
+- [Security](https://docs.docker.com/engine/security/): Secure your containers
+- [Troubleshooting](https://docs.docker.com/config/daemon/troubleshoot/): Debug common issues
+- [Monitoring](https://docs.docker.com/engine/admin/): Monitor Docker performance
+
+## Advanced Topics
+
+- [Multi-stage builds](https://docs.docker.com/build/building/multi-stage/): Optimize image sizes
+- [Volumes](https://docs.docker.com/storage/): Persistent data storage
+- [Swarm](https://docs.docker.com/engine/swarm/): Container orchestration
+- [Plugins](https://docs.docker.com/engine/extend/): Extend Docker functionality

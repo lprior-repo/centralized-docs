@@ -1,0 +1,52 @@
+---
+llms_version: "1.0"
+project: "Kubernetes"
+url: "https://kubernetes.io"
+updated: "2026-01-15"
+language: "en"
+categories: ["tutorial", "reference", "guide"]
+tags: ["kubernetes", "containers", "orchestration", "devops"]
+version: "1.29.0"
+---
+
+# Kubernetes
+
+> Production-Grade Container Orchestration
+
+Kubernetes is an open-source system for automating deployment, scaling, and management of containerized applications. It groups containers that make up an application into logical units for easy management and discovery.
+
+## Getting Started
+
+- [What is Kubernetes?](https://kubernetes.io/docs/concepts/overview/what-is-kubernetes/): Understand Kubernetes fundamentals
+- [Installation](https://kubernetes.io/docs/setup/): Install Kubernetes on your platform
+- [Tutorial](https://kubernetes.io/docs/tutorials/): Step-by-step tutorials
+- [Hello Minikube](https://kubernetes.io/docs/tutorials/hello-minikube/): Run a local Kubernetes cluster
+
+## Core Concepts
+
+- [Pods](https://kubernetes.io/docs/concepts/workloads/pods/): The smallest deployable units
+- [Services](https://kubernetes.io/docs/concepts/services-networking/service/): Expose applications
+- [Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/): Update applications declaratively
+- [ConfigMaps](https://kubernetes.io/docs/concepts/configuration/configmap/): Configure applications
+- [Volumes](https://kubernetes.io/docs/concepts/storage/volumes/): Store data persistently
+
+## API Reference
+
+- [API Reference](https://kubernetes.io/docs/reference/kubernetes-api/): Complete Kubernetes API documentation
+- [kubectl CLI](https://kubernetes.io/docs/reference/kubectl/): Command-line tool reference
+- [Command Reference](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands): All kubectl commands
+- [kubectl Cheat Sheet](https://kubernetes.io/docs/reference/kubectl/cheatsheet/): Common kubectl operations
+
+## Operations
+
+- [Cluster Administration](https://kubernetes.io/docs/admin/): Manage your Kubernetes cluster
+- [Troubleshooting](https://kubernetes.io/docs/tasks/debug/): Debug common issues
+- [Monitoring](https://kubernetes.io/docs/tasks/debug/debug-application/): Monitor application health
+- [Security](https://kubernetes.io/docs/concepts/security/): Secure your cluster
+
+## Advanced Topics
+
+- [Custom Controllers](https://kubernetes.io/docs/concepts/architecture/controller/): Extend Kubernetes behavior
+- [Operators](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/): Automate application management
+- [Helm](https://helm.sh/): Package manager for Kubernetes
+- [Networking](https://kubernetes.io/docs/concepts/cluster-administration/networking/): Advanced networking concepts

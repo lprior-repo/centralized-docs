@@ -1,0 +1,41 @@
+{
+  "bead_id": "doc-tx-247",
+  "phase": 5,
+  "complexity": "SIMPLE",
+  "phases": {
+    "0_TRIAGE": "complete",
+    "1_RESEARCH": "skipped",
+    "2_PLAN": "skipped",
+    "3_VERIFY": "skipped",
+    "4_RED": "complete",
+    "5_GREEN": "complete",
+    "6_REFACTOR": "pending",
+    "7_MF1": "skipped",
+    "8_IMPLEMENT": "skipped",
+    "9_VERIFY_CRITERIA": "skipped",
+    "10_FP_GATES": "skipped",
+    "11_QA": "skipped",
+    "12_MF2": "skipped",
+    "13_CONSISTENCY": "skipped",
+    "14_LIABILITY": "pending",
+    "15_LANDING": "pending"
+  },
+  "gates": {
+    "complexity_assessed": true,
+    "tests_fail": false,
+    "sufficient_context": false,
+    "plan_verified": false,
+    "plan_verified_llm": false,
+    "tests_pass": true,
+    "tests_green": true,
+    "martin_fowler_1": false,
+    "implementation_complete": false,
+    "criteria_met": false,
+    "no_critical_issues": false,
+    "qa_pass": false,
+    "martin_fowler_2": false,
+    "standards_met": false,
+    "minimized": false,
+    "push_succeeded": false
+  }
+}

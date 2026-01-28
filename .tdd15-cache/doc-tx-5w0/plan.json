@@ -1,0 +1,56 @@
+{
+  "implementation_plan": {
+    "steps": [
+      {
+        "step": 1,
+        "description": "Add headings field to IndexDocument",
+        "file": "doc_transformer/src/index.rs",
+        "location": "IndexDocument struct (line 16)",
+        "change": "Add `pub headings: Vec<String>` field"
+      },
+      {
+        "step": 2,
+        "description": "Update IndexDocument creation in build_and_write_index",
+        "file": "doc_transformer/src/index.rs",
+        "location": "line 94-103",
+        "change": "Extract heading texts from analysis.headings and populate headings field"
+      },
+      {
+        "step": 3,
+        "description": "Update test IndexDocument creation",
+        "file": "doc_transformer/tests/pipeline_integration_tests.rs",
+        "change": "Add headings field to all test IndexDocument instances"
+      },
+      {
+        "step": 4,
+        "description": "Update search indexing to include headings",
+        "file": "doc_transformer/src/search.rs",
+        "location": "index_documents function (line 163)",
+        "change": "Include headings in searchable_content"
+      },
+      {
+        "step": 5,
+        "description": "Write integration test for heading search",
+        "file": "doc_transformer/tests/search_integration_tests.rs",
+        "change": "Add test verifying headings are searchable"
+      }
+    ],
+    "data_flow": {
+      "analysis": "has headings: Vec<Heading>",
+      "index_document": "needs headings: Vec<String>",
+      "search_index": "searchable_content += headings.join(' ')"
+    },
+    "edge_cases": [
+      "Document with no headings",
+      "Document with many headings",
+      "Headings with special characters",
+      "Empty heading text"
+    ],
+    "acceptance_criteria": [
+      "Search for term in heading returns document",
+      "Search for term in title still works",
+      "Search for term in summary still works",
+      "No regression in existing functionality"
+    ]
+  }
+}

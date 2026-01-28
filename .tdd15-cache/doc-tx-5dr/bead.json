@@ -1,0 +1,13 @@
+[
+  {
+    "id": "doc-tx-5dr",
+    "title": "Search returns negative zero scores (-0.00) on non-matching queries",
+    "description": "## CONTEXT BLOCK\n\n- **File/Function:** `doc_transformer/src/main.rs:800-815` (BM25 fallback) and search/Tantivy scoring\n- **The Smell:** The code assumes BM25/Tantivy scores are always positive for matches, but certain queries (e.g., SQL injection attempts) return results with \"-0.00\" scores, which is mathematically suspicious and may indicate score calculation issues.\n\n## Evidence\n```\n$ ./doc_transformer search 'SELECT * FROM users;--' --index-dir /tmp/indexed_output\nQuery: \"SELECT * FROM users;--\"\nUsing Tantivy index\nResults:\n1. [concept] Test (score: -0.00)\n2. [concept] Test1 (score: -0.00)\n3. [tutorial] Test2 (score: -0.00)\n```\n\nNegative zero (-0.00) in floating point usually indicates underflow or sign issues.\n\n## SPECIFICATION BLOCK\n\n### EARS (Easy Approach to Requirements Syntax)\n- When calculating search scores, the system SHALL return only positive values (\u003e0.0) for matches\n- When a search query produces no valid matches (score \u003c= 0.0), the system SHALL exclude those results from output\n- When displaying scores, the system SHALL use absolute values or filter out zero/negative scores\n\n### DbC (Design by Contract)\n- **Preconditions:** Query is non-empty and validated\n- **Postconditions:** All displayed results have score \u003e 0.0; \"-0.00\" never appears in output\n\n### Schema \u0026 Edge Cases\n- **Score range:** (0.0, ∞) - exclusive of zero\n- **Edge cases:**\n  - Query with no matching terms → return empty results (not -0.00 scores)\n  - Query with special characters → scores should still be positive if matched\n  - Filter at line 810: `results.filter(|(score, _)| *score \u003e 0.0)` should catch this, investigate why it doesn't\n",
+    "status": "in_progress",
+    "priority": 2,
+    "issue_type": "task",
+    "created_at": "2026-01-15T01:41:35.759256865-06:00",
+    "created_by": "lewis",
+    "updated_at": "2026-01-27T20:53:48.888138912-06:00"
+  }
+]

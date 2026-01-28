@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>llms.txt - Get Started</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #1e40af; border-bottom: 3px solid #764ba2; padding-bottom: 0.3em; }
+        h2 { color: #1e40af; margin-top: 2em; }
+        .step {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1.5em;
+            margin: 2em 0;
+        }
+        .step-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #764ba2;
+        }
+        code {
+            background: #f7fafc;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .nav { margin-bottom: 2em; }
+        .nav a { margin-right: 1em; color: #1e40af; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="nav">
+            <a href="index.html">Home</a> |
+            <a href="rfc.html">RFC</a> |
+            <a href="examples.html">Examples</a> |
+            <a href="tools.html">Tools</a> |
+            <a href="getting-started.html">Get Started</a>
+        </nav>
+        <h1>Get Started with llms.txt</h1>
+        <p>Add llms.txt to your documentation in 3 simple steps.</p>
+
+        <div class="step">
+            <div class="step-number">1. Copy Example</div>
+            <p>Start with a validated example:</p>
+            <pre><code>cp examples/rust-llms.txt llms.txt</code></pre>
+            <p>Or use another example from the <a href="examples.html">Examples page</a>.</p>
+        </div>
+
+        <div class="step">
+            <div class="step-number">2. Edit for Your Project</div>
+            <p>Update the YAML frontmatter and content:</p>
+            <ul>
+                <li>Change <code>project</code> to your project name</li>
+                <li>Update <code>url</code> to your project's base URL</li>
+                <li>Set <code>updated</code> to today's date</li>
+                <li>Adjust sections and links to match your documentation</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <div class="step-number">3. Validate and Deploy</div>
+            <p>Validate your file before deployment:</p>
+            <pre><code>llms-txt validate ./llms.txt</code></pre>
+            <p>If validation passes, commit and push:</p>
+            <pre><code>git add llms.txt
+git commit -m "Add llms.txt for AI discovery"
+git push</code></pre>
+        </div>
+
+        <h2>What Next?</h2>
+        <ul>
+            <li>Read the <a href="../docs/BEST_PRACTICES.md">Best Practices Guide</a></li>
+            <li>View <a href="examples.html">more examples</a></li>
+            <li>Check out the <a href="rfc.html">complete RFC specification</a></li>
+            <li>Join the <a href="https://github.com/lewisreader/centralized-docs/discussions">GitHub Discussions</a></li>
+        </ul>
+
+        <p><strong>Need help?</strong> See <a href="https://github.com/lewisreader/centralized-docs/blob/main/docs/CONTRIBUTING.md">CONTRIBUTING.md</a> for contribution guidelines.</p>
+    </div>
+</body>
+</html>

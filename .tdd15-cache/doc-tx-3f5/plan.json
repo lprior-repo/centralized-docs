@@ -1,0 +1,60 @@
+{
+  "implementation_steps": [
+    {
+      "step": 1,
+      "action": "Add helper function",
+      "file": "contextual-chunker/src/chunk.rs",
+      "details": "Add generate_chunk_id(doc_id: &str, chunk_index: usize, level: ChunkLevel) -> String"
+    },
+    {
+      "step": 2,
+      "action": "Update chunk_id generation at line 321",
+      "file": "contextual-chunker/src/chunk.rs",
+      "details": "Replace format! with generate_chunk_id() call"
+    },
+    {
+      "step": 3,
+      "action": "Update previous_chunk_id at line 337",
+      "file": "contextual-chunker/src/chunk.rs",
+      "details": "Replace format! with generate_chunk_id() call"
+    },
+    {
+      "step": 4,
+      "action": "Update chunk_id generation at line 373",
+      "file": "contextual-chunker/src/chunk.rs",
+      "details": "Replace format! with generate_chunk_id() call"
+    },
+    {
+      "step": 5,
+      "action": "Update previous_chunk_id at line 389",
+      "file": "contextual-chunker/src/chunk.rs",
+      "details": "Replace format! with generate_chunk_id() call"
+    },
+    {
+      "step": 6,
+      "action": "Update chunk_id generation at line 399",
+      "file": "contextual-chunker/src/chunk.rs",
+      "details": "Replace format! with generate_chunk_id() call"
+    },
+    {
+      "step": 7,
+      "action": "Update test assertion",
+      "file": "doc_transformer/src/chunking_adapter.rs",
+      "details": "Change 'test#0' to 'test#0-standard'"
+    },
+    {
+      "step": 8,
+      "action": "Add validation test",
+      "file": "contextual-chunker/src/chunk.rs",
+      "details": "Test chunk_id format and uniqueness across levels"
+    }
+  ],
+  "no_changes_needed": [
+    "Parent-child linking (lines 258-279) - uses collected IDs automatically",
+    "Sequential linking (link_chunks function) - uses existing chunk IDs"
+  ],
+  "test_files_to_update": [
+    "doc_transformer/src/chunking_adapter.rs"
+  ],
+  "expected_format": "{doc_id}#{chunk_index}-(summary|standard|detailed)"
+}

@@ -1,0 +1,52 @@
+---
+llms_version: "1.0"
+project: "React"
+url: "https://react.dev"
+updated: "2026-01-15"
+language: "en"
+categories: ["tutorial", "reference", "guide"]
+tags: ["react", "javascript", "frontend", "ui"]
+version: "18.2.0"
+---
+
+# React
+
+> The library for web and native user interfaces
+
+React is a JavaScript library for building user interfaces. It lets you compose complex UIs from small and isolated pieces of code called "components".
+
+## Getting Started
+
+- [Installation](https://react.dev/learn/installation): Set up a new React project
+- [Quick Start](https://react.dev/learn): Learn React fundamentals
+- [Thinking in React](https://react.dev/learn/thinking-in-react): Understand React's approach
+- [Your First Component](https://react.dev/learn/your-first-component): Create your first React component
+
+## Core Concepts
+
+- [Components](https://react.dev/learn/your-first-component): Building blocks of React UIs
+- [JSX](https://react.dev/learn/writing-markup-with-jsx): Writing HTML-like code in JavaScript
+- [Props](https://react.dev/learn/passing-props-to-a-component): Passing data to components
+- [State](https://react.dev/learn/state-a-components-memory): Managing component state
+- [Events](https://react.dev/learn/responding-to-events): Handling user interactions
+
+## API Reference
+
+- [Hooks](https://react.dev/reference/react): useState, useEffect, useContext and more
+- [Component APIs](https://react.dev/reference/react-component): Component lifecycle methods
+- [DOM APIs](https://react.dev/reference/react-dom): ReactDOM APIs
+- [Directives](https://react.dev/reference/react-dom/components): Built-in React components
+
+## Operations
+
+- [Performance](https://react.dev/learn/render-and-commit): Understanding React's rendering
+- [Testing](https://react.dev/learn/writing-maintainable-components): Writing testable components
+- [Debugging](https://react.dev/learn/choosing-the-state-structure): Debug React applications
+- [Accessibility](https://react.dev/learn/wai-aria): Building accessible UIs
+
+## Advanced Topics
+
+- [Context](https://react.dev/reference/react/useContext): Share state across components
+- [Hooks Custom](https://react.dev/learn/reusing-logic-with-custom-hooks): Create your own hooks
+- [Suspense](https://react.dev/reference/react/Suspense): Handle loading states
+- [Server Components](https://react.dev/reference/react/use-server): Server-side rendering

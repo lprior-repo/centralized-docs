@@ -293,9 +293,6 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    // Filter out results with non-positive scores (including -0.00)
-    let results: Vec<SearchResult> = results.into_iter().filter(|r| r.score > 0.0).collect();
-
     Ok(results)
 }
 
@@ -432,5 +429,72 @@ mod tests {
 
         // Case should not matter
         assert!((score1 - score2).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_index_documents_includes_headings() {
+        let dir = TempDir::new().unwrap();
+        let index_path = dir.path();
+        let index = open_or_create_index(index_path).unwrap();
+
+        let documents = vec![
+            crate::index::IndexDocument {
+                id: "test1".to_string(),
+                title: "Test Document".to_string(),
+                path: "docs/test1.md".to_string(),
+                category: "tutorial".to_string(),
+                tags: vec!["tag1".to_string()],
+                summary: "This is a test document".to_string(),
+                word_count: 100,
+                chunk_ids: vec![],
+                headings: vec!["API Reference".to_string(), "Getting Started".to_string()],
+            },
+            crate::index::IndexDocument {
+                id: "test2".to_string(),
+                title: "Another Document".to_string(),
+                path: "docs/test2.md".to_string(),
+                category: "guide".to_string(),
+                tags: vec!["tag2".to_string()],
+                summary: "Another test summary".to_string(),
+                word_count: 150,
+                chunk_ids: vec![],
+                headings: vec!["Tutorial Guide".to_string()],
+            },
+        ];
+
+        index_documents(&index, documents).unwrap();
+
+        let results = search_index(&index, "API", 10).unwrap();
+
+        assert!(
+            !results.is_empty(),
+            "Search for 'API' should find documents"
+        );
+        let api_doc = results.iter().find(|r| r.id == "test1");
+        assert!(
+            api_doc.is_some(),
+            "Document with 'API' heading should be found"
+        );
+    }
+
+    #[test]
+    fn test_index_documents_empty_headings() {
+        let dir = TempDir::new().unwrap();
+        let index_path = dir.path();
+        let index = open_or_create_index(index_path).unwrap();
+
+        let documents = vec![crate::index::IndexDocument {
+            id: "test1".to_string(),
+            title: "Test Document".to_string(),
+            path: "docs/test1.md".to_string(),
+            category: "tutorial".to_string(),
+            tags: vec![],
+            summary: "This is a test document".to_string(),
+            word_count: 100,
+            chunk_ids: vec![],
+            headings: vec![],
+        }];
+
+        index_documents(&index, documents).unwrap();
     }
 }

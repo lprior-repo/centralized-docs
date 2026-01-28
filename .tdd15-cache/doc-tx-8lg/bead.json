@@ -1,0 +1,28 @@
+[
+  {
+    "id": "doc-tx-8lg",
+    "title": "Missing benchmark for HNSW performance at scale",
+    "description": "\u003e CONTEXT BLOCK:\n\n**File/Function:** `doc_transformer/benches/graph_bench.rs` (does not exist)\n\n**The Smell:** No performance benchmarks exist to validate O(n log n) claim. Need criterion benchmark to prove scaling.\n\n\u003e SPECIFICATION BLOCK:\n\n## EARS:\n- When running benchmarks, the system shall measure build_knowledge_dag time for N = [100, 1K, 5K, 10K, 20K]\n- When N doubles, the system shall show time increases by \u003c 2.5x (proving sub-quadratic)\n- When displaying results, the system shall show edges/second metric\n\n## DbC:\n**Preconditions:**\n- criterion is in dev-dependencies\n- Test data generator exists\n**Postconditions:**\n- Benchmark runs without OOM\n- Results stored in target/criterion\n- Performance regression detectable\n\n## Benchmark Setup:\n```toml\n# Cargo.toml\n[dev-dependencies]\ncriterion = \"0.5\"\n\n[[bench]]\nname = \"graph_bench\"\nharness = false\n```\n\n```rust\n// benches/graph_bench.rs\nuse criterion::{criterion_group, criterion_main, Criterion};\n\nfn bench_dag_build(c: \u0026mut Criterion) {\n    for n in [100, 1000, 5000, 10000] {\n        c.bench_function(\u0026format!(\"dag_build_{}\", n), |b| {\n            let chunks = generate_test_chunks(n);\n            b.iter(|| build_knowledge_dag(\u0026docs, \u0026chunks, \u0026tags));\n        });\n    }\n}\n```\n\n**Expected Results:**\n- 1,000 chunks: \u003c 1 second\n- 5,000 chunks: \u003c 5 seconds  \n- 10,000 chunks: \u003c 15 seconds\n- 20,000 chunks: \u003c 45 seconds",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "task",
+    "created_at": "2026-01-11T08:56:25.044949103-06:00",
+    "created_by": "lewis",
+    "updated_at": "2026-01-11T08:56:25.044949103-06:00",
+    "dependencies": [
+      {
+        "id": "doc-tx-bg7",
+        "title": "Refactor build_knowledge_dag to use HNSW instead of O(n²) loop",
+        "description": "\u003e CONTEXT BLOCK:\n\n**File/Function:** `doc_transformer/src/index.rs:329-374` (function `build_knowledge_dag`)\n\n**The Smell:** Nested O(n²) loop compares every chunk against every other chunk. Must be replaced with single HNSW index build + O(n log n) queries.\n\n\u003e SPECIFICATION BLOCK:\n\n## EARS:\n- When building DAG, the system shall create HnswSimilarityIndex ONCE before chunk loop\n- When processing each chunk, the system shall query HNSW for top-K neighbors (not all chunks)\n- When adding edges, the system shall only add K edges per chunk (configurable, default=20)\n- When HNSW query fails, the system shall log warning and continue (no crash)\n\n## DbC:\n**Preconditions:**\n- HnswSimilarityIndex::build succeeds\n- max_related_chunks config is loaded\n- Chunks have valid tags\n**Postconditions:**\n- Total related edges ≤ N × max_related_chunks\n- No chunk compares against itself\n- Complexity is O(n log n) not O(n²)\n**Invariants:**\n- Each chunk has ≤ max_related_chunks related edges\n- DAG property maintained (no cycles)\n\n## Before (lines 329-374):\n```rust\nfor (i, chunk) in chunks.iter().enumerate() {\n    let all_chunks_metadata: Vec\u003c_\u003e = chunks.iter()\n        .enumerate()\n        .filter(|(j, _)| j != \u0026i)  // O(n) for each chunk!\n        .map(...)\n        .collect();\n    \n    let related = detector.detect_relationships(..., \u0026all_chunks_metadata);\n    for (related_id, weight) in related {\n        dag.add_edge(...);  // Creates 1.4M edges!\n    }\n}\n```\n\n## After:\n```rust\nlet similarity_index = HnswSimilarityIndex::build(\u0026document_tags, hnsw_m, hnsw_ef)?;\n\nfor chunk in chunks.iter() {\n    let related = similarity_index.find_similar(\u0026chunk.chunk_id, max_related_chunks)?;\n    for (related_id, weight) in related {\n        dag.add_edge(...);  // Creates only K edges per chunk\n    }\n}\n```\n\n**Edge Cases:**\n- HNSW build fails → fallback to top-K limiting (Option C)\n- Empty chunks list → skip graph building\n- Single chunk → no related edges\n- All chunks have empty tags → no related edges",
+        "status": "closed",
+        "priority": 0,
+        "issue_type": "task",
+        "created_at": "2026-01-11T08:55:58.195028989-06:00",
+        "created_by": "lewis",
+        "updated_at": "2026-01-27T11:49:03.175407419-06:00",
+        "closed_at": "2026-01-27T11:49:03.175407419-06:00",
+        "dependency_type": "blocks"
+      }
+    ]
+  }
+]

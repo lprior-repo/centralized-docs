@@ -1,0 +1,18 @@
+[
+  {
+    "id": "doc-tx-ss7",
+    "title": "BUG: Search Results Display Wrong Path Format (Slashes vs Hyphens)",
+    "description": "## CONTEXT BLOCK\n\n- **File/Function:** `doc_transformer/src/search.rs:282` - `search_index()`\n- **The Smell:** The code assumes document IDs can be directly converted to file paths using slashes, but INDEX.json stores paths with hyphens. Search displays `docs/tutorial/general/test2` but actual file is `docs/tutorial-general-test2.md`.\n\n**Evidence:**\n- `search.rs:282`: `let path = format!(\"docs/{}\", id);` where id = \"tutorial/general/test2\"\n- `index.rs:96`: `path: format!(\"docs/{}\", mapping.filename)` where filename = \"tutorial-general-test2.md\"\n- Search output: `Path: docs/tutorial/general/test2`\n- Actual file: `docs/tutorial-general-test2.md`\n\n## SPECIFICATION BLOCK (The \"One-Shot\" Instructions)\n\n1. **EARS (Easy Approach to Requirements Syntax):**\n   - When search results are displayed, the path field shall match the actual file location in INDEX.json.\n   - When a user navigates to a search result path, the file shall exist at that location.\n\n2. **DbC (Design by Contract):**\n   - *Preconditions:* Search results contain documents from Tantivy index.\n   - *Postconditions:* `result.path` matches `INDEX.json.documents[i].path` for the same document ID.\n   - *Invariant:* Path format is consistent between indexing and searching.\n\n3. **Schema \u0026 Edge Cases:**\n   - Fix Option A: Store actual path in Tantivy index (add `path` field to schema), retrieve it instead of computing\n   - Fix Option B: Change `search.rs:282` to use same format as `index.rs:96`:\n     ```rust\n     // Instead of: format!(\"docs/{}\", id)\n     // Use: format!(\"docs/{}.md\", id.replace('/', \"-\"))\n     ```\n   - Edge cases to handle:\n     - Document ID with single segment (no subcategory) → `docs/ref-api.md`\n     - Document ID with special chars → properly escaped\n     - Fallback BM25 search uses INDEX.json path directly (correct already)",
+    "status": "in_progress",
+    "priority": 2,
+    "issue_type": "bug",
+    "created_at": "2026-01-15T01:43:03.383690256-06:00",
+    "created_by": "lewis",
+    "updated_at": "2026-01-27T20:50:14.133388425-06:00",
+    "labels": [
+      "path-mismatch",
+      "qa-audit",
+      "search"
+    ]
+  }
+]

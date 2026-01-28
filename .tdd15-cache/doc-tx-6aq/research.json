@@ -1,0 +1,58 @@
+{
+  "current_behavior": {
+    "validation": {
+      "function": "validate_query() in validate.rs",
+      "checks": ["empty", "length > 1000"],
+      "missing": "No sanitization of special characters"
+    },
+    "tantivy_parsing": {
+      "function": "search_index() in search.rs:227",
+      "error_handling": "map_err(|e| anyhow!(\"Invalid query: {e}\"))",
+      "fallback": "Catches error and falls back to INDEX.json"
+    },
+    "user_facing": {
+      "location": "main.rs:814-817",
+      "messages": [
+        "Note: Advanced search unavailable for this query.",
+        "  Reason: {e}",
+        "  Tip: Try simpler terms or remove special characters.",
+        "  Falling back to basic search...\\n"
+      ],
+      "issue": "Tantivy error messages are not descriptive enough"
+    }
+  },
+  "root_cause": "Tantivy QueryParser interprets special characters (<, >, &, etc.) as query syntax operators, causing parse failures for HTML/XSS-like queries",
+  "edge_cases": [
+    "Balanced HTML tags: <div>test</div>",
+    "Unbalanced tags: <script>",
+    "HTML entities: &amp;, &lt;",
+    "Unicode lookalikes: ＜script＞ (fullwidth)",
+    "Special characters in context: 'rust & systems'"
+  ],
+  "design_options": [
+    {
+      "option": "Escape Tantivy special characters",
+      "description": "Escape <, >, &, \\, \", ', / with backslashes before parsing",
+      "pros": ["Preserves query semantics", "Fallback only for actual index issues"],
+      "cons": ["May break intended boolean queries", "Complex escaping rules"]
+    },
+    {
+      "option": "Improve error messages only",
+      "description": "Keep current behavior but make errors more specific",
+      "pros": ["No breaking changes", "Simple implementation"],
+      "cons": ["Still requires fallback", "Doesn't fix root cause"]
+    },
+    {
+      "option": "Hybrid approach",
+      "description": "Try escaped version first, if fails, provide detailed error + fallback",
+      "pros": ["Best of both worlds", "Progressive enhancement"],
+      "cons": ["More complex logic", "Two attempts needed"]
+    }
+  ],
+  "files_to_modify": [
+    "doc_transformer/src/validate.rs - Add query sanitization function",
+    "doc_transformer/src/search.rs - Use sanitized query",
+    "doc_transformer/tests/search_error_tests.rs - Add tests for sanitization"
+  ],
+  "tantivy_syntax_chars": ["<", ">", "&", "\"", "'", "\\", "/", "(", ")", "!", "|", "+", "-"]
+}

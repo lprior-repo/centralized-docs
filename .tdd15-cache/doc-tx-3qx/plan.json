@@ -1,0 +1,118 @@
+# IMPLEMENTATION PLAN: INDEX.json schema missing required fields (project, updated)
+
+## Success Criteria Coverage
+- [x] SC1: INDEX.json includes `project` field → Step 1 (already exists)
+- [x] SC2: INDEX.json includes `updated` field → Step 2 (already exists)
+- [x] SC3: INDEX.json does NOT include `generated` field → Step 3 (remove field)
+- [x] SC4: `llms_txt_validator --index` passes with 0 errors → Step 4 (test validation)
+
+## Implementation Steps (Ordered)
+
+### Step 1: Verify current state (~5 min)
+- **What**: Confirm that index.rs currently includes both `updated` and `generated` fields
+- **File**: doc_transformer/src/index.rs:169-174
+- **Success Check**: Code inspection shows `project`, `updated`, and `generated` are all present
+- **Dependencies**: None
+- **Risks**: None - read-only verification
+
+### Step 2: Remove `generated` field from INDEX.json (~5 min)
+- **What**: Remove line 174 `"generated": timestamp,` from the json! macro
+- **File**: doc_transformer/src/index.rs:174
+- **Specific change**: Delete `"generated": timestamp,` from the json! object
+- **Success Check**: File contains only `project` and `updated` timestamp fields, not `generated`
+- **Dependencies**: Step 1
+- **Risks**: Very low - simple line deletion
+
+### Step 3: Write test for INDEX.json schema compliance (~15 min)
+- **What**: Create unit test that verifies INDEX.json contains required fields
+- **File**: doc_transformer/tests/index_schema_tests.rs (new file)
+- **Scope**: 
+  - Test function: `test_index_json_has_required_fields()`
+  - Generates sample INDEX.json using `build_and_write_index()`
+  - Parses the output and verifies `project`, `updated`, `version` exist
+  - Verifies `generated` field is NOT present
+- **Success Check**: Test compiles and passes after Step 2
+- **Dependencies**: Step 2
+- **Risks**: Medium - need to set up test data properly
+
+### Step 4: Run validator to confirm 0 errors (~10 min)
+- **What**: Run llms_txt_validator on a generated INDEX.json file
+- **File**: doc_transformer/src/bin/llms_txt_validator.rs (execute binary)
+- **Action**: Generate test INDEX.json, run `./llms_txt_validator --index <path>`
+- **Success Check**: Validator returns 0 errors (warnings OK)
+- **Dependencies**: Step 2, Step 3
+- **Risks**: Low - straightforward validation
+
+## Files to Modify
+
+| File | Action | Scope |
+|------|--------|-------|
+| doc_transformer/src/index.rs | modify | Remove line 174 (`"generated": timestamp,`) |
+| doc_transformer/tests/index_schema_tests.rs | create | New test file with schema compliance test |
+
+## Data Flows
+
+```
+build_and_write_index()
+  → Creates JSON object with version, project, updated (NO generated)
+  → Writes to INDEX.json file
+  → Validator reads INDEX.json
+  → Validator checks: version ✓, project ✓, updated ✓, generated ✗
+  → Validator result: 0 errors
+```
+
+## Architectural Decisions
+
+1. **Test location**: Create new test file vs. add to existing
+   - Options: 
+     a) Add to existing `test_tantivy_index_populated.rs`
+     b) Create new `index_schema_tests.rs`
+   - **Choice**: Option B - new file
+   - **Rationale**: Schema validation is distinct from Tantivy index tests; keeps concerns separate
+   - **Tradeoffs**: More files, but better organization
+   - **Reversibility**: Yes, can merge later
+
+2. **Test approach**: Unit test vs. integration test
+   - Options:
+     a) Direct unit test of JSON structure
+     b) Full integration test with validator
+   - **Choice**: Option A first, Option B as confirmation
+   - **Rationale**: Unit test is faster and more direct; integration test confirms end-to-end
+   - **Tradeoffs**: Need to run both for full coverage
+   - **Reversibility**: Yes, can remove either if not needed
+
+3. **Error handling in validator**: Keep current severity levels
+   - Options:
+     a) Change `updated` missing from Warning to Error
+     b) Keep as Warning
+   - **Choice**: Option B - keep as Warning
+   - **Rationale**: Existing convention; project name is critical, updated timestamp is metadata
+   - **Tradeoffs**: Less strict validation, but matches existing behavior
+   - **Reversibility**: Yes, can change later
+
+## Robot Insights
+
+N/A for this simple fix - no complex dependency graph or centrality analysis needed.
+
+## Risks & Mitigation
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Removing `generated` breaks existing consumers | High | Check if any code references `generated` field before removal |
+| Test setup fails to generate proper test data | Medium | Use existing test patterns from `test_tantivy_index_populated.rs` |
+| Validator still fails after fix | Medium | Verify validator schema matches expectations; may need to update validator too |
+| Regression in other INDEX.json consumers | Medium | Run existing test suite to ensure no breaking changes |
+
+## Parallel Opportunities
+
+None - steps are sequential due to dependencies:
+- Step 2 (code change) must happen before Step 3 (test)
+- Step 3 (test) must happen before Step 4 (validation)
+
+## Estimated Total Time
+
+~35 minutes
+- Step 1: 5 min
+- Step 2: 5 min
+- Step 3: 15 min
+- Step 4: 10 min

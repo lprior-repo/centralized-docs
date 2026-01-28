@@ -1,0 +1,19 @@
+{
+  "chunk_id_generation_locations": [
+    "contextual-chunker/src/chunk.rs:321",
+    "contextual-chunker/src/chunk.rs:337",
+    "contextual-chunker/src/chunk.rs:373",
+    "contextual-chunker/src/chunk.rs:389",
+    "contextual-chunker/src/chunk.rs:399"
+  ],
+  "parent_child_linking": "contextual-chunker/src/chunk.rs:258-279",
+  "sequential_linking": "contextual-chunker/src/chunk.rs:426-437",
+  "index_building": "doc_transformer/src/index.rs:88-93",
+  "test_expectations": [
+    "doc_transformer/src/chunking_adapter.rs:232"
+  ],
+  "current_format": "{doc_id}#{chunk_index}",
+  "required_format": "{doc_id}#{chunk_index}-{level}",
+  "level_variants": ["summary", "standard", "detailed"],
+  "no_existing_validation": true
+}

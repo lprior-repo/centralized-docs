@@ -1,0 +1,73 @@
+{
+  "implementation_steps": [
+    {
+      "step": 1,
+      "description": "Add Chunker trait to lib.rs",
+      "files": ["contextual-chunker/src/lib.rs"],
+      "code": "pub trait Chunker { fn chunk(&self, doc: &Document) -> Result<Vec<Chunk>>; }"
+    },
+    {
+      "step": 2,
+      "description": "Add ContextualChunker struct",
+      "files": ["contextual-chunker/src/lib.rs"],
+      "code": "pub struct ContextualChunker { pub level: ChunkLevel, pub context_tokens: usize }"
+    },
+    {
+      "step": 3,
+      "description": "Implement factory methods",
+      "files": ["contextual-chunker/src/lib.rs"],
+      "methods": ["new(level, tokens)", "summary()", "standard()", "detailed()"]
+    },
+    {
+      "step": 4,
+      "description": "Implement Chunker trait",
+      "files": ["contextual-chunker/src/lib.rs"],
+      "implementation": "Reuse create_chunks_at_level() from chunk.rs"
+    },
+    {
+      "step": 5,
+      "description": "Write tests",
+      "files": ["contextual-chunker/src/lib.rs (tests module)"],
+      "tests": ["trait implementation", "factory methods", "custom configs", "backward compatibility"]
+    },
+    {
+      "step": 6,
+      "description": "Update README",
+      "files": ["contextual-chunker/README.md"],
+      "content": "Add trait-based API examples alongside free functions"
+    },
+    {
+      "step": 7,
+      "description": "Publish to crates.io",
+      "command": "cargo publish"
+    },
+    {
+      "step": 8,
+      "description": "Update doc_transformer dependency",
+      "files": ["doc_transformer/Cargo.toml"],
+      "change": "path -> crates.io version"
+    }
+  ],
+  "design_decisions": {
+    "backward_compatibility": "Keep free functions, add trait-based API",
+    "code_reuse": "Reuse create_chunks_at_level() from chunk.rs",
+    "context_tokens": "30/100/200 by level (not fixed 50-100)",
+    "export_strategy": "Export both APIs from lib.rs"
+  },
+  "acceptance_criteria": [
+    "Chunker trait exists",
+    "ContextualChunker implements Chunker",
+    "Configurable levels and context tokens",
+    "Factory methods for common configs",
+    "Backward compatible (doc_transformer works)",
+    "Published to crates.io",
+    "Comprehensive docs and examples"
+  ],
+  "risks": [
+    {
+      "risk": "Breaking changes",
+      "mitigation": "Keep free functions, only add new API",
+      "severity": "low"
+    }
+  ]
+}

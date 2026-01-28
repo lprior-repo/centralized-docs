@@ -1,0 +1,74 @@
+{
+  "implementation_approach": "Hybrid - Escape special chars + Improve error messages",
+  "rationale": "Escaping Tantivy operators allows HTML/XSS-like queries to work while preserving boolean query functionality. Fallback remains for index issues.",
+  "steps": [
+    {
+      "step": 1,
+      "task": "Add sanitize_query() function to validate.rs",
+      "details": {
+        "function": "pub fn sanitize_query(query: &str) -> String",
+        "behavior": "Escape Tantivy special characters: < > & \" ' \\/ ( ) ! | + -",
+        "escaping_rule": "Prepend backslash to special chars (except when part of valid boolean operator)",
+        "return": "Escaped query string safe for Tantivy parsing"
+      }
+    },
+    {
+      "step": 2,
+      "task": "Update search_index() to use sanitized query",
+      "details": {
+        "file": "search.rs:214-297",
+        "change": "Call sanitize_query() before passing to QueryParser",
+        "error_handling": "Improve error messages to indicate what was sanitized"
+      }
+    },
+    {
+      "step": 3,
+      "task": "Add tests for sanitization",
+      "details": {
+        "file": "validate.rs tests",
+        "test_cases": [
+          "test_sanitize_query_basic_chars",
+          "test_sanitize_query_html_tags",
+          "test_sanitize_query_entities",
+          "test_sanitize_query_boolean_operators",
+          "test_sanitize_query_mixed"
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "task": "Update integration tests",
+      "details": {
+        "file": "tests/search_error_tests.rs",
+        "update": "Verify sanitized queries now work, update error message assertions"
+      }
+    }
+  ],
+  "success_criteria": [
+    "XSS-like queries (e.g., '<script>alert(1)</script>') work with Tantivy",
+    "Boolean operators (AND, OR, NOT) still work correctly",
+    "Error messages are specific when parsing fails",
+    "Existing tests continue to pass",
+    "New tests cover sanitization edge cases"
+  ],
+  "contracts": {
+    "sanitize_query": {
+      "precondition": "Query is validated (not empty, length <= 1000)",
+      "postcondition": "Returned string has all Tantivy special chars escaped",
+      "invariant": "Query semantics preserved for boolean operators"
+    },
+    "search_index": {
+      "precondition": "Query is validated and sanitized",
+      "postcondition": "Tantivy QueryParser succeeds or returns specific error"
+    }
+  },
+  "edge_case_handling": {
+    "balanced_html": "<div>test</div> -> \\<div\\>test\\</div\\>",
+    "unbalanced_tags": "<script> -> \\<script\\>",
+    "html_entities": "&amp; -> \\&amp;",
+    "boolean_operators": "rust AND python -> rust AND python (no escape needed)",
+    "mixed": "rust & systems OR <tag> -> rust \\& systems OR \\<tag\\>"
+  },
+  "backwards_compatibility": "Breaking - Changes query parsing behavior, but improves UX",
+  "testing_strategy": "Unit tests for sanitization + Integration tests for search behavior"
+}

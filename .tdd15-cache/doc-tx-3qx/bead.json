@@ -1,0 +1,13 @@
+[
+  {
+    "id": "doc-tx-3qx",
+    "title": "INDEX.json schema missing required fields (project, updated)",
+    "description": "## CONTEXT BLOCK\n\n- **File/Function:** `doc_transformer/src/index.rs` and `doc_transformer/src/bin/llms_txt_validator.rs:177-209`\n- **The Smell:** The code assumes INDEX.json output will pass validation, but the indexer generates a schema with `version` and `generated` fields while the validator expects `version`, `project`, and `updated` fields. The generated INDEX.json always fails its own validation.\n\n## Evidence\n```\n$ cat INDEX.json | python3 -c \"import json,sys; d=json.load(sys.stdin); print('Top-level keys:', list(d.keys()))\"\nTop-level keys: ['chunks', 'documents', 'generated', 'graph', 'keywords', 'navigation', 'stats', 'version']\n# Note: 'project' and 'updated' are MISSING\n\n$ ./llms_txt_validator --index INDEX.json\n❌ [ERROR] project: Missing required field: project\n⚠️  [WARN] updated: Missing required field: updated\n```\n\n## SPECIFICATION BLOCK\n\n### EARS (Easy Approach to Requirements Syntax)\n- When generating INDEX.json, the system SHALL include a `project` field containing the project name\n- When generating INDEX.json, the system SHALL include an `updated` field containing the generation timestamp (ISO 8601)\n- When generating INDEX.json, the system SHALL rename `generated` to `updated` for consistency with the validator schema\n\n### DbC (Design by Contract)\n- **Preconditions:** project_name is provided (from CLI --project-name or derived from source)\n- **Postconditions:** INDEX.json contains `project`, `version`, and `updated` fields; `llms_txt_validator --index` passes with 0 errors\n\n### Schema \u0026 Edge Cases\n- **Required fields:**\n  ```json\n  {\n    \"version\": \"5.0\",\n    \"project\": \"string (required)\",\n    \"updated\": \"ISO8601 timestamp (required)\",\n    ...\n  }\n  ```\n- **Edge cases:**\n  - Legacy mode (no --project-name): derive from source directory name\n  - Empty project name: reject with error\n  - Timestamp format: use RFC 3339 / ISO 8601\n",
+    "status": "in_progress",
+    "priority": 2,
+    "issue_type": "task",
+    "created_at": "2026-01-15T01:41:14.408044387-06:00",
+    "created_by": "lewis",
+    "updated_at": "2026-01-27T21:06:44.067636355-06:00"
+  }
+]
