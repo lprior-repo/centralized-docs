@@ -177,7 +177,6 @@ pub fn build_and_write_index(
         "version": "5.0",
         "project": project_name,
         "updated": timestamp,
-        "generated": timestamp,
         "stats": {
             "doc_count": documents.len(),
             "chunk_count": chunks_result.total_chunks,
