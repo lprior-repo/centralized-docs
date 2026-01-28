@@ -224,7 +224,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
     // Parse query
     let query_parser = QueryParser::for_index(index, vec![fields.content]);
     let query = query_parser
-        .parse_query(query_str)
+        .parse_query(&query_str_sanitized)
         .map_err(|e| anyhow!("Invalid query: {e}"))?;
 
     // Execute search and get top results
@@ -292,6 +292,9 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
             .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
+
+    // Filter out results with non-positive scores (including -0.00)
+    let results: Vec<SearchResult> = results.into_iter().filter(|r| r.score > 0.0).collect();
 
     Ok(results)
 }
