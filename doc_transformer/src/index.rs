@@ -496,7 +496,9 @@ pub fn build_knowledge_dag(
                         let mut added_edges: usize = 0;
                         for (neighbor_idx, similarity) in neighbors {
                             // Skip self-edges and low-similarity matches
+                            // Explicit bounds check to prevent panic on malformed HNSW indices
                             if neighbor_idx != i
+                                && neighbor_idx < chunks.len()
                                 && similarity >= SIMILARITY_THRESHOLD
                                 && added_edges < max_related
                             {
