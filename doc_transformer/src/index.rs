@@ -105,11 +105,7 @@ pub fn build_and_write_index(
                 summary: analysis.first_paragraph.clone(),
                 word_count: analysis.word_count,
                 chunk_ids,
-                headings: vec![
-                    "Introduction".to_string(),
-                    "Content".to_string(),
-                    "Conclusion".to_string(),
-                ],
+                headings: analysis.headings.iter().map(|h| h.text.clone()).collect(),
             });
         }
     }
