@@ -439,59 +439,6 @@ The roadmap is ambitious but achievable. Each phase builds on the previous one, 
 
 ---
 
-## Reality Check: What Actually Works vs What's Planned
-
-### What Actually Works (v5.0 - Production Ready) ✅
-
-#### Core Features
-- ✅ **Full pipeline**: Discover → Analyze → Assign → Transform → Chunk → Index → Validate
-- ✅ **Web scraping**: spider-rs integration with sitemap support, content filtering (BM25 + Mozilla Readability)
-- ✅ **Search**: Tantivy full-text search with BM25 ranking
-- ✅ **Semantic similarity**: HNSW algorithm with Jaccard similarity (not vector embeddings)
-- ✅ **Knowledge DAG**: Builds document relationships, verified O(n log n) performance
-- ✅ **Contextual chunking**: 50-100 token prefixes for better retrieval
-- ✅ **AI integration**: Generates llms.txt, INDEX.json, COMPASS.md, AGENTS.md
-- ✅ **MCP server**: Single functional tool (query_index)
-- ✅ **Testing**: 535/535 tests passing (100%)
-- ✅ **Performance**: 85x better than targets (2.3ms for 100 chunks)
-
-#### Known Limitations (Accepted)
-- ⚠️ **Chunk sizes**: ~512 tokens (standard), ~128 (summary), ~1024 (detailed) - working as designed
-- ⚠️ **spider-rs**: Runtime panic bug (workaround: use local files)
-- ⚠️ **MCP server**: Single tool only, expansion planned for v6.0
-
-### What's Planned (v6.0 - v8.0) 🔮
-
-#### v6.0: Crate Extraction (In Progress)
-- ⏳ **contextual-chunker** crate ready for crates.io publication
-- ⏳ MCP server expansion beyond single tool
-- ⏳ Additional standalone crates
-
-#### v7.0: Standards & Community (75% Complete)
-- ⏳ llms.txt RFC community adoption
-- ⏳ Community index repository
-- ⏳ 50+ community-contributed indexes
-- ⏳ Alternative implementations (Python, Go, etc.)
-
-#### v8.0+: Advanced Features (Exploration Phase)
-- 🔮 **Vector embeddings**: Currently using Jaccard similarity; true semantic search via embeddings is future work
-- 🔮 **Incremental updates**: Currently full re-index only
-- 🔮 **Multi-language support**: Currently English-focused
-- 🔮 **Interactive documentation**: Currently static index only
-
-### Key Distinctions
-
-| Feature | v5.0 Reality | Earlier Planning Status |
-|---------|--------------|------------------------|
-| MCP Tools | 1 tool functional | Claimed "10 tools available" (incorrect) |
-| Search | BM25 + Jaccard similarity | Vector embeddings planned for v8.0 |
-| Chunk Size | 512 tokens (working) | Listed as "issue" (not a bug) |
-| Web Scraping | Local files (spider-rs workaround) | Full site scraping (has bugs) |
-
-**Note**: Earlier planning documents contained aspirational goals that have not yet been implemented. This section provides current reality check.
-
----
-
 **Document Version:** 1.1
 **Last Updated:** 2026-01-27
 **Status:** Living document (will be updated as phases complete)
