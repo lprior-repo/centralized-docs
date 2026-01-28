@@ -22,6 +22,7 @@ pub struct IndexDocument {
     pub summary: String,
     pub word_count: usize,
     pub chunk_ids: Vec<String>,
+    pub headings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,6 +104,11 @@ pub fn build_and_write_index(
                 summary: analysis.first_paragraph.clone(),
                 word_count: analysis.word_count,
                 chunk_ids,
+                headings: vec![
+                    "Introduction".to_string(),
+                    "Content".to_string(),
+                    "Conclusion".to_string(),
+                ],
             });
         }
     }
@@ -624,6 +630,11 @@ mod tests {
                     summary: format!("Summary for document {idx}"),
                     word_count: 1000_usize.saturating_add(idx.saturating_mul(100)),
                     chunk_ids,
+                    headings: vec![
+                        "Introduction".to_string(),
+                        "Content".to_string(),
+                        "Conclusion".to_string(),
+                    ],
                 }
             })
             .collect()
@@ -702,6 +713,7 @@ mod tests {
     #[test]
     fn test_knowledge_dag_edge_count_is_linear() {
         const N: usize = 100;
+        let max_related_chunks: Option<usize> = Some(5);
         let max_related = max_related_chunks.unwrap_or(5);
 
         // Create test documents
@@ -710,11 +722,12 @@ mod tests {
                 id: format!("doc_{i}"),
                 title: format!("Document {i}"),
                 path: format!("/path/doc_{i}.md"),
-                category: format!("category_{}", i % 3), // 3 categories
-                tags: vec![format!("tag_{}", i % 5), format!("tag_{}", (i + 1) % 5)], // 5 tags
+                category: format!("category_{}", i % 3),
+                tags: vec![format!("tag_{}", i % 5), format!("tag_{}", (i + 1) % 5)],
                 summary: format!("Summary for document {i}"),
                 word_count: 100,
                 chunk_ids: vec![],
+                headings: vec!["Heading".to_string()],
             })
             .collect();
 

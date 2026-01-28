@@ -1,11 +1,10 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use doc_transformer::chunk::{Chunk, ChunkLevel};
 use doc_transformer::graph::KnowledgeDAG;
 use doc_transformer::index::build_knowledge_dag;
 use std::collections::HashMap;
+use std::time::Duration;
 
-/// Generate synthetic test chunks with realistic structure
-/// Each chunk represents a section of a document
 fn generate_test_chunks(n: usize) -> Vec<Chunk> {
     let docs_per_batch = (n as f64).sqrt().ceil() as usize;
     let chunks_per_doc = n.div_ceil(docs_per_batch);
@@ -61,9 +60,7 @@ fn generate_test_chunks(n: usize) -> Vec<Chunk> {
     chunks
 }
 
-/// Generate synthetic index documents
 fn generate_test_documents(chunks: &[Chunk]) -> Vec<doc_transformer::index::IndexDocument> {
-    // Group chunks by doc_id
     let mut docs_map: HashMap<String, Vec<String>> = HashMap::new();
     let mut docs_titles: HashMap<String, String> = HashMap::new();
 
@@ -99,14 +96,17 @@ fn generate_test_documents(chunks: &[Chunk]) -> Vec<doc_transformer::index::Inde
                 summary: format!("Summary for document {idx}"),
                 word_count: 1000 + idx * 100,
                 chunk_ids,
+                headings: vec![
+                    "Introduction".to_string(),
+                    "Content".to_string(),
+                    "Conclusion".to_string(),
+                ],
             }
         })
         .collect()
 }
 
-/// Generate document tags for relationship detection
 fn generate_test_tags(chunks: &[Chunk]) -> Vec<(String, Vec<String>, String)> {
-    // Group by doc_id and create tags
     let mut docs_map: HashMap<String, Vec<String>> = HashMap::new();
     let mut docs_categories: HashMap<String, String> = HashMap::new();
 
@@ -136,7 +136,6 @@ fn generate_test_tags(chunks: &[Chunk]) -> Vec<(String, Vec<String>, String)> {
                 .cloned()
                 .unwrap_or_else(|| format!("Category {}", idx % 5));
 
-            // Create semantically meaningful tags
             let tags = vec![
                 format!("tag_{}", idx % 3),
                 format!("tag_{}", (idx + 1) % 3),
@@ -150,96 +149,100 @@ fn generate_test_tags(chunks: &[Chunk]) -> Vec<(String, Vec<String>, String)> {
         .collect()
 }
 
-/// Build a knowledge DAG with manually controlled parameters
-/// This is the function being benchmarked
 fn build_dag_for_benchmark(
-    chunks: &[Chunk],
     documents: &[doc_transformer::index::IndexDocument],
+    chunks: &[Chunk],
     document_tags: &[(String, Vec<String>, String)],
 ) -> KnowledgeDAG {
-    build_knowledge_dag(documents, chunks, document_tags)
+    build_knowledge_dag(documents, chunks, document_tags, None, None, None)
 }
 
-fn benchmark_dag_construction(c: &mut Criterion) {
-    let mut group = c.benchmark_group("dag_construction");
-
-    // Configure group for longer-running benchmarks
+fn benchmark_dag_with_metrics(c: &mut Criterion) {
+    let mut group = c.benchmark_group("dag_with_metrics");
     group.sample_size(10);
-    group.measurement_time(std::time::Duration::from_secs(30));
+    group.measurement_time(Duration::from_secs(30));
 
-    // Test various scales: 100, 1K, 5K, 10K chunks
-    for n in [100, 1_000, 5_000, 10_000].iter() {
-        group.bench_with_input(BenchmarkId::from_parameter(n), n, |b, &n| {
-            let chunks = black_box(generate_test_chunks(n));
-            let documents = black_box(generate_test_documents(&chunks));
-            let tags = black_box(generate_test_tags(&chunks));
+    let test_sizes = [100, 1_000, 5_000, 10_000];
+    let mut times: Vec<Duration> = Vec::new();
 
+    for &n in &test_sizes {
+        let chunks = generate_test_chunks(n);
+        let documents = generate_test_documents(&chunks);
+        let tags = generate_test_tags(&chunks);
+
+        let edge_count = estimate_edge_count(n);
+
+        group.throughput(Throughput::Elements(edge_count as u64));
+
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &_n| {
             b.iter(|| {
-                build_dag_for_benchmark(black_box(&chunks), black_box(&documents), black_box(&tags))
+                let dag = build_dag_for_benchmark(
+                    black_box(&documents),
+                    black_box(&chunks),
+                    black_box(&tags),
+                );
+                dag.edges().len()
             });
         });
+
+        let start = std::time::Instant::now();
+        for _ in 0..3 {
+            let _ = build_dag_for_benchmark(&documents, &chunks, &tags);
+        }
+        let elapsed = start.elapsed() / 3;
+        times.push(elapsed);
+
+        eprintln!(
+            "N={:>5}: {} avg time, ~{} edges, {:.0} edges/sec",
+            n,
+            format_duration(elapsed),
+            edge_count,
+            edge_count as f64 / elapsed.as_secs_f64()
+        );
     }
 
     group.finish();
-}
 
-fn benchmark_dag_scaling(c: &mut Criterion) {
-    let mut group = c.benchmark_group("dag_scaling");
+    eprintln!("\n=== Scaling Validation ===");
+    for i in 0..test_sizes.len() - 1 {
+        let n1 = test_sizes[i];
+        let n2 = test_sizes[i + 1];
+        let ratio = if n2 >= n1 * 2 && times[i + 1] > Duration::ZERO {
+            times[i + 1].as_secs_f64() / times[i].as_secs_f64()
+        } else {
+            0.0
+        };
 
-    group.sample_size(5);
-    group.measurement_time(std::time::Duration::from_secs(60));
-
-    // Test larger scales to demonstrate scaling characteristics
-    for n in [5_000, 10_000, 20_000].iter() {
-        group.bench_with_input(BenchmarkId::from_parameter(n), n, |b, &n| {
-            let chunks = black_box(generate_test_chunks(n));
-            let documents = black_box(generate_test_documents(&chunks));
-            let tags = black_box(generate_test_tags(&chunks));
-
-            b.iter(|| {
-                build_dag_for_benchmark(black_box(&chunks), black_box(&documents), black_box(&tags))
-            });
-        });
+        if ratio > 0.0 {
+            let passes = ratio < 2.5;
+            eprintln!(
+                "{}x ({}→{}): {:.2}x time increase - {} (threshold: <2.5x)",
+                n2 / n1,
+                n1,
+                n2,
+                ratio,
+                if passes { "✓ PASS" } else { "✗ FAIL" }
+            );
+        }
     }
-
-    group.finish();
 }
 
-fn benchmark_chunk_generation(c: &mut Criterion) {
-    let mut group = c.benchmark_group("chunk_generation");
+fn estimate_edge_count(n: usize) -> usize {
+    let sequential_edges = n;
+    let parent_edges = n;
+    let related_edges = n;
+    sequential_edges + parent_edges + related_edges
+}
 
-    group.sample_size(10);
-
-    for n in [100, 1_000, 5_000, 10_000].iter() {
-        group.bench_with_input(BenchmarkId::from_parameter(n), n, |b, &n| {
-            b.iter(|| generate_test_chunks(black_box(n)));
-        });
+fn format_duration(d: Duration) -> String {
+    if d.as_secs() > 0 {
+        format!("{}.{:03}s", d.as_secs(), d.subsec_millis())
+    } else if d.as_millis() > 0 {
+        format!("{}ms", d.as_millis())
+    } else {
+        format!("{}μs", d.as_micros())
     }
-
-    group.finish();
 }
 
-fn benchmark_tag_generation(c: &mut Criterion) {
-    let mut group = c.benchmark_group("tag_generation");
-
-    group.sample_size(10);
-
-    for n in [100, 1_000, 5_000, 10_000].iter() {
-        group.bench_with_input(BenchmarkId::from_parameter(n), n, |b, &n| {
-            let chunks = generate_test_chunks(n);
-
-            b.iter(|| generate_test_tags(black_box(&chunks)));
-        });
-    }
-
-    group.finish();
-}
-
-criterion_group!(
-    benches,
-    benchmark_chunk_generation,
-    benchmark_tag_generation,
-    benchmark_dag_construction,
-    benchmark_dag_scaling
-);
+criterion_group!(benches, benchmark_dag_with_metrics);
 criterion_main!(benches);

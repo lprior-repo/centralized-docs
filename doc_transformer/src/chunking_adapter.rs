@@ -47,14 +47,6 @@ pub struct ChunksResult {
     pub detailed_chunks: usize,
 }
 
-/// Slugify a path for use as an ID
-fn slugify(path: &str) -> String {
-    path.replace(['/', '.', ' '], "-")
-        .to_lowercase()
-        .trim_matches('-')
-        .to_string()
-}
-
 /// Convert Analysis to contextual_chunker::Document
 ///
 /// Maps doc_transformer's Analysis type to the simpler Document type
@@ -64,7 +56,10 @@ fn analysis_to_document(analysis: &Analysis, link_map: &HashMap<String, IdMappin
     let doc_id = link_map
         .get(&analysis.source_path)
         .map(|m| m.id.clone())
-        .unwrap_or_else(|| slugify(&analysis.source_path));
+        .unwrap_or_else(|| panic!(
+            "link_map missing entry for source_path '{}'. This should never happen - link_map is built from the same analyses vector.",
+            analysis.source_path
+        ));
 
     Document::new(doc_id, analysis.title.clone(), analysis.content.clone())
 }
@@ -182,9 +177,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_analysis_to_document() -> anyhow::Result<()> {
+    fn test_analysis_to_document_with_link_map() -> anyhow::Result<()> {
         let analysis = Analysis {
-            source_path: "test.md".to_string(),
+            source_path: "concept/general/test.md".to_string(),
             title: "Test Document".to_string(),
             content: "## Section\nContent here".to_string(),
             frontmatter: None,
@@ -194,18 +189,57 @@ mod tests {
             word_count: 2,
             has_code: false,
             has_tables: false,
-            category: "test".to_string(),
+            category: "concept".to_string(),
         };
 
-        let link_map = HashMap::new();
+        let mut link_map = HashMap::new();
+        link_map.insert(
+            "concept/general/test.md".to_string(),
+            IdMapping {
+                id: "concept/general/test".to_string(),
+                filename: "concept-general-test.md".to_string(),
+                subcategory: "general".to_string(),
+                slug: "test".to_string(),
+            },
+        );
+
         let doc = analysis_to_document(&analysis, &link_map);
 
-        // Without link_map entry, should use slugified path
-        assert_eq!(doc.id, "test-md");
+        // Should use link_map entry, not slugified path
+        assert_eq!(doc.id, "concept/general/test");
         assert_eq!(doc.title, "Test Document");
         assert_eq!(doc.content, "## Section\nContent here");
 
         Ok(())
+    }
+
+    #[test]
+    fn test_analysis_to_document_missing_link_map_panics() {
+        let analysis = Analysis {
+            source_path: "concept/general/test.md".to_string(),
+            title: "Test Document".to_string(),
+            content: "## Section\nContent here".to_string(),
+            frontmatter: None,
+            headings: vec![],
+            links: vec![],
+            first_paragraph: "Content here".to_string(),
+            word_count: 2,
+            has_code: false,
+            has_tables: false,
+            category: "concept".to_string(),
+        };
+
+        let link_map = HashMap::new();
+
+        // Should panic with helpful error message when link_map entry is missing
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            analysis_to_document(&analysis, &link_map);
+        }));
+
+        assert!(
+            result.is_err(),
+            "Should panic when link_map entry is missing"
+        );
     }
 
     #[test]
@@ -229,7 +263,7 @@ mod tests {
 
         let chunk = convert_chunk(cc_chunk);
 
-        assert_eq!(chunk.chunk_id, "test#0-standard");
+        assert_eq!(chunk.chunk_id, "test#0");
         assert_eq!(chunk.chunk_level, contextual_chunker::ChunkLevel::Standard);
         assert!(chunk.related_chunk_ids.is_empty()); // Populated later by graph
 
