@@ -32,6 +32,9 @@ pub enum ValidationError {
 
     #[error("Query too long ({length} bytes, max {max})")]
     QueryTooLong { length: usize, max: usize },
+
+    #[error("Regex queries not allowed (potential ReDoS attack)")]
+    RegexNotAllowed,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -207,7 +210,37 @@ pub fn validate_query(query: &str) -> Result<&str, ValidationError> {
         });
     }
 
+    if contains_regex_pattern(trimmed) {
+        return Err(ValidationError::RegexNotAllowed);
+    }
+
     Ok(trimmed)
+}
+
+fn contains_regex_pattern(query: &str) -> bool {
+    let chars: Vec<char> = query.chars().collect();
+    let len = chars.len();
+
+    for i in 0..len {
+        if chars[i] == '/' {
+            let next_idx = i.saturating_add(1);
+            if next_idx < len && chars[next_idx] == '/' {
+                continue;
+            }
+            let start_idx = i.saturating_add(1);
+            for j in start_idx..len {
+                if chars[j] == '/' {
+                    let next_j = j.saturating_add(1);
+                    if next_j >= len || chars[next_j] != '/' {
+                        return true;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    false
 }
 
 #[cfg(test)]
@@ -396,5 +429,60 @@ mod tests {
             assert!(msg.contains("1000"));
             assert!(msg.contains("too long"));
         }
+    }
+
+    #[test]
+    fn test_validate_query_rejects_simple_regex() {
+        assert!(matches!(
+            validate_query("/rust/"),
+            Err(ValidationError::RegexNotAllowed)
+        ));
+    }
+
+    #[test]
+    fn test_validate_query_rejects_nested_regex() {
+        assert!(matches!(
+            validate_query("/((a+)+)b/"),
+            Err(ValidationError::RegexNotAllowed)
+        ));
+    }
+
+    #[test]
+    fn test_validate_query_rejects_regex_in_middle() {
+        assert!(matches!(
+            validate_query("search /rust/ programming"),
+            Err(ValidationError::RegexNotAllowed)
+        ));
+    }
+
+    #[test]
+    fn test_validate_query_rejects_multiple_regex() {
+        assert!(matches!(
+            validate_query("/rust/ OR /python/"),
+            Err(ValidationError::RegexNotAllowed)
+        ));
+    }
+
+    #[test]
+    fn test_validate_query_accepts_slash_without_regex() {
+        assert_eq!(validate_query("rust/python"), Ok("rust/python"));
+    }
+
+    #[test]
+    fn test_validate_query_accepts_double_slash() {
+        assert_eq!(validate_query("// comment"), Ok("// comment"));
+    }
+
+    #[test]
+    fn test_validate_query_accepts_double_slash_at_end() {
+        assert_eq!(validate_query("rust //"), Ok("rust //"));
+    }
+
+    #[test]
+    fn test_validate_query_rejects_regex_error_message() {
+        let result = validate_query("/((a+)+)b/");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        assert!(matches!(err_msg, Err(ref msg) if msg.contains("Regex")));
     }
 }

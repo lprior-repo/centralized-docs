@@ -286,16 +286,6 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
         });
     }
 
-    // Sort by score descending (Tantivy already does this, but make sure)
-    results.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-
-    // Filter out results with non-positive scores (including -0.00)
-    let results: Vec<SearchResult> = results.into_iter().filter(|r| r.score > 0.0).collect();
-
     Ok(results)
 }
 
