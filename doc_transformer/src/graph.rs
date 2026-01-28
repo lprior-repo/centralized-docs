@@ -90,19 +90,21 @@ impl KnowledgeDAG {
 
     /// Add a node to the graph
     pub fn add_node(&mut self, node: GraphNode) {
+        let id = node.id.clone();
         let idx = self.graph.add_node(node.clone());
-        self.node_map.insert(node.id.clone(), idx);
+        self.node_map.insert(id, idx);
         self.nodes_vec.push(node);
     }
 
     /// Add an edge to the graph
     pub fn add_edge(&mut self, edge: GraphEdge) {
-        if let (Some(&from_idx), Some(&to_idx)) =
-            (self.node_map.get(&edge.from), self.node_map.get(&edge.to))
-        {
+        let from_idx = self.node_map.get(&edge.from).copied();
+        let to_idx = self.node_map.get(&edge.to).copied();
+
+        if let (Some(from), Some(to)) = (from_idx, to_idx) {
             self.graph.add_edge(
-                from_idx,
-                to_idx,
+                from,
+                to,
                 GraphEdgeData {
                     edge_type: edge.edge_type.clone(),
                     weight: edge.weight,

@@ -48,12 +48,14 @@ If clippy reports warnings or errors, fix the **code**, not the lint rules.
 The user has explicitly configured these rules. Do not second-guess them.
 
 ### Code Quality: Pure Functional Rust
-**Zero panics, zero unwraps, explicit errors:**
+**Zero panics in our code, explicit error handling:**
 - `unwrap()` and `expect()` are **ABSOLUTELY FORBIDDEN** - everywhere, always
 - `panic!`, `todo!`, `unimplemented!` are **ABSOLUTELY FORBIDDEN** - everywhere, always
 - All errors must use `Result<T, Error>` with proper propagation
 - Use functional patterns: `map`, `and_then`, `?` operator
 - For arithmetic: use `saturating_add`, `saturating_sub`, `checked_*` methods
+
+**Note:** Dependencies (e.g., spider-rs) may have panics; we validate inputs to avoid triggering them.
 
 **NO EXCEPTIONS** - Not in tests, not in examples, not in ANY code. Tests should use:
 - `assert!(matches!(result, Ok(value)))` for Ok results
