@@ -606,4 +606,129 @@ mod tests {
         let result = chunk(&invalid, ChunkLevel::Standard);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_chunk_no_h2_headings() {
+        let content = "# Title\n\nLong content without any H2 headings.\n\n".repeat(100);
+        let doc = Document::new(
+            "no-h2".to_string(),
+            "No H2 Doc".to_string(),
+            content.clone(),
+        );
+        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+
+        assert!(!chunks.is_empty(), "Should create at least one chunk");
+        assert!(chunks[0].content.contains("Title"), "Should include H1");
+        if content.split_whitespace().count() > 512 {
+            assert!(chunks.len() > 1, "Long content should split");
+        }
+    }
+
+    #[test]
+    fn test_chunk_very_short_document() {
+        let content = "# Short\n\nJust a few words.".to_string();
+        let doc = Document::new("short".to_string(), "Short Doc".to_string(), content);
+        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+
+        assert_eq!(chunks.len(), 1, "Short doc should be one chunk");
+        assert!(chunks[0].token_count < 512, "Should be under target");
+    }
+
+    #[test]
+    fn test_chunk_only_h1_no_sections() {
+        let content = "# Title\n\nContent here.\n\n# Another Title\n\nMore content.".to_string();
+        let doc = Document::new("h1-only".to_string(), "H1 Only".to_string(), content);
+        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+
+        assert!(!chunks.is_empty());
+        let all_content: String = chunks.iter().map(|c| c.content.as_str()).collect();
+        assert!(all_content.contains("Title"));
+        assert!(all_content.contains("Another Title"));
+    }
+
+    #[test]
+    fn test_chunk_very_long_document() {
+        let long_content = "# Title\n\n## Section\n\n".to_string() + &"word ".repeat(10000);
+        let doc = Document::new(
+            "long".to_string(),
+            "Long Doc".to_string(),
+            long_content.clone(),
+        );
+        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+
+        assert!(
+            chunks.len() > 1,
+            "Long doc should split into multiple chunks"
+        );
+
+        let total_words: usize = chunks
+            .iter()
+            .map(|c| c.content.split_whitespace().count())
+            .sum();
+        let original_words = long_content.split_whitespace().count();
+        assert!(
+            total_words >= original_words.saturating_sub(100),
+            "Most words preserved"
+        );
+    }
+
+    #[test]
+    fn test_chunk_unicode_boundaries() {
+        let content = "# Unicode\n\n## Section\n\n";
+        let emoji_content = "emoji 😀 ".repeat(1000);
+        let full_content = content.to_string() + &emoji_content;
+        let doc = Document::new(
+            "unicode".to_string(),
+            "Unicode Doc".to_string(),
+            full_content.clone(),
+        );
+        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+
+        for chunk in &chunks {
+            assert!(chunk.content.is_char_boundary(0));
+            assert!(chunk.content.is_char_boundary(chunk.content.len()));
+        }
+
+        let all_content: String = chunks.iter().map(|c| c.content.as_str()).collect();
+        assert_eq!(
+            all_content.matches('😀').count(),
+            full_content.matches('😀').count(),
+            "Emojis should be preserved"
+        );
+    }
+
+    #[test]
+    fn test_chunk_empty_sections() {
+        let content =
+            "# Title\n\n## Empty\n\n## Another Empty\n\n## Has Content\n\nSome text.".to_string();
+        let doc = Document::new(
+            "empty-sections".to_string(),
+            "Empty Sections".to_string(),
+            content,
+        );
+        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+
+        assert!(!chunks.is_empty());
+    }
+
+    #[test]
+    fn test_chunk_table_preservation() {
+        let content = r#"# Title
+
+## Table Section
+
+| Col1 | Col2 |
+|------|------|
+| A    | B    |
+| C    | D    |
+
+More content."#
+            .to_string();
+
+        let doc = Document::new("table".to_string(), "Table Doc".to_string(), content);
+        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+
+        let has_table = chunks.iter().any(|c| c.content.contains("| Col1 |"));
+        assert!(has_table, "Table should be preserved in chunks");
+    }
 }
