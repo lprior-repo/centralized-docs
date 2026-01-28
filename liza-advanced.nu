@@ -41,10 +41,10 @@ def bb-save [bb: record] {
 
     # Write to temp file (in system temp, then move atomically)
     let tmp = (mktemp -t "bb.XXXXXX.yml")
-    $bb | to yaml | save --force=true $tmp
+    $bb | to yaml | save --force $tmp
 
     # Atomic move (overwrites if exists)
-    mv --force=true $tmp (bb-path)
+    mv --force $tmp (bb-path)
   } catch { |e|
     error make { msg: $"Failed to save blackboard: ($e.msg)" }
   }
@@ -180,9 +180,9 @@ def assert-no-test-weakening [t: record] {
 # Commands: Initialization
 # =========================
 
-def cmd-init [--force=true = false] {
+def cmd-init [--force] {
   if ((bb-path) | path exists) and not $force {
-    error make { msg: $"(bb-path) already exists. Use --force=true to overwrite." }
+    error make { msg: $"(bb-path) already exists. Use --force to overwrite." }
   }
 
   let bb = {
@@ -219,6 +219,8 @@ def cmd-task-add [
     lease_minutes: $lease_min,
     done_when: [],
     allow_test_changes: false,
+    generation: 0,
+    landscape: {},
 
     claim: { agent_id: null, lease_expires: null, base_commit: null },
     submission: { commit: null, changed_files: [], validation: [] },
@@ -230,6 +232,10 @@ def cmd-task-add [
   print $"✓ Created task: ($task_id)"
 }
 
+# IMPORTANT: When a survivor is found (bug proven by exit code), the caller MUST:
+#   1. Call task-add-check to lock the regression (this function)
+#   2. Call `bd create --title "[Red Queen] <SEVERITY>: <finding>" --type=bug` IMMEDIATELY
+#   Beads are filed at the moment of selection, NEVER deferred to session end.
 def cmd-task-add-check [
   task_id: string,
   cmd: string,
@@ -518,12 +524,16 @@ def cmd-supervisor-merge [
 #   (1) it fails on the current champion (blackboard commit)
 #   (2) it passes on the candidate (provided commit)
 # This enforces that the test bank only grows with real regressions, not false positives.
+#
+# IMPORTANT: After calling regress, the caller MUST also run:
+#   bd create --title "[Red Queen] <SEVERITY>: <finding>" --type=bug
+# Beads are filed at the moment of selection, NEVER deferred to session end.
 
 def cmd-regress [
   task_id: string,
   cmd: string,
   --expect_exit: int = 0,
-  --force=true = false
+  --force
 ] {
   if not $force {
     # Validate the command works (dry-run on current champion)
@@ -531,7 +541,7 @@ def cmd-regress [
     let candidate_test = (run-shell-cmd $cmd)
 
     if $champion_test.ok {
-      print "⚠ Warning: Test already passes on current code. Skipping regression (use --force=true to override)."
+      print "⚠ Warning: Test already passes on current code. Skipping regression (use --force to override)."
       return
     }
 
@@ -555,138 +565,291 @@ def cmd-regress [
 }
 
 # =========================
-# CLI Router
+# Commands: DRQ Evolution (Generation + Landscape)
 # =========================
 
-def main [...args] {
-  let cmd = ($args | default ["help"] | get 0)
-  let rest = ($args | skip 1)
+# Start a new generation — increments the counter deterministically
+def cmd-gen-start [task_id: string] {
+  let bb = (bb-load)
+  let t = (task-get $bb $task_id)
 
-  match $cmd {
-    # Setup
-    "init" => {
-      let force = (($rest | length) > 0) and ($rest | any { |x| $x == "--force=true" })
-      if $force {
-        cmd-init --force=true
-      } else {
-        cmd-init
-      }
-    }
-
-    # Task management
-    "task-add" => {
-      let task_id = ($rest | get 0)
-      let spec_ref = if ($rest | any { |x| $x starts-with "--spec_ref" }) {
-        ($rest | where { |x| $x starts-with "--spec_ref" } | first | split row "=" | get 1)
-      } else { "specs/vision.md" }
-      let lease_min = if ($rest | any { |x| $x starts-with "--lease_min" }) {
-        ($rest | where { |x| $x starts-with "--lease_min" } | first | split row "=" | get 1 | into int)
-      } else { 30 }
-      cmd-task-add $task_id --spec_ref $spec_ref --lease_min $lease_min
-    }
-    "task-add-check" => {
-      let task_id = ($rest | get 0)
-      let cmd_str = ($rest | get 1)
-      let expect_exit = if ($rest | any { |x| $x starts-with "--expect_exit" }) {
-        ($rest | where { |x| $x starts-with "--expect_exit" } | first | split row "=" | get 1 | into int)
-      } else { 0 }
-      cmd-task-add-check $task_id $cmd_str --expect_exit $expect_exit
-    }
-    "task-list" => {
-      if ($rest | any { |x| $x == "--detail" }) {
-        cmd-task-list --detail=true
-      } else {
-        cmd-task-list
-      }
-    }
-
-    # Workflow
-    "claim" => {
-      cmd-claim ($rest | get 0) ($rest | get 1)
-    }
-    "coder-submit" => {
-      let task_id = ($rest | get 0)
-      let agent_id = ($rest | get 1)
-      let commit = if ($rest | any { |x| $x starts-with "--commit" }) {
-        ($rest | where { |x| $x starts-with "--commit" } | first | split row "=" | get 1)
-      } else { "" }
-      if ($commit | str length) > 0 {
-        cmd-coder-submit $task_id $agent_id --commit $commit
-      } else {
-        cmd-coder-submit $task_id $agent_id
-      }
-    }
-    "validate" => {
-      let task_id = ($rest | get 0)
-      cmd-supervisor-validate $task_id
-    }
-    "approve" => {
-      let task_id = ($rest | get 0)
-      let reviewer_id = ($rest | get 1)
-      cmd-review-approve $task_id $reviewer_id
-    }
-    "reject" => {
-      let task_id = ($rest | get 0)
-      let reviewer_id = ($rest | get 1)
-      let notes = ($rest | skip 2 | str join " ")
-      cmd-review-reject $task_id $reviewer_id $notes
-    }
-    "merge" => {
-      let task_id = ($rest | get 0)
-      cmd-supervisor-merge $task_id
-    }
-
-    # Regression (DRQ)
-    "regress" => {
-      let task_id = ($rest | get 0)
-      let cmd_str = ($rest | get 1)
-      let expect_exit = if ($rest | any { |x| $x starts-with "--expect_exit" }) {
-        ($rest | where { |x| $x starts-with "--expect_exit" } | first | split row "=" | get 1 | into int)
-      } else { 0 }
-      let force = ($rest | any { |x| $x == "--force=true" })
-      if $force {
-        cmd-regress $task_id $cmd_str --expect_exit $expect_exit --force=true
-      } else {
-        cmd-regress $task_id $cmd_str --expect_exit $expect_exit
-      }
-    }
-
-    # State inspection
-    "show" => {
-      if ($rest | any { |x| $x starts-with "--task" }) {
-        let task_id = ($rest | where { |x| $x starts-with "--task" } | first | split row "=" | get 1)
-        bb-show --task $task_id
-      } else {
-        bb-show
-      }
-    }
-
-    _ => {
-      print ([
-        "Liza: Behavioral Contract + Peer-Supervised Code Evolution",
-        "",
-        "Usage:",
-        "  nu liza-advanced.nu init [--force=true]",
-        "",
-        "Task Management:",
-        "  nu liza-advanced.nu task-add <task_id> [--spec_ref FILE] [--lease_min INT]",
-        "  nu liza-advanced.nu task-add-check <task_id> <cmd> [--expect_exit 0]",
-        "  nu liza-advanced.nu task-list [--detail]",
-        "",
-        "Workflow (Claim → Code → Submit → Validate → Review → Merge):",
-        "  nu liza-advanced.nu claim <task_id> <agent_id>",
-        "  nu liza-advanced.nu coder-submit <task_id> <agent_id> [--commit SHA]",
-        "  nu liza-advanced.nu validate <task_id> [--shell bash] [--flag -lc]",
-        "  nu liza-advanced.nu approve <task_id> <reviewer_id> [--notes '...']",
-        "  nu liza-advanced.nu reject <task_id> <reviewer_id> <notes>",
-        "  nu liza-advanced.nu merge <task_id> [--branch integration]",
-        "",
-        "DRQ Regression (Dynamic Objective):",
-        "  nu liza-advanced.nu regress <task_id> <cmd> [--expect_exit 0] [--force=true]",
-        "",
-        "State:",
-        "  nu liza-advanced.nu show [--task TASK_ID]"
-      ] | str join "\n")
-    }
+  if $t == null {
+    error make { msg: $"Task not found: ($task_id)" }
   }
+
+  let gen = (($t.generation? | default 0) + 1)
+  let updated_task = $t | upsert generation $gen
+  let bb2 = (bb-log (task-replace $bb $updated_task) "supervisor" $"Generation ($gen) started for ($task_id)")
+  bb-save $bb2
+  print $"✓ Generation ($gen) started: ($task_id)"
+}
+
+# Record a survivor — locks regression + updates landscape atomically
+# The caller MUST also run: bd create --title "[Red Queen] ..." --type=bug
+def cmd-gen-survivor [
+  task_id: string,
+  dimension: string,
+  cmd: string,
+  --expect_exit: int = 0,
+  --severity: string = "MAJOR"
+] {
+  let bb = (bb-load)
+  let t = (task-get $bb $task_id)
+
+  if $t == null {
+    error make { msg: $"Task not found: ($task_id)" }
+  }
+
+  let gen = ($t.generation? | default 0)
+
+  # Lock regression into done_when
+  let done_entry = { cmd: $cmd, expect_exit: $expect_exit, generation: $gen, dimension: $dimension, severity: $severity }
+  let updated_done = (($t.done_when | default []) | append $done_entry)
+
+  # Update landscape: increment survivors for this dimension
+  let landscape = ($t.landscape? | default {})
+  let dim_data = ($landscape | get -o $dimension | default { tests_run: 0, survivors: 0 })
+  let updated_dim = $dim_data | upsert survivors (($dim_data.survivors? | default 0) + 1)
+  let updated_landscape = ($landscape | upsert $dimension $updated_dim)
+
+  let updated_task = $t
+    | upsert done_when $updated_done
+    | upsert landscape $updated_landscape
+
+  let bb2 = (bb-log (task-replace $bb $updated_task) "red-queen" $"Gen ($gen) survivor [($severity)] in ($dimension): ($cmd)")
+  bb-save $bb2
+  print $"✓ Survivor locked [($severity)] gen=($gen) dim=($dimension): ($cmd)"
+}
+
+# Record a test that found nothing — updates landscape tests_run only
+def cmd-gen-discard [
+  task_id: string,
+  dimension: string
+] {
+  let bb = (bb-load)
+  let t = (task-get $bb $task_id)
+
+  if $t == null {
+    error make { msg: $"Task not found: ($task_id)" }
+  }
+
+  # Update landscape: increment tests_run for this dimension
+  let landscape = ($t.landscape? | default {})
+  let dim_data = ($landscape | get -o $dimension | default { tests_run: 0, survivors: 0 })
+  let updated_dim = $dim_data | upsert tests_run (($dim_data.tests_run? | default 0) + 1)
+  let updated_landscape = ($landscape | upsert $dimension $updated_dim)
+
+  let updated_task = $t | upsert landscape $updated_landscape
+  let bb2 = (task-replace $bb $updated_task)
+  bb-save $bb2
+}
+
+# Show landscape fitness scores — deterministic computation
+def cmd-landscape [task_id: string] {
+  let bb = (bb-load)
+  let t = (task-get $bb $task_id)
+
+  if $t == null {
+    error make { msg: $"Task not found: ($task_id)" }
+  }
+
+  let gen = ($t.generation? | default 0)
+  let landscape = ($t.landscape? | default {})
+
+  print $"Generation: ($gen)"
+  print $"Lineage size: (($t.done_when | default [] | length))"
+  print ""
+  print "Dimension              Tests  Survivors  Fitness  Status"
+  print "─────────────────────  ─────  ─────────  ───────  ──────────"
+
+  $landscape | transpose dim data | each {|row|
+    let tests = ($row.data.tests_run? | default 0)
+    let survivors = ($row.data.survivors? | default 0)
+    let fitness = if $tests > 0 { ($survivors / $tests) | math round --precision 3 } else { 0.0 }
+    let status = if $tests == 0 { "UNEXPLORED" } else if $fitness == 0.0 { "EXHAUSTED" } else if $fitness < 0.2 { "COOLING" } else { "ACTIVE" }
+    let dim_padded = ($row.dim | fill -a left -w 23 -c ' ')
+    print $"($dim_padded)  ($tests | fill -a right -w 5)  ($survivors | fill -a right -w 9)  ($fitness | fill -a right -w 7)  ($status)"
+  }
+
+  # Crown status
+  print ""
+  let total_survivors = ($landscape | transpose dim data | each {|r| $r.data.survivors? | default 0 } | math sum)
+  let has_critical = (($t.done_when | default []) | any {|dw| ($dw.severity? | default "") == "CRITICAL" })
+
+  if $has_critical {
+    print "Crown: FORFEIT (CRITICAL survivor exists)"
+  } else if $total_survivors > 0 {
+    let surv_count = $total_survivors
+    print $"Crown: CONTESTED — ($surv_count) survivors in lineage"
+  } else {
+    print "Crown: DEFENDED (no survivors — all tests passed)"
+  }
+}
+
+# =========================
+# CLI: Nushell native subcommands
+# =========================
+
+# =========================
+# CLI: Nushell native subcommands
+# =========================
+
+def main [] {
+  print ([
+    "Liza: Behavioral Contract + Peer-Supervised Code Evolution",
+    "",
+    "Usage: nu liza-advanced.nu <command> [args]",
+    "",
+    "Setup:",
+    "  init                  Initialize blackboard",
+    "",
+    "Task Management:",
+    "  task-add              Create a new task",
+    "  task-add-check        Add a done_when check to a task",
+    "  task-list             List all tasks",
+    "",
+    "Workflow:",
+    "  claim                 Claim a task for work",
+    "  coder-submit          Submit work for review",
+    "  validate              Run all done_when checks (the ratchet)",
+    "  approve               Approve a task",
+    "  reject                Reject a task with notes",
+    "  merge                 Merge an approved task",
+    "",
+    "DRQ Evolution:",
+    "  gen-start             Start a new generation (increments counter)",
+    "  gen-survivor          Lock a survivor: regression + landscape update + bd create reminder",
+    "  gen-discard           Record a test that found nothing (landscape only)",
+    "  landscape             Show fitness scores, crown status (all computed)",
+    "  regress               Add a regression test to the permanent bank",
+    "",
+    "State:",
+    "  show                  Show blackboard or task state",
+  ] | str join "\n")
+}
+
+def "main init" [--force] {
+  if $force {
+    cmd-init --force
+  } else {
+    cmd-init
+  }
+}
+
+def "main task-add" [
+  task_id: string,
+  --spec_ref: string = "specs/vision.md",
+  --lease_min: int = 30
+] {
+  cmd-task-add $task_id --spec_ref $spec_ref --lease_min $lease_min
+}
+
+def "main task-add-check" [
+  task_id: string,
+  cmd: string,
+  --expect_exit: int = 0
+] {
+  cmd-task-add-check $task_id $cmd --expect_exit $expect_exit
+}
+
+def "main task-list" [--detail] {
+  if $detail {
+    cmd-task-list --detail=true
+  } else {
+    cmd-task-list
+  }
+}
+
+def "main claim" [task_id: string, agent_id: string] {
+  cmd-claim $task_id $agent_id
+}
+
+def "main coder-submit" [
+  task_id: string,
+  agent_id: string,
+  --commit: string = ""
+] {
+  if ($commit | str length) > 0 {
+    cmd-coder-submit $task_id $agent_id --commit $commit
+  } else {
+    cmd-coder-submit $task_id $agent_id
+  }
+}
+
+def "main validate" [
+  task_id: string,
+  --shell: string = "bash",
+  --flag: string = "-lc"
+] {
+  cmd-supervisor-validate $task_id --shell $shell --flag $flag
+}
+
+def "main approve" [
+  task_id: string,
+  reviewer_id: string,
+  --notes: string = ""
+] {
+  cmd-review-approve $task_id $reviewer_id --notes $notes
+}
+
+def "main reject" [
+  task_id: string,
+  reviewer_id: string,
+  notes: string
+] {
+  cmd-review-reject $task_id $reviewer_id $notes
+}
+
+def "main merge" [
+  task_id: string,
+  --branch: string = "integration"
+] {
+  cmd-supervisor-merge $task_id --branch $branch
+}
+
+def "main regress" [
+  task_id: string,
+  cmd: string,
+  --expect_exit: int = 0,
+  --force
+] {
+  if $force {
+    cmd-regress $task_id $cmd --expect_exit $expect_exit --force
+  } else {
+    cmd-regress $task_id $cmd --expect_exit $expect_exit
+  }
+}
+
+def "main show" [--task: string = ""] {
+  if $task == "" {
+    bb-show
+  } else {
+    bb-show --task $task
+  }
+}
+
+# DRQ Evolution commands
+def "main gen-start" [task_id: string] {
+  cmd-gen-start $task_id
+}
+
+def "main gen-survivor" [
+  task_id: string,
+  dimension: string,
+  cmd: string,
+  --expect_exit: int = 0,
+  --severity: string = "MAJOR"
+] {
+  cmd-gen-survivor $task_id $dimension $cmd --expect_exit $expect_exit --severity $severity
+}
+
+def "main gen-discard" [
+  task_id: string,
+  dimension: string
+] {
+  cmd-gen-discard $task_id $dimension
+}
+
+def "main landscape" [task_id: string] {
+  cmd-landscape $task_id
 }
