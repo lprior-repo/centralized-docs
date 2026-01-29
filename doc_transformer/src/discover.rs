@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use walkdir::WalkDir;
@@ -22,11 +22,23 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
         anyhow::bail!("Source directory not found: {}", source_dir.display());
     }
 
+    if !source_dir.is_dir() {
+        anyhow::bail!(
+            "Source must be a directory, not a file: {}",
+            source_dir.display()
+        );
+    }
+
+    let canonical_path = source_dir.canonicalize().context(format!(
+        "Failed to resolve canonical path for {}",
+        source_dir.display()
+    ))?;
+
     let mut files = Vec::new();
     let extensions = [".md", ".mdx", ".rst", ".txt"];
     let exclude_dirs = ["node_modules", ".git", "_build", "dist", "vendor"];
 
-    for entry in WalkDir::new(source_dir).into_iter() {
+    for entry in WalkDir::new(&canonical_path).into_iter() {
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
@@ -50,7 +62,10 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
             if let Some(ext) = path.extension() {
                 let ext_str = format!(".{}", ext.to_string_lossy());
                 if extensions.contains(&ext_str.as_str()) {
-                    let rel_path = path.strip_prefix(source_dir)?.to_string_lossy().to_string();
+                    let rel_path = path
+                        .strip_prefix(&canonical_path)?
+                        .to_string_lossy()
+                        .to_string();
                     let size = path.metadata()?.len();
 
                     files.push(DiscoveryFile {
@@ -63,7 +78,7 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     }
 
     let manifest = DiscoverManifest {
-        source_dir: source_dir.to_string_lossy().to_string(),
+        source_dir: canonical_path.to_string_lossy().to_string(),
         discovered_at: chrono::Utc::now().to_rfc3339(),
         total_files: files.len(),
         files: files.clone(),

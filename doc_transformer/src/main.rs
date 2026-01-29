@@ -236,7 +236,7 @@ enum Commands {
         query: Option<String>,
 
         /// Minimum BM25 score to keep a page (default: 0.1)
-        #[arg(long, default_value = "0.1")]
+        #[arg(long, default_value = "0.1", allow_hyphen_values = true)]
         threshold: f32,
     },
 
@@ -325,7 +325,7 @@ enum Commands {
         query: Option<String>,
 
         /// Minimum BM25 score to keep a page (default: 0.1)
-        #[arg(long, default_value = "0.1")]
+        #[arg(long, default_value = "0.1", allow_hyphen_values = true)]
         threshold: f32,
 
         /// Project name for llms.txt header
