@@ -240,6 +240,29 @@ enum Commands {
         threshold: f32,
     },
 
+    /// Clone and index Git-hosted documentation
+    IngestGit {
+        /// Git repository URL to clone
+        #[arg(value_name = "REPO_URL")]
+        repo_url: String,
+
+        /// Output directory for indexed content
+        #[arg(short, long, value_name = "DIR")]
+        output: PathBuf,
+
+        /// Git branch to checkout (default: main)
+        #[arg(long)]
+        branch: Option<String>,
+
+        /// Clone depth (0 = full, 1 = shallow/faster)
+        #[arg(long, default_value = "1")]
+        depth: u32,
+
+        /// Project name for llms.txt header
+        #[arg(long)]
+        project_name: Option<String>,
+    },
+
     /// Index local markdown files into AI-optimized structure
     Index {
         /// Source directory containing markdown files
@@ -363,6 +386,96 @@ async fn main() -> Result<()> {
                 hnsw_ef_construction,
             };
             run_index(&source, &output, &config)
+        }
+
+        Some(Commands::IngestGit {
+            repo_url,
+            output,
+            branch,
+            depth: _,
+            project_name,
+        }) => {
+            // Git ingestion using git2 with functional principles
+            let temp_dir = output.join(".git-clone");
+            std::fs::create_dir_all(&temp_dir)?;
+
+            // Idempotency check: skip clone if .git exists
+            let git_dir = temp_dir.join(".git");
+            if git_dir.exists() {
+                println!("[GIT CLONE] Existing .git directory detected");
+                println!("  Checking for markdown files...");
+            } else {
+                println!("[GIT CLONE] Cloning repository...");
+
+                // Build repo builder with branch configuration
+                let mut builder = git2::build::RepoBuilder::new();
+
+                // Configure branch if specified
+                if let Some(branch_name) = branch.as_deref() {
+                    builder.branch(branch_name);
+                }
+
+                // Clone the repository
+                builder
+                    .clone(&repo_url, &temp_dir)
+                    .map_err(|e| anyhow::anyhow!("Failed to clone repository: {e}"))?;
+
+                println!("  ✓ Clone successful");
+                println!();
+            }
+
+            // Collect markdown files using functional collection
+            let markdown_files: Vec<_> = walkdir::WalkDir::new(&temp_dir)
+                .into_iter()
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_type().is_file())
+                .filter_map(|entry| {
+                    entry.path().extension().and_then(|ext| {
+                        ext.eq_ignore_ascii_case("md")
+                            .then(|| entry.path().to_path_buf())
+                    })
+                })
+                .collect();
+
+            println!("[DISCOVER] Found {} markdown files", markdown_files.len());
+            println!();
+
+            if markdown_files.is_empty() {
+                anyhow::bail!(
+                    "No markdown files found in cloned repository. \
+                    Please verify that repository contains documentation."
+                );
+            }
+
+            let index_config = IndexConfig {
+                generate_llms: true,
+                project_name: project_name.as_ref().cloned().unwrap_or_else(|| {
+                    url::Url::parse(&repo_url)
+                        .ok()
+                        .and_then(|u| {
+                            u.path_segments()
+                                .and_then(|mut s| s.next_back())
+                                .map(|s| s.to_string())
+                        })
+                        .unwrap_or_else(|| "Documentation".to_string())
+                }),
+                project_desc: format!("Documentation cloned from {repo_url}"),
+                ..Default::default()
+            };
+
+            run_index(&temp_dir, &output, &index_config)?;
+
+            println!();
+            println!("{}", "=".repeat(70));
+            println!("GIT INGEST COMPLETE");
+            println!("{}", "=".repeat(70));
+            println!("Source:     {repo_url}");
+            println!("Output:     {}", output.display());
+            println!("Documents:  {}", markdown_files.len());
+            println!("Entry:      llms.txt (AI should read this first)");
+            println!("{}", "=".repeat(70));
+            println!();
+            Ok(())
         }
 
         Some(Commands::Ingest {

@@ -1,3 +1,4 @@
+#![allow(clippy::wildcard_enum_match_arm)]
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
 use anyhow::Result;

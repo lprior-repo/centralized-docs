@@ -31,7 +31,6 @@ moon run :install    # Install to ~/.local/bin
 ```bash
 ./target/release/doc_transformer scrape https://docs.example.com \
   --output ./scraped \
-  --sitemap \
   --delay 250
 ```
 

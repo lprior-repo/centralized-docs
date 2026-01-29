@@ -47,6 +47,9 @@ spider_transformations = "2.37"
 # URL handling
 url = { version = "2.5", features = ["serde"] }
 
+# Git operations
+git2 = "0.19"
+
 # HTML parsing (UPDATED: 0.20 → 0.25)
 scraper = "0.25"
 

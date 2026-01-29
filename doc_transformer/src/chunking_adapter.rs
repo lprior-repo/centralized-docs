@@ -251,6 +251,7 @@ mod tests {
             doc_title: "Test".to_string(),
             chunk_index: 0,
             content: "Content".to_string(),
+            context_prefix: Some("Context from previous".to_string()),
             token_count: 10,
             heading: Some("Section".to_string()),
             chunk_type: "prose".to_string(),

@@ -276,6 +276,19 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     })
 }
 
+/// Detect if a page is a rate limit response
+///
+/// Rate limit indicators from common CDNs and web servers:
+/// - "Rate limit exceeded" text
+/// - "429" status codes in HTML
+/// - "Too Many Requests" text
+fn detect_rate_limit_page(html: &str) -> bool {
+    let html_lower = html.to_lowercase();
+    html_lower.contains("rate limit exceeded")
+        || html_lower.contains("429")
+        || html_lower.contains("too many requests")
+}
+
 /// Transform a spider page into our ScrapedPage format
 ///
 /// Includes size limit checking to prevent memory exhaustion from huge pages.
@@ -289,6 +302,12 @@ fn transform_page(
 
     // Get raw HTML and enforce size limits (DoS protection)
     let raw_html = page.get_html();
+
+    // Check for rate limit pages and reject them early
+    if detect_rate_limit_page(&raw_html) {
+        anyhow::bail!("Rate limit page detected for {url} - skipping");
+    }
+
     let config = ScrapeConfig::default();
     check_html_size(&raw_html, config.max_page_size_bytes)?;
 

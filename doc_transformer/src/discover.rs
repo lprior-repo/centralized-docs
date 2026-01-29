@@ -37,10 +37,11 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
 
         let path = entry.path();
 
-        // Skip excluded directories
-        if exclude_dirs.iter().any(|excl| {
-            path.components()
-                .any(|c| c.as_os_str().to_string_lossy().contains(excl))
+        // Skip excluded directories (exact match on directory name)
+        if path.components().any(|c| {
+            exclude_dirs
+                .iter()
+                .any(|excl| c.as_os_str().to_string_lossy() == *excl)
         }) {
             continue;
         }
