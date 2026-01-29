@@ -276,6 +276,11 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
         // Convert ID format (category/subcategory/slug) to filename format (category-subcategory-slug.md)
         let path = format!("docs/{}.md", id.replace('/', "-"));
 
+        // Only include results with positive scores (filter out non-matches and negative zeros)
+        if score <= 0.0 {
+            continue;
+        }
+
         results.push(SearchResult {
             id,
             title,
