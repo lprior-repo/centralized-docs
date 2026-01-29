@@ -86,7 +86,9 @@ impl Default for ScrapeConfig {
             base_url: String::new(),
             use_sitemap: true,
             path_filter: None,
-            delay_ms: 250,
+            // Increased from 250ms to 1000ms for AWS rate limit compliance
+            // AWS docs sites are aggressive with rate limiting
+            delay_ms: 1000,
             user_agent: "DocTransformer/5.0 (AI Documentation Indexer)".to_string(),
             respect_robots: true,
             enable_filtering: true,
@@ -167,6 +169,15 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     website.configuration.delay = config.delay_ms;
     website.configuration.respect_robots_txt = config.respect_robots;
     website.configuration.user_agent = Some(Box::new(config.user_agent.clone().into()));
+
+    // CRITICAL: Set concurrency limit to 1 for AWS and other rate-limited sites
+    // Without this, spider-rs uses CPU count (e.g., 8) concurrent workers
+    // With 200ms delay + 8 workers = 40 req/s which triggers rate limiting
+    // With 1000ms delay + 1 worker = 1 req/s (safe for most sites)
+    website.configuration.concurrency_limit = Some(1);
+
+    // Enable retry for transient failures (network blips, temporary rate limits)
+    website.configuration.retry = 2;
 
     // Perform the scrape - use sitemap scraping if enabled
     if config.use_sitemap {
