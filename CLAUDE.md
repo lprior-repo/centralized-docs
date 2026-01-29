@@ -94,3 +94,75 @@ All code must pass (using Moon):
 4. `moon run :test-doc` - Documentation tests pass
 
 Or simply run: `moon run :ci` for everything in parallel.
+
+### Issue Tracking (bd) and Workspace Isolation (zjj)
+
+This project uses **bd** (beads) for issue tracking and **zjj** for workspace isolation.
+
+#### bd (Beads Issue Tracker)
+
+```bash
+# Finding Work
+bd ready              # Show issues ready to work (no blockers)
+bd list --status=open # All open issues
+bd show <id>          # Detailed issue view with dependencies
+
+# Creating & Updating
+bd create --title="..." --type=task|bug|feature --priority=2  # New issue
+bd update <id> --status=in_progress                           # Claim work
+bd close <id>         # Mark complete
+bd close <id1> <id2> ...  # Close multiple issues at once
+bd close <id> --reason="explanation"  # Close with reason
+
+# Dependencies & Blocking
+bd dep add <issue> <depends-on>  # Add dependency
+bd blocked            # Show all blocked issues
+
+# Sync & Collaboration
+bd sync               # Sync with git remote (run at session end)
+bd sync --status      # Check sync status without syncing
+
+# Project Health
+bd stats              # Project statistics
+bd doctor             # Check for issues
+```
+
+**Priority Levels:** 0-4 or P0-P4 (0=critical, 2=medium, 4=backlog). NOT "high"/"medium"/"low".
+
+#### zjj (Workspace Isolation)
+
+**zjj provides isolated jj workspaces with Zellij session integration for parallel development.**
+
+```bash
+# Workspace Management
+zjj init <bead-id>    # Create new isolated workspace for a bead
+zjj list              # List all workspaces
+zjj status            # Show workspace status
+zjj add <bead-id>     # Add bead to existing workspace
+
+# Workspace Operations
+zjj focus <name>      # Focus/attach to workspace
+zjj sync <name>       # Sync workspace changes
+zjj diff <name>       # Show workspace diff
+zjj done <name>       # Complete and land workspace
+zjj remove <name>     # Remove workspace
+
+# Advanced Operations
+zjj spawn <bead-id>   # Create workspace with full dev environment
+zjj dashboard         # Show all workspaces in interactive view
+zjj clean             # Clean up completed/abandoned workspaces
+zjj doctor            # Diagnose workspace issues
+zjj query             # Query workspaces with filters
+zjj attach <name>     # Attach to existing Zellij session
+```
+
+**Common Workflow:**
+```bash
+# Start work on a bead
+zjj init beads-123    # Create isolated workspace
+# ... work in isolation ...
+zjj sync beads-123    # Sync changes
+zjj done beads-123    # Land and clean up
+```
+
+**Why zjj?** Enables true parallel development with jj's change isolation and Zellij's session management.

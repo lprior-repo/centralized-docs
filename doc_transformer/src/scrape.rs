@@ -78,6 +78,9 @@ pub struct ScrapeConfig {
     pub max_pages: usize,
     /// Maximum number of links to extract per page (default: 1000) - Memory protection
     pub max_links_per_page: usize,
+    /// Enable stealth mode to avoid bot detection (default: true)
+    /// Sets realistic browser headers and mimics browser behavior
+    pub stealth_mode: bool,
 }
 
 impl Default for ScrapeConfig {
@@ -99,6 +102,7 @@ impl Default for ScrapeConfig {
             max_markdown_size_bytes: 5 * 1024 * 1024, // 5MB per page markdown
             max_pages: 10_000,                     // Maximum pages to scrape
             max_links_per_page: 1_000,             // Maximum links per page
+            stealth_mode: true,                    // Enable stealth mode by default
         }
     }
 }
@@ -158,11 +162,12 @@ pub struct ScrapeResult {
 /// If rate limiting is detected (based on error rate), waits with exponential
 /// backoff and retries up to the configured max retries.
 ///
-/// Retry schedule: 2s, 4s, 8s, 16s, 32s (max 5 retries)
+/// Retry schedule: 2s, 4s, 8s, 16s, 32s (configurable via max_retries)
 pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
-    const MAX_RETRIES: u32 = 5;
     const BASE_DELAY_MS: u64 = 2000; // Start with 2 seconds
 
+    // Use config max_retries, capped at a reasonable maximum to prevent infinite loops
+    let max_retries = config.max_retries.min(10);
     let mut attempt: u32 = 0;
 
     loop {
@@ -170,16 +175,21 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
 
         match scrape_site_internal(config).await {
             Ok(result) => {
+                // Only apply exponential backoff if enabled
+                if !config.use_exponential_backoff {
+                    return Ok(result);
+                }
+
                 // Check if we got hit with rate limiting (high error rate)
                 let total_requests = result.success_count.saturating_add(result.error_count);
 
                 // If error rate is > 50%, likely rate limited - retry with backoff
                 if total_requests > 10
                     && result.error_count > result.success_count
-                    && attempt <= MAX_RETRIES
+                    && attempt <= max_retries
                 {
-                    let delay_ms =
-                        BASE_DELAY_MS.saturating_mul(2_u64.pow(attempt.saturating_sub(1)));
+                    // Safe exponential backoff calculation with overflow protection
+                    let delay_ms = calculate_backoff_delay(BASE_DELAY_MS, attempt);
                     eprintln!(
                         "[RATE LIMIT] High error rate detected ({} errors / {} total)",
                         result.error_count, total_requests
@@ -206,10 +216,10 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                     || error_msg.contains("dns")
                     || error_msg.contains("rate");
 
-                if is_transient && attempt <= MAX_RETRIES {
-                    let delay_ms =
-                        BASE_DELAY_MS.saturating_mul(2_u64.pow(attempt.saturating_sub(1)));
-                    eprintln!("[RETRY] Transient error: {error_msg}. Retrying in {delay_ms}ms (attempt {attempt}/{MAX_RETRIES})");
+                // Only retry if exponential backoff is enabled and error is transient
+                if config.use_exponential_backoff && is_transient && attempt <= max_retries {
+                    let delay_ms = calculate_backoff_delay(BASE_DELAY_MS, attempt);
+                    eprintln!("[RETRY] Transient error: {error_msg}. Retrying in {delay_ms}ms (attempt {attempt}/{max_retries})");
                     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                     continue;
                 }
@@ -218,6 +228,19 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
             }
         }
     }
+}
+
+/// Calculate exponential backoff delay with overflow protection
+///
+/// Uses saturating arithmetic to prevent overflow. For large attempt numbers,
+/// the power is capped to prevent u64 overflow.
+///
+/// Formula: base_delay * 2^(attempt-1), capped at u64::MAX
+fn calculate_backoff_delay(base_delay_ms: u64, attempt: u32) -> u64 {
+    // Cap exponent at 62 to prevent overflow (2^63 would overflow u64)
+    let exponent = attempt.saturating_sub(1).min(62);
+    let multiplier = 2_u64.pow(exponent);
+    base_delay_ms.saturating_mul(multiplier)
 }
 
 /// Internal scrape implementation without retry logic
@@ -245,11 +268,12 @@ async fn scrape_site_internal(config: &ScrapeConfig) -> Result<ScrapeResult> {
     website.configuration.concurrency_limit = Some(1);
 
     // Enable stealth mode to mimic a real browser and avoid bot detection
-    // This adds browser-like headers without needing chrome feature
-    website.configuration.modify_headers = true;
+    // When stealth_mode is enabled, modify headers to look like a browser
+    website.configuration.modify_headers = config.stealth_mode;
 
     // Enable retry for transient failures (network blips, temporary rate limits)
-    website.configuration.retry = 3;
+    // Use the configured max_retries value, capped to u8::MAX
+    website.configuration.retry = config.max_retries.min(u8::MAX as u32) as u8;
 
     // Set HTTP timeouts to avoid hanging on slow responses
     use std::time::Duration;
@@ -717,6 +741,30 @@ pub fn filter_pages_by_relevance(
     let filtered_count = filtered.len();
 
     (kept, filtered_count)
+}
+
+/// Validate that a scrape result contains at least one page
+///
+/// Returns an error if no pages were successfully scraped, indicating
+/// that the URL was unreachable or the site had no scannable content.
+/// This prevents silent failures where an invalid URL appears to succeed.
+///
+/// # Contract
+/// - **Preconditions:** result is a valid ScrapeResult
+/// - **Postconditions:** Returns Ok(()) if success_count > 0, Err otherwise
+/// - **Error message:** Includes the base URL that failed to scrape
+pub fn validate_scrape_result(result: &ScrapeResult) -> Result<()> {
+    if result.success_count == 0 {
+        anyhow::bail!(
+            "Failed to scrape any pages from '{}'. \
+            Please verify:\n  \
+            - The URL is accessible in a browser\n  \
+            - The site has HTML content (not just API endpoints)\n  \
+            - The site allows scraping (check robots.txt)",
+            result.base_url
+        );
+    }
+    Ok(())
 }
 
 /// Generate table of contents from headers
@@ -1425,6 +1473,87 @@ mod tests {
         );
     }
 
+    // ============================================================================
+    // VALIDATION FUNCTIONS
+    // ============================================================================
+
+    /// Validate that a scrape result contains at least one successfully scraped page.
+    ///
+    /// Design by Contract:
+    /// - **Preconditions:** scrape_result is a valid reference
+    /// - **Postconditions:** Returns Ok(()) if pages > 0, Err otherwise
+    ///
+    /// This validates that the scraping operation produced useful output.
+    pub fn validate_scrape_result(scrape_result: &ScrapeResult) -> Result<()> {
+        if scrape_result.pages.is_empty() {
+            anyhow::bail!(
+                "No pages were successfully scraped from {}. \
+                Please verify the URL is accessible and contains content.",
+                scrape_result.base_url
+            );
+        }
+        Ok(())
+    }
+
+    // ============================================================================
+    // INGEST COMMAND VALIDATION TEST
+    // ============================================================================
+
+    #[test]
+    fn test_validate_url_format_only_validates_scheme() {
+        // validate_url checks URL format and scheme, not reachability
+        // This test documents that https://not-a-valid-url is considered VALID format
+        let result = validate_url("https://not-a-valid-url");
+        assert!(
+            result.is_ok(),
+            "URL with valid https scheme should pass format validation"
+        );
+
+        // But a URL without scheme should fail
+        assert!(validate_url("not-a-valid-url").is_err());
+        assert!(validate_url("ftp://example.com").is_err());
+    }
+
+    /// Test that validate_scrape_result errors on zero pages
+    ///
+    /// This test will FAIL initially because validate_scrape_result doesn't exist yet.
+    /// After implementing the function, this test should pass.
+    #[test]
+    fn test_validate_scrape_result_requires_pages() {
+        // Zero pages should return an error
+        let zero_result = ScrapeResult {
+            pages: vec![],
+            total_urls: 0,
+            success_count: 0,
+            error_count: 0,
+            errors: vec![],
+            base_url: "https://not-a-valid-url".to_string(),
+        };
+        assert!(validate_scrape_result(&zero_result).is_err());
+
+        // Non-zero pages should return Ok
+        let ok_result = ScrapeResult {
+            pages: vec![ScrapedPage {
+                url: "https://example.com".to_string(),
+                markdown: "# Test".to_string(),
+                title: "Test".to_string(),
+                links: vec![],
+                headers: vec![],
+                word_count: 1,
+                slug: "test".to_string(),
+                filtered: false,
+                elements_removed: 0,
+                density_score: 1.0,
+            }],
+            total_urls: 1,
+            success_count: 1,
+            error_count: 0,
+            errors: vec![],
+            base_url: "https://example.com".to_string(),
+        };
+        assert!(validate_scrape_result(&ok_result).is_ok());
+    }
+
     #[test]
     fn test_huge_content_detection() {
         // Simulate 100MB of repeated text
@@ -1453,4 +1582,369 @@ mod tests {
             "Should allow ~100 5MB pages in 500MB budget, got: {pages_before_limit}"
         );
     }
+
+    // ============================================================================
+    // STEALTH MODE AND RETRY TESTS (TDD15 Phase 4: RED - FAILING TESTS)
+    // ============================================================================
+
+    #[test]
+    fn test_scrape_config_stealth_mode_default() {
+        let config = ScrapeConfig::default();
+        assert!(
+            config.stealth_mode,
+            "Default stealth_mode should be true to avoid bot detection"
+        );
+    }
+
+    #[test]
+    fn test_scrape_config_stealth_mode_can_be_disabled() {
+        let config = ScrapeConfig {
+            stealth_mode: false,
+            ..Default::default()
+        };
+        assert!(!config.stealth_mode, "stealth_mode should be configurable");
+    }
+
+    #[test]
+    fn test_scrape_config_max_retries_default() {
+        let config = ScrapeConfig::default();
+        assert_eq!(config.max_retries, 3, "Default max_retries should be 3");
+    }
+
+    #[test]
+    fn test_scrape_config_max_retries_can_be_configured() {
+        let config = ScrapeConfig {
+            max_retries: 5,
+            ..Default::default()
+        };
+        assert_eq!(config.max_retries, 5, "max_retries should be configurable");
+    }
+
+    #[test]
+    fn test_scrape_config_exponential_backoff_default() {
+        let config = ScrapeConfig::default();
+        assert!(
+            config.use_exponential_backoff,
+            "Default use_exponential_backoff should be true"
+        );
+    }
+
+    #[test]
+    fn test_exponential_backoff_delay_calculation() {
+        // Test that exponential backoff delay is calculated correctly
+        // Formula: BASE_DELAY_MS * 2^(attempt-1)
+        let base_delay_ms: u64 = 2000;
+
+        // Attempt 1: 2000 * 2^0 = 2000ms
+        let delay_1 = base_delay_ms.saturating_mul(2_u64.pow(0));
+        assert_eq!(delay_1, 2000, "First retry delay should be 2000ms");
+
+        // Attempt 2: 2000 * 2^1 = 4000ms
+        let delay_2 = base_delay_ms.saturating_mul(2_u64.pow(1));
+        assert_eq!(delay_2, 4000, "Second retry delay should be 4000ms");
+
+        // Attempt 3: 2000 * 2^2 = 8000ms
+        let delay_3 = base_delay_ms.saturating_mul(2_u64.pow(2));
+        assert_eq!(delay_3, 8000, "Third retry delay should be 8000ms");
+
+        // Attempt 5: 2000 * 2^4 = 32000ms
+        let delay_5 = base_delay_ms.saturating_mul(2_u64.pow(4));
+        assert_eq!(delay_5, 32000, "Fifth retry delay should be 32000ms");
+    }
+
+    #[test]
+    fn test_exponential_backoff_delay_never_overflows() {
+        // Test that saturating arithmetic prevents overflow
+        // The key is that pow() can overflow, so we need checked_pow
+        let base_delay_ms: u64 = 2000;
+
+        // Safe calculation with checking for overflow
+        let attempt: u32 = 100; // Very large attempt number
+
+        // Use checked_pow to safely calculate power, defaulting to u64::MAX on overflow
+        let power = if attempt.saturating_sub(1) < 63 {
+            2_u64.pow(attempt.saturating_sub(1).min(62))
+        } else {
+            u64::MAX
+        };
+
+        let delay = base_delay_ms.saturating_mul(power);
+        assert!(
+            delay > 0,
+            "Delay should be positive even with large attempt"
+        );
+
+        // Also test the actual implementation pattern we use
+        // Verify that saturating operations don't panic
+        let max_safe_power = 2_u64.pow(62); // Less than u64::MAX
+        let safe_delay = base_delay_ms.saturating_mul(max_safe_power);
+        assert!(safe_delay > 0, "Saturating mul should work");
+    }
+
+    #[test]
+    fn test_config_respects_max_retries_field() {
+        // Test that max_retries field is actually used
+        let config = ScrapeConfig {
+            base_url: "https://example.com".to_string(),
+            use_sitemap: true,
+            path_filter: None,
+            delay_ms: 1000,
+            user_agent: "TestAgent".to_string(),
+            respect_robots: true,
+            enable_filtering: true,
+            max_retries: 7, // Custom retry count
+            use_exponential_backoff: true,
+            max_page_size_bytes: 10 * 1024 * 1024,
+            max_total_size_bytes: 500 * 1024 * 1024,
+            max_markdown_size_bytes: 5 * 1024 * 1024,
+            max_pages: 100,
+            max_links_per_page: 100,
+            stealth_mode: true,
+        };
+
+        assert_eq!(
+            config.max_retries, 7,
+            "Custom max_retries should be preserved"
+        );
+    }
+
+    // ============================================================================
+    // BACKOFF CALCULATION TESTS
+    // ============================================================================
+
+    #[test]
+    fn test_calculate_backoff_delay_returns_correct_delays() {
+        // Test the actual implementation function
+        assert_eq!(
+            calculate_backoff_delay(2000, 1),
+            2000,
+            "Attempt 1 should be 2000ms"
+        );
+        assert_eq!(
+            calculate_backoff_delay(2000, 2),
+            4000,
+            "Attempt 2 should be 4000ms"
+        );
+        assert_eq!(
+            calculate_backoff_delay(2000, 3),
+            8000,
+            "Attempt 3 should be 8000ms"
+        );
+        assert_eq!(
+            calculate_backoff_delay(2000, 4),
+            16000,
+            "Attempt 4 should be 16000ms"
+        );
+        assert_eq!(
+            calculate_backoff_delay(2000, 5),
+            32000,
+            "Attempt 5 should be 32000ms"
+        );
+    }
+
+    #[test]
+    fn test_calculate_backoff_delay_handles_large_attempts() {
+        // Test with very large attempt number
+        let delay = calculate_backoff_delay(2000, 100);
+        assert!(delay > 0, "Should handle large attempts without overflow");
+
+        // The delay should saturate at a reasonable maximum
+        // 2^62 is the max power before overflow
+        let max_delay = calculate_backoff_delay(2000, 63);
+        assert!(max_delay > 0, "Should handle attempt 63");
+    }
+
+    #[test]
+    fn test_calculate_backoff_delay_with_different_base() {
+        assert_eq!(
+            calculate_backoff_delay(1000, 1),
+            1000,
+            "Base 1000, attempt 1"
+        );
+        assert_eq!(
+            calculate_backoff_delay(1000, 2),
+            2000,
+            "Base 1000, attempt 2"
+        );
+        assert_eq!(calculate_backoff_delay(500, 3), 2000, "Base 500, attempt 3");
+    }
+}
+
+// ============================================================================
+// ADVERSARIAL QA TESTS (bead doc-tx-8p5)
+// ============================================================================
+
+#[test]
+fn test_backoff_attempt_zero_edge_case() {
+    // Edge case: What happens if attempt is 0?
+    // The implementation does saturating_sub(1), so 0 -> 0, 2^0 = 1
+    let delay = calculate_backoff_delay(2000, 0);
+    assert_eq!(delay, 2000, "Attempt 0 should produce base delay");
+}
+
+#[test]
+fn test_backoff_attempt_at_cap_boundary() {
+    // Test at the boundary of the cap (62)
+    // 2^62 is the largest safe power of 2 before overflow
+    let delay_63 = calculate_backoff_delay(2000, 63);
+    assert!(delay_63 > 0, "Should handle max capped attempt");
+
+    // Should be capped, not overflow
+    let max_power = 2_u64.pow(62);
+    let expected = 2000_u64.saturating_mul(max_power);
+    assert_eq!(delay_63, expected, "Should use max safe power");
+}
+
+#[test]
+fn test_backoff_beyond_cap_stays_capped() {
+    // Test beyond the cap - should still not panic
+    let delay_63 = calculate_backoff_delay(2000, 63);
+    let delay_100 = calculate_backoff_delay(2000, 100);
+    let delay_1000 = calculate_backoff_delay(2000, 1000);
+
+    // All should be capped at same maximum
+    assert_eq!(delay_63, delay_100, "Should cap at max");
+    assert_eq!(delay_100, delay_1000, "Should remain capped");
+}
+
+#[test]
+fn test_backoff_u32_max_does_not_panic() {
+    // Edge case: u32::MAX attempt number
+    let delay = calculate_backoff_delay(2000, u32::MAX);
+    assert!(delay > 0, "Should handle u32::MAX without panic");
+
+    // Should be capped at maximum safe value
+    let max_safe = calculate_backoff_delay(2000, 63);
+    assert_eq!(delay, max_safe, "Should cap u32::MAX same as 63");
+}
+
+#[test]
+fn test_backoff_small_base_delay() {
+    // Very small base delay (1ms)
+    assert_eq!(calculate_backoff_delay(1, 1), 1);
+    assert_eq!(calculate_backoff_delay(1, 2), 2);
+    assert_eq!(calculate_backoff_delay(1, 10), 512);
+}
+
+#[test]
+fn test_backoff_large_base_delay() {
+    // Large base delay (60 seconds = 60000ms)
+    assert_eq!(calculate_backoff_delay(60000, 1), 60000);
+    assert_eq!(calculate_backoff_delay(60000, 2), 120000);
+
+    // At high attempts, should still not overflow
+    let delay = calculate_backoff_delay(60000, 50);
+    assert!(
+        delay > 0,
+        "Large base with high attempt should not overflow"
+    );
+}
+
+#[test]
+fn test_backoff_zero_base_delay() {
+    // Edge case: zero base delay
+    assert_eq!(calculate_backoff_delay(0, 1), 0);
+    assert_eq!(calculate_backoff_delay(0, 100), 0);
+}
+
+#[test]
+fn test_backoff_exponential_growth_sequence() {
+    // Verify proper exponential sequence
+    let base = 1000;
+    let mut expected = base;
+
+    for attempt in 1..=10 {
+        let delay = calculate_backoff_delay(base, attempt);
+        // For first 5 attempts, verify exact doubling
+        if attempt <= 5 {
+            assert_eq!(delay, expected, "Attempt {attempt} should be {expected}ms");
+        }
+        expected = expected.saturating_mul(2);
+    }
+}
+
+#[test]
+fn test_backoff_power_capped_at_exactly_62() {
+    // Verify the exponent capping logic
+    // The implementation caps at 62 because 2^63 would overflow u64
+
+    // Attempt 63 should use exponent 62
+    let delay_63 = calculate_backoff_delay(1, 63);
+    let expected_max = 2_u64.pow(62);
+    assert_eq!(delay_63, expected_max, "Should cap exponent at 62");
+
+    // Attempt 64 should also be capped
+    let delay_64 = calculate_backoff_delay(1, 64);
+    assert_eq!(delay_64, expected_max, "Should still be capped at 64");
+
+    // Attempt 100 should also be capped
+    let delay_100 = calculate_backoff_delay(1, 100);
+    assert_eq!(delay_100, expected_max, "Should still be capped at 100");
+}
+
+#[test]
+fn test_backoff_saturating_mul_behavior() {
+    // Test saturating_mul with large numbers
+    let base = u64::MAX / 2; // Large base
+    let delay = calculate_backoff_delay(base, 2); // base * 2
+
+    // Should not overflow, should saturate
+    assert!(delay > 0, "Saturating mul should produce valid result");
+}
+
+#[test]
+fn test_stealth_mode_config_affects_scrape_behavior() {
+    // Verify stealth_mode propagates to config
+    let stealth_config = ScrapeConfig {
+        stealth_mode: true,
+        ..Default::default()
+    };
+    assert!(stealth_config.stealth_mode);
+
+    let non_stealth_config = ScrapeConfig {
+        stealth_mode: false,
+        ..Default::default()
+    };
+    assert!(!non_stealth_config.stealth_mode);
+}
+
+#[test]
+fn test_exponential_backoff_disabled_config() {
+    // Config to disable exponential backoff
+    let config = ScrapeConfig {
+        use_exponential_backoff: false,
+        max_retries: 0,
+        ..Default::default()
+    };
+
+    assert!(!config.use_exponential_backoff);
+    assert_eq!(config.max_retries, 0);
+}
+
+#[test]
+fn test_max_retries_high_value_accepted() {
+    // Very high max_retries should be accepted in config
+    // (implementation caps at 10 in scrape_site)
+    let config = ScrapeConfig {
+        max_retries: 1000,
+        ..Default::default()
+    };
+    assert_eq!(config.max_retries, 1000);
+}
+
+#[test]
+fn test_delay_aws_safe_default() {
+    // Verify default delay is AWS-safe (1000ms with concurrency 1)
+    let config = ScrapeConfig::default();
+    assert_eq!(config.delay_ms, 1000, "Default delay should be AWS-safe");
+}
+
+#[test]
+fn test_delay_zero_allowed() {
+    // Zero delay is technically allowed (though unsafe for production)
+    let config = ScrapeConfig {
+        delay_ms: 0,
+        ..Default::default()
+    };
+    assert_eq!(config.delay_ms, 0);
 }

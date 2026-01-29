@@ -155,6 +155,56 @@ fn validate_hnsw_ef_construction(s: &str) -> Result<usize, String> {
     Ok(value)
 }
 
+/// Validate threshold value for BM25 filtering
+///
+/// BM25 scores range from 0.0 (no relevance) to positive values.
+/// Negative thresholds are meaningless for BM25 and indicate user error.
+/// Upper bound is set to 10.0 to allow for flexible filtering while preventing obvious errors.
+fn validate_threshold(s: &str) -> Result<f32, String> {
+    let value = s
+        .parse::<f32>()
+        .map_err(|_| format!("threshold must be a number, got '{s}'"))?;
+
+    if value < 0.0 {
+        return Err(format!(
+            "threshold must be non-negative (BM25 scores are >= 0.0), got {value}"
+        ));
+    }
+
+    if value > 10.0 {
+        return Err(format!(
+            "threshold must be at most 10.0 for practical filtering, got {value}"
+        ));
+    }
+
+    Ok(value)
+}
+
+/// Delay between HTTP requests in milliseconds.
+/// Negative delays are meaningless and indicate user error.
+/// Upper bound prevents impractically long delays.
+fn validate_delay(s: &str) -> Result<u64, String> {
+    let value = s
+        .parse::<i64>()
+        .map_err(|_| format!("delay must be an integer, got '{s}'"))?;
+
+    if value < 0 {
+        return Err(format!(
+            "delay must be non-negative (milliseconds), got {value}"
+        ));
+    }
+
+    if value > 60_000 {
+        return Err(format!(
+            "delay must be at most 60000 milliseconds (60 seconds), got {value}"
+        ));
+    }
+
+    value
+        .try_into()
+        .map_err(|_| format!("delay value too large: {value}"))
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "doc_transformer")]
 #[command(version = "5.0")]
@@ -227,16 +277,16 @@ enum Commands {
         #[arg(short, long, value_name = "REGEX")]
         filter: Option<String>,
 
-        /// Delay between requests in milliseconds
-        #[arg(short, long, default_value = "250")]
+        /// Delay between requests in milliseconds (0-60000)
+        #[arg(short, long, default_value = "250", value_parser = validate_delay, allow_hyphen_values = true)]
         delay: u64,
 
         /// Filter pages by BM25 relevance to query
         #[arg(short, long, value_name = "QUERY")]
         query: Option<String>,
 
-        /// Minimum BM25 score to keep a page (default: 0.1)
-        #[arg(long, default_value = "0.1", allow_hyphen_values = true)]
+        /// Minimum BM25 score to keep a page (default: 0.1, range: 0.0-10.0)
+        #[arg(long, default_value = "0.1", value_parser = validate_threshold)]
         threshold: f32,
     },
 
@@ -316,16 +366,16 @@ enum Commands {
         #[arg(short, long, value_name = "REGEX")]
         filter: Option<String>,
 
-        /// Delay between requests in milliseconds
-        #[arg(short, long, default_value = "250")]
+        /// Delay between requests in milliseconds (0-60000)
+        #[arg(short, long, default_value = "250", value_parser = validate_delay, allow_hyphen_values = true)]
         delay: u64,
 
         /// Filter pages by BM25 relevance to query
         #[arg(short, long, value_name = "QUERY")]
         query: Option<String>,
 
-        /// Minimum BM25 score to keep a page (default: 0.1)
-        #[arg(long, default_value = "0.1", allow_hyphen_values = true)]
+        /// Minimum BM25 score to keep a page (default: 0.1, range: 0.0-10.0)
+        #[arg(long, default_value = "0.1", value_parser = validate_threshold)]
         threshold: f32,
 
         /// Project name for llms.txt header
@@ -612,6 +662,9 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
     result.pages = apply_query_filter(result.pages, query_ref, config.threshold)?;
     result.success_count = result.pages.len();
 
+    // Validate that at least one page was scraped (fail fast on invalid URLs)
+    scrape::validate_scrape_result(&result)?;
+
     if !result.errors.is_empty() {
         println!("\n  Error details:");
         for (url, err) in result.errors.iter().take(5) {
@@ -844,6 +897,9 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
     // Apply BM25 filtering if query is provided (extracted common logic)
     scrape_result.pages = apply_query_filter(scrape_result.pages, query_ref, threshold)?;
     scrape_result.success_count = scrape_result.pages.len();
+
+    // Validate that at least one page was scraped (fail fast on invalid URLs)
+    scrape::validate_scrape_result(&scrape_result)?;
 
     println!();
 
@@ -1209,5 +1265,178 @@ mod tests {
         // Some control characters and high bytes (valid UTF-8)
         let query: Option<&str> = Some("café\t\n\r ");
         assert!(validate_query_length(&query).is_ok());
+    }
+
+    // Threshold validation tests
+
+    #[test]
+    fn test_validate_threshold_zero() {
+        // Zero threshold should pass (no filtering)
+        let result = validate_threshold("0.0");
+        assert!(result.is_ok());
+        assert_eq!(result.map(|v| v.to_string()).unwrap_or_default(), "0");
+    }
+
+    #[test]
+    fn test_validate_threshold_positive() {
+        // Valid positive threshold
+        let result = validate_threshold("0.5");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_threshold_at_upper_bound() {
+        // Maximum valid threshold
+        let result = validate_threshold("10.0");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_threshold_negative_rejected() {
+        // Negative threshold should fail
+        let result = validate_threshold("-0.5");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("non-negative"));
+            assert!(msg.contains("-0.5"));
+        }
+    }
+
+    #[test]
+    fn test_validate_threshold_too_large() {
+        // Threshold above 10.0 should fail
+        let result = validate_threshold("10.1");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("10.0"));
+            assert!(msg.contains("10.1"));
+        }
+    }
+
+    #[test]
+    fn test_validate_threshold_invalid_string() {
+        // Non-numeric input should fail
+        let result = validate_threshold("invalid");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("must be a number"));
+        }
+    }
+
+    #[test]
+    fn test_validate_threshold_default_value() {
+        // Default value 0.1 should pass
+        let result = validate_threshold("0.1");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_threshold_small_positive() {
+        // Small positive value should pass
+        let result = validate_threshold("0.001");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_threshold_very_negative() {
+        // Very negative value should fail
+        let result = validate_threshold("-100.0");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("non-negative"));
+        }
+    }
+
+    // Delay validation tests
+
+    #[test]
+    fn test_validate_delay_zero() {
+        // Zero delay should pass (no delay between requests)
+        let result = validate_delay("0");
+        assert!(result.is_ok());
+        assert_eq!(result.map(|v| v.to_string()).unwrap_or_default(), "0");
+    }
+
+    #[test]
+    fn test_validate_delay_positive() {
+        // Valid positive delay
+        let result = validate_delay("500");
+        assert!(result.is_ok());
+        assert_eq!(result.map(|v| v.to_string()).unwrap_or_default(), "500");
+    }
+
+    #[test]
+    fn test_validate_delay_default_value() {
+        // Default value 250 should pass
+        let result = validate_delay("250");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_delay_negative_one_rejected() {
+        // Negative delay -1 should fail with clear message
+        let result = validate_delay("-1");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("non-negative"));
+        }
+    }
+
+    #[test]
+    fn test_validate_delay_very_negative_rejected() {
+        // Very negative delay should fail
+        let result = validate_delay("-9999");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("non-negative"));
+        }
+    }
+
+    #[test]
+    fn test_validate_delay_at_upper_bound() {
+        // Maximum valid delay (60 seconds)
+        let result = validate_delay("60000");
+        assert!(result.is_ok());
+        assert_eq!(result.map(|v| v.to_string()).unwrap_or_default(), "60000");
+    }
+
+    #[test]
+    fn test_validate_delay_exceeds_upper_bound() {
+        // Delay over 60 seconds should fail
+        let result = validate_delay("60001");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("60000"));
+            assert!(msg.contains("60001"));
+        }
+    }
+
+    #[test]
+    fn test_validate_delay_invalid_string() {
+        // Non-numeric input should fail
+        let result = validate_delay("invalid");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("must be an integer"));
+        }
+    }
+
+    #[test]
+    fn test_validate_delay_fractional_rejected() {
+        // Fractional delay should fail (must be integer)
+        let result = validate_delay("250.5");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("must be an integer"));
+        }
     }
 }

@@ -30,7 +30,9 @@ fn test_scrape_pipeline_simulation() {
     );
 
     // Verify the binary has scrape command
-    let output = std::process::Command::new("./target/release/doc_transformer")
+    // Note: Tests run from doc_transformer/ directory, binary is in target/
+    let bin_path = "../target/release/doc_transformer";
+    let output = std::process::Command::new(bin_path)
         .arg("scrape")
         .arg("--help")
         .output();
@@ -149,7 +151,9 @@ fn test_scrape_to_index_pipeline() {
     .unwrap();
 
     // Run index command on the simulated scraped content
-    let output = std::process::Command::new("./target/release/doc_transformer")
+    // Note: Tests run from doc_transformer/ directory, binary is in target/
+    let bin_path = "../target/release/doc_transformer";
+    let output = std::process::Command::new(bin_path)
         .arg("index")
         .arg(temp_dir.path().join("scraped"))
         .arg("--output")

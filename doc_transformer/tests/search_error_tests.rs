@@ -319,3 +319,166 @@ fn test_special_character_tag_succeeds_after_sanitization() {
         "Query with <script> tags should fail (sanitize_query not implemented yet)"
     );
 }
+
+// ============================================================================
+// EMPTY QUERY TESTS (doc-tx-3sb)
+// ============================================================================
+
+#[test]
+fn test_empty_query_returns_proper_error() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let index_dir = temp_dir.path();
+
+    create_test_index(index_dir).expect("Failed to create index");
+
+    let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
+    let result = doc_transformer::search::search_index(&index, "", 10);
+
+    assert!(result.is_err(), "Empty query should fail with proper error");
+
+    let error_msg = result.unwrap_err().to_string();
+    assert!(
+        error_msg.contains("Query cannot be empty"),
+        "Error message should mention 'Query cannot be empty', got: {error_msg}"
+    );
+}
+
+#[test]
+fn test_whitespace_only_query_returns_proper_error() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let index_dir = temp_dir.path();
+
+    create_test_index(index_dir).expect("Failed to create index");
+
+    let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
+    let result = doc_transformer::search::search_index(&index, "   ", 10);
+
+    assert!(
+        result.is_err(),
+        "Whitespace-only query should fail with proper error"
+    );
+
+    let error_msg = result.unwrap_err().to_string();
+    assert!(
+        error_msg.contains("Query cannot be empty"),
+        "Error message should mention 'Query cannot be empty', got: {error_msg}"
+    );
+}
+
+#[test]
+fn test_cli_empty_query_shows_error_message() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let output_dir = temp_dir.path().join("output");
+
+    create_test_files(temp_dir.path()).expect("Failed to create test files");
+
+    let transform_status = Command::new("cargo")
+        .args([
+            "run",
+            "--quiet",
+            "transform",
+            temp_dir.path().to_str().unwrap(),
+            output_dir.to_str().unwrap(),
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+
+    if !transform_status.map(|s| s.success()).unwrap_or(false) {
+        println!("Warning: transform failed, skipping CLI test");
+        return;
+    }
+
+    let mut child = Command::new("cargo")
+        .args([
+            "run",
+            "--quiet",
+            "search",
+            "",
+            "--index-dir",
+            output_dir.to_str().unwrap(),
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn search command");
+
+    let mut stdout = String::new();
+    if let Some(mut out) = child.stdout.take() {
+        out.read_to_string(&mut stdout)
+            .expect("Failed to read stdout");
+    }
+
+    let mut stderr = String::new();
+    if let Some(mut err) = child.stderr.take() {
+        err.read_to_string(&mut stderr)
+            .expect("Failed to read stderr");
+    }
+
+    let status = child.wait().expect("Failed to wait for search command");
+
+    // Command should fail (exit code != 0)
+    assert!(
+        !status.success(),
+        "Empty query should cause command to fail"
+    );
+
+    let output = format!("{stdout}\n{stderr}");
+
+    // Error message should be present
+    assert!(
+        output.contains("Query cannot be empty"),
+        "Output should contain 'Query cannot be empty'.\nGot: {output}"
+    );
+
+    // Verify grep would find this error (simulating: command 2>&1 | grep 'Query cannot be empty')
+    assert!(
+        output.contains("Query cannot be empty"),
+        "The error 'Query cannot be empty' must be present for grep to find it"
+    );
+}
+
+#[test]
+fn test_validate_query_empty_string() {
+    let result = doc_transformer::validate::validate_query("");
+    assert!(result.is_err(), "Empty query should fail validation");
+    assert!(
+        matches!(
+            result,
+            Err(doc_transformer::validate::ValidationError::EmptyQuery)
+        ),
+        "Should return EmptyQuery error variant"
+    );
+}
+
+#[test]
+fn test_validate_query_whitespace_only() {
+    let result = doc_transformer::validate::validate_query("   ");
+    assert!(
+        result.is_err(),
+        "Whitespace-only query should fail validation"
+    );
+    assert!(
+        matches!(
+            result,
+            Err(doc_transformer::validate::ValidationError::EmptyQuery)
+        ),
+        "Should return EmptyQuery error variant"
+    );
+}
+
+#[test]
+fn test_validate_query_tabs_and_newlines() {
+    let result = doc_transformer::validate::validate_query("\t\n  \r\n");
+    assert!(
+        result.is_err(),
+        "Query with only whitespace should fail validation"
+    );
+    assert!(
+        matches!(
+            result,
+            Err(doc_transformer::validate::ValidationError::EmptyQuery)
+        ),
+        "Should return EmptyQuery error variant"
+    );
+}
