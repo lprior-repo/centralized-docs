@@ -152,14 +152,82 @@ pub struct ScrapeResult {
     pub base_url: String,
 }
 
-/// Scrape a documentation site and return structured results
+/// Scrape a documentation site with exponential backoff retry on rate limits
+///
+/// Wraps `scrape_site_internal` with exponential backoff retry logic.
+/// If rate limiting is detected (based on error rate), waits with exponential
+/// backoff and retries up to the configured max retries.
+///
+/// Retry schedule: 2s, 4s, 8s, 16s, 32s (max 5 retries)
+pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
+    const MAX_RETRIES: u32 = 5;
+    const BASE_DELAY_MS: u64 = 2000; // Start with 2 seconds
+
+    let mut attempt: u32 = 0;
+
+    loop {
+        attempt = attempt.saturating_add(1);
+
+        match scrape_site_internal(config).await {
+            Ok(result) => {
+                // Check if we got hit with rate limiting (high error rate)
+                let total_requests = result.success_count.saturating_add(result.error_count);
+
+                // If error rate is > 50%, likely rate limited - retry with backoff
+                if total_requests > 10
+                    && result.error_count > result.success_count
+                    && attempt <= MAX_RETRIES
+                {
+                    let delay_ms =
+                        BASE_DELAY_MS.saturating_mul(2_u64.pow(attempt.saturating_sub(1)));
+                    eprintln!(
+                        "[RATE LIMIT] High error rate detected ({} errors / {} total)",
+                        result.error_count, total_requests
+                    );
+                    eprintln!("[RETRY] Waiting {delay_ms}ms before retry {attempt}...");
+
+                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                    continue;
+                }
+
+                // Log if we had retries
+                if attempt > 1 {
+                    eprintln!("[SUCCESS] Scrape completed after {attempt} attempts");
+                }
+
+                return Ok(result);
+            }
+            Err(e) => {
+                let error_msg = e.to_string();
+
+                // Check for network-related errors that might be transient
+                let is_transient = error_msg.contains("timeout")
+                    || error_msg.contains("connection")
+                    || error_msg.contains("dns")
+                    || error_msg.contains("rate");
+
+                if is_transient && attempt <= MAX_RETRIES {
+                    let delay_ms =
+                        BASE_DELAY_MS.saturating_mul(2_u64.pow(attempt.saturating_sub(1)));
+                    eprintln!("[RETRY] Transient error: {error_msg}. Retrying in {delay_ms}ms (attempt {attempt}/{MAX_RETRIES})");
+                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                    continue;
+                }
+
+                return Err(e);
+            }
+        }
+    }
+}
+
+/// Internal scrape implementation without retry logic
 ///
 /// This function uses spider-rs internally but presents a sequential interface.
 /// Spider handles concurrency; we process results one at a time.
 ///
 /// When `use_sitemap` is true, scrapes using the sitemap for URL discovery.
 /// Otherwise uses standard crawling.
-pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
+async fn scrape_site_internal(config: &ScrapeConfig) -> Result<ScrapeResult> {
     // Validate URL before passing to spider (prevents panic)
     let validated_url = validate_url(&config.base_url)?;
 
@@ -176,8 +244,16 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     // With 1000ms delay + 1 worker = 1 req/s (safe for most sites)
     website.configuration.concurrency_limit = Some(1);
 
+    // Enable stealth mode to mimic a real browser and avoid bot detection
+    // This adds browser-like headers without needing chrome feature
+    website.configuration.modify_headers = true;
+
     // Enable retry for transient failures (network blips, temporary rate limits)
-    website.configuration.retry = 2;
+    website.configuration.retry = 3;
+
+    // Set HTTP timeouts to avoid hanging on slow responses
+    use std::time::Duration;
+    website.configuration.request_timeout = Some(Box::new(Duration::from_secs(30)));
 
     // Perform the scrape - use sitemap scraping if enabled
     if config.use_sitemap {
