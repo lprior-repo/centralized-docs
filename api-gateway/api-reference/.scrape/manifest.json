@@ -1,0 +1,1827 @@
+{
+  "pages": [
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/Welcome.html",
+      "markdown": "Welcome - Amazon API Gateway\nWelcome - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#Welcome)\n# Welcome\nAmazon API Gateway helps developers deliver robust, secure, and scalable mobile and web application back ends. API Gateway allows developers to securely connect mobile and web applications to APIs that run on AWS Lambda, Amazon EC2, or other publicly addressable web services that are hosted outside of AWS.\nThis document was last published on January 28, 2026.\n[Document Conventions](https://docs.aws.amazon.com/general/latest/gr/docconventions.html)\nActions\nDid this page help you? - Yes\nThanks for letting us know we're doing a good job!\nIf you've got a moment, please tell us what we did right so we can do more of it.\nDid this page help you? - No\nThanks for letting us know this page needs work. We're sorry we let you down.\nIf you've got a moment, please tell us how we can make the documentation better.",
+      "title": "Welcome",
+      "links": [
+        "https://docs.aws.amazon.com/general/latest/gr/docconventions.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Welcome"
+        }
+      ],
+      "word_count": 146,
+      "slug": "apigateway-latest-api-welcome-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.90219223
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_Operations.html",
+      "markdown": "Actions - Amazon API Gateway\nActions - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_Operations)\n# Actions\nThe following actions are supported:\n* [CreateApiKey](./API_CreateApiKey.html)\n* [CreateAuthorizer](./API_CreateAuthorizer.html)\n* [CreateBasePathMapping](./API_CreateBasePathMapping.html)\n* [CreateDeployment](./API_CreateDeployment.html)\n* [CreateDocumentationPart](./API_CreateDocumentationPart.html)\n* [CreateDocumentationVersion](./API_CreateDocumentationVersion.html)\n* [CreateDomainName](./API_CreateDomainName.html)\n* [CreateDomainNameAccessAssociation](./API_CreateDomainNameAccessAssociation.html)\n* [CreateModel](./API_CreateModel.html)\n* [CreateRequestValidator](./API_CreateRequestValidator.html)\n* [CreateResource](./API_CreateResource.html)\n* [CreateRestApi](./API_CreateRestApi.html)\n* [CreateStage](./API_CreateStage.html)\n* [CreateUsagePlan](./API_CreateUsagePlan.html)\n* [CreateUsagePlanKey](./API_CreateUsagePlanKey.html)\n* [CreateVpcLink](./API_CreateVpcLink.html)\n* [DeleteApiKey](./API_DeleteApiKey.html)\n* [DeleteAuthorizer](./API_DeleteAuthorizer.html)\n* [DeleteBasePathMapping](./API_DeleteBasePathMapping.html)\n* [DeleteClientCertificate](./API_DeleteClientCertificate.html)\n* [DeleteDeployment](./API_DeleteDeployment.html)\n* [DeleteDocumentationPart](./API_DeleteDocumentationPart.html)\n* [DeleteDocumentationVersion](./API_DeleteDocumentationVersion.html)\n* [DeleteDomainName](./API_DeleteDomainName.html)\n* [DeleteDomainNameAccessAssociation](./API_DeleteDomainNameAccessAssociation.html)\n* [DeleteGatewayResponse](./API_DeleteGatewayResponse.html)\n* [DeleteIntegration](./API_DeleteIntegration.html)\n* [DeleteIntegrationResponse](./API_DeleteIntegrationResponse.html)\n* [DeleteMethod](./API_DeleteMethod.html)\n* [DeleteMethodResponse](./API_DeleteMethodResponse.html)\n* [DeleteModel](./API_DeleteModel.html)\n* [DeleteRequestValidator](./API_DeleteRequestValidator.html)\n* [DeleteResource](./API_DeleteResource.html)\n* [DeleteRestApi](./API_DeleteRestApi.html)\n* [DeleteStage](./API_DeleteStage.html)\n* [DeleteUsagePlan](./API_DeleteUsagePlan.html)\n* [DeleteUsagePlanKey](./API_DeleteUsagePlanKey.html)\n* [DeleteVpcLink](./API_DeleteVpcLink.html)\n* [FlushStageAuthorizersCache](./API_FlushStageAuthorizersCache.html)\n* [FlushStageCache](./API_FlushStageCache.html)\n* [GenerateClientCertificate](./API_GenerateClientCertificate.html)\n* [GetAccount](./API_GetAccount.html)\n* [GetApiKey](./API_GetApiKey.html)\n* [GetApiKeys](./API_GetApiKeys.html)\n* [GetAuthorizer](./API_GetAuthorizer.html)\n* [GetAuthorizers](./API_GetAuthorizers.html)\n* [GetBasePathMapping](./API_GetBasePathMapping.html)\n* [GetBasePathMappings](./API_GetBasePathMappings.html)\n* [GetClientCertificate](./API_GetClientCertificate.html)\n* [GetClientCertificates](./API_GetClientCertificates.html)\n* [GetDeployment](./API_GetDeployment.html)\n* [GetDeployments](./API_GetDeployments.html)\n* [GetDocumentationPart](./API_GetDocumentationPart.html)\n* [GetDocumentationParts](./API_GetDocumentationParts.html)\n* [GetDocumentationVersion](./API_GetDocumentationVersion.html)\n* [GetDocumentationVersions](./API_GetDocumentationVersions.html)\n* [GetDomainName](./API_GetDomainName.html)\n* [GetDomainNameAccessAssociations](./API_GetDomainNameAccessAssociations.html)\n* [GetDomainNames](./API_GetDomainNames.html)\n* [GetExport](./API_GetExport.html)\n* [GetGatewayResponse](./API_GetGatewayResponse.html)\n* [GetGatewayResponses](./API_GetGatewayResponses.html)\n* [GetIntegration](./API_GetIntegration.html)\n* [GetIntegrationResponse](./API_GetIntegrationResponse.html)\n* [GetMethod](./API_GetMethod.html)\n* [GetMethodResponse](./API_GetMethodResponse.html)\n* [GetModel](./API_GetModel.html)\n* [GetModels](./API_GetModels.html)\n* [GetModelTemplate](./API_GetModelTemplate.html)\n* [GetRequestValidator](./API_GetRequestValidator.html)\n* [GetRequestValidators](./API_GetRequestValidators.html)\n* [GetResource](./API_GetResource.html)\n* [GetResources](./API_GetResources.html)\n* [GetRestApi](./API_GetRestApi.html)\n* [GetRestApis](./API_GetRestApis.html)\n* [GetSdk](./API_GetSdk.html)\n* [GetSdkType](./API_GetSdkType.html)\n* [GetSdkTypes](./API_GetSdkTypes.html)\n* [GetStage](./API_GetStage.html)\n* [GetStages](./API_GetStages.html)\n* [GetTags](./API_GetTags.html)\n* [GetUsage](./API_GetUsage.html)\n* [GetUsagePlan](./API_GetUsagePlan.html)\n* [GetUsagePlanKey](./API_GetUsagePlanKey.html)\n* [GetUsagePlanKeys](./API_GetUsagePlanKeys.html)\n* [GetUsagePlans](./API_GetUsagePlans.html)\n* [GetVpcLink](./API_GetVpcLink.html)\n* [GetVpcLinks](./API_GetVpcLinks.html)\n* [ImportApiKeys](./API_ImportApiKeys.html)\n* [ImportDocumentationParts](./API_ImportDocumentationParts.html)\n* [ImportRestApi](./API_ImportRestApi.html)\n* [PutGatewayResponse](./API_PutGatewayResponse.html)\n* [PutIntegration](./API_PutIntegration.html)\n* [PutIntegrationResponse](./API_PutIntegrationResponse.html)\n* [PutMethod](./API_PutMethod.html)\n* [PutMethodResponse](./API_PutMethodResponse.html)\n* [PutRestApi](./API_PutRestApi.html)\n* [RejectDomainNameAccessAssociation](./API_RejectDomainNameAccessAssociation.html)\n* [TagResource](./API_TagResource.html)\n* [TestInvokeAuthorizer](./API_TestInvokeAuthorizer.html)\n* [TestInvokeMethod](./API_TestInvokeMethod.html)\n* [UntagResource](./API_UntagResource.html)\n* [UpdateAccount](./API_UpdateAccount.html)\n* [UpdateApiKey](./API_UpdateApiKey.html)\n* [UpdateAuthorizer](./API_UpdateAuthorizer.html)\n* [UpdateBasePathMapping](./API_UpdateBasePathMapping.html)\n* [UpdateClientCertificate](./API_UpdateClientCertificate.html)\n* [UpdateDeployment](./API_UpdateDeployment.html)\n* [UpdateDocumentationPart](./API_UpdateDocumentationPart.html)\n* [UpdateDocumentationVersion](./API_UpdateDocumentationVersion.html)\n* [UpdateDomainName](./API_UpdateDomainName.html)\n* [UpdateGatewayResponse](./API_UpdateGatewayResponse.html)\n* [UpdateIntegration](./API_UpdateIntegration.html)\n* [UpdateIntegrationResponse](./API_UpdateIntegrationResponse.html)\n* [UpdateMethod](./API_UpdateMethod.html)\n* [UpdateMethodResponse](./API_UpdateMethodResponse.html)\n* [UpdateModel](./API_UpdateModel.html)\n* [UpdateRequestValidator](./API_UpdateRequestValidator.html)\n* [UpdateResource](./API_UpdateResource.html)\n* [UpdateRestApi](./API_UpdateRestApi.html)\n* [UpdateStage](./API_UpdateStage.html)\n* [UpdateUsage](./API_UpdateUsage.html)\n* [UpdateUsagePlan](./API_UpdateUsagePlan.html)\n* [UpdateVpcLink](./API_UpdateVpcLink.html)\n[Document Conventions](https://docs.aws.amazon.com/general/latest/gr/docconventions.html)\nWelcome\nCreateApiKey\nDid this page help you? - Yes\nThanks for letting us know we're doing a good job!\nIf you've got a moment, please tell us what we did right so we can do more of it.\nDid this page help you? - No\nThanks for letting us know this page needs work. We're sorry we let you down.\nIf you've got a moment, please tell us how we can make the documentation better.",
+      "title": "Actions",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateApiKey.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateAuthorizer.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateBasePathMapping.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDeployment.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDocumentationPart.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDocumentationVersion.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDomainName.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDomainNameAccessAssociation.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateModel.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateRequestValidator.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateResource.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateRestApi.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateStage.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateUsagePlan.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateUsagePlanKey.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateVpcLink.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteApiKey.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteAuthorizer.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteBasePathMapping.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteClientCertificate.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDeployment.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDocumentationPart.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDocumentationVersion.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDomainName.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDomainNameAccessAssociation.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteGatewayResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteIntegration.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteIntegrationResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteMethod.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteMethodResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteModel.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteRequestValidator.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteResource.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteRestApi.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteStage.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteUsagePlan.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteUsagePlanKey.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteVpcLink.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_FlushStageAuthorizersCache.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_FlushStageCache.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GenerateClientCertificate.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetAccount.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetApiKey.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetApiKeys.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetAuthorizer.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetAuthorizers.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetBasePathMapping.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetBasePathMappings.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetClientCertificate.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetClientCertificates.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDeployment.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDeployments.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationPart.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationParts.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationVersion.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationVersions.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDomainName.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDomainNameAccessAssociations.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDomainNames.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetExport.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetGatewayResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetGatewayResponses.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetIntegration.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetIntegrationResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetMethod.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetMethodResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetModel.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetModelTemplate.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetModels.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetRequestValidator.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetRequestValidators.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetResource.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetResources.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetRestApi.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetRestApis.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetSdk.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetSdkType.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetSdkTypes.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetStage.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetStages.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetTags.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsage.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlan.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlanKey.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlanKeys.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlans.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetVpcLink.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GetVpcLinks.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_ImportApiKeys.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_ImportDocumentationParts.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_ImportRestApi.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_PutGatewayResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_PutIntegration.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_PutIntegrationResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_PutMethod.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_PutMethodResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_PutRestApi.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_RejectDomainNameAccessAssociation.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_TagResource.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_TestInvokeAuthorizer.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_TestInvokeMethod.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UntagResource.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateAccount.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateApiKey.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateAuthorizer.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateBasePathMapping.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateClientCertificate.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDeployment.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDocumentationPart.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDocumentationVersion.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDomainName.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateGatewayResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateIntegration.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateIntegrationResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateMethod.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateMethodResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateModel.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateRequestValidator.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateResource.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateRestApi.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateStage.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateUsage.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateUsagePlan.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateVpcLink.html",
+        "https://docs.aws.amazon.com/general/latest/gr/docconventions.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Actions"
+        }
+      ],
+      "word_count": 343,
+      "slug": "apigateway-latest-api-apioperations-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9235955
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_TlsConfig.html",
+      "markdown": "TlsConfig - Amazon API Gateway\nTlsConfig - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_TlsConfig)\n[Contents](#API_TlsConfig_Contents)[See Also](#API_TlsConfig_SeeAlso)\n## Contents\n**\ninsecureSkipVerification\n**\nSpecifies whether or not API Gateway skips verification that the certificate for an integration endpoint is\nissued by a supported certificate authority. This isn’t recommended, but it enables you to\nuse certificates that are signed by private certificate authorities, or certificates\nthat are self-signed. If enabled, API Gateway still performs basic certificate\nvalidation, which includes checking the certificate's expiration date, hostname, and\npresence of a root certificate authority. Supported only for `HTTP` and\n`HTTP\\_PROXY` integrations.\n###### Important\nEnabling `insecureSkipVerification` isn't recommended, especially for integrations with public\nHTTPS endpoints. If you enable `insecureSkipVerification`, you increase the risk of man-in-the-middle attacks.\nType: Boolean\nRequired: No",
+      "title": "API TlsConfig.html",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_TlsConfig_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_TlsConfig_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 2,
+          "text": "Contents"
+        },
+        {
+          "level": 6,
+          "text": "Important"
+        }
+      ],
+      "word_count": 121,
+      "slug": "apigateway-latest-api-apitlsconfig-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.8729508
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_ApiKey.html",
+      "markdown": "ApiKey - Amazon API Gateway\nApiKey - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_ApiKey)\n[Contents](#API_ApiKey_Contents)[See Also](#API_ApiKey_SeeAlso)\n# ApiKey\nA resource that can be distributed to callers for executing Method resources that require an API key. API keys can be mapped to any Stage on any RestApi, which indicates that the callers with the API key can make requests to that stage.\n## Contents\n**\ncreatedDate\n**\nThe timestamp when the API Key was created.\nType: Timestamp\nRequired: No\n**\ncustomerId\n**\nAn AWS Marketplace customer identifier, when integrating with the AWS SaaS Marketplace.\nType: String\nRequired: No\n**\ndescription\n**\nThe description of the API Key.\nType: String\nRequired: No\n**\nenabled\n**\nSpecifies whether the API Key can be used by callers.\nType: Boolean\nRequired: No\n**\nid\n**\nThe identifier of the API Key.\nType: String\nRequired: No\n**\nlastUpdatedDate\n**\nThe timestamp when the API Key was last updated.\nType: Timestamp\nRequired: No\n**\nname\n**\nThe name of the API Key.\nType: String\nRequired: No\n**\nstageKeys\n**\nA list of Stage resources that are associated with the ApiKey resource.\nType: Array of strings\nRequired: No\n**\ntags\n**\nThe collection of tags. Each tag element is associated with a given resource.\nType: String to string map\nRequired: No\n**\nvalue\n**\nThe value of the API Key.\nType: String\nRequired: No",
+      "title": "ApiKey",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_ApiKey_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_ApiKey_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "ApiKey"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 223,
+      "slug": "apigateway-latest-api-apiapikey-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.78601164
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_Model.html",
+      "markdown": "Model - Amazon API Gateway\nModel - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_Model)\n[Contents](#API_Model_Contents)[See Also](#API_Model_SeeAlso)\n# Model\nRepresents the data structure of a method's request or response payload.\n## Contents\n**\ncontentType\n**\nThe content-type for the model.\nType: String\nRequired: No\n**\ndescription\n**\nThe description of the model.\nType: String\nRequired: No\n**\nid\n**\nThe identifier for the model resource.\nType: String\nRequired: No\n**\nname\n**\nThe name of the model. Must be an alphanumeric string.\nType: String\nRequired: No\n**\nschema\n**\nThe schema for the model. For `application/json` models, this should be JSON schema draft 4 model. Do not include \"\\\\\\*/\" characters in the description of any properties because such \"\\\\\\*/\" characters may be interpreted as the closing marker for comments in some languages, such as Java or JavaScript, causing the installation of your API's SDK generated by API Gateway to fail.\nType: String\nRequired: No",
+      "title": "Model",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Model_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Model_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Model"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 150,
+      "slug": "apigateway-latest-api-apimodel-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9227273
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_MethodSnapshot.html",
+      "markdown": "MethodSnapshot - Amazon API Gateway\nMethodSnapshot - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_MethodSnapshot)\n[Contents](#API_MethodSnapshot_Contents)[See Also](#API_MethodSnapshot_SeeAlso)\n# MethodSnapshot\nRepresents a summary of a Method resource, given a particular date and time.\n## Contents\n**\napiKeyRequired\n**\nSpecifies whether the method requires a valid ApiKey.\nType: Boolean\nRequired: No\n**\nauthorizationType\n**\nThe method's authorization type. Valid values are `NONE` for open access, `AWS\\_IAM` for using AWS IAM permissions, `CUSTOM` for using a custom authorizer, or `COGNITO\\_USER\\_POOLS` for using a Cognito user pool.\nType: String\nRequired: No",
+      "title": "MethodSnapshot",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_MethodSnapshot_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_MethodSnapshot_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "MethodSnapshot"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 83,
+      "slug": "apigateway-latest-api-apimethodsnapshot-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9242762
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_RequestValidator.html",
+      "markdown": "RequestValidator - Amazon API Gateway\nRequestValidator - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_RequestValidator)\n[Contents](#API_RequestValidator_Contents)[See Also](#API_RequestValidator_SeeAlso)\n# RequestValidator\nA set of validation rules for incoming Method requests.\n## Contents\n**\nid\n**\nThe identifier of this RequestValidator.\nType: String\nRequired: No\n**\nname\n**\nThe name of this RequestValidator\nType: String\nRequired: No\n**\nvalidateRequestBody\n**\nA Boolean flag to indicate whether to validate a request body according to the configured Model schema.\nType: Boolean\nRequired: No\n**\nvalidateRequestParameters\n**\nA Boolean flag to indicate whether to validate request parameters (`true`) or not (`false`).\nType: Boolean\nRequired: No",
+      "title": "RequestValidator",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_RequestValidator_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_RequestValidator_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "RequestValidator"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 95,
+      "slug": "apigateway-latest-api-apirequestvalidator-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.924612
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_DomainName.html",
+      "markdown": "DomainName - Amazon API Gateway\nDomainName - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_DomainName)\n[Contents](#API_DomainName_Contents)[See Also](#API_DomainName_SeeAlso)\n# DomainName\nRepresents a custom domain name as a user-friendly host name of an API (RestApi).\n## Contents\n**\ncertificateArn\n**\nThe reference to an AWS-managed certificate that will be used by edge-optimized endpoint or private endpoint for this domain name. AWS Certificate Manager is the only supported source.\nType: String\nRequired: No\n**\ncertificateName\n**\nThe name of the certificate that will be used by edge-optimized endpoint or private endpoint for this domain name.\nType: String\nRequired: No\n**\ncertificateUploadDate\n**\nThe timestamp when the certificate that was used by edge-optimized endpoint or private endpoint for this domain name was uploaded.\nType: Timestamp\nRequired: No\n**\ndistributionDomainName\n**\nThe domain name of the Amazon CloudFront distribution associated with this custom domain name for an edge-optimized endpoint. You set up this association when adding a DNS record pointing the custom domain name to this distribution name. For more information about CloudFront distributions, see the Amazon CloudFront documentation.\nType: String\nRequired: No\n**\ndistributionHostedZoneId\n**\nThe region-agnostic Amazon Route 53 Hosted Zone ID of the edge-optimized endpoint. The valid value is `Z2FDTNDATAQYW2` for all the regions. For more information, see Set up a Regional Custom Domain Name and AWS Regions and Endpoints for API Gateway.\nType: String\nRequired: No\n**\ndomainName\n**\nThe custom domain name as an API host name, for example, `my-api.example.com`.\nType: String\nRequired: No\n**\ndomainNameArn\n**\nThe ARN of the domain name.\nType: String\nRequired: No\n**\ndomainNameId\n**\nThe identifier for the domain name resource. Supported only for private custom domain names.\nType: String\nRequired: No\n**\ndomainNameStatus\n**\nThe status of the DomainName migration. The valid values are `AVAILABLE` and `UPDATING`. If the status is `UPDATING`, the domain cannot be modified further until the existing operation is complete. If it is `AVAILABLE`, the domain can be updated.\nType: String\nValid Values: `AVAILABLE | UPDATING | PENDING | PENDING\\_CERTIFICATE\\_REIMPORT | PENDING\\_OWNERSHIP\\_VERIFICATION | FAILED`\nRequired: No\n**\ndomainNameStatusMessage\n**\nAn optional text message containing detailed information about status of the DomainName migration.\nType: String\nRequired: No\n**\nendpointAccessMode\n**\nThe endpoint access mode of the DomainName.\nType: String\nValid Values: `BASIC | STRICT`\nRequired: No\n**\nendpointConfiguration\n**\nThe endpoint configuration of this DomainName showing the endpoint types and IP address types of the domain name.\nType: [EndpointConfiguration](./API_EndpointConfiguration.html) object\nRequired: No\n**\nmanagementPolicy\n**\nA stringified JSON policy document that applies to the API Gateway Management service for this DomainName. This policy document controls access for access association sources to create domain name access associations with this DomainName. Supported only for private custom domain names.\nType: String\nRequired: No\n**\nmutualTlsAuthentication\n**\nThe mutual TLS authentication configuration for a custom domain name. If specified, API Gateway\nperforms two-way authentication between the client and the server. Clients must present a\ntrusted certificate to access your API.\nType: [MutualTlsAuthentication](./API_MutualTlsAuthentication.html) object\nRequired: No\n**\nownershipVerificationCertificateArn\n**\nThe ARN of the public certificate issued by ACM to validate ownership of your custom\ndomain. Only required when configuring mutual TLS and using an ACM imported or private CA\ncertificate ARN as the regionalCertificateArn.\nType: String\nRequired: No\n**\npolicy\n**\nA stringified JSON policy document that applies to the `execute-api` service for this DomainName regardless of the caller and Method\nconfiguration. Supported only for private custom\ndomain names.\nType: String\nRequired: No\n**\nregionalCertificateArn\n**\nThe reference to an AWS-managed certificate that will be used for validating the regional domain name. AWS Certificate Manager is the only supported source.\nType: String\nRequired: No\n**\nregionalCertificateName\n**\nThe name of the certificate that will be used for validating the regional domain name.\nType: String\nRequired: No\n**\nregionalDomainName\n**\nThe domain name associated with the regional endpoint for this custom domain name. You set up this association by adding a DNS record that points the custom domain name to this regional domain name. The regional domain name is returned by API Gateway when you create a regional endpoint.\nType: String\nRequired: No\n**\nregionalHostedZoneId\n**\nThe region-specific Amazon Route 53 Hosted Zone ID of the regional endpoint. For more information, see Set up a Regional Custom Domain Name and AWS Regions and Endpoints for API Gateway.\nType: String\nRequired: No\n**\nroutingMode\n**\nThe routing mode for this domain name. The routing mode determines how API Gateway sends traffic from your custom domain name to your APIs.\nType: String\nValid Values: `BASE\\_PATH\\_MAPPING\\_ONLY | ROUTING\\_RULE\\_ONLY | ROUTING\\_RULE\\_THEN\\_BASE\\_PATH\\_MAPPING`\nRequired: No\n**\nsecurityPolicy\n**\nThe Transport Layer Security (TLS) version + cipher suite for this DomainName.\nType: String\nValid Values: `TLS\\_1\\_0 | TLS\\_1\\_2 | SecurityPolicy\\_TLS13\\_1\\_3\\_2025\\_09 | SecurityPolicy\\_TLS13\\_1\\_3\\_FIPS\\_2025\\_09 | SecurityPolicy\\_TLS13\\_1\\_2\\_PFS\\_PQ\\_2025\\_09 | SecurityPolicy\\_TLS13\\_1\\_2\\_FIPS\\_PQ\\_2025\\_09 | SecurityPolicy\\_TLS13\\_1\\_2\\_PQ\\_2025\\_09 | SecurityPolicy\\_TLS13\\_1\\_2\\_2021\\_06 | SecurityPolicy\\_TLS13\\_2025\\_EDGE | SecurityPolicy\\_TLS12\\_PFS\\_2025\\_EDGE | SecurityPolicy\\_TLS12\\_2018\\_EDGE`\nRequired: No\n**\ntags\n**\nThe collection of tags. Each tag element is associated with a given resource.\nType: String to string map\nRequired: No",
+      "title": "DomainName",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DomainName_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DomainName_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_EndpointConfiguration.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_MutualTlsAuthentication.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "DomainName"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 814,
+      "slug": "apigateway-latest-api-apidomainname-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.8077865
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_EndpointConfiguration.html",
+      "markdown": "EndpointConfiguration - Amazon API Gateway\nEndpointConfiguration - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_EndpointConfiguration)\n[Contents](#API_EndpointConfiguration_Contents)[See Also](#API_EndpointConfiguration_SeeAlso)\n# EndpointConfiguration\nThe endpoint configuration to indicate the types of endpoints an API (RestApi) or its custom domain name (DomainName) has and the IP address types that can invoke it.\n## Contents\n**\nipAddressType\n**\nThe IP address types that can invoke an API (RestApi) or a DomainName. Use `ipv4` to allow only IPv4 addresses to\ninvoke an API or DomainName, or use `dualstack` to allow both IPv4 and IPv6 addresses to invoke an API or a DomainName. For the\n`PRIVATE` endpoint type, only `dualstack` is supported.\nType: String\nValid Values: `ipv4 | dualstack`\nRequired: No\n**\ntypes\n**\nA list of endpoint types of an API (RestApi) or its custom domain name (DomainName). For an edge-optimized API and its custom domain name, the endpoint type is `\"EDGE\"`. For a regional API and its custom domain name, the endpoint type is `REGIONAL`. For a private API, the endpoint type is `PRIVATE`.\nType: Array of strings\nValid Values: `REGIONAL | EDGE | PRIVATE`\nRequired: No\n**\nvpcEndpointIds\n**\nA list of VpcEndpointIds of an API (RestApi) against which to create Route53 ALIASes. It is only supported for `PRIVATE` endpoint type.\nType: Array of strings\nRequired: No",
+      "title": "EndpointConfiguration",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_EndpointConfiguration_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_EndpointConfiguration_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "EndpointConfiguration"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 208,
+      "slug": "apigateway-latest-api-apiendpointconfiguration-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.83947366
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_Resource.html",
+      "markdown": "Resource - Amazon API Gateway\nResource - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_Resource)\n[Contents](#API_Resource_Contents)[See Also](#API_Resource_SeeAlso)\n## Contents\n**\nid\n**\nThe resource's identifier.\nType: String\nRequired: No\n**\nparentId\n**\nThe parent resource's identifier.\nType: String\nRequired: No\n**\npath\n**\nThe full path for this resource.\nType: String\nRequired: No\n**\npathPart\n**\nThe last path segment for this resource.\nType: String\nRequired: No\n**\nresourceMethods\n**\nGets an API resource's method of a given HTTP verb.\nType: String to [Method](./API_Method.html) object map\nRequired: No",
+      "title": "API Resource.html",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Resource_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Resource_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_Method.html"
+      ],
+      "headers": [
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 84,
+      "slug": "apigateway-latest-api-apiresource-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.92325056
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_IntegrationResponse.html",
+      "markdown": "IntegrationResponse - Amazon API Gateway\nIntegrationResponse - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_IntegrationResponse)\n[Contents](#API_IntegrationResponse_Contents)[See Also](#API_IntegrationResponse_SeeAlso)\n# IntegrationResponse\nRepresents an integration response. The status code must map to an existing MethodResponse, and parameters and templates can be used to transform the back-end response.\n## Contents\n**\ncontentHandling\n**\nSpecifies how to handle response payload content type conversions. Supported values are `CONVERT\\_TO\\_BINARY` and `CONVERT\\_TO\\_TEXT`, with the following behaviors:\nIf this property is not defined, the response payload will be passed through from the integration response to the method response without modification.\nType: String\nValid Values: `CONVERT\\_TO\\_BINARY | CONVERT\\_TO\\_TEXT`\nRequired: No\n**\nresponseParameters\n**\nA key-value map specifying response parameters that are passed to the method response from the back end.\nThe key is a method response header parameter name and the mapped value is an integration response header value, a static value enclosed within a pair of single quotes, or a JSON expression from the integration response body. The mapping key must match the pattern of `method.response.header.{name}`, where `name` is a valid and unique header name. The mapped non-static value must match the pattern of `integration.response.header.{name}` or `integration.response.body.{JSON-expression}`, where `name` is a valid and unique response header name and `JSON-expression` is a valid JSON expression without the `$` prefix.\nType: String to string map\nRequired: No\n**\nresponseTemplates\n**\nSpecifies the templates used to transform the integration response body. Response templates are represented as a key/value map, with a content-type as the key and a template as the value.\nType: String to string map\nRequired: No\n**\nselectionPattern\n**\nSpecifies the regular expression (regex) pattern used to choose an integration response based on the response from the back end. For example, if the success response returns nothing and the error response returns some string, you could use the `.+` regex to match error response. However, make sure that the error response does not contain any newline (`\\\\n`) character in such cases. If the back end is an AWS Lambda function, the AWS Lambda function error header is matched. For all other HTTP and AWS back ends, the HTTP status code is matched.\nType: String\nRequired: No\n**\nstatusCode\n**\nSpecifies the status code that is used to map the integration response to an existing MethodResponse.\nType: String\nPattern: `[1-5]\\\\d\\\\d`\nRequired: No",
+      "title": "IntegrationResponse",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_IntegrationResponse_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_IntegrationResponse_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "IntegrationResponse"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 377,
+      "slug": "apigateway-latest-api-apiintegrationresponse-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.82830054
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_Stage.html",
+      "markdown": "Stage - Amazon API Gateway\nStage - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_Stage)\n[Contents](#API_Stage_Contents)[See Also](#API_Stage_SeeAlso)\n# Stage\nRepresents a unique identifier for a version of a deployed RestApi that is callable by users.\n## Contents\n**\naccessLogSettings\n**\nSettings for logging access in this stage.\nType: [AccessLogSettings](./API_AccessLogSettings.html) object\nRequired: No\n**\ncacheClusterEnabled\n**\nSpecifies whether a cache cluster is enabled for the stage. To activate a method-level cache, set `CachingEnabled` to `true` for a method.\nType: Boolean\nRequired: No\n**\ncacheClusterSize\n**\nThe stage's cache capacity in GB. For more information about choosing a cache size, see [Enabling API caching to enhance responsiveness](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-caching.html).\nType: String\nValid Values: `0.5 | 1.6 | 6.1 | 13.5 | 28.4 | 58.2 | 118 | 237`\nRequired: No\n**\ncacheClusterStatus\n**\nThe status of the cache cluster for the stage, if enabled.\nType: String\nValid Values: `CREATE\\_IN\\_PROGRESS | AVAILABLE | DELETE\\_IN\\_PROGRESS | NOT\\_AVAILABLE | FLUSH\\_IN\\_PROGRESS`\nRequired: No\n**\ncanarySettings\n**\nSettings for the canary deployment in this stage.\nType: [CanarySettings](./API_CanarySettings.html) object\nRequired: No\n**\nclientCertificateId\n**\nThe identifier of a client certificate for an API stage.\nType: String\nRequired: No\n**\ncreatedDate\n**\nThe timestamp when the stage was created.\nType: Timestamp\nRequired: No\n**\ndeploymentId\n**\nThe identifier of the Deployment that the stage points to.\nType: String\nRequired: No\n**\ndescription\n**\nThe stage's description.\nType: String\nRequired: No\n**\ndocumentationVersion\n**\nThe version of the associated API documentation.\nType: String\nRequired: No\n**\nlastUpdatedDate\n**\nThe timestamp when the stage last updated.\nType: Timestamp\nRequired: No\n**\nmethodSettings\n**\nA map that defines the method settings for a Stage resource. Keys (designated as `/{method\\_setting\\_key` below) are method paths defined as `{resource\\_path}/{http\\_method}` for an individual method override, or `/\\\\\\*/\\\\\\*` for overriding all methods in the stage.\nType: String to [MethodSetting](./API_MethodSetting.html) object map\nRequired: No\n**\nstageName\n**\nThe name of the stage is the first path segment in the Uniform Resource Identifier (URI) of a call to API Gateway. Stage names can only contain alphanumeric characters, hyphens, and underscores. Maximum length is 128 characters.\nType: String\nRequired: No\n**\ntags\n**\nThe collection of tags. Each tag element is associated with a given resource.\nType: String to string map\nRequired: No\n**\ntracingEnabled\n**\nSpecifies whether active tracing with X-ray is enabled for the Stage.\nType: Boolean\nRequired: No\n**\nvariables\n**\nA map that defines the stage variables for a Stage resource. Variable names can\nhave alphanumeric and underscore characters, and the values must match `[A-Za-z0-9-.\\_\\~:/?#&amp;&amp;=,]+`.\nType: String to string map\nRequired: No\n**\nwebAclArn\n**\nThe ARN of the WebAcl associated with the Stage.\nType: String\nRequired: No",
+      "title": "Stage",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Stage_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Stage_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_AccessLogSettings.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CanarySettings.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_MethodSetting.html",
+        "https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-caching.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Stage"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 436,
+      "slug": "apigateway-latest-api-apistage-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.79678786
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_UsagePlanKey.html",
+      "markdown": "UsagePlanKey - Amazon API Gateway\nUsagePlanKey - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_UsagePlanKey)\n[Contents](#API_UsagePlanKey_Contents)[See Also](#API_UsagePlanKey_SeeAlso)\n# UsagePlanKey\nRepresents a usage plan key to identify a plan customer.\n## Contents\n**\nid\n**\nThe Id of a usage plan key.\nType: String\nRequired: No\n**\nname\n**\nThe name of a usage plan key.\nType: String\nRequired: No\n**\ntype\n**\nThe type of a usage plan key. Currently, the valid key type is `API\\_KEY`.\nType: String\nRequired: No\n**\nvalue\n**\nThe value of a usage plan key.\nType: String\nRequired: No",
+      "title": "UsagePlanKey",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_UsagePlanKey_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_UsagePlanKey_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "UsagePlanKey"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 90,
+      "slug": "apigateway-latest-api-apiusageplankey-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9239374
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_DomainNameAccessAssociation.html",
+      "markdown": "DomainNameAccessAssociation - Amazon API Gateway\nDomainNameAccessAssociation - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_DomainNameAccessAssociation)\n[Contents](#API_DomainNameAccessAssociation_Contents)[See Also](#API_DomainNameAccessAssociation_SeeAlso)\n# DomainNameAccessAssociation\nRepresents a domain name access association between an access association source and a private custom domain name. With a domain name access association, an access association source can invoke a private custom domain name while isolated from the public internet.\n## Contents\n**\naccessAssociationSource\n**\nThe identifier of the domain name access association source. For a VPCE, the value is the VPC endpoint ID.\nType: String\nRequired: No\n**\naccessAssociationSourceType\n**\nThe type of the domain name access association source.\nType: String\nValid Values: `VPCE`\nRequired: No\n**\ndomainNameAccessAssociationArn\n**\nThe ARN of the domain name access association resource.\nType: String\nRequired: No\n**\ndomainNameArn\n**\nThe ARN of the domain name.\nType: String\nRequired: No\n**\ntags\n**\nThe collection of tags. Each tag element is associated with a given resource.\nType: String to string map\nRequired: No",
+      "title": "DomainNameAccessAssociation",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DomainNameAccessAssociation_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DomainNameAccessAssociation_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "DomainNameAccessAssociation"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 154,
+      "slug": "apigateway-latest-api-apidomainnameaccessassociation-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.81881535
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/CommonErrors.html",
+      "markdown": "Common Errors - Amazon API Gateway\nCommon Errors - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#CommonErrors)\n# Common Errors\nThis section lists the errors common to the API actions of all AWS services. For errors specific to an API action for this service, see the topic for that API action.\n**AccessDeniedException**\nYou do not have sufficient access to perform this action.\nHTTP Status Code: 400\n**IncompleteSignature**\nThe request signature does not conform to AWS standards.\nHTTP Status Code: 400\n**InternalFailure**\nThe request processing has failed because of an unknown error, exception or failure.\nHTTP Status Code: 500\n**InvalidAction**\nThe action or operation requested is invalid. Verify that the action is typed correctly.\nHTTP Status Code: 400\n**InvalidClientTokenId**\nThe X.509 certificate or AWS access key ID provided does not exist in our records.\nHTTP Status Code: 403\n**NotAuthorized**\nYou do not have permission to perform this action.\nHTTP Status Code: 400\n**OptInRequired**\nThe AWS access key ID needs a subscription for the service.\nHTTP Status Code: 403\n**RequestExpired**\nThe request reached the service more than 15 minutes after the date stamp on the request or more than 15 minutes after the request expiration date (such as for pre-signed URLs), or the date stamp on the request is more than 15 minutes in the\nfuture.\nHTTP Status Code: 400\n**ServiceUnavailable**\nThe request has failed due to a temporary failure of the server.\nHTTP Status Code: 503\n**ThrottlingException**\nThe request was denied due to request throttling.\nHTTP Status Code: 400\n**ValidationError**\nThe input fails to satisfy the constraints specified by an AWS service.\nHTTP Status Code: 400\n[Document Conventions](https://docs.aws.amazon.com/general/latest/gr/docconventions.html)\nCommon Parameters\nPatch Operations\nDid this page help you? - Yes\nThanks for letting us know we're doing a good job!\nIf you've got a moment, please tell us what we did right so we can do more of it.\nDid this page help you? - No\nThanks for letting us know this page needs work. We're sorry we let you down.\nIf you've got a moment, please tell us how we can make the documentation better.",
+      "title": "Common Errors",
+      "links": [
+        "https://docs.aws.amazon.com/general/latest/gr/docconventions.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Common Errors"
+        }
+      ],
+      "word_count": 340,
+      "slug": "apigateway-latest-api-commonerrors-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.8995794
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_Types.html",
+      "markdown": "Data Types - Amazon API Gateway\nData Types - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_Types)\n# Data Types\nThe Amazon API Gateway API contains several data types that various actions use. This section describes each data type in detail.\n###### Note\nThe order of each element in a data type structure is not guaranteed. Applications should not assume a particular order.\nThe following data types are supported:\n* [AccessLogSettings](./API_AccessLogSettings.html)\n* [ApiKey](./API_ApiKey.html)\n* [ApiStage](./API_ApiStage.html)\n* [Authorizer](./API_Authorizer.html)\n* [BasePathMapping](./API_BasePathMapping.html)\n* [CanarySettings](./API_CanarySettings.html)\n* [ClientCertificate](./API_ClientCertificate.html)\n* [Deployment](./API_Deployment.html)\n* [DeploymentCanarySettings](./API_DeploymentCanarySettings.html)\n* [DocumentationPart](./API_DocumentationPart.html)\n* [DocumentationPartLocation](./API_DocumentationPartLocation.html)\n* [DocumentationVersion](./API_DocumentationVersion.html)\n* [DomainName](./API_DomainName.html)\n* [DomainNameAccessAssociation](./API_DomainNameAccessAssociation.html)\n* [EndpointConfiguration](./API_EndpointConfiguration.html)\n* [GatewayResponse](./API_GatewayResponse.html)\n* [Integration](./API_Integration.html)\n* [IntegrationResponse](./API_IntegrationResponse.html)\n* [Method](./API_Method.html)\n* [MethodResponse](./API_MethodResponse.html)\n* [MethodSetting](./API_MethodSetting.html)\n* [MethodSnapshot](./API_MethodSnapshot.html)\n* [Model](./API_Model.html)\n* [MutualTlsAuthentication](./API_MutualTlsAuthentication.html)\n* [MutualTlsAuthenticationInput](./API_MutualTlsAuthenticationInput.html)\n* [PatchOperation](./API_PatchOperation.html)\n* [QuotaSettings](./API_QuotaSettings.html)\n* [RequestValidator](./API_RequestValidator.html)\n* [Resource](./API_Resource.html)\n* [RestApi](./API_RestApi.html)\n* [SdkConfigurationProperty](./API_SdkConfigurationProperty.html)\n* [SdkType](./API_SdkType.html)\n* [Stage](./API_Stage.html)\n* [StageKey](./API_StageKey.html)\n* [ThrottleSettings](./API_ThrottleSettings.html)\n* [TlsConfig](./API_TlsConfig.html)\n* [UsagePlan](./API_UsagePlan.html)\n* [UsagePlanKey](./API_UsagePlanKey.html)\n* [VpcLink](./API_VpcLink.html)\n[Document Conventions](https://docs.aws.amazon.com/general/latest/gr/docconventions.html)\nUpdateVpcLink\nAccessLogSettings\nDid this page help you? - Yes\nThanks for letting us know we're doing a good job!\nIf you've got a moment, please tell us what we did right so we can do more of it.\nDid this page help you? - No\nThanks for letting us know this page needs work. We're sorry we let you down.\nIf you've got a moment, please tell us how we can make the documentation better.",
+      "title": "Data Types",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_AccessLogSettings.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_ApiKey.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_ApiStage.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_Authorizer.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_BasePathMapping.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_CanarySettings.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_ClientCertificate.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_Deployment.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DeploymentCanarySettings.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DocumentationPart.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DocumentationPartLocation.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DocumentationVersion.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DomainName.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DomainNameAccessAssociation.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_EndpointConfiguration.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_GatewayResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_Integration.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_IntegrationResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_Method.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_MethodResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_MethodSetting.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_MethodSnapshot.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_Model.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_MutualTlsAuthentication.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_MutualTlsAuthenticationInput.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_PatchOperation.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_QuotaSettings.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_RequestValidator.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_Resource.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_RestApi.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_SdkConfigurationProperty.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_SdkType.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_Stage.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_StageKey.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_ThrottleSettings.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_TlsConfig.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UsagePlan.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_UsagePlanKey.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_VpcLink.html",
+        "https://docs.aws.amazon.com/general/latest/gr/docconventions.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Data Types"
+        },
+        {
+          "level": 6,
+          "text": "Note"
+        }
+      ],
+      "word_count": 220,
+      "slug": "apigateway-latest-api-apitypes-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9227273
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_DocumentationPart.html",
+      "markdown": "DocumentationPart - Amazon API Gateway\nDocumentationPart - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_DocumentationPart)\n[Contents](#API_DocumentationPart_Contents)[See Also](#API_DocumentationPart_SeeAlso)\n# DocumentationPart\nA documentation part for a targeted API entity.\n## Contents\n**\nid\n**\nThe DocumentationPart identifier, generated by API Gateway when the `DocumentationPart` is created.\nType: String\nRequired: No\n**\nlocation\n**\nThe location of the API entity to which the documentation applies. Valid fields depend on the targeted API entity type. All the valid location fields are not required. If not explicitly specified, a valid location field is treated as a wildcard and associated documentation content may be inherited by matching entities, unless overridden.\nType: [DocumentationPartLocation](./API_DocumentationPartLocation.html) object\nRequired: No\n**\nproperties\n**\nA content map of API-specific key-value pairs describing the targeted API entity. The map must be encoded as a JSON string, e.g., `\"{ \\\\\"description\\\\\": \\\\\"The API does ...\\\\\" }\"`. Only OpenAPI-compliant documentation-related fields from the properties map are exported and, hence, published as part of the API entity definitions, while the original documentation parts are exported in a OpenAPI extension of `x-amazon-apigateway-documentation`.\nType: String\nRequired: No",
+      "title": "DocumentationPart",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DocumentationPart_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DocumentationPart_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_DocumentationPartLocation.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "DocumentationPart"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 174,
+      "slug": "apigateway-latest-api-apidocumentationpart-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.92477876
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_Deployment.html",
+      "markdown": "Deployment - Amazon API Gateway\nDeployment - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_Deployment)\n[Contents](#API_Deployment_Contents)[See Also](#API_Deployment_SeeAlso)\n# Deployment\nAn immutable representation of a RestApi resource that can be called by users using Stages. A deployment must be associated with a Stage for it to be callable over the Internet.\n## Contents\n**\napiSummary\n**\nA summary of the RestApi at the date and time that the deployment resource was created.\nType: String to string to [MethodSnapshot](./API_MethodSnapshot.html) object map map\nRequired: No\n**\ncreatedDate\n**\nThe date and time that the deployment resource was created.\nType: Timestamp\nRequired: No\n**\ndescription\n**\nThe description for the deployment resource.\nType: String\nRequired: No\n**\nid\n**\nThe identifier for the deployment resource.\nType: String\nRequired: No",
+      "title": "Deployment",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Deployment_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Deployment_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_MethodSnapshot.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Deployment"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 121,
+      "slug": "apigateway-latest-api-apideployment-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.8302557
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_VpcLink.html",
+      "markdown": "VpcLink - Amazon API Gateway\nVpcLink - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_VpcLink)\n[Contents](#API_VpcLink_Contents)[See Also](#API_VpcLink_SeeAlso)\n# VpcLink\nAn API Gateway VPC link for a RestApi to access resources in an Amazon Virtual Private Cloud (VPC).\n## Contents\n**\ndescription\n**\nThe description of the VPC link.\nType: String\nRequired: No\n**\nid\n**\nThe identifier of the VpcLink. It is used in an Integration to reference this VpcLink.\nType: String\nRequired: No\n**\nname\n**\nThe name used to label and identify the VPC link.\nType: String\nRequired: No\n**\nstatus\n**\nThe status of the VPC link. The valid values are `AVAILABLE`, `PENDING`, `DELETING`, or `FAILED`. Deploying an API will wait if the status is `PENDING` and will fail if the status is `DELETING`.\nType: String\nValid Values: `AVAILABLE | PENDING | DELETING | FAILED`\nRequired: No\n**\nstatusMessage\n**\nA description about the VPC link status.\nType: String\nRequired: No\n**\ntags\n**\nThe collection of tags. Each tag element is associated with a given resource.\nType: String to string map\nRequired: No\n**\ntargetArns\n**\nThe ARN of the network load balancer of the VPC targeted by the VPC link. The network load balancer must be owned by the same AWS account of the API owner.\nType: Array of strings\nRequired: No",
+      "title": "VpcLink",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_VpcLink_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_VpcLink_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "VpcLink"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 213,
+      "slug": "apigateway-latest-api-apivpclink-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9230769
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_MethodResponse.html",
+      "markdown": "MethodResponse - Amazon API Gateway\nMethodResponse - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_MethodResponse)\n[Contents](#API_MethodResponse_Contents)[See Also](#API_MethodResponse_SeeAlso)\n# MethodResponse\nRepresents a method response of a given HTTP status code returned to the client. The method response is passed from the back end through the associated integration response that can be transformed using a mapping template.\n## Contents\n**\nresponseModels\n**\nSpecifies the Model resources used for the response's content-type. Response models are represented as a key/value map, with a content-type as the key and a Model name as the value.\nType: String to string map\nRequired: No\n**\nresponseParameters\n**\nA key-value map specifying required or optional response parameters that API Gateway can send back to the caller. A key defines a method response header and the value specifies whether the associated method response header is required or not. The expression of the key must match the pattern `method.response.header.{name}`, where `name` is a valid and unique header name. API Gateway passes certain integration response data to the method response headers specified here according to the mapping you prescribe in the API's IntegrationResponse. The integration response data that can be mapped include an integration response header expressed in `integration.response.header.{name}`, a static value enclosed within a pair of single quotes (e.g., `'application/json'`), or a JSON expression from the back-end response payload in the form of `integration.response.body.{JSON-expression}`, where `JSON-expression` is a valid JSON expression without the `$` prefix.)\nType: String to boolean map\nRequired: No\n**\nstatusCode\n**\nThe method response's status code.\nType: String\nPattern: `[1-5]\\\\d\\\\d`\nRequired: No",
+      "title": "MethodResponse",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_MethodResponse_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_MethodResponse_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "MethodResponse"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 252,
+      "slug": "apigateway-latest-api-apimethodresponse-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.85635823
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_CanarySettings.html",
+      "markdown": "CanarySettings - Amazon API Gateway\nCanarySettings - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_CanarySettings)\n[Contents](#API_CanarySettings_Contents)[See Also](#API_CanarySettings_SeeAlso)\n## Contents\n**\ndeploymentId\n**\nThe ID of the canary deployment.\nType: String\nRequired: No\n**\npercentTraffic\n**\nThe percent (0-100) of traffic diverted to a canary deployment.\nType: Double\nRequired: No\n**\nstageVariableOverrides\n**\nStage variables overridden for a canary release deployment, including new stage variables introduced in the canary. These stage variables are represented as a string-to-string map between stage variable names and their values.\nType: String to string map\nRequired: No\n**\nuseStageCache\n**\nA Boolean flag to indicate whether the canary deployment uses the stage cache or not.\nType: Boolean\nRequired: No",
+      "title": "API CanarySettings.html",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_CanarySettings_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_CanarySettings_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 109,
+      "slug": "apigateway-latest-api-apicanarysettings-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9242762
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_DocumentationVersion.html",
+      "markdown": "DocumentationVersion - Amazon API Gateway\nDocumentationVersion - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_DocumentationVersion)\n[Contents](#API_DocumentationVersion_Contents)[See Also](#API_DocumentationVersion_SeeAlso)\n# DocumentationVersion\nA snapshot of the documentation of an API.\n## Contents\n**\ncreatedDate\n**\nThe date when the API documentation snapshot is created.\nType: Timestamp\nRequired: No\n**\ndescription\n**\nThe description of the API documentation snapshot.\nType: String\nRequired: No\n**\nversion\n**\nThe version identifier of the API documentation snapshot.\nType: String\nRequired: No",
+      "title": "DocumentationVersion",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DocumentationVersion_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DocumentationVersion_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "DocumentationVersion"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 70,
+      "slug": "apigateway-latest-api-apidocumentationversion-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9252747
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_DeploymentCanarySettings.html",
+      "markdown": "DeploymentCanarySettings - Amazon API Gateway\nDeploymentCanarySettings - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_DeploymentCanarySettings)\n[Contents](#API_DeploymentCanarySettings_Contents)[See Also](#API_DeploymentCanarySettings_SeeAlso)\n## Contents\n**\npercentTraffic\n**\nThe percentage (0.0-100.0) of traffic routed to the canary deployment.\nType: Double\nRequired: No\n**\nstageVariableOverrides\n**\nA stage variable overrides used for the canary release deployment. They can override existing stage variables or add new stage variables for the canary release deployment. These stage variables are represented as a string-to-string map between stage variable names and their values.\nType: String to string map\nRequired: No\n**\nuseStageCache\n**\nA Boolean flag to indicate whether the canary release deployment uses the stage cache or not.\nType: Boolean\nRequired: No",
+      "title": "API DeploymentCanarySettings.html",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DeploymentCanarySettings_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DeploymentCanarySettings_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 107,
+      "slug": "apigateway-latest-api-apideploymentcanarysettings-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9259259
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_ThrottleSettings.html",
+      "markdown": "ThrottleSettings - Amazon API Gateway\nThrottleSettings - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_ThrottleSettings)\n[Contents](#API_ThrottleSettings_Contents)[See Also](#API_ThrottleSettings_SeeAlso)\n## Contents\n**\nburstLimit\n**\nThe API target request burst rate limit. This allows more requests through for a period of time than the target rate limit.\nType: Integer\nRequired: No\n**\nrateLimit\n**\nThe API target request rate limit.\nType: Double\nRequired: No",
+      "title": "API ThrottleSettings.html",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_ThrottleSettings_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_ThrottleSettings_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 57,
+      "slug": "apigateway-latest-api-apithrottlesettings-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.924612
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_SdkConfigurationProperty.html",
+      "markdown": "SdkConfigurationProperty - Amazon API Gateway\nSdkConfigurationProperty - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_SdkConfigurationProperty)\n[Contents](#API_SdkConfigurationProperty_Contents)[See Also](#API_SdkConfigurationProperty_SeeAlso)\n## Contents\n**\ndefaultValue\n**\nThe default value of an SdkType configuration property.\nType: String\nRequired: No\n**\ndescription\n**\nThe description of an SdkType configuration property.\nType: String\nRequired: No\n**\nfriendlyName\n**\nThe user-friendly name of an SdkType configuration property.\nType: String\nRequired: No\n**\nname\n**\nThe name of a an SdkType configuration property.\nType: String\nRequired: No\n**\nrequired\n**\nA boolean flag of an SdkType configuration property to indicate if the associated SDK configuration property is required (`true`) or not (`false`).\nType: Boolean\nRequired: No",
+      "title": "API SdkConfigurationProperty.html",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_SdkConfigurationProperty_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_SdkConfigurationProperty_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 103,
+      "slug": "apigateway-latest-api-apisdkconfigurationproperty-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9259259
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_ApiStage.html",
+      "markdown": "ApiStage - Amazon API Gateway\nApiStage - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_ApiStage)\n[Contents](#API_ApiStage_Contents)[See Also](#API_ApiStage_SeeAlso)\n# ApiStage\nAPI stage name of the associated API stage in a usage plan.\n## Contents\n**\napiId\n**\nAPI Id of the associated API stage in a usage plan.\nType: String\nRequired: No\n**\nstage\n**\nAPI stage name of the associated API stage in a usage plan.\nType: String\nRequired: No\n**\nthrottle\n**\nMap containing method level throttling information for API stage in a usage plan.\nType: String to [ThrottleSettings](./API_ThrottleSettings.html) object map\nRequired: No",
+      "title": "ApiStage",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_ApiStage_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_ApiStage_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_ThrottleSettings.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "ApiStage"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 90,
+      "slug": "apigateway-latest-api-apiapistage-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.92325056
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_UsagePlan.html",
+      "markdown": "UsagePlan - Amazon API Gateway\nUsagePlan - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_UsagePlan)\n[Contents](#API_UsagePlan_Contents)[See Also](#API_UsagePlan_SeeAlso)\n# UsagePlan\nRepresents a usage plan used to specify who can assess associated API stages. Optionally, target request rate and quota limits can be set.\nIn some cases clients can exceed the targets that you set. Don’t rely on usage plans to control costs.\nConsider using [AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html) to monitor costs\nand [AWS WAF](https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html) to manage API requests.\n## Contents\n**\napiStages\n**\nThe associated API stages of a usage plan.\nType: Array of [ApiStage](./API_ApiStage.html) objects\nRequired: No\n**\ndescription\n**\nThe description of a usage plan.\nType: String\nRequired: No\n**\nid\n**\nThe identifier of a UsagePlan resource.\nType: String\nRequired: No\n**\nname\n**\nThe name of a usage plan.\nType: String\nRequired: No\n**\nproductCode\n**\nThe AWS Marketplace product identifier to associate with the usage plan as a SaaS product on the AWS Marketplace.\nType: String\nRequired: No\n**\nquota\n**\nThe target maximum number of permitted requests per a given unit time interval.\nType: [QuotaSettings](./API_QuotaSettings.html) object\nRequired: No\n**\ntags\n**\nThe collection of tags. Each tag element is associated with a given resource.\nType: String to string map\nRequired: No\n**\nthrottle\n**\nA map containing method level throttling information for API stage in a usage plan.\nType: [ThrottleSettings](./API_ThrottleSettings.html) object\nRequired: No",
+      "title": "UsagePlan",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_UsagePlan_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_UsagePlan_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_ApiStage.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_QuotaSettings.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_ThrottleSettings.html",
+        "https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html",
+        "https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "UsagePlan"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 222,
+      "slug": "apigateway-latest-api-apiusageplan-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.81526256
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_SdkType.html",
+      "markdown": "SdkType - Amazon API Gateway\nSdkType - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_SdkType)\n[Contents](#API_SdkType_Contents)[See Also](#API_SdkType_SeeAlso)\n# SdkType\nA type of SDK that API Gateway can generate.\n## Contents\n**\nconfigurationProperties\n**\nA list of configuration properties of an SdkType.\nType: Array of [SdkConfigurationProperty](./API_SdkConfigurationProperty.html) objects\nRequired: No\n**\ndescription\n**\nThe description of an SdkType.\nType: String\nRequired: No\n**\nfriendlyName\n**\nThe user-friendly name of an SdkType instance.\nType: String\nRequired: No\n**\nid\n**\nThe identifier of an SdkType instance.\nType: String\nRequired: No",
+      "title": "SdkType",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_SdkType_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_SdkType_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_SdkConfigurationProperty.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "SdkType"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 83,
+      "slug": "apigateway-latest-api-apisdktype-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9230769
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_MutualTlsAuthenticationInput.html",
+      "markdown": "MutualTlsAuthenticationInput - Amazon API Gateway\nMutualTlsAuthenticationInput - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_MutualTlsAuthenticationInput)\n[Contents](#API_MutualTlsAuthenticationInput_Contents)[See Also](#API_MutualTlsAuthenticationInput_SeeAlso)\n# MutualTlsAuthenticationInput\nThe mutual TLS authentication configuration for a custom domain name. If specified, API Gateway\nperforms two-way authentication between the client and the server. Clients must present a\ntrusted certificate to access your API.\n## Contents\n**\ntruststoreUri\n**\nAn Amazon S3 URL that specifies the truststore for mutual TLS authentication, for example\n`s3://bucket-name/key-name`. The truststore can contain certificates from public or private\ncertificate authorities. To update the truststore, upload a new version to S3, and then update\nyour custom domain name to use the new version. To update the truststore, you must have\npermissions to access the S3 object.\nType: String\nRequired: No\n**\ntruststoreVersion\n**\nThe version of the S3 object that contains your truststore. To specify a version, you must have versioning enabled for the S3 bucket\nType: String\nRequired: No",
+      "title": "MutualTlsAuthenticationInput",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_MutualTlsAuthenticationInput_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_MutualTlsAuthenticationInput_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "MutualTlsAuthenticationInput"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 148,
+      "slug": "apigateway-latest-api-apimutualtlsauthenticationinput-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.8334476
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_PatchOperation.html",
+      "markdown": "PatchOperation - Amazon API Gateway\nPatchOperation - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_PatchOperation)\n[Contents](#API_PatchOperation_Contents)[See Also](#API_PatchOperation_SeeAlso)\n# PatchOperation\nFor more information about supported patch operations, see [Patch Operations](./patch-operations.html).\n## Contents\n**\nfrom\n**\nThe copy update operation's source as identified by a JSON-Pointer value referencing\nthe location within the targeted resource to copy the value from. For example, to\npromote a canary deployment, you copy the canary deployment ID to the affiliated\ndeployment ID by calling a PATCH request on a Stage resource with \"op\":\"copy\",\n\"from\":\"/canarySettings/deploymentId\" and \"path\":\"/deploymentId\".\nType: String\nRequired: No\n**\nop\n**\nAn update operation to be performed with this PATCH request. The valid value can be\nadd, remove, replace or copy. Not all valid operations are supported for a given\nresource. Support of the operations depends on specific operational contexts. Attempts\nto apply an unsupported operation on a resource will return an error message..\nType: String\nValid Values: `add | remove | replace | move | copy | test`\nRequired: No\n**\npath\n**\nThe op operation's target, as identified by a JSON Pointer value that references a\nlocation within the targeted resource. For example, if the target resource has an\nupdateable property of {\"name\":\"value\"}, the path for this property is /name. If the\nname property value is a JSON object (e.g., {\"name\": {\"child/name\": \"child-value\"}}),\nthe path for the child/name property will be /name/child\\~1name. Any slash (\"/\")\ncharacter appearing in path names must be escaped with \"\\~1\", as shown in the example\nabove. Each op operation can have only one path associated with it.\nType: String\nRequired: No\n**\nvalue\n**\nThe new target value of the update operation. It is applicable for the add or replace\noperation. When using AWS CLI to update a property of a JSON value, enclose the JSON\nobject with a pair of single quotes in a Linux shell, e.g., '{\"a\": ...}'.\nType: String\nRequired: No",
+      "title": "PatchOperation",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_PatchOperation_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_PatchOperation_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/patch-operations.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "PatchOperation"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 312,
+      "slug": "apigateway-latest-api-apipatchoperation-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.75107294
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_AccessLogSettings.html",
+      "markdown": "AccessLogSettings - Amazon API Gateway\nAccessLogSettings - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_AccessLogSettings)\n[Contents](#API_AccessLogSettings_Contents)[See Also](#API_AccessLogSettings_SeeAlso)\n# AccessLogSettings\nAccess log settings, including the access log format and access log destination ARN.\n## Contents\n**\ndestinationArn\n**\nThe Amazon Resource Name (ARN) of the CloudWatch Logs log group or Kinesis Data Firehose delivery stream to receive access logs. If you specify a Kinesis Data Firehose delivery stream, the stream name must begin with `amazon-apigateway-`.\nType: String\nRequired: No\n**\nformat\n**\nA single line format of the access logs of data, as specified by selected $context variables. The format must include at least `$context.requestId`.\nType: String\nRequired: No",
+      "title": "AccessLogSettings",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_AccessLogSettings_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_AccessLogSettings_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "AccessLogSettings"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 104,
+      "slug": "apigateway-latest-api-apiaccesslogsettings-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.92477876
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/CommonParameters.html",
+      "markdown": "Common Parameters - Amazon API Gateway\nCommon Parameters - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#CommonParameters)\n# Common Parameters\nThe following list contains the parameters that all actions use for signing Signature\nVersion 4 requests with a query string. Any action-specific parameters are listed in the topic\nfor that action. For more information about Signature Version 4, see [Signing AWS API requests](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-signing.html) in the *IAM User Guide*.\n**Action**\nThe action to be performed.\nType: string\nRequired: Yes\n**Version**\nThe API version that the request is written for, expressed in the format YYYY-MM-DD.\nType: string\nRequired: Yes\n**X-Amz-Algorithm**\nThe hash algorithm that you used to create the request signature.\nCondition: Specify this parameter when you include authentication information in a query string instead of in the HTTP authorization header.\nType: string\nValid Values: `AWS4-HMAC-SHA256`\nRequired: Conditional\n**X-Amz-Credential**\nThe credential scope value, which is a string that includes your access key, the date, the region you are targeting, the service you are requesting, and a termination string (\"aws4\\_request\"). The value is expressed in the following format:\n*access\\_key*/*YYYYMMDD*/*region*/*service*/aws4\\_request.\nFor more information, see [Create a signed AWS API request](https://docs.aws.amazon.com/IAM/latest/UserGuide/create-signed-request.html) in the *IAM User Guide*.\nCondition: Specify this parameter when you include authentication information in a query string instead of in the HTTP authorization header.\nType: string\nRequired: Conditional\n**X-Amz-Date**\nThe date that is used to create the signature. The format must be ISO 8601 basic format (YYYYMMDD'T'HHMMSS'Z'). For example, the following date time is a valid X-Amz-Date value: `20120325T120000Z`.\nCondition: X-Amz-Date is optional for all requests; it can be used to override the date used for signing requests. If the Date header is specified in the ISO 8601 basic format, X-Amz-Date is not required. When X-Amz-Date is used, it always\noverrides the value of the Date header. For more information, see [Elements of an AWS API request signature](https://docs.aws.amazon.com/IAM/latest/UserGuide/signing-elements.html) in the *IAM User Guide*.\nType: string\nRequired: Conditional\n**X-Amz-Security-Token**\nThe temporary security token that was obtained through a call to AWS Security Token Service (AWS STS). For a list of services that support temporary security credentials from\nAWS STS, see [AWS services that work with IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-services-that-work-with-iam.html) in the *IAM User Guide*.\nCondition: If you're using temporary security credentials from AWS STS, you must include\nthe security token.\nType: string\nRequired: Conditional\n**X-Amz-Signature**\nSpecifies the hex-encoded signature that was calculated from the string to sign and the derived signing key.\nCondition: Specify this parameter when you include authentication information in a query string instead of in the HTTP authorization header.\nType: string\nRequired: Conditional\n**X-Amz-SignedHeaders**\nSpecifies all the HTTP headers that were included as part of the canonical request.\nFor more information about specifying signed headers, see [Create a signed AWS API request](https://docs.aws.amazon.com/IAM/latest/UserGuide/create-signed-request.html) in the *IAM User Guide*.\nCondition: Specify this parameter when you include authentication information in a query string instead of in the HTTP authorization header.\nType: string\nRequired: Conditional\n[Document Conventions](https://docs.aws.amazon.com/general/latest/gr/docconventions.html)\nVpcLink\nCommon Errors\nDid this page help you? - Yes\nThanks for letting us know we're doing a good job!\nIf you've got a moment, please tell us what we did right so we can do more of it.\nDid this page help you? - No\nThanks for letting us know this page needs work. We're sorry we let you down.\nIf you've got a moment, please tell us how we can make the documentation better.",
+      "title": "Common Parameters",
+      "links": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/create-signed-request.html",
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-services-that-work-with-iam.html",
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-signing.html",
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/signing-elements.html",
+        "https://docs.aws.amazon.com/general/latest/gr/docconventions.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Common Parameters"
+        }
+      ],
+      "word_count": 551,
+      "slug": "apigateway-latest-api-commonparameters-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.8869981
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_StageKey.html",
+      "markdown": "StageKey - Amazon API Gateway\nStageKey - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_StageKey)\n[Contents](#API_StageKey_Contents)[See Also](#API_StageKey_SeeAlso)\n# StageKey\nA reference to a unique stage identified in the format `{restApiId}/{stage}`.\n## Contents\n**\nrestApiId\n**\nThe string identifier of the associated RestApi.\nType: String\nRequired: No\n**\nstageName\n**\nThe stage name associated with the stage key.\nType: String\nRequired: No",
+      "title": "StageKey",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_StageKey_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_StageKey_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "StageKey"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 57,
+      "slug": "apigateway-latest-api-apistagekey-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.92325056
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_ClientCertificate.html",
+      "markdown": "ClientCertificate - Amazon API Gateway\nClientCertificate - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_ClientCertificate)\n[Contents](#API_ClientCertificate_Contents)[See Also](#API_ClientCertificate_SeeAlso)\n# ClientCertificate\nRepresents a client certificate used to configure client-side SSL authentication while sending requests to the integration endpoint.\n## Contents\n**\nclientCertificateId\n**\nThe identifier of the client certificate.\nType: String\nRequired: No\n**\ncreatedDate\n**\nThe timestamp when the client certificate was created.\nType: Timestamp\nRequired: No\n**\ndescription\n**\nThe description of the client certificate.\nType: String\nRequired: No\n**\nexpirationDate\n**\nThe timestamp when the client certificate will expire.\nType: Timestamp\nRequired: No\n**\npemEncodedCertificate\n**\nThe PEM-encoded public key of the client certificate, which can be used to configure certificate authentication in the integration endpoint .\nType: String\nRequired: No\n**\ntags\n**\nThe collection of tags. Each tag element is associated with a given resource.\nType: String to string map\nRequired: No",
+      "title": "ClientCertificate",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_ClientCertificate_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_ClientCertificate_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "ClientCertificate"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 141,
+      "slug": "apigateway-latest-api-apiclientcertificate-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.92477876
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_DocumentationPartLocation.html",
+      "markdown": "DocumentationPartLocation - Amazon API Gateway\nDocumentationPartLocation - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_DocumentationPartLocation)\n[Contents](#API_DocumentationPartLocation_Contents)[See Also](#API_DocumentationPartLocation_SeeAlso)\n# DocumentationPartLocation\nSpecifies the target API entity to which the documentation applies.\n## Contents\n**\ntype\n**\nThe type of API entity to which the documentation content applies. Valid values are `API`, `AUTHORIZER`, `MODEL`, `RESOURCE`, `METHOD`, `PATH\\_PARAMETER`, `QUERY\\_PARAMETER`, `REQUEST\\_HEADER`, `REQUEST\\_BODY`, `RESPONSE`, `RESPONSE\\_HEADER`, and `RESPONSE\\_BODY`. Content inheritance does not apply to any entity of the `API`, `AUTHORIZER`, `METHOD`, `MODEL`, `REQUEST\\_BODY`, or `RESOURCE` type.\nType: String\nValid Values: `API | AUTHORIZER | MODEL | RESOURCE | METHOD | PATH\\_PARAMETER | QUERY\\_PARAMETER | REQUEST\\_HEADER | REQUEST\\_BODY | RESPONSE | RESPONSE\\_HEADER | RESPONSE\\_BODY`\nRequired: Yes\n**\nmethod\n**\nThe HTTP verb of a method. It is a valid field for the API entity types of `METHOD`, `PATH\\_PARAMETER`, `QUERY\\_PARAMETER`, `REQUEST\\_HEADER`, `REQUEST\\_BODY`, `RESPONSE`, `RESPONSE\\_HEADER`, and `RESPONSE\\_BODY`. The default value is `\\*` for any method. When an applicable child entity inherits the content of an entity of the same type with more general specifications of the other `location` attributes, the child entity's `method` attribute must match that of the parent entity exactly.\nType: String\nRequired: No\n**\nname\n**\nThe name of the targeted API entity. It is a valid and required field for the API entity types of `AUTHORIZER`, `MODEL`, `PATH\\_PARAMETER`, `QUERY\\_PARAMETER`, `REQUEST\\_HEADER`, `REQUEST\\_BODY` and `RESPONSE\\_HEADER`. It is an invalid field for any other entity type.\nType: String\nRequired: No\n**\npath\n**\nThe URL path of the target. It is a valid field for the API entity types of `RESOURCE`, `METHOD`, `PATH\\_PARAMETER`, `QUERY\\_PARAMETER`, `REQUEST\\_HEADER`, `REQUEST\\_BODY`, `RESPONSE`, `RESPONSE\\_HEADER`, and `RESPONSE\\_BODY`. The default value is `/` for the root resource. When an applicable child entity inherits the content of another entity of the same type with more general specifications of the other `location` attributes, the child entity's `path` attribute must match that of the parent entity as a prefix.\nType: String\nRequired: No\n**\nstatusCode\n**\nThe HTTP status code of a response. It is a valid field for the API entity types of `RESPONSE`, `RESPONSE\\_HEADER`, and `RESPONSE\\_BODY`. The default value is `\\*` for any status code. When an applicable child entity inherits the content of an entity of the same type with more general specifications of the other `location` attributes, the child entity's `statusCode` attribute must match that of the parent entity exactly.\nType: String\nPattern: `^([1-5]\\\\d\\\\d|\\\\\\*|\\\\s\\*)$`\nRequired: No",
+      "title": "DocumentationPartLocation",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DocumentationPartLocation_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_DocumentationPartLocation_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "DocumentationPartLocation"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 386,
+      "slug": "apigateway-latest-api-apidocumentationpartlocation-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.8554831
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/patch-operations.html",
+      "markdown": "Patch Operations - Amazon API Gateway\nPatch Operations - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#patch-operations)\n[UpdateAccount](#UpdateAccount-Patch)[UpdateApiKey](#UpdateApiKey-Patch)[UpdateAuthorizer](#UpdateAuthorizer-Patch)[UpdateBasePathMapping](#UpdateBasePathMapping-Patch)[UpdateClientCertificate](#UpdateClientCertificate-Patch)[UpdateDeployment](#UpdateDeployment-Patch)[UpdateDocumentationPart](#UpdateDocumentationPart-Patch)[UpdateDocumentationVersion](#UpdateDocumentationVersion-Patch)[UpdateDomainName](#UpdateDomainName-Patch)[UpdateGatewayResponse](#UpdateGatewayResponse-Patch)[UpdateIntegration](#UpdateIntegration-Patch)[UpdateIntegrationResponse](#UpdateIntegrationResponse-Patch)[UpdateMethod](#UpdateMethod-Patch)[UpdateMethodResponse](#UpdateMethodResponse-Patch)[UpdateModel](#UpdateModel-Patch)[UpdateRequestValidator](#UpdateRequestValidator-Patch)[UpdateResource](#UpdateResource-Patch)[UpdateRestApi](#UpdateRestApi-Patch)[UpdateStage](#UpdateStage-Patch)[UpdateUsage](#UpdateUsage-Patch)[UpdateUsagePlan](#UpdateUsagePlan-Patch)[UpdateVpcLink](#UpdateVpcLink-Patch)\n# Patch Operations\nThis section lists information about the supported patch operations to update resources.\n## UpdateAccount\nThe following table shows the supported and unsupported `op` operations for\n`UpdateAccount`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/cloudwatchRoleArn`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/features`\n|\nSupported\n|\nNot supported\n|\nSupported, but not for the `UsagePlans` feature\n|\nNot supported\n|\n## UpdateApiKey\nThe following table shows the supported and unsupported `op` operations for\n`UpdateApiKey`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/customerId`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/description`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/enabled`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/labels`\n|\nSupported\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\n|\n`/name`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/stages`\n|\nSupported\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\n## UpdateAuthorizer\nThe following table shows the supported and unsupported `op` operations for\n`UpdateAuthorizer`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/authorizerUri`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/authorizerCredentials`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/authorizerResultTtlInSeconds`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/authType`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/identitySource`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/identityValidationExpression`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/name`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/providerARNs`\n|\nSupported\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\n|\n`/type`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateBasePathMapping\nThe following table shows the supported and unsupported `op` operations for\n`UpdateBasePathMapping`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/basepath`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/restapiId`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/stage`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateClientCertificate\nThe following table shows the supported and unsupported `op` operations for\n`UpdateClientCertificate`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/description`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateDeployment\nThe following table shows the supported and unsupported `op` operations for\n`UpdateDeployment`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/description`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateDocumentationPart\nThe following table shows the supported and unsupported `op` operations for\n`UpdateDocumentationPart`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/properties`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateDocumentationVersion\nThe following table shows the supported and unsupported `op` operations for\n`UpdateDocumentationVersion`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/description`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateDomainName\nThe following table shows the supported and unsupported `op` operations for\n`UpdateDomainName`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/certificateName`\n|\nSupported for adding an edge certificate while updating a regional\ndomain name to an edge-optimized one. This operation cannot be included\nwith the `remove` operation in the same request.\n|\nSupported for rotating an edge certificate of an edge-optimized domain\nname.\n|\nSupported for removing an edge certificate while updating an\nedge-optimized domain name to a regional one. This operation cannot be\nincluded with the `add` operation in the same request.\n|\nNot supported\n|\n|\n`/certificateArn`\n|\nSupported for adding an edge certificate while updating a regional\ndomain name to an edge-optimized one. This operation cannot be included\nwith the `remove` operation in the same request.\n|\nSupported for rotating an edge certificate of an edge-optimized domain\nname.\n|\nSupported for removing an edge certificate while updating an\nedge-optimized domain name to a regional one. This operation cannot be\nincluded with the `add` operation in the same request.\n|\nNot supported\n|\n|\n`/endpointConfiguration/types`\n|\nSupported for updates between edge-optimized and regional endpoints.\nThis operation cannot be included with the `remove` operation\nin the same request.\n|\nNot supported\n|\nSupported for updates between edge-optimized and regional endpoints.\nThis operation cannot be included with the `add` operation in\nthe same request.\n|\nNot supported\n|\n|\n`/endpointConfiguration/ipAddressType`\n|\nNot supported\n|\nSupported. Only `dualstack` and `ipv4` are supported.\n|\nNot supported\n|\nNot supported\n|\n|\n`/endpointAccessMode`\n|\nNot supported\n|\nSupported only for custom domain names for public APIs.\n|\nNot supported\n|\nNot supported\n|\n|\n`/managementPolicy`\n|\nNot supported\n|\nSupported only for custom domain names for private APIs.\n|\nNot supported\n|\nNot supported\n|\n|\n`/mutualTlsAuthentication/truststoreUri`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/mutualTlsAuthentication/truststoreVersion`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/policy`\n|\nNot supported\n|\nSupported only for custom domain names for private APIs.\n|\nNot supported\n|\nNot supported\n|\n|\n`/regionalCertificateName`\n|\nSupported for adding a regional certificate. This operation cannot be\nincluded with the `remove` operation in the same\nrequest.\n|\nSupported for rotating a regional certificate of a regional domain\nname.\n|\nSupported for removing a regional certificate of an inactive API\nendpoint. This operation cannot be included with the `add`\noperation in the same request.\n|\nNot supported\n|\n|\n`/regionalCertificateArn`\n|\nSupported for adding a regional certificate. This operation cannot be\nincluded with the `remove` operation in the same\nrequest.\n|\nSupported for rotating a regional certificate of a regional domain\nname.\n|\nSupported for removing a regional certificate of an inactive API\nendpoint. This operation cannot be included with the `add`\noperation in the same request.\n|\nNot supported\n|\n|\n`/routingMode`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/securityPolicy`\n|\nNot supported\n|\nSupported for migrating a domain name.\n|\nNot supported\n|\nNot supported\n|\n|\n`/ownershipVerificationCertificateArn`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n## UpdateGatewayResponse\nThe following table shows the supported and unsupported `op` operations for\n`UpdateGatewayResponse`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/statusCode`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/responseParameters`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/responseTemplates`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n## UpdateIntegration\nThe following table shows the supported and unsupported `op` operations for\n`UpdateIntegration`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/cacheKeyParameters`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/cacheNamespace`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/connectionId`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/connectionType`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/contentHandling`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/httpMethod`\n|\nNot supported\n|\nSupported, except for `MOCK` integrations\n|\nNot supported\n|\nNot supported\n|\n|\n`/integrationTarget`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/passthroughBehavior`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/requestParameters`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/requestTemplates`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/responseTransferMode`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/timeoutInMillis`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/tlsConfig/insecureSkipVerification`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/type`\n|\nNot supported\n|\nNot supported\n|\nNot supported\n|\nNot supported\n|\n|\n`/uri`\n|\nNot supported\n|\nSupported, except for `MOCK` integrations\n|\nNot supported\n|\nNot supported\n|\n## UpdateIntegrationResponse\nThe following table shows the supported and unsupported `op` operations for\n`UpdateIntegrationResponse`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/contentHandling`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/responseParameters`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/responseTemplates`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/selectionPattern`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateMethod\nThe following table shows the supported and unsupported `op` operations for\n`UpdateMethod`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/authorizationScopes`\n|\nSupported\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\n|\n`/authorizationType`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/authorizerId`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/apiKeyRequired`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/operationName`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/requestParameters`\n|\nSupported\n|\nSupported, except for `MOCK` integrations\n|\nSupported\n|\nNot supported\n|\n|\n`/requestModels`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/requestValidatorId`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateMethodResponse\nThe following table shows the supported and unsupported `op` operations for\n`UpdateMethodResponse`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/responseModels`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/responseParameters`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n## UpdateModel\nThe following table shows the supported and unsupported `op` operations for\n`UpdateModel`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/description`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/schema`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateRequestValidator\nThe following table shows the supported and unsupported `op` operations for\n`UpdateRequestValidator`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/name`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/validateRequestBody`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/validateRequestParameters`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateResource\nThe following table shows the supported and unsupported `op` operations for\n`UpdateResource`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/parentId`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/pathPart`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateRestApi\nThe following table shows the supported and unsupported `op` operations for\n`UpdateRestApi`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/apiKeySource`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/binaryMediaTypes`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/description`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/disableExecuteApiEndpoint`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/endpointConfiguration/types/{type}`\n|\nNot supported\n|\nSupported. Type must be `REGIONAL`, `EDGE`, or\n`PRIVATE`.\n|\nNot supported\n|\nNot supported\n|\n|\n`/endpointConfiguration/vpcEndpointIds`\n|\nSupported only for `PRIVATE` endpoint type.\n|\nNot supported\n|\nSupported only for `PRIVATE` endpoint type.\n|\nNot supported\n|\n|\n`/endpointConfiguration/ipAddressType`\n|\nNot supported\n|\nSupported. Only `dualstack` and `ipv4` are supported.\n|\nNot supported\n|\nNot supported\n|\n|\n`/endpointAccessMode`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/minimumCompressionSize \\*`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/name`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/policy`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/securityPolicy`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n\\* To enable compression, apply a `replace` operation with the accompanying\nvalue property set to a non-negative integer between 0 and 10485760. To disable compression,\napply a `replace` operation with the `value` property set to null or\nomit the `value` property.\n## UpdateStage\nThe following table shows the supported and unsupported `op` operations for\n`UpdateStage`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/accessLogSettings`\n|\nNot supported\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\n|\n`/accessLogSettings/\\*`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/accessLogSettings/destinationArn`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/accessLogSettings/format`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/cacheClusterEnabled`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/cacheClusterSize`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/canarySettings`\n|\nNot supported\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\n|\n`/canarySettings/deploymentId`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/canarySettings/percentTraffic`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/canarySettings/stageVariableOverrides`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/canarySettings/useStageCache`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/clientCertificateId`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/deploymentId`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nSupported\n|\n|\n`/description`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/documentationVersion`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/methodSettings`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/variables`\n|\nNot supported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/variables/\\*`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/tracingEnabled`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/{resourcePath}/{httpMethod}/metrics/enabled`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/{resourcePath}/{httpMethod}/logging/dataTrace`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/{resourcePath}/{httpMethod}/logging/loglevel`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/{resourcePath}/{httpMethod}/throttling/burstLimit`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/{resourcePath}/{httpMethod}/throttling/rateLimit`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/{resourcePath}/{httpMethod}/caching/enabled`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/{resourcePath}/{httpMethod}/caching/dataEncrypted`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/{resourcePath}/{httpMethod}/caching/ttlInSeconds`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/{resourcePath}/{httpMethod}/caching/requireAuthorizationForCacheControl`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/{resourcePath}/{httpMethod}/caching/unauthorizedCacheControlHeaderStrategy`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateUsage\nThe following table shows the supported and unsupported `op` operations for\n`UpdateUsage`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/remaining`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateUsagePlan\nThe following table shows the supported and unsupported `op` operations for\n`UpdateUsagePlan`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/apiStages`\n|\nSupported\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\n|\n`/apiStages/{apidId:stageName}/throttle/{resourcePath}/{httpMethod}`\n|\nNot supported\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\n|\n`/apiStages/{apidId:stageName}/throttle/{resourcePath}/{httpMethod}/rateLimit`\n|\nSupported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/apiStages/{apidId:stageName}/throttle/{resourcePath}/{httpMethod}/burstLimit`\n|\nSupported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/apiStages/{apidId:stageName}/throttle`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/description`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/name`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/productCode`\n|\nSupported\n|\nSupported\n|\nSupported\n|\nNot supported\n|\n|\n`/quota`\n|\nNot supported\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\n|\n`/quota/limit`\n|\nSupported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/quota/offset`\n|\nSupported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/quota/period`\n|\nSupported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/throttle`\n|\nNot supported\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\n|\n`/throttle/burstLimit`\n|\nSupported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/throttle/rateLimit`\n|\nSupported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n## UpdateVpcLink\nThe following table shows the supported and unsupported `op` operations for\n`UpdateVpcLink`.\n|Path|op:add|op:replace|op:remove|op:copy|\n|\n`/name`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n|\n`/description`\n|\nNot supported\n|\nSupported\n|\nNot supported\n|\nNot supported\n|\n[Document Conventions](https://docs.aws.amazon.com/general/latest/gr/docconventions.html)\nCommon Errors\nDid this page help you? - Yes\nThanks for letting us know we're doing a good job!\nIf you've got a moment, please tell us what we did right so we can do more of it.\nDid this page help you? - No\nThanks for letting us know this page needs work. We're sorry we let you down.\nIf you've got a moment, please tell us how we can make the documentation better.",
+      "title": "Patch Operations",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateAccount-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateApiKey-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateAuthorizer-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateBasePathMapping-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateClientCertificate-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateDeployment-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateDocumentationPart-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateDocumentationVersion-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateDomainName-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateGatewayResponse-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateIntegration-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateIntegrationResponse-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateMethod-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateMethodResponse-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateModel-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateRequestValidator-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateResource-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateRestApi-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateStage-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateUsage-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateUsagePlan-Patch",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#UpdateVpcLink-Patch",
+        "https://docs.aws.amazon.com/general/latest/gr/docconventions.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Patch Operations"
+        },
+        {
+          "level": 2,
+          "text": "UpdateAccount"
+        },
+        {
+          "level": 2,
+          "text": "UpdateApiKey"
+        },
+        {
+          "level": 2,
+          "text": "UpdateAuthorizer"
+        },
+        {
+          "level": 2,
+          "text": "UpdateBasePathMapping"
+        },
+        {
+          "level": 2,
+          "text": "UpdateClientCertificate"
+        },
+        {
+          "level": 2,
+          "text": "UpdateDeployment"
+        },
+        {
+          "level": 2,
+          "text": "UpdateDocumentationPart"
+        },
+        {
+          "level": 2,
+          "text": "UpdateDocumentationVersion"
+        },
+        {
+          "level": 2,
+          "text": "UpdateDomainName"
+        },
+        {
+          "level": 2,
+          "text": "UpdateGatewayResponse"
+        },
+        {
+          "level": 2,
+          "text": "UpdateIntegration"
+        },
+        {
+          "level": 2,
+          "text": "UpdateIntegrationResponse"
+        },
+        {
+          "level": 2,
+          "text": "UpdateMethod"
+        },
+        {
+          "level": 2,
+          "text": "UpdateMethodResponse"
+        },
+        {
+          "level": 2,
+          "text": "UpdateModel"
+        },
+        {
+          "level": 2,
+          "text": "UpdateRequestValidator"
+        },
+        {
+          "level": 2,
+          "text": "UpdateResource"
+        },
+        {
+          "level": 2,
+          "text": "UpdateRestApi"
+        },
+        {
+          "level": 2,
+          "text": "UpdateStage"
+        },
+        {
+          "level": 2,
+          "text": "UpdateUsage"
+        },
+        {
+          "level": 2,
+          "text": "UpdateUsagePlan"
+        },
+        {
+          "level": 2,
+          "text": "UpdateVpcLink"
+        }
+      ],
+      "word_count": 2666,
+      "slug": "apigateway-latest-api-patch-operations-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.9392611
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_MethodSetting.html",
+      "markdown": "MethodSetting - Amazon API Gateway\nMethodSetting - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_MethodSetting)\n[Contents](#API_MethodSetting_Contents)[See Also](#API_MethodSetting_SeeAlso)\n## Contents\n**\ncacheDataEncrypted\n**\nSpecifies whether the cached responses are encrypted.\nType: Boolean\nRequired: No\n**\ncacheTtlInSeconds\n**\nSpecifies the time to live (TTL), in seconds, for cached responses. The higher the TTL, the longer the response will be cached.\nType: Integer\nRequired: No\n**\ncachingEnabled\n**\nSpecifies whether responses should be cached and returned for requests. A cache cluster must be enabled on the stage for responses to be cached.\nType: Boolean\nRequired: No\n**\ndataTraceEnabled\n**\nSpecifies whether data trace logging is enabled for this method, which affects the log entries pushed to Amazon CloudWatch Logs. This can be useful to troubleshoot APIs, but can result in logging sensitive data. We recommend that you don't enable this option for production APIs.\nType: Boolean\nRequired: No\n**\nloggingLevel\n**\nSpecifies the logging level for this method, which affects the log entries pushed to Amazon CloudWatch Logs. Valid values are `OFF`, `ERROR`, and `INFO`. Choose `ERROR` to write only error-level entries to CloudWatch Logs, or choose `INFO` to include all `ERROR` events as well as extra informational events.\nType: String\nRequired: No\n**\nmetricsEnabled\n**\nSpecifies whether Amazon CloudWatch metrics are enabled for this method.\nType: Boolean\nRequired: No\n**\nrequireAuthorizationForCacheControl\n**\nSpecifies whether authorization is required for a cache invalidation request.\nType: Boolean\nRequired: No\n**\nthrottlingBurstLimit\n**\nSpecifies the throttling burst limit.\nType: Integer\nRequired: No\n**\nthrottlingRateLimit\n**\nSpecifies the throttling rate limit.\nType: Double\nRequired: No\n**\nunauthorizedCacheControlHeaderStrategy\n**\nSpecifies how to handle unauthorized requests for cache invalidation.\nType: String\nValid Values: `FAIL\\_WITH\\_403 | SUCCEED\\_WITH\\_RESPONSE\\_HEADER | SUCCEED\\_WITHOUT\\_RESPONSE\\_HEADER`\nRequired: No",
+      "title": "API MethodSetting.html",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_MethodSetting_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_MethodSetting_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 277,
+      "slug": "apigateway-latest-api-apimethodsetting-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.801083
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_QuotaSettings.html",
+      "markdown": "QuotaSettings - Amazon API Gateway\nQuotaSettings - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_QuotaSettings)\n[Contents](#API_QuotaSettings_Contents)[See Also](#API_QuotaSettings_SeeAlso)\n## Contents\n**\nlimit\n**\nThe target maximum number of requests that can be made in a given time period.\nType: Integer\nRequired: No\n**\noffset\n**\nThe number of requests subtracted from the given limit in the initial time period.\nType: Integer\nRequired: No\n**\nperiod\n**\nThe time period in which the limit applies. Valid values are \"DAY\", \"WEEK\" or \"MONTH\".\nType: String\nValid Values: `DAY | WEEK | MONTH`\nRequired: No",
+      "title": "API QuotaSettings.html",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_QuotaSettings_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_QuotaSettings_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 87,
+      "slug": "apigateway-latest-api-apiquotasettings-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.92410713
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_GatewayResponse.html",
+      "markdown": "GatewayResponse - Amazon API Gateway\nGatewayResponse - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_GatewayResponse)\n[Contents](#API_GatewayResponse_Contents)[See Also](#API_GatewayResponse_SeeAlso)\n# GatewayResponse\nA gateway response of a given response type and status code, with optional response parameters and mapping templates.\n## Contents\n**\ndefaultResponse\n**\nA Boolean flag to indicate whether this GatewayResponse is the default gateway response (`true`) or not (`false`). A default gateway response is one generated by API Gateway without any customization by an API developer.\nType: Boolean\nRequired: No\n**\nresponseParameters\n**\nResponse parameters (paths, query strings and headers) of the GatewayResponse as a\nstring-to-string map of key-value pairs.\nType: String to string map\nRequired: No\n**\nresponseTemplates\n**\nResponse templates of the GatewayResponse as a string-to-string map of key-value pairs.\nType: String to string map\nRequired: No\n**\nresponseType\n**\nThe response type of the associated GatewayResponse.\nType: String\nValid Values: `DEFAULT\\_4XX | DEFAULT\\_5XX | RESOURCE\\_NOT\\_FOUND | UNAUTHORIZED | INVALID\\_API\\_KEY | ACCESS\\_DENIED | AUTHORIZER\\_FAILURE | AUTHORIZER\\_CONFIGURATION\\_ERROR | INVALID\\_SIGNATURE | EXPIRED\\_TOKEN | MISSING\\_AUTHENTICATION\\_TOKEN | INTEGRATION\\_FAILURE | INTEGRATION\\_TIMEOUT | API\\_CONFIGURATION\\_ERROR | UNSUPPORTED\\_MEDIA\\_TYPE | BAD\\_REQUEST\\_PARAMETERS | BAD\\_REQUEST\\_BODY | REQUEST\\_TOO\\_LARGE | THROTTLED | QUOTA\\_EXCEEDED | WAF\\_FILTERED`\nRequired: No\n**\nstatusCode\n**\nThe HTTP status code for this GatewayResponse.\nType: String\nPattern: `[1-5]\\\\d\\\\d`\nRequired: No",
+      "title": "GatewayResponse",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_GatewayResponse_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_GatewayResponse_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "GatewayResponse"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 198,
+      "slug": "apigateway-latest-api-apigatewayresponse-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.84447414
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_BasePathMapping.html",
+      "markdown": "BasePathMapping - Amazon API Gateway\nBasePathMapping - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_BasePathMapping)\n[Contents](#API_BasePathMapping_Contents)[See Also](#API_BasePathMapping_SeeAlso)\n# BasePathMapping\nRepresents the base path that callers of the API must provide as part of the URL after the domain name.\n## Contents\n**\nbasePath\n**\nThe base path name that callers of the API must provide as part of the URL after the domain name.\nType: String\nRequired: No\n**\nrestApiId\n**\nThe string identifier of the associated RestApi.\nType: String\nRequired: No\n**\nstage\n**\nThe name of the associated stage.\nType: String\nRequired: No",
+      "title": "BasePathMapping",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_BasePathMapping_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_BasePathMapping_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "BasePathMapping"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 91,
+      "slug": "apigateway-latest-api-apibasepathmapping-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.92444444
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_Integration.html",
+      "markdown": "Integration - Amazon API Gateway\nIntegration - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_Integration)\n[Contents](#API_Integration_Contents)[See Also](#API_Integration_SeeAlso)\n# Integration\nRepresents an `HTTP`, `HTTP\\_PROXY`, `AWS`, `AWS\\_PROXY`, or Mock integration.\n## Contents\n**\ncacheKeyParameters\n**\nA list of request parameters whose values API Gateway caches. To be valid values for `cacheKeyParameters`, these parameters must also be specified for Method `requestParameters`.\nType: Array of strings\nRequired: No\n**\ncacheNamespace\n**\nSpecifies a group of related cached parameters. By default, API Gateway uses the resource ID as the `cacheNamespace`. You can specify the same `cacheNamespace` across resources to return the same cached data for requests to different resources.\nType: String\nRequired: No\n**\nconnectionId\n**\nThe ID of the VpcLink used for the integration when `connectionType=VPC\\_LINK` and undefined, otherwise.\nType: String\nRequired: No\n**\nconnectionType\n**\nThe type of the network connection to the integration endpoint. The valid value is `INTERNET` for connections through the public routable internet or `VPC\\_LINK` for private connections between API Gateway and a network load balancer in a VPC. The default value is `INTERNET`.\nType: String\nValid Values: `INTERNET | VPC\\_LINK`\nRequired: No\n**\ncontentHandling\n**\nSpecifies how to handle request payload content type conversions. Supported values are `CONVERT\\_TO\\_BINARY` and `CONVERT\\_TO\\_TEXT`, with the following behaviors:\nIf this property is not defined, the request payload will be passed through from the method request to integration request without modification, provided that the `passthroughBehavior` is configured to support payload pass-through.\nType: String\nValid Values: `CONVERT\\_TO\\_BINARY | CONVERT\\_TO\\_TEXT`\nRequired: No\n**\ncredentials\n**\nSpecifies the credentials required for the integration, if any. For AWS integrations, three options are available. To specify an IAM Role for API Gateway to assume, use the role's Amazon Resource Name (ARN). To require that the caller's identity be passed through from the request, specify the string `arn:aws:iam::\\\\\\*:user/\\\\\\*`. To use resource-based permissions on supported AWS services, specify null.\nType: String\nRequired: No\n**\nhttpMethod\n**\nSpecifies the integration's HTTP method type. For the Type property, if you specify `MOCK`, this property is optional. For Lambda integrations, you must set the integration method to `POST`. For all other types, you must specify this property.\nType: String\nRequired: No\n**\nintegrationResponses\n**\nSpecifies the integration's responses.\nType: String to [IntegrationResponse](./API_IntegrationResponse.html) object map\nRequired: No\n**\nintegrationTarget\n**\nThe ALB or NLB listener to send the request to.\nType: String\nRequired: No\n**\npassthroughBehavior\n**\nSpecifies how the method request body of an unmapped content type will be passed through\nthe integration request to the back end without transformation. A content type is unmapped if\nno mapping template is defined in the integration or the content type does not match any of\nthe mapped content types, as specified in `requestTemplates`. The valid value is one of the\nfollowing: `WHEN\\_NO\\_MATCH`: passes the method request body through the integration request to\nthe back end without transformation when the method request content type does not match any\ncontent type associated with the mapping templates defined in the integration request.\n`WHEN\\_NO\\_TEMPLATES`: passes the method request body through the integration request to the back\nend without transformation when no mapping template is defined in the integration request. If\na template is defined when this option is selected, the method request of an unmapped\ncontent-type will be rejected with an HTTP 415 Unsupported Media Type response. `NEVER`: rejects\nthe method request with an HTTP 415 Unsupported Media Type response when either the method\nrequest content type does not match any content type associated with the mapping templates\ndefined in the integration request or no mapping template is defined in the integration\nrequest.\nType: String\nRequired: No\n**\nrequestParameters\n**\nA key-value map specifying request parameters that are passed from the method request to the back end. The key is an integration request parameter name and the associated value is a method request parameter value or static value that must be enclosed within single quotes and pre-encoded as required by the back end. The method request parameter value must match the pattern of `method.request.{location}.{name}`, where `location` is `querystring`, `path`, or `header` and `name` must be a valid and unique method request parameter name.\nType: String to string map\nRequired: No\n**\nrequestTemplates\n**\nRepresents a map of Velocity templates that are applied on the request payload based on the value of the Content-Type header sent by the client. The content type value is the key in this map, and the template (as a String) is the value.\nType: String to string map\nRequired: No\n**\nresponseTransferMode\n**\nThe response transfer mode of the integration.\nType: String\nValid Values: `BUFFERED | STREAM`\nRequired: No\n**\ntimeoutInMillis\n**\nCustom timeout between 50 and 29,000 milliseconds. The default value is 29,000 milliseconds or 29 seconds. You can increase the default value to longer than 29 seconds for Regional or private APIs only.\nType: Integer\nRequired: No\n**\ntlsConfig\n**\nSpecifies the TLS configuration for an integration.\nType: [TlsConfig](./API_TlsConfig.html) object\nRequired: No\n**\ntype\n**\nSpecifies an API method integration type. The valid value is one of the following:\nFor the HTTP and HTTP proxy integrations, each integration can specify a protocol (`http/https`), port and path. Standard 80 and 443 ports are supported as well as custom ports above 1024. An HTTP or HTTP proxy integration with a `connectionType` of `VPC\\_LINK` is referred to as a private integration and uses a VpcLink to connect API Gateway to a network load balancer of a VPC.\nType: String\nValid Values: `HTTP | AWS | MOCK | HTTP\\_PROXY | AWS\\_PROXY`\nRequired: No\n**\nuri\n**\nSpecifies Uniform Resource Identifier (URI) of the integration endpoint.\nFor `HTTP` or `HTTP\\_PROXY` integrations, the URI must be a fully formed, encoded HTTP(S) URL\naccording to the RFC-3986 specification for standard integrations. If `connectionType` is `VPC\\_LINK` specify the Network Load Balancer DNS name.\nFor `AWS` or `AWS\\_PROXY` integrations, the URI is of\nthe form `arn:aws:apigateway:{region}:{subdomain.service|service}:path|action/{service\\_api}`.\nHere, {Region} is the API Gateway region (e.g., us-east-1); {service} is the name of the\nintegrated AWS service (e.g., s3); and {subdomain} is a designated subdomain supported by\ncertain AWS service for fast host-name lookup. action can be used for an AWS service\naction-based API, using an Action={name}&amp;{p1}={v1}&amp;p2={v2}... query string. The ensuing\n{service\\_api} refers to a supported action {name} plus any required input parameters.\nAlternatively, path can be used for an AWS service path-based API. The ensuing service\\_api\nrefers to the path to an AWS service resource, including the region of the integrated AWS\nservice, if applicable. For example, for integration with the S3 API of GetObject, the uri can\nbe either `arn:aws:apigateway:us-west-2:s3:action/GetObject&amp;Bucket={bucket}&amp;Key={key}` or\n`arn:aws:apigateway:us-west-2:s3:path/{bucket}/{key}`\nType: String\nRequired: No",
+      "title": "Integration",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Integration_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Integration_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_IntegrationResponse.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_TlsConfig.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Integration"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 1089,
+      "slug": "apigateway-latest-api-apiintegration-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.82032555
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_Method.html",
+      "markdown": "Method - Amazon API Gateway\nMethod - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_Method)\n[Contents](#API_Method_Contents)[See Also](#API_Method_SeeAlso)\n# Method\nRepresents a client-facing interface by which the client calls the API to access back-end resources. A Method resource is\nintegrated with an Integration resource. Both consist of a request and one or more responses. The method request takes\nthe client input that is passed to the back end through the integration request. A method response returns the output from\nthe back end to the client through an integration response. A method request is embodied in a Method resource, whereas\nan integration request is embodied in an Integration resource. On the other hand, a method response is represented\nby a MethodResponse resource, whereas an integration response is represented by an IntegrationResponse resource.\n## Contents\n**\napiKeyRequired\n**\nA boolean flag specifying whether a valid ApiKey is required to invoke this method.\nType: Boolean\nRequired: No\n**\nauthorizationScopes\n**\nA list of authorization scopes configured on the method. The scopes are used with a `COGNITO\\_USER\\_POOLS` authorizer to authorize the method invocation. The authorization works by matching the method scopes against the scopes parsed from the access token in the incoming request. The method invocation is authorized if any method scopes matches a claimed scope in the access token. Otherwise, the invocation is not authorized. When the method scope is configured, the client must provide an access token instead of an identity token for authorization purposes.\nType: Array of strings\nRequired: No\n**\nauthorizationType\n**\nThe method's authorization type. Valid values are `NONE` for open access, `AWS\\_IAM` for using AWS IAM permissions, `CUSTOM` for using a custom authorizer, or `COGNITO\\_USER\\_POOLS` for using a Cognito user pool.\nType: String\nRequired: No\n**\nauthorizerId\n**\nThe identifier of an authorizer to use on this method. The method's authorization type must be `CUSTOM` or `COGNITO\\_USER\\_POOLS`.\nType: String\nRequired: No\n**\nhttpMethod\n**\nThe method's HTTP verb.\nType: String\nRequired: No\n**\nmethodIntegration\n**\nGets the method's integration responsible for passing the client-submitted request to the back end and performing necessary transformations to make the request compliant with the back end.\nType: [Integration](./API_Integration.html) object\nRequired: No\n**\nmethodResponses\n**\nGets a method response associated with a given HTTP status code.\nType: String to [MethodResponse](./API_MethodResponse.html) object map\nRequired: No\n**\noperationName\n**\nA human-friendly operation identifier for the method. For example, you can assign the `operationName` of `ListPets` for the `GET /pets` method in the `PetStore` example.\nType: String\nRequired: No\n**\nrequestModels\n**\nA key-value map specifying data schemas, represented by Model resources, (as the mapped value) of the request payloads of given content types (as the mapping key).\nType: String to string map\nRequired: No\n**\nrequestParameters\n**\nA key-value map defining required or optional method request parameters that can be accepted by API Gateway. A key is a method request parameter name matching the pattern of `method.request.{location}.{name}`, where `location` is `querystring`, `path`, or `header` and `name` is a valid and unique parameter name. The value associated with the key is a Boolean flag indicating whether the parameter is required (`true`) or optional (`false`). The method request parameter names defined here are available in Integration to be mapped to integration request parameters or templates.\nType: String to boolean map\nRequired: No\n**\nrequestValidatorId\n**\nThe identifier of a RequestValidator for request validation.\nType: String\nRequired: No",
+      "title": "Method",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Method_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Method_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_Integration.html",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_MethodResponse.html"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Method"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 555,
+      "slug": "apigateway-latest-api-apimethod-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.8177627
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_MutualTlsAuthentication.html",
+      "markdown": "MutualTlsAuthentication - Amazon API Gateway\nMutualTlsAuthentication - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_MutualTlsAuthentication)\n[Contents](#API_MutualTlsAuthentication_Contents)[See Also](#API_MutualTlsAuthentication_SeeAlso)\n# MutualTlsAuthentication\nThe mutual TLS authentication configuration for a custom domain name. If specified, API Gateway\nperforms two-way authentication between the client and the server. Clients must present a\ntrusted certificate to access your API.\n## Contents\n**\ntruststoreUri\n**\nAn Amazon S3 URL that specifies the truststore for mutual TLS authentication, for example\n`s3://bucket-name/key-name`. The truststore can contain certificates from public or private\ncertificate authorities. To update the truststore, upload a new version to S3, and then update\nyour custom domain name to use the new version. To update the truststore, you must have\npermissions to access the S3 object.\nType: String\nRequired: No\n**\ntruststoreVersion\n**\nThe version of the S3 object that contains your truststore. To specify a version, you must have versioning enabled for the S3 bucket.\nType: String\nRequired: No\n**\ntruststoreWarnings\n**\nA list of warnings that API Gateway returns while processing your truststore. Invalid\ncertificates produce warnings. Mutual TLS is still enabled, but some clients might not be able\nto access your API. To resolve warnings, upload a new truststore to S3, and then update you\ndomain name to use the new version.\nType: Array of strings\nRequired: No",
+      "title": "MutualTlsAuthentication",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_MutualTlsAuthentication_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_MutualTlsAuthentication_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "MutualTlsAuthentication"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 209,
+      "slug": "apigateway-latest-api-apimutualtlsauthentication-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.81832296
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_RestApi.html",
+      "markdown": "RestApi - Amazon API Gateway\nRestApi - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_RestApi)\n[Contents](#API_RestApi_Contents)[See Also](#API_RestApi_SeeAlso)\n## Contents\n**\napiKeySource\n**\nThe source of the API key for metering requests according to a usage plan. Valid values\nare: &gt;`HEADER` to read the API key from the `X-API-Key` header of a\nrequest. `AUTHORIZER` to read the API key from the `UsageIdentifierKey`\nfrom a custom authorizer.\nType: String\nValid Values: `HEADER | AUTHORIZER`\nRequired: No\n**\napiStatus\n**\nThe ApiStatus of the RestApi.\nType: String\nValid Values: `UPDATING | AVAILABLE | PENDING | FAILED`\nRequired: No\n**\napiStatusMessage\n**\nThe status message of the RestApi. When the status message is `UPDATING` you can still invoke it.\nType: String\nRequired: No\n**\nbinaryMediaTypes\n**\nThe list of binary media types supported by the RestApi. By default, the RestApi supports only UTF-8-encoded text payloads.\nType: Array of strings\nRequired: No\n**\ncreatedDate\n**\nThe timestamp when the API was created.\nType: Timestamp\nRequired: No\n**\ndescription\n**\nThe API's description.\nType: String\nRequired: No\n**\ndisableExecuteApiEndpoint\n**\nSpecifies whether clients can invoke your API by using the default `execute-api` endpoint.\nBy default, clients can invoke your API with the default\n`https://{api\\_id}.execute-api.{region}.amazonaws.com` endpoint. To require that clients use a\ncustom domain name to invoke your API, disable the default endpoint.\nType: Boolean\nRequired: No\n**\nendpointAccessMode\n**\nThe endpoint access mode of the RestApi.\nType: String\nValid Values: `BASIC | STRICT`\nRequired: No\n**\nendpointConfiguration\n**\nThe endpoint configuration of this RestApi showing the endpoint types and IP address types of the API.\nType: [EndpointConfiguration](./API_EndpointConfiguration.html) object\nRequired: No\n**\nid\n**\nThe API's identifier. This identifier is unique across all of your APIs in API Gateway.\nType: String\nRequired: No\n**\nminimumCompressionSize\n**\nA nullable integer that is used to enable compression (with non-negative between 0 and 10485760 (10M) bytes, inclusive) or disable compression (with a null value) on an API. When compression is enabled, compression or decompression is not applied on the payload if the payload size is smaller than this value. Setting it to zero allows compression for any payload size.\nType: Integer\nRequired: No\n**\nname\n**\nThe API's name.\nType: String\nRequired: No\n**\npolicy\n**\nA stringified JSON policy document that applies to this RestApi regardless of the caller and Method configuration.\nType: String\nRequired: No\n**\nrootResourceId\n**\nThe API's root resource ID.\nType: String\nRequired: No\n**\nsecurityPolicy\n**\nThe Transport Layer Security (TLS) version + cipher suite for this RestApi.\nType: String\nValid Values: `TLS\\_1\\_0 | TLS\\_1\\_2 | SecurityPolicy\\_TLS13\\_1\\_3\\_2025\\_09 | SecurityPolicy\\_TLS13\\_1\\_3\\_FIPS\\_2025\\_09 | SecurityPolicy\\_TLS13\\_1\\_2\\_PFS\\_PQ\\_2025\\_09 | SecurityPolicy\\_TLS13\\_1\\_2\\_FIPS\\_PQ\\_2025\\_09 | SecurityPolicy\\_TLS13\\_1\\_2\\_PQ\\_2025\\_09 | SecurityPolicy\\_TLS13\\_1\\_2\\_2021\\_06 | SecurityPolicy\\_TLS13\\_2025\\_EDGE | SecurityPolicy\\_TLS12\\_PFS\\_2025\\_EDGE | SecurityPolicy\\_TLS12\\_2018\\_EDGE`\nRequired: No\n**\ntags\n**\nThe collection of tags. Each tag element is associated with a given resource.\nType: String to string map\nRequired: No\n**\nversion\n**\nA version identifier for the API.\nType: String\nRequired: No\n**\nwarnings\n**\nThe warning messages reported when `failonwarnings` is turned on during API import.\nType: Array of strings\nRequired: No",
+      "title": "API RestApi.html",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_RestApi_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_RestApi_SeeAlso",
+        "https://docs.aws.amazon.com/apigateway/latest/api/API_EndpointConfiguration.html"
+      ],
+      "headers": [
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 494,
+      "slug": "apigateway-latest-api-apirestapi-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.7946955
+    },
+    {
+      "url": "https://docs.aws.amazon.com/apigateway/latest/api/API_Authorizer.html",
+      "markdown": "Authorizer - Amazon API Gateway\nAuthorizer - Amazon API Gateway\n[](https://docs.aws.amazon.com/pdfs/apigateway/latest/api/apigw-api.pdf#API_Authorizer)\n[Contents](#API_Authorizer_Contents)[See Also](#API_Authorizer_SeeAlso)\n# Authorizer\nRepresents an authorization layer for methods. If enabled on a method, API Gateway will activate the authorizer when a client calls the method.\n## Contents\n**\nauthorizerCredentials\n**\nSpecifies the required credentials as an IAM role for API Gateway to invoke the authorizer. To specify an IAM role for API Gateway to assume, use the role's Amazon Resource Name (ARN). To use resource-based permissions on the Lambda function, specify null.\nType: String\nRequired: No\n**\nauthorizerResultTtlInSeconds\n**\nThe TTL in seconds of cached authorizer results. If it equals 0, authorization caching is disabled. If it is greater than 0, API Gateway will cache authorizer responses. If this field is not set, the default value is 300. The maximum value is 3600, or 1 hour.\nType: Integer\nRequired: No\n**\nauthorizerUri\n**\nSpecifies the authorizer's Uniform Resource Identifier (URI). For `TOKEN` or `REQUEST` authorizers, this must be a well-formed Lambda function URI, for example, `arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:{account\\_id}:function:{lambda\\_function\\_name}/invocations`. In general, the URI has this form `arn:aws:apigateway:{region}:lambda:path/{service\\_api}`, where `{region}` is the same as the region hosting the Lambda function, `path` indicates that the remaining substring in the URI should be treated as the path to the resource, including the initial `/`. For Lambda functions, this is usually of the form `/2015-03-31/functions/[FunctionARN]/invocations`.\nType: String\nRequired: No\n**\nauthType\n**\nOptional customer-defined field, used in OpenAPI imports and exports without functional impact.\nType: String\nRequired: No\n**\nid\n**\nThe identifier for the authorizer resource.\nType: String\nRequired: No\n**\nidentitySource\n**\nThe identity source for which authorization is requested. For a `TOKEN` or\n`COGNITO\\_USER\\_POOLS` authorizer, this is required and specifies the request\nheader mapping expression for the custom header holding the authorization token submitted by\nthe client. For example, if the token header name is `Auth`, the header mapping expression is\n`method.request.header.Auth`. For the `REQUEST` authorizer, this is required when authorization\ncaching is enabled. The value is a comma-separated string of one or more mapping expressions\nof the specified request parameters. For example, if an `Auth` header, a `Name` query string\nparameter are defined as identity sources, this value is `method.request.header.Auth`,\n`method.request.querystring.Name`. These parameters will be used to derive the authorization\ncaching key and to perform runtime validation of the `REQUEST` authorizer by verifying all of\nthe identity-related request parameters are present, not null and non-empty. Only when this is\ntrue does the authorizer invoke the authorizer Lambda function, otherwise, it returns a 401\nUnauthorized response without calling the Lambda function. The valid value is a string of\ncomma-separated mapping expressions of the specified request parameters. When the\nauthorization caching is not enabled, this property is optional.\nType: String\nRequired: No\n**\nidentityValidationExpression\n**\nA validation expression for the incoming identity token. For `TOKEN` authorizers, this value is a regular expression. For `COGNITO\\_USER\\_POOLS` authorizers, API Gateway will match the `aud` field of the incoming token from the client against the specified regular expression. It will invoke the authorizer's Lambda function when there is a match. Otherwise, it will return a 401 Unauthorized response without calling the Lambda function. The validation expression does not apply to the `REQUEST` authorizer.\nType: String\nRequired: No\n**\nname\n**\nThe name of the authorizer.\nType: String\nRequired: No\n**\nproviderARNs\n**\nA list of the Amazon Cognito user pool ARNs for the `COGNITO\\_USER\\_POOLS` authorizer. Each element is of this format: `arn:aws:cognito-idp:{region}:{account\\_id}:userpool/{user\\_pool\\_id}`. For a `TOKEN` or `REQUEST` authorizer, this is not defined.\nType: Array of strings\nRequired: No\n**\ntype\n**\nThe authorizer type. Valid values are `TOKEN` for a Lambda function using a single authorization token submitted in a custom header, `REQUEST` for a Lambda function using incoming request parameters, and `COGNITO\\_USER\\_POOLS` for using an Amazon Cognito user pool.\nType: String\nValid Values: `TOKEN | REQUEST | COGNITO\\_USER\\_POOLS`\nRequired: No",
+      "title": "Authorizer",
+      "links": [
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Authorizer_Contents",
+        "https://docs.aws.amazon.com/apigateway/latest/api/#API_Authorizer_SeeAlso"
+      ],
+      "headers": [
+        {
+          "level": 1,
+          "text": "Authorizer"
+        },
+        {
+          "level": 2,
+          "text": "Contents"
+        }
+      ],
+      "word_count": 635,
+      "slug": "apigateway-latest-api-apiauthorizer-html",
+      "filtered": true,
+      "elements_removed": 0,
+      "density_score": 0.82686836
+    }
+  ],
+  "total_urls": 169,
+  "success_count": 45,
+  "error_count": 124,
+  "errors": [
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDeployment.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDeployment.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateApiKey.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateApiKey.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateAuthorizer.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateAuthorizer.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateUsagePlan.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateUsagePlan.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDeployment.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDeployment.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteRequestValidator.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteRequestValidator.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteGatewayResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteGatewayResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDocumentationPart.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDocumentationPart.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDocumentationPart.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDocumentationPart.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDocumentationVersion.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDocumentationVersion.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateBasePathMapping.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateBasePathMapping.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_PutGatewayResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_PutGatewayResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDomainNameAccessAssociation.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDomainNameAccessAssociation.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteMethod.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteMethod.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateModel.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateModel.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDomainName.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateDomainName.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateRequestValidator.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateRequestValidator.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetModels.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetModels.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationPart.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationPart.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateBasePathMapping.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateBasePathMapping.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_FlushStageCache.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_FlushStageCache.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetClientCertificate.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetClientCertificate.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_PutIntegration.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_PutIntegration.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteUsagePlanKey.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteUsagePlanKey.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateAuthorizer.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateAuthorizer.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlans.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlans.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetIntegration.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetIntegration.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteRestApi.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteRestApi.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteBasePathMapping.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteBasePathMapping.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateModel.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateModel.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_PutIntegrationResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_PutIntegrationResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetRequestValidators.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetRequestValidators.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateVpcLink.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateVpcLink.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetMethod.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetMethod.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateResource.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateResource.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateRestApi.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateRestApi.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDomainNames.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetDomainNames.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_RejectDomainNameAccessAssociation.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_RejectDomainNameAccessAssociation.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetRequestValidator.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetRequestValidator.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteApiKey.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteApiKey.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteAuthorizer.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteAuthorizer.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateRestApi.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateRestApi.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateUsagePlanKey.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateUsagePlanKey.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetAccount.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetAccount.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDeployment.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetDeployment.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetRestApi.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetRestApi.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetApiKeys.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetApiKeys.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_TagResource.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_TagResource.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetClientCertificates.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetClientCertificates.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_PutRestApi.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_PutRestApi.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetModel.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetModel.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateAccount.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateAccount.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_ImportRestApi.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_ImportRestApi.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDomainName.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetDomainName.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetExport.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetExport.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetAuthorizer.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetAuthorizer.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateStage.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateStage.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationParts.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationParts.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetModelTemplate.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetModelTemplate.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationVersion.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationVersion.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateVpcLink.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateVpcLink.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetVpcLinks.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetVpcLinks.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetVpcLink.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetVpcLink.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDomainNameAccessAssociations.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetDomainNameAccessAssociations.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateApiKey.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateApiKey.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteUsagePlan.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteUsagePlan.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateIntegrationResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateIntegrationResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationVersions.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetDocumentationVersions.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateStage.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateStage.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_PutMethodResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_PutMethodResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteStage.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteStage.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlanKeys.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlanKeys.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlanKey.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlanKey.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteResource.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteResource.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_CreateResource.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_CreateResource.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetBasePathMapping.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetBasePathMapping.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDomainNameAccessAssociation.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDomainNameAccessAssociation.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetDeployments.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetDeployments.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_PutMethod.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_PutMethod.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetTags.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetTags.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteClientCertificate.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteClientCertificate.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetAuthorizers.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetAuthorizers.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDocumentationVersion.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDocumentationVersion.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDomainName.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteDomainName.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsage.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsage.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetStage.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetStage.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_ImportDocumentationParts.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_ImportDocumentationParts.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetSdk.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetSdk.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_ImportApiKeys.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_ImportApiKeys.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetMethodResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetMethodResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteIntegrationResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteIntegrationResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GenerateClientCertificate.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GenerateClientCertificate.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteMethodResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteMethodResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteVpcLink.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteVpcLink.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteIntegration.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteIntegration.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateMethodResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateMethodResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteModel.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_DeleteModel.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetResource.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetResource.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetRestApis.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetRestApis.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetStages.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetStages.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateClientCertificate.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateClientCertificate.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetBasePathMappings.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetBasePathMappings.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateUsagePlan.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateUsagePlan.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateMethod.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateMethod.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetApiKey.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetApiKey.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetSdkType.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetSdkType.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetGatewayResponses.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetGatewayResponses.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlan.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetUsagePlan.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_TestInvokeMethod.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_TestInvokeMethod.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDomainName.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDomainName.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetIntegrationResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetIntegrationResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDocumentationPart.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDocumentationPart.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UntagResource.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UntagResource.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateIntegration.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateIntegration.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDeployment.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDeployment.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateGatewayResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateGatewayResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_TestInvokeAuthorizer.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_TestInvokeAuthorizer.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDocumentationVersion.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateDocumentationVersion.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateRequestValidator.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateRequestValidator.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateUsage.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_UpdateUsage.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_FlushStageAuthorizersCache.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_FlushStageAuthorizersCache.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetGatewayResponse.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetGatewayResponse.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetSdkTypes.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetSdkTypes.html - skipping"
+    ],
+    [
+      "https://docs.aws.amazon.com/apigateway/latest/api/API_GetResources.html",
+      "Failed to transform page: Rate limit page detected for https://docs.aws.amazon.com/apigateway/latest/api/API_GetResources.html - skipping"
+    ]
+  ],
+  "base_url": "https://docs.aws.amazon.com/apigateway/latest/api/"
+}
