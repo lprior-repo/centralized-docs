@@ -66,7 +66,7 @@ The user has explicitly configured these rules. Do not second-guess them.
 ### Project Structure
 ```
 centralized-docs/
-├── doc_transformer/       # Main library (indexing, search, MCP server)
+├── doc_transformer/       # Main library (indexing, search)
 ├── contextual-chunker/    # Semantic document chunking
 ├── llms-txt-parser/       # llms.txt file format parsing
 └── Cargo.toml             # Workspace configuration
@@ -76,7 +76,6 @@ centralized-docs/
 - **HNSW Index**: O(log n) similarity search with cosine distance
 - **Tantivy**: Full-text search with BM25 ranking
 - **Knowledge Graph**: DAG-based document relationships (petgraph)
-- **MCP Server**: Model Context Protocol for AI agent integration
 - **Semantic Chunking**: Context-aware token-based splits
 
 ### Dependencies
