@@ -6,6 +6,7 @@
 //! - Running the full indexing pipeline via library APIs (not CLI)
 //! - Validating index structure and search results
 //! - Generating sample markdown content
+//! - Table-driven test support with structured test cases
 //!
 //! ## Design Principles
 //!
@@ -21,15 +22,13 @@
 //!
 //! #[test]
 //! fn test_my_feature() -> anyhow::Result<()> {
-//!     let fixture = fixture_dir()?;
-//!     create_sample_docs(&fixture, &[
-//!         ("intro.md", "# Introduction\n\nContent"),
-//!     ])?;
+//!     let ctx = TestContext::new()?;
+//!     ctx.create_doc("intro.md", "# Introduction\n\nContent")?;
 //!
-//!     let index_result = run_index(&fixture)?;
-//!     assert_index_valid(&fixture)?;
+//!     let result = run_full_pipeline(ctx.root(), ctx.output_dir())?;
+//!     assert!(result.document_count >= 1);
 //!
-//!     let results = run_search(&fixture, "introduction")?;
+//!     let results = run_search(ctx.output_dir(), "introduction", 10)?;
 //!     assert!(!results.is_empty());
 //!
 //!     Ok(())
@@ -46,6 +45,153 @@ use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
+
+// =============================================================================
+// TEST CONTEXT (Encapsulated Test Environment)
+// =============================================================================
+
+/// Encapsulated test environment with temporary directory and helper methods
+///
+/// TestContext manages a temporary directory that is automatically cleaned up
+/// when dropped. It provides convenient methods for creating test files and
+/// accessing standard paths.
+///
+/// ## Example
+///
+/// ```ignore
+/// let ctx = TestContext::new()?;
+/// ctx.create_doc("test.md", "# Test")?;
+/// let output = ctx.output_dir();
+/// // Files are automatically cleaned up when ctx is dropped
+/// ```
+#[derive(Debug)]
+pub struct TestContext {
+    /// Temporary directory (automatically cleaned up on drop)
+    temp_dir: TempDir,
+}
+
+impl TestContext {
+    /// Create a new test context with a temporary directory
+    ///
+    /// Returns an error if the temporary directory cannot be created.
+    pub fn new() -> Result<Self> {
+        TempDir::new()
+            .context("Failed to create temporary directory for test context")
+            .map(|temp_dir| Self { temp_dir })
+    }
+
+    /// Get the root path of the temporary directory
+    pub fn root(&self) -> &Path {
+        self.temp_dir.path()
+    }
+
+    /// Get the standard output directory path (root/output)
+    pub fn output_dir(&self) -> PathBuf {
+        self.root().join("output")
+    }
+
+    /// Get the standard chunks directory path (root/output/chunks)
+    pub fn chunks_dir(&self) -> PathBuf {
+        self.output_dir().join("chunks")
+    }
+
+    /// Get the INDEX.json path (root/output/INDEX.json)
+    pub fn index_path(&self) -> PathBuf {
+        self.output_dir().join("INDEX.json")
+    }
+
+    /// Create a markdown file at the given relative path
+    ///
+    /// Parent directories are created automatically.
+    ///
+    /// ## Arguments
+    ///
+    /// * `rel_path` - Relative path from root (e.g., "docs/guide.md")
+    /// * `content` - File content as a string
+    pub fn create_doc(&self, rel_path: &str, content: &str) -> Result<PathBuf> {
+        let path = self.root().join(rel_path);
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
+        }
+
+        fs::write(&path, content)
+            .with_context(|| format!("Failed to write file: {}", path.display()))?;
+
+        Ok(path)
+    }
+
+    /// Create multiple markdown files from a slice of (path, content) pairs
+    ///
+    /// ## Example
+    ///
+    /// ```ignore
+    /// ctx.create_docs(&[
+    ///     ("README.md", "# Readme"),
+    ///     ("docs/guide.md", "# Guide"),
+    /// ])?;
+    /// ```
+    pub fn create_docs(&self, files: &[(&str, &str)]) -> Result<()> {
+        for (rel_path, content) in files {
+            self.create_doc(rel_path, content)?;
+        }
+        Ok(())
+    }
+
+    /// Read a file's content as a string
+    ///
+    /// ## Arguments
+    ///
+    /// * `rel_path` - Relative path from root
+    pub fn read_file(&self, rel_path: &str) -> Result<String> {
+        let path = self.root().join(rel_path);
+        fs::read_to_string(&path)
+            .with_context(|| format!("Failed to read file: {}", path.display()))
+    }
+
+    /// Check if a file exists at the given relative path
+    pub fn file_exists(&self, rel_path: &str) -> bool {
+        self.root().join(rel_path).exists()
+    }
+
+    /// Read and parse the INDEX.json file
+    pub fn read_index(&self) -> Result<Value> {
+        let index_path = self.index_path();
+        let content = fs::read_to_string(&index_path)
+            .with_context(|| format!("Failed to read INDEX.json at: {}", index_path.display()))?;
+        let value: Value = serde_json::from_str(&content)
+            .with_context(|| format!("Failed to parse INDEX.json at: {}", index_path.display()))?;
+        Ok(value)
+    }
+
+    /// List all markdown files in the test directory recursively
+    pub fn list_markdown_files(&self) -> Result<Vec<PathBuf>> {
+        use walkdir::WalkDir;
+
+        let files = WalkDir::new(self.root())
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                let path = e.path();
+                // Exclude common ignore directories
+                !path
+                    .components()
+                    .any(|c| matches!(c.as_os_str().to_str(), Some("node_modules" | ".git" | "target")))
+            })
+            .filter(|e| {
+                let path = e.path();
+                path.is_file()
+                    && path.extension().is_some_and(|ext| {
+                        matches!(ext.to_str(), Some("md" | "mdx" | "rst" | "txt"))
+                    })
+            })
+            .map(|e| e.path().to_path_buf())
+            .collect();
+
+        Ok(files)
+    }
+}
 
 // =============================================================================
 // FIXTURE MANAGEMENT
@@ -65,8 +211,7 @@ use tempfile::TempDir;
 /// // fixture is automatically cleaned up when dropped
 /// ```
 pub fn fixture_dir() -> Result<TempDir> {
-    TempDir::new()
-        .context("Failed to create temporary directory for test fixtures")
+    TempDir::new().context("Failed to create temporary directory for test fixtures")
 }
 
 /// Creates realistic test documentation in a directory
@@ -87,10 +232,7 @@ pub fn fixture_dir() -> Result<TempDir> {
 ///     ("docs/guide.md", "# Guide\n\n## Step 1\n..."),
 /// ])?;
 /// ```
-pub fn create_sample_docs<P: AsRef<Path>>(
-    base_dir: P,
-    files: &[(&str, &str)],
-) -> Result<()> {
+pub fn create_sample_docs<P: AsRef<Path>>(base_dir: P, files: &[(&str, &str)]) -> Result<()> {
     let base = base_dir.as_ref();
 
     for (rel_path, content) in files {
@@ -138,6 +280,153 @@ pub fn create_single_doc<P: AsRef<Path>>(
     Ok(full_path)
 }
 
+// =============================================================================
+// TABLE-DRIVEN TEST SUPPORT
+// =============================================================================
+
+/// Test case specification for table-driven pipeline tests
+///
+/// Use this struct to define test cases that can be iterated over
+/// in table-driven tests.
+///
+/// ## Example
+///
+/// ```ignore
+/// let cases = vec![
+///     PipelineTestCase {
+///         name: "empty_directory",
+///         description: "Pipeline should handle empty input",
+///         files: vec![],
+///         expected_min_documents: 0,
+///         should_succeed: true,
+///     },
+///     // ... more cases
+/// ];
+///
+/// for case in cases {
+///     // Run test with case
+/// }
+/// ```
+#[derive(Debug, Clone)]
+pub struct PipelineTestCase {
+    /// Unique name for this test case
+    pub name: &'static str,
+    /// Human-readable description of what is being tested
+    pub description: &'static str,
+    /// Files to create: (relative_path, content) pairs
+    pub files: Vec<(&'static str, &'static str)>,
+    /// Minimum expected document count
+    pub expected_min_documents: usize,
+    /// Minimum expected chunk count
+    pub expected_min_chunks: usize,
+    /// Whether the pipeline should succeed
+    pub should_succeed: bool,
+}
+
+impl PipelineTestCase {
+    /// Create a new simple test case
+    ///
+    /// ## Arguments
+    ///
+    /// * `name` - Unique test case identifier
+    /// * `files` - Files to create for this test
+    pub fn simple(name: &'static str, files: Vec<(&'static str, &'static str)>) -> Self {
+        let doc_count = files.len();
+        Self {
+            name,
+            description: "",
+            files,
+            expected_min_documents: doc_count,
+            expected_min_chunks: doc_count,
+            should_succeed: true,
+        }
+    }
+
+    /// Create a test case with custom expectations
+    pub fn with_expectations(
+        name: &'static str,
+        files: Vec<(&'static str, &'static str)>,
+        min_docs: usize,
+        min_chunks: usize,
+    ) -> Self {
+        Self {
+            name,
+            description: "",
+            files,
+            expected_min_documents: min_docs,
+            expected_min_chunks: min_chunks,
+            should_succeed: true,
+        }
+    }
+}
+
+/// Standard test cases for pipeline testing
+///
+/// Returns a collection of commonly-used test cases covering:
+/// - Empty input
+/// - Single file
+/// - Multiple files
+/// - Unicode content
+/// - Large files
+/// - Malformed markdown
+/// - Special characters
+pub fn standard_pipeline_cases() -> Vec<PipelineTestCase> {
+    vec![
+        PipelineTestCase {
+            name: "empty_directory",
+            description: "Pipeline should handle empty input gracefully",
+            files: vec![],
+            expected_min_documents: 0,
+            expected_min_chunks: 0,
+            should_succeed: true,
+        },
+        PipelineTestCase {
+            name: "single_minimal_file",
+            description: "Single markdown file with minimal content",
+            files: vec![("README.md", "# Test\n\nContent here.")],
+            expected_min_documents: 1,
+            expected_min_chunks: 1,
+            should_succeed: true,
+        },
+        PipelineTestCase {
+            name: "unicode_content",
+            description: "Document with international characters and emoji",
+            files: vec![(
+                "international.md",
+                r#"# Documentation 文档 📚
+
+## German 🇩🇪
+
+Dies ist eine Dokumentation mit Umlauten: äöü ÄÖÜ ß.
+
+## Japanese 🇯🇵
+
+これは日本語のドキュメントです。
+
+## Math Symbols
+
+π ≈ 3.14159, e ≈ 2.71828
+"#,
+            )],
+            expected_min_documents: 1,
+            expected_min_chunks: 1,
+            should_succeed: true,
+        },
+        PipelineTestCase {
+            name: "malformed_no_h1",
+            description: "Document without H1 heading",
+            files: vec![("no-h1.md", "## Section One\n\nContent without H1.")],
+            expected_min_documents: 1,
+            expected_min_chunks: 1,
+            should_succeed: true,
+        },
+    ]
+}
+
+// =============================================================================
+// CONTENT GENERATION
+// =============================================================================
+
 /// Generates large markdown content for stress testing
 ///
 /// Creates a document with `word_count` approximate words, divided into
@@ -151,6 +440,13 @@ pub fn create_single_doc<P: AsRef<Path>>(
 /// ## Returns
 ///
 /// String containing generated markdown
+///
+/// ## Example
+///
+/// ```ignore
+/// let large_doc = generate_large_markdown("Stress Test", 5000);
+/// ctx.create_doc("large.md", &large_doc)?;
+/// ```
 pub fn generate_large_markdown(title: &str, word_count: usize) -> String {
     let mut content = format!("# {}\n\nThis is a large document for testing.\n\n", title);
 
@@ -176,6 +472,54 @@ pub fn generate_large_markdown(title: &str, word_count: usize) -> String {
         words_generated = words_generated.saturating_add(8);
     }
 
+    content
+}
+
+/// Generate markdown with specific features for testing
+///
+/// ## Arguments
+///
+/// * `features` - Features to include (code, tables, lists, frontmatter, etc.)
+pub fn generate_markdown_with(features: &str) -> String {
+    let mut content = String::from("# Test Document\n\n");
+
+    if features.contains("frontmatter") {
+        content.insert_str(
+            0,
+            r#"---
+title: Test Document
+category: test
+tags: example,test
+---
+
+"#,
+        );
+    }
+
+    if features.contains("code") {
+        content.push_str("## Code Examples\n\n");
+        content.push_str("```rust\nfn main() {\n    println!(\"Hello!\");\n}\n```\n\n");
+    }
+
+    if features.contains("tables") {
+        content.push_str("## Table\n\n");
+        content.push_str("| Column 1 | Column 2 |\n");
+        content.push_str("|----------|----------|\n");
+        content.push_str("| Value 1  | Value 2  |\n\n");
+    }
+
+    if features.contains("lists") {
+        content.push_str("## Lists\n\n");
+        content.push_str("- Item 1\n- Item 2\n  - Nested item\n\n");
+    }
+
+    if features.contains("links") {
+        content.push_str("## Links\n\n");
+        content.push_str("[External](https://example.com)\n\n");
+        content.push_str("[Internal](./other.md)\n\n");
+    }
+
+    content.push_str("Content continues here.\n");
     content
 }
 
@@ -207,7 +551,7 @@ pub struct IndexResult {
 
 /// Runs the full indexing pipeline via library API
 ///
-/// Executes: DISCOVER → ANALYZE → ASSIGN → CHUNK → INDEX
+/// Executes: DISCOVER -> ANALYZE -> ASSIGN -> CHUNK -> INDEX
 ///
 /// This uses the library APIs directly, not the CLI. This makes tests:
 /// - Faster (no subprocess overhead)
@@ -288,6 +632,21 @@ pub fn run_index<P: AsRef<Path>>(
     })
 }
 
+/// Runs the full pipeline with TestContext
+///
+/// Convenience method that uses TestContext paths directly.
+///
+/// ## Example
+///
+/// ```ignore
+/// let ctx = TestContext::new()?;
+/// ctx.create_doc("test.md", "# Test")?;
+/// let result = run_full_pipeline(ctx.root(), ctx.output_dir())?;
+/// ```
+pub fn run_full_pipeline(source_dir: &Path, output_dir: &Path) -> Result<IndexResult> {
+    run_index(source_dir, output_dir, "Test Project")
+}
+
 /// Runs indexing with a simple helper that creates output_dir if needed
 ///
 /// Convenience wrapper around `run_index` that creates the output directory
@@ -330,6 +689,20 @@ pub struct SearchResult {
     pub score: f32,
     /// Path to the document
     pub path: String,
+}
+
+impl SearchResult {
+    /// Check if this result matches the given title
+    pub fn has_title(&self, title: &str) -> bool {
+        self.title.contains(title)
+    }
+
+    /// Check if the result contains the term in summary or title
+    pub fn contains(&self, term: &str) -> bool {
+        let term_lower = term.to_lowercase();
+        self.title.to_lowercase().contains(&term_lower)
+            || self.summary.to_lowercase().contains(&term_lower)
+    }
 }
 
 /// Runs a search query against the indexed content
@@ -540,8 +913,7 @@ pub fn assert_document_exists<P: AsRef<Path>>(index_dir: P, title: &str) -> Resu
     let content = fs::read_to_string(&index_path)
         .with_context(|| format!("Failed to read INDEX.json at: {}", index_path.display()))?;
 
-    let value: Value = serde_json::from_str(&content)
-        .context("Failed to parse INDEX.json")?;
+    let value: Value = serde_json::from_str(&content).context("Failed to parse INDEX.json")?;
 
     if let Some(docs) = value.get("documents").and_then(|v| v.as_array()) {
         for doc in docs {
@@ -560,6 +932,36 @@ pub fn assert_document_exists<P: AsRef<Path>>(index_dir: P, title: &str) -> Resu
         title,
         index_path.display()
     );
+}
+
+/// Asserts that chunks directory exists and contains expected files
+///
+/// ## Arguments
+///
+/// * `output_dir` - Output directory containing chunks
+/// * `min_chunks` - Minimum expected chunk files
+pub fn assert_chunks_valid<P: AsRef<Path>>(output_dir: P, min_chunks: usize) -> Result<()> {
+    let chunks_dir = output_dir.as_ref().join("chunks");
+
+    assert!(
+        chunks_dir.exists(),
+        "Chunks directory not found at: {}",
+        chunks_dir.display()
+    );
+
+    let entries = fs::read_dir(&chunks_dir)
+        .with_context(|| format!("Failed to read chunks directory: {}", chunks_dir.display()))?;
+
+    let count = entries.filter_map(|e| e.ok()).filter(|e| e.path().is_file()).count();
+
+    assert!(
+        count >= min_chunks,
+        "Expected at least {} chunk files, found {}",
+        min_chunks,
+        count
+    );
+
+    Ok(())
 }
 
 // =============================================================================
@@ -696,6 +1098,177 @@ This document has no H1 heading.
 Content continues here.
 "#;
 
+/// Sample markdown with code blocks and multiple languages
+pub const SAMPLE_WITH_CODE: &str = r#"# Code Examples
+
+This document contains code blocks in multiple languages.
+
+## Rust Example
+
+```rust
+fn main() {
+    println!("Hello, Rust!");
+    let numbers = vec
+![1, 2, 3];
+    for n in numbers {
+        println!("{}", n);
+    }
+}
+```
+
+## Python Example
+
+```python
+def main():
+    print("Hello, Python!")
+    numbers = [1, 2, 3]
+    for n in numbers:
+        print(n)
+
+if __name__ == "__main__":
+    main()
+```
+
+## JavaScript Example
+
+```javascript
+function main() {
+    console.log("Hello, JavaScript!")
+    const numbers = [1, 2, 3]
+    numbers.forEach(n => console.log(n))
+}
+
+main()
+```
+"#;
+
+/// Sample markdown with tables
+pub const SAMPLE_WITH_TABLES: &str = r#"# Feature Comparison
+
+This document contains various table examples.
+
+## Simple Table
+
+| Name | Type | Description |
+|------|------|-------------|
+| Foo  | int  | A foo value |
+| Bar  | str  | A bar value |
+
+## Aligned Table
+
+| Left | Center | Right |
+|:-----|:------:|------:|
+| L1   | C1     | R1    |
+| L2   | C2     | R2    |
+
+## Complex Table
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Basic   | ✓      | Done  |
+| Advanced | ○     | WIP   |
+| Future  | ✗      | TBD   |
+"#;
+
+/// Sample markdown with nested lists
+pub const SAMPLE_WITH_LISTS: &str = r#"# Lists Examples
+
+## Unordered List
+
+- Item 1
+- Item 2
+  - Nested item 2.1
+  - Nested item 2.2
+    - Deep nested 2.2.1
+- Item 3
+
+## Ordered List
+
+1. First step
+2. Second step
+   2.1. Sub-step a
+   2.2. Sub-step b
+3. Third step
+
+## Task List
+
+- [x] Completed task
+- [ ] Pending task
+- [x] Another completed
+- [ ] Another pending
+
+## Definition List (via HTML)
+
+<dl>
+<dt>Term 1</dt>
+<dd>Description 1</dd>
+<dt>Term 2</dt>
+<dd>Description 2</dd>
+</dl>
+"#;
+
+/// Sample markdown with links (internal and external)
+pub const SAMPLE_WITH_LINKS: &str = r#"# Link Examples
+
+## External Links
+
+- [Example](https://example.com)
+- [Rust Language](https://www.rust-lang.org/)
+- [Documentation](https://docs.rs/)
+
+## Internal Links
+
+- [Getting Started](./getting-started.md)
+- [API Reference](./api.md)
+- [Examples](../examples/)
+
+## Reference-style Links
+
+This is a [reference-style link][ref].
+
+[ref]: https://example.com/reference
+
+## Auto Links
+
+<https://example.com>
+<user@example.com>
+
+## Inline Links
+
+See [the guide](guide.md "Optional title") for details.
+"#;
+
+/// Sample markdown with blockquotes
+pub const SAMPLE_WITH_QUOTES: &str = r#"# Quote Examples
+
+## Simple Blockquote
+
+> This is a simple blockquote.
+> It spans multiple lines.
+
+## Nested Blockquote
+
+> Level 1 quote
+>
+> > Level 2 nested quote
+> >
+> > > Level 3 deeply nested
+
+## Blockquote with formatting
+
+> **Bold text** in a quote
+>
+> *Italic text* too
+>
+> `code` also works
+
+## Attributed quote (convention)
+
+> The only way to do great work is to love what you do.
+>
+> — Steve Jobs
+"#;
+
 // =============================================================================
 // TEST MODULES
 // =============================================================================
@@ -750,16 +1323,59 @@ mod tests {
     }
 
     #[test]
+    fn test_test_context_creation() {
+        let ctx = TestContext::new().expect("Failed to create TestContext");
+        assert!(ctx.root().exists());
+        assert!(ctx.root().is_dir());
+    }
+
+    #[test]
+    fn test_test_context_create_doc() {
+        let ctx = TestContext::new().expect("Failed to create TestContext");
+
+        ctx.create_doc("test.md", "# Test")
+            .expect("Failed to create doc");
+
+        assert!(ctx.file_exists("test.md"));
+        assert!(!ctx.file_exists("nonexistent.md"));
+    }
+
+    #[test]
+    fn test_test_context_create_docs() {
+        let ctx = TestContext::new().expect("Failed to create TestContext");
+
+        ctx.create_docs(&[
+            ("README.md", "# Readme"),
+            ("docs/guide.md", "# Guide"),
+        ])
+        .expect("Failed to create docs");
+
+        assert!(ctx.file_exists("README.md"));
+        assert!(ctx.file_exists("docs/guide.md"));
+    }
+
+    #[test]
+    fn test_test_context_read_file() {
+        let ctx = TestContext::new().expect("Failed to create TestContext");
+
+        ctx.create_doc("test.md", "# Test Content")
+            .expect("Failed to create doc");
+
+        let content = ctx.read_file("test.md").expect("Failed to read file");
+        assert_eq!(content, "# Test Content");
+    }
+
+    #[test]
     fn test_full_pipeline_creates_index() {
-        let fixture = fixture_dir().expect("Failed to create fixture dir");
+        let ctx = TestContext::new().expect("Failed to create TestContext");
 
         create_sample_docs(
-            fixture.path(),
+            ctx.root(),
             &[("guide.md", SAMPLE_MARKDOWN), ("README.md", SAMPLE_MINIMAL)],
         )
         .expect("Failed to create sample docs");
 
-        let result = run_index_simple(fixture.path(), "Test Project")
+        let result = run_index_simple(ctx.root(), "Test Project")
             .expect("Failed to run index");
 
         assert_eq!(result.document_count, 2);
@@ -772,17 +1388,60 @@ mod tests {
 
     #[test]
     fn test_assert_document_exists() {
-        let fixture = fixture_dir().expect("Failed to create fixture dir");
+        let ctx = TestContext::new().expect("Failed to create TestContext");
 
-        create_single_doc(fixture.path(), "guide.md", SAMPLE_MARKDOWN)
+        create_single_doc(ctx.root(), "guide.md", SAMPLE_MARKDOWN)
             .expect("Failed to create doc");
 
-        run_index_simple(fixture.path(), "Test")
+        run_index_simple(ctx.root(), "Test")
             .expect("Failed to run index");
 
-        let doc = assert_document_exists(fixture.path().join("output"), "Getting Started Guide")
+        let doc = assert_document_exists(ctx.output_dir(), "Getting Started Guide")
             .expect("Document not found");
 
         assert_eq!(doc.get("title").unwrap().as_str().unwrap(), "Getting Started Guide");
+    }
+
+    #[test]
+    fn test_standard_pipeline_cases_exist() {
+        let cases = standard_pipeline_cases();
+        assert!(!cases.is_empty(), "Should have standard test cases");
+        assert!(cases.iter().any(|c| c.name == "empty_directory"));
+        assert!(cases.iter().any(|c| c.name == "unicode_content"));
+    }
+
+    #[test]
+    fn test_generate_markdown_with_features() {
+        let content = generate_markdown_with("code tables lists links");
+
+        assert!(content.contains("## Code Examples"));
+        assert!(content.contains("```rust"));
+        assert!(content.contains("| Column 1"));
+        assert!(content.contains("- Item 1"));
+        assert!(content.contains("[External]"));
+    }
+
+    #[test]
+    fn test_pipeline_test_case_builder() {
+        let case = PipelineTestCase::simple("test_case", vec![("test.md", "# Test")]);
+
+        assert_eq!(case.name, "test_case");
+        assert_eq!(case.expected_min_documents, 1);
+        assert_eq!(case.expected_min_chunks, 1);
+        assert!(case.should_succeed);
+    }
+
+    #[test]
+    fn test_assert_chunks_valid() {
+        let ctx = TestContext::new().expect("Failed to create TestContext");
+
+        ctx.create_doc("test.md", SAMPLE_MARKDOWN)
+            .expect("Failed to create doc");
+
+        run_index_simple(ctx.root(), "Test")
+            .expect("Failed to run index");
+
+        assert_chunks_valid(ctx.output_dir(), 1)
+            .expect("Chunks validation failed");
     }
 }

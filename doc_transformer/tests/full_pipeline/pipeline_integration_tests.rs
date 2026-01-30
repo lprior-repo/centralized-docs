@@ -11,61 +11,48 @@
 //! - Unicode and special characters (internationalization)
 //! - File system edge cases (deeply nested, special characters)
 
-use std::fs;
+// Use common test fixtures
+use crate::common::*;
+use doc_transformer::discover;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
-/// Integration test context managing temporary directory and cleanup
+// =============================================================================
+// INTEGRATION TEST CONTEXT (extends common fixtures)
+// =============================================================================
+
+/// Extended test context for pipeline integration tests
+///
+/// This provides convenience methods for file discovery testing.
 struct IntegrationTestContext {
-    _temp_dir: TempDir,
+    inner: TestContext,
 }
 
 impl IntegrationTestContext {
-    /// Create a new test context with temporary directory
     fn new() -> Self {
-        IntegrationTestContext {
-            _temp_dir: TempDir::new().expect("Failed to create temp dir"),
+        Self {
+            inner: TestContext::new().expect("Failed to create test context"),
         }
     }
 
-    /// Get root path for test files
     fn root(&self) -> &Path {
-        self._temp_dir.path()
+        self.inner.root()
     }
 
-    /// Create a markdown file at relative path
-    fn create_file(&self, rel_path: &str, content: &str) -> PathBuf {
-        let path = self.root().join(rel_path);
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).expect("Failed to create parent directory");
-        }
-        fs::write(&path, content).expect("Failed to write file");
-        path
+    /// Create a file (alias for create_doc for consistency with existing tests)
+    fn create_file(&self, rel_path: &str, content: &str) -> anyhow::Result<PathBuf> {
+        self.inner.create_doc(rel_path, content)
     }
 
-    /// Get all markdown files recursively (excluding node_modules and .git)
+    /// Discover files in the test directory
     fn discover_files(&self) -> Vec<PathBuf> {
-        use walkdir::WalkDir;
-
-        WalkDir::new(self.root())
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| {
-                let path = e.path();
-                // Exclude node_modules and .git directories
-                !path
-                    .components()
-                    .any(|c| matches!(c.as_os_str().to_str(), Some("node_modules" | ".git")))
-            })
-            .filter(|e| {
-                let path = e.path();
-                path.is_file()
-                    && path.extension().is_some_and(|ext| {
-                        matches!(ext.to_str(), Some("md" | "mdx" | "rst" | "txt"))
-                    })
-            })
-            .map(|e| e.path().to_path_buf())
-            .collect()
+        match discover::discover_files(self.root()) {
+            Ok((files, _)) => files.into_iter().map(|df| PathBuf::from(df.source_path)).collect(),
+            Err(e) => {
+                eprintln!("Discovery failed: {e}");
+                vec![]
+            }
+        }
     }
 }
 

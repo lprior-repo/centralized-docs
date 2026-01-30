@@ -247,6 +247,7 @@ pub struct GraphStatistics {
 /// let similarity = jaccard_similarity(&tags1, &tags2);
 /// assert!((similarity - 0.333).abs() < 0.01); // 1 common / 3 total
 /// ```
+#[allow(dead_code)]
 pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
     if tags1.is_empty() && tags2.is_empty() {
         return 1.0;
@@ -272,6 +273,83 @@ pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+
+    // Property 1: Commutativity - jaccard(a, b) == jaccard(b, a)
+    proptest! {
+        #[test]
+        fn prop_jaccard_commutativity(
+            tags1 in prop::collection::vec(".*", 0..20),
+            tags2 in prop::collection::vec(".*", 0..20)
+        ) {
+            let vec1: Vec<String> = tags1.into_iter().map(|s| s.to_string()).collect();
+            let vec2: Vec<String> = tags2.into_iter().map(|s| s.to_string()).collect();
+
+            let result1 = jaccard_similarity(&vec1, &vec2);
+            let result2 = jaccard_similarity(&vec2, &vec1);
+
+            prop_assert_eq!(result1, result2);
+        }
+    }
+
+    // Property 2: Reflexivity - jaccard(a, a) == 1.0
+    proptest! {
+        #[test]
+        fn prop_jaccard_reflexivity(tags in prop::collection::vec(".*", 0..20)) {
+            let vec: Vec<String> = tags.into_iter().map(|s| s.to_string()).collect();
+            let result = jaccard_similarity(&vec, &vec);
+
+            prop_assert_eq!(result, 1.0);
+        }
+    }
+
+    // Property 3: Bounds - result always in [0.0, 1.0]
+    proptest! {
+        #[test]
+        fn prop_jaccard_bounds(
+            tags1 in prop::collection::vec(".*", 0..20),
+            tags2 in prop::collection::vec(".*", 0..20)
+        ) {
+            let vec1: Vec<String> = tags1.into_iter().map(|s| s.to_string()).collect();
+            let vec2: Vec<String> = tags2.into_iter().map(|s| s.to_string()).collect();
+
+            let result = jaccard_similarity(&vec1, &vec2);
+
+            prop_assert!(result >= 0.0);
+            prop_assert!(result <= 1.0);
+        }
+    }
+
+    // Property 4: Empty sets - jaccard([], []) == 1.0
+    #[test]
+    fn prop_jaccard_both_empty() {
+        let empty: Vec<String> = vec![];
+        let result = jaccard_similarity(&empty, &empty);
+
+        assert_eq!(result, 1.0);
+    }
+
+    // Property 5: Disjoint sets - jaccard(a, b) == 0.0 when no shared elements
+    proptest! {
+        #[test]
+        fn prop_jaccard_disjoint_sets(
+            prefix1 in "[a-m]{1,5}",
+            prefix2 in "[n-z]{1,5}",
+            count in 1..10usize
+        ) {
+            // Generate disjoint sets by using different alphabetic ranges
+            let set1: Vec<String> = (0..count)
+                .map(|i| format!("{prefix1}{i}"))
+                .collect();
+            let set2: Vec<String> = (0..count)
+                .map(|i| format!("{prefix2}{i}"))
+                .collect();
+
+            let result = jaccard_similarity(&set1, &set2);
+
+            prop_assert_eq!(result, 0.0);
+        }
+    }
 
     #[test]
     fn test_dag_creation() {

@@ -619,6 +619,8 @@ pub fn build_knowledge_dag(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::panic)]
+
     use super::*;
     use crate::chunking_adapter::Chunk;
     use contextual_chunker::ChunkLevel;
@@ -781,14 +783,16 @@ mod tests {
     /// Test HNSW edge count linearity across multiple scales
     /// Verifies that edge count grows linearly (O(n)) not quadratically (O(n²))
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn test_hnsw_edge_count_linear() {
         for n in [10, 100, 1000] {
             let chunks = generate_test_chunks(n);
             let docs = generate_test_docs(&chunks);
             let tags = generate_test_tags(&chunks);
 
-            let dag = build_knowledge_dag(&docs, &chunks, &tags, None, None, None).unwrap();
+            let dag = match build_knowledge_dag(&docs, &chunks, &tags, None, None, None) {
+                Ok(d) => d,
+                Err(e) => panic!("Failed to build knowledge DAG for edge count test: {e}"),
+            };
 
             // N × max_related_chunks × safety_factor (1.5)
             // max_related_chunks = 20 in build_knowledge_dag
@@ -807,7 +811,6 @@ mod tests {
     /// Test that edge count is O(n log n), not O(n²)
     /// With HNSW, we expect at most max_related edges per node
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn test_knowledge_dag_edge_count_is_linear() {
         const N: usize = 100;
         const MAX_RELATED: usize = 5;
@@ -865,8 +868,10 @@ mod tests {
             .collect();
 
         // Build the DAG
-        let dag =
-            build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None).unwrap();
+        let dag = match build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None) {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to build knowledge DAG for linear edge count test: {e}"),
+        };
 
         // Get statistics
         let stats = dag.statistics();
@@ -910,7 +915,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn test_build_vocabulary() {
         let document_tags = vec![
             (
@@ -925,7 +929,10 @@ mod tests {
             ),
         ];
 
-        let vocab = build_vocabulary(&document_tags).unwrap();
+        let vocab = match build_vocabulary(&document_tags) {
+            Ok(v) => v,
+            Err(e) => panic!("Failed to build vocabulary from test document tags: {e}"),
+        };
 
         // Should have 3 unique tags (rust, programming, web) + 2 categories (tutorial, guide) = 5 total
         // "rust" appears in both documents but is only counted once
@@ -961,17 +968,279 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn test_empty_chunks_no_crash() {
         let documents = vec![];
         let chunks = vec![];
         let document_tags = vec![];
 
-        let dag =
-            build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None).unwrap();
+        let dag = match build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None) {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to build knowledge DAG with empty chunks: {e}"),
+        };
 
         let stats = dag.statistics();
         assert_eq!(stats.node_count, 0);
         assert_eq!(stats.edge_count, 0);
+    }
+
+    // ===========================================================================
+    // Property-based tests for generate_embedding_from_tags
+    // ===========================================================================
+    // These tests verify invariants that should hold for all possible inputs
+
+    /// Build a test vocabulary from a set of tags and categories
+    fn build_test_vocabulary(
+        all_tags: &[Vec<String>],
+        all_categories: &[String],
+    ) -> HashMap<String, usize> {
+        let mut vocab = HashMap::new();
+        let mut idx: usize = 0;
+
+        for category in all_categories {
+            if !vocab.contains_key(category.as_str()) && !category.is_empty() {
+                vocab.insert(category.clone(), idx);
+                idx = match idx.checked_add(1) {
+                    Some(i) => i,
+                    None => break,
+                };
+            }
+        }
+
+        for tags in all_tags {
+            for tag in tags {
+                if !vocab.contains_key(tag.as_str()) && !tag.is_empty() {
+                    vocab.insert(tag.clone(), idx);
+                    idx = match idx.checked_add(1) {
+                        Some(i) => i,
+                        None => break,
+                    };
+                }
+            }
+        }
+
+        vocab
+    }
+
+    /// Property 1: Normalization - Result is unit vector (magnitude approx 1.0)
+    /// For non-empty embeddings, the magnitude should always be 1.0
+    #[test]
+    fn proptest_embedding_normalization() {
+        use proptest::prelude::*;
+
+        let strategy = (
+            prop::collection::vec(".*", 0..10),
+            "[a-z]{1,20}",
+            1..100usize,
+        );
+
+        proptest!(|(tags in strategy.0, category in strategy.1, embedding_dim in strategy.2)| {
+            // Filter out empty strings and build vocabulary
+            let clean_tags: Vec<String> = tags.into_iter()
+                .filter(|s| !s.is_empty())
+                .collect();
+
+            let clean_category = if category.is_empty() { "default".to_string() } else { category };
+
+            // Build vocabulary including all tags and category
+            let vocab = build_test_vocabulary(&[clean_tags.clone()], &[clean_category.clone()]);
+
+            // If vocabulary is empty, produce zero embedding (always has magnitude 0)
+            if vocab.is_empty() {
+                let dim = embedding_dim.max(1);
+                let zero_embedding = generate_embedding_from_tags(&clean_tags, &clean_category, &vocab, dim);
+                prop_assert_eq!(zero_embedding.len(), dim, "Zero embedding length mismatch");
+            } else {
+                // Ensure embedding_dim is at least 1
+                let dim = embedding_dim.max(1);
+
+                let embedding = generate_embedding_from_tags(&clean_tags, &clean_category, &vocab, dim);
+
+                // Property: magnitude should be approximately 1.0 for non-zero embeddings
+                let magnitude: f32 = embedding.iter().map(|&x| x * x).sum::<f32>().sqrt();
+
+                // Allow small tolerance for floating point arithmetic
+                prop_assert!(
+                    magnitude > 0.0 && (magnitude - 1.0).abs() < 0.001,
+                    "Embedding magnitude {} is not close to 1.0 (or is zero)",
+                    magnitude
+                );
+            }
+        });
+    }
+
+    /// Property 2: Length - Output dimension matches expected size
+    #[test]
+    fn proptest_embedding_length() {
+        use proptest::prelude::*;
+
+        let strategy = (
+            prop::collection::vec("[a-z]{1,10}", 0..20),
+            "[a-z]{1,10}",
+            1..200usize,
+        );
+
+        proptest!(|(tags in strategy.0, category in strategy.1, embedding_dim in strategy.2)| {
+            let vocab = build_test_vocabulary(&[tags.clone()], &[category.clone()]);
+
+            let embedding = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
+
+            // Property: output length must equal requested dimension
+            prop_assert_eq!(
+                embedding.len(),
+                embedding_dim,
+                "Embedding length {} != expected dimension {}",
+                embedding.len(),
+                embedding_dim
+            );
+        });
+    }
+
+    /// Property 3: Determinism - Same input produces same output
+    #[test]
+    fn proptest_embedding_determinism() {
+        use proptest::prelude::*;
+
+        let strategy = (
+            prop::collection::vec("[a-z]{1,10}", 0..20),
+            "[a-z]{1,10}",
+            10..100usize,
+        );
+
+        proptest!(|(tags in strategy.0, category in strategy.1, embedding_dim in strategy.2)| {
+            let vocab = build_test_vocabulary(&[tags.clone()], &[category.clone()]);
+
+            // Generate embedding twice with same inputs
+            let embedding1 = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
+            let embedding2 = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
+
+            // Clone for error message since prop_assert_eq! takes ownership
+            let e1_repr = format!("{embedding1:?}");
+            let e2_repr = format!("{embedding2:?}");
+
+            // Property: outputs must be identical
+            prop_assert_eq!(
+                embedding1, embedding2,
+                "Embeddings differ for same input: {} vs {}",
+                e1_repr, e2_repr
+            );
+        });
+    }
+
+    /// Property 4: Empty input handling
+    #[test]
+    fn proptest_embedding_empty_input() {
+        use proptest::prelude::*;
+
+        // Test with various vocabulary sizes
+        let vocab_strategy = prop::collection::hash_map("[a-z]{1,10}", 0..200usize, 0..50);
+
+        proptest!(|(vocab in vocab_strategy, embedding_dim in 1..200usize)| {
+            let empty_tags: Vec<String> = vec![];
+            let empty_category = "";
+
+            let embedding = generate_embedding_from_tags(&empty_tags, empty_category, &vocab, embedding_dim);
+
+            // Property: empty input should produce zero vector (normalized to zero)
+            // All elements should be 0.0
+            prop_assert!(
+                embedding.iter().all(|&x| x == 0.0),
+                "Empty input should produce zero vector, got {:?}",
+                embedding
+            );
+
+            // Property: length should still match
+            prop_assert_eq!(
+                embedding.len(),
+                embedding_dim,
+                "Zero vector length mismatch"
+            );
+        });
+    }
+
+    /// Property 5: Non-negative values
+    /// All embedding values should be non-negative since we only add positive weights
+    #[test]
+    fn proptest_embedding_non_negative() {
+        use proptest::prelude::*;
+
+        let strategy = (
+            prop::collection::vec("[a-z]{1,10}", 0..20),
+            "[a-z]{1,10}",
+            1..100usize,
+        );
+
+        proptest!(|(tags in strategy.0, category in strategy.1, embedding_dim in strategy.2)| {
+            let vocab = build_test_vocabulary(&[tags.clone()], &[category.clone()]);
+
+            let embedding = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
+
+            // Property: all values must be >= 0
+            prop_assert!(
+                embedding.iter().all(|&x| x >= 0.0),
+                "Found negative value in embedding: {:?}",
+                embedding
+            );
+        });
+    }
+
+    /// Property 6: Order invariance
+    /// Tags in different orders should produce the same embedding
+    #[test]
+    fn proptest_embedding_order_invariant() {
+        use proptest::prelude::*;
+
+        let tags_strategy = prop::collection::vec("[a-z]{1,10}", 2..10);
+        let category_strategy = "[a-z]{1,10}";
+        let dim_strategy = 10..100usize;
+
+        proptest!(|(tags in tags_strategy, category in category_strategy, embedding_dim in dim_strategy)| {
+            // Create a sorted version
+            let mut tags_sorted = tags.clone();
+            tags_sorted.sort();
+
+            let vocab = build_test_vocabulary(&[tags.clone(), tags_sorted.clone()], &[category.clone()]);
+
+            let embedding1 = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
+            let embedding2 = generate_embedding_from_tags(&tags_sorted, &category, &vocab, embedding_dim);
+
+            // Clone for error message since prop_assert_eq! takes ownership
+            let e1_repr = format!("{embedding1:?}");
+            let e2_repr = format!("{embedding2:?}");
+
+            // Property: order should not matter
+            prop_assert_eq!(
+                &embedding1, &embedding2,
+                "Embeddings differ for reordered tags: original={}, reordered={}",
+                e1_repr, e2_repr
+            );
+        });
+    }
+
+    /// Property 7: Sparsity
+    /// For large vocabularies, most dimensions should be zero
+    #[test]
+    fn proptest_embedding_sparsity() {
+        use proptest::prelude::*;
+
+        // Large vocabulary, few tags
+        let tags_strategy = prop::collection::vec("[a-z]{1,10}", 1..5);
+        let vocab_strategy = prop::collection::hash_map("[a-z]{1,10}", 0..200usize, 50..100);
+
+        proptest!(|(tags in tags_strategy, category in "[a-z]{1,10}", vocab in vocab_strategy)| {
+            let embedding_dim = vocab.len().max(1);
+
+            let embedding = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
+
+            // Count non-zero elements
+            let non_zero_count = embedding.iter().filter(|&&x| x > 0.0).count();
+
+            // Property: non-zero elements should not exceed unique tags + category
+            let max_non_zero = tags.len().saturating_add(1); // +1 for category
+            prop_assert!(
+                non_zero_count <= max_non_zero,
+                "Too many non-zero elements: {} > {} (tags: {})",
+                non_zero_count, max_non_zero, tags.len()
+            );
+        });
     }
 }

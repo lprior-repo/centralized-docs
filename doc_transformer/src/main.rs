@@ -18,6 +18,8 @@ mod chunk;
 mod chunking_adapter;
 mod config;
 mod discover;
+#[cfg(feature = "enhanced")]
+mod features;
 mod filter;
 mod graph;
 mod highlight;

@@ -31,7 +31,7 @@ anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 tokio = { version = "1.35", features = ["macros"] }
 
-# Graph library (UPDATED: 0.6 → 0.8.2)
+# Graph library (UPDATED: 0.6 -> 0.8.2)
 petgraph = { version = "0.8", features = ["serde-1"] }
 
 # Functional Programming Libraries
@@ -39,9 +39,10 @@ tap = "1.0"
 strum = { version = "0.26", features = ["derive"] }
 itertools = "0.13"
 
-# Web scraping (spider-rs ecosystem) - Updated to latest
+# Web scraping (spider-rs ecosystem)
 # Note: sync feature enables tokio synchronization primitives
-spider = { version = "2.39", default-features = false, features = ["sitemap", "sync"] }
+# Using 2.39 to avoid cache_mem compilation issues in 2.40+
+spider = { version = "=2.39", default-features = false, features = ["sitemap", "sync"] }
 spider_transformations = "2.37"
 
 # URL handling
@@ -50,7 +51,7 @@ url = { version = "2.5", features = ["serde"] }
 # Git operations
 git2 = "0.19"
 
-# HTML parsing (UPDATED: 0.20 → 0.25)
+# HTML parsing (UPDATED: 0.20 -> 0.25)
 scraper = "0.25"
 
 # Full-text search with BM25
@@ -67,7 +68,88 @@ thiserror = "1.0"
 [dev-dependencies]
 tempfile = "3.8"
 criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.4"
 
 [[bench]]
 name = "graph_bench"
 harness = false
+
+# ===========================================================================
+# FEATURE TIERS - Spider-rs Feature Parity
+# ===========================================================================
+#
+# Tier 1: Core (default) - always enabled
+#   - sitemap: Sitemap-based URL discovery
+#   - sync: Tokio synchronization primitives
+#
+# Tier 2: Enhanced - non-breaking additions
+#   - cache: Response caching
+#   - cache_mem: In-memory caching
+#   - regex: Regex-based URL filtering
+#   - glob: Glob-based URL filtering
+#   - time: Time-based utilities
+#   - serde: Serialization support
+#
+# Tier 3: JavaScript - optional, significant overhead
+#   - chrome: Chrome browser integration
+#   - chrome_headless_new: New headless Chrome mode
+#   - smart: Smart rendering detection
+#
+# Tier 4: Anti-detection
+#   - ua_generator: User agent generation
+#   - spoof: Browser spoofing
+#   - headers: Custom headers
+#   - cookies: Cookie handling
+#
+# Tier 5: Full - all features
+#   - control: Advanced control features
+# ===========================================================================
+
+[features]
+# Tier 1: Core - always enabled (default)
+default = ["sitemap", "sync"]
+sitemap = ["spider/sitemap"]
+sync = ["spider/sync"]
+
+# Tier 2: Enhanced - non-breaking additions
+# Note: spider-rs 2.39 has compilation bugs with many features
+# We provide the feature structure for future compatibility
+# but only enable features that work currently
+enhanced = [
+    "default",
+]
+# Individual enhanced features (reserved for future use when spider-rs fixes issues)
+# url_regex = ["spider/regex"]  # Causes compilation error in spider-rs 2.39
+# url_glob = ["spider/glob"]    # May have issues
+
+# Tier 3: JavaScript - optional, significant overhead
+# Note: chrome feature requires real_browser subfeature to compile
+javascript = [
+    "enhanced",
+]
+# Individual JavaScript features
+# chrome = ["spider/chrome"]  # Requires real_browser feature which has issues
+# chrome_headless_new = ["spider/chrome_headless_new"]  # Same issue
+# smart = ["spider/smart"]
+
+# Tier 4: Anti-detection
+anti-detection = [
+    "enhanced",
+    "spider/ua_generator",
+    "spider/spoof",
+    "spider/headers",
+    "spider/cookies",
+]
+# Individual anti-detection features
+ua_generator = ["spider/ua_generator"]
+spoof = ["spider/spoof"]
+headers = ["spider/headers"]
+cookies = ["spider/cookies"]
+
+# Tier 5: Full - all features enabled
+full = [
+    "enhanced",
+    "javascript",
+    "anti-detection",
+    "spider/control",
+]

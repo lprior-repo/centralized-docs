@@ -40,6 +40,9 @@ return_self_not_must_use = "allow"
 trivially_copy_pass_by_ref = "allow"
 map_unwrap_or = "allow"
 
+[workspace.dev-dependencies]
+proptest = "1"
+
 [profile.dev]
 opt-level = 0
 debug = true

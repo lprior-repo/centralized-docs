@@ -20,68 +20,42 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 
+// Use common test fixtures
+use crate::common::*;
 use anyhow::{Context, Result};
 use doc_transformer::{analyze, assign, chunk, discover, index, llms};
+use doc_transformer::llms::LlmsConfig;
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tempfile::TempDir;
 
 // =============================================================================
-// TEST CONTEXT
+// EXTENDED PIPELINE RUNNER (for llms.txt and COMPASS.md generation)
 // =============================================================================
 
-struct TestContext {
-    temp_dir: TempDir,
+/// Extended pipeline result including discovered file count
+struct ExtendedIndexResult {
+    inner: IndexResult,
+    discovered_files_count: usize,
 }
 
-impl TestContext {
-    fn new() -> Result<Self> {
-        TempDir::new()
-            .context("Failed to create temporary directory")
-            .map(|temp_dir| Self { temp_dir })
-    }
+/// Run the full indexing pipeline with llms.txt and COMPASS.md generation
+///
+/// This extends the common `run_full_pipeline` by also generating llms.txt and COMPASS.md
+/// which are tested specifically in this file.
+fn run_indexing_pipeline(source_dir: &Path, output_dir: &Path) -> Result<ExtendedIndexResult> {
+    // Create output directory
+    fs::create_dir_all(output_dir)
+        .with_context(|| format!("Failed to create output directory: {}", output_dir.display()))?;
 
-    fn root(&self) -> &Path {
-        self.temp_dir.path()
-    }
-
-    fn source_dir(&self) -> PathBuf {
-        self.root().join("source")
-    }
-
-    fn output_dir(&self) -> PathBuf {
-        self.root().join("output")
-    }
-
-    fn create_source_dir(&self) -> Result<PathBuf> {
-        let source = self.source_dir();
-        fs::create_dir_all(&source)
-            .with_context(|| format!("Failed to create source directory: {}", source.display()))?;
-        Ok(source)
-    }
-
-    fn create_output_dir(&self) -> Result<PathBuf> {
-        let output = self.output_dir();
-        fs::create_dir_all(&output)
-            .with_context(|| format!("Failed to create output directory: {}", output.display()))?;
-        Ok(output)
-    }
-}
-
-// =============================================================================
-// PIPELINE EXECUTION
-// =============================================================================
-
-/// Execute the full indexing pipeline
-fn run_indexing_pipeline(source_dir: &Path, output_dir: &Path) -> Result<PipelineResult> {
     // Phase 1: DISCOVER
     let (discovered_files, _manifest) =
         discover::discover_files(source_dir).context("Discovery phase failed")?;
+    let discovered_count = discovered_files.len();
 
     // Phase 2: ANALYZE
-    let analyses = analyze::analyze_files(&discovered_files, source_dir, None)
-        .context("Analysis phase failed")?;
+    let analyses =
+        analyze::analyze_files(&discovered_files, source_dir, None).context("Analysis phase failed")?;
 
     // Phase 3: ASSIGN IDs
     let (_analyses_with_ids, link_map) = assign::assign_ids(analyses.clone());
@@ -97,37 +71,48 @@ fn run_indexing_pipeline(source_dir: &Path, output_dir: &Path) -> Result<Pipelin
         &chunks_result,
         output_dir,
         "Test Project",
-        None,
-        None,
-        None,
+        None, // max_related_chunks
+        None, // hnsw_m
+        None, // hnsw_ef_construction
     )
     .context("Indexing phase failed")?;
 
     // Phase 6: Generate llms.txt
-    let llms_config = llms::LlmsConfig {
+    let llms_config = LlmsConfig {
         project_name: "Test Project".to_string(),
-        project_description: "Test description".to_string(),
+        project_description: "Test documentation".to_string(),
         ..Default::default()
     };
-    llms::generate_llms_txt(&analyses, &link_map, &llms_config, output_dir)
-        .context("Failed to generate llms.txt")?;
+    llms::generate_llms_txt(
+        &analyses,
+        &link_map,
+        &llms_config,
+        output_dir,
+    )
+    .context("Failed to generate llms.txt")?;
 
-    // Phase 7: Generate COMPASS.md
-    index::build_and_write_compass(&analyses, &link_map, output_dir)
-        .context("Failed to generate COMPASS.md")?;
+    // Phase 7: Generate COMPASS.md (using llms.txt as source)
+    let llms_path = output_dir.join("llms.txt");
+    let llms_content = fs::read_to_string(&llms_path)
+        .context("Failed to read llms.txt for COMPASS.md generation")?;
+    let compass_path = output_dir.join("COMPASS.md");
+    fs::write(&compass_path, llms_content)
+        .context("Failed to write COMPASS.md")?;
 
-    Ok(PipelineResult {
-        document_count: analyses.len(),
-        chunk_count: chunks_result.total_chunks,
-        discovered_files_count: discovered_files.len(),
+    let index_path = output_dir.join("INDEX.json");
+
+    Ok(ExtendedIndexResult {
+        inner: IndexResult {
+            document_count: analyses.len(),
+            chunk_count: chunks_result.total_chunks,
+            summary_chunks: chunks_result.summary_chunks,
+            standard_chunks: chunks_result.standard_chunks,
+            detailed_chunks: chunks_result.detailed_chunks,
+            index_path,
+            output_dir: output_dir.to_path_buf(),
+        },
+        discovered_files_count: discovered_count,
     })
-}
-
-#[derive(Debug)]
-struct PipelineResult {
-    document_count: usize,
-    chunk_count: usize,
-    discovered_files_count: usize,
 }
 
 // =============================================================================
@@ -138,21 +123,19 @@ struct PipelineResult {
 #[test]
 fn test_empty_directory_completes_successfully() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
     // Run the full pipeline on an empty directory
-    let result = run_indexing_pipeline(&source_dir, &output_dir);
+    let result = run_indexing_pipeline(ctx.root(), &ctx.output_dir());
 
     assert!(result.is_ok(), "Empty directory indexing should succeed");
     let pipeline_result = result?;
 
     assert_eq!(
-        pipeline_result.document_count, 0,
+        pipeline_result.inner.document_count, 0,
         "Empty directory should have 0 documents"
     );
     assert_eq!(
-        pipeline_result.chunk_count, 0,
+        pipeline_result.inner.chunk_count, 0,
         "Empty directory should have 0 chunks"
     );
     assert_eq!(
@@ -167,12 +150,10 @@ fn test_empty_directory_completes_successfully() -> Result<()> {
 #[test]
 fn test_index_json_has_zero_document_count() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
-    let index_path = output_dir.join("INDEX.json");
+    let index_path = &ctx.output_dir().join("INDEX.json");
     assert!(index_path.exists(), "INDEX.json should be created");
 
     let index_content = fs::read_to_string(&index_path).context("Failed to read INDEX.json")?;
@@ -207,12 +188,10 @@ fn test_index_json_has_zero_document_count() -> Result<()> {
 #[test]
 fn test_index_json_has_zero_chunk_count() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
-    let index_path = output_dir.join("INDEX.json");
+    let index_path = &ctx.output_dir().join("INDEX.json");
     let index_content = fs::read_to_string(&index_path).context("Failed to read INDEX.json")?;
     let index_json: Value =
         serde_json::from_str(&index_content).context("Failed to parse INDEX.json")?;
@@ -249,12 +228,10 @@ fn test_index_json_has_zero_chunk_count() -> Result<()> {
 #[test]
 fn test_llms_txt_created_for_empty_directory() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
-    let llms_path = output_dir.join("llms.txt");
+    let llms_path = &ctx.output_dir().join("llms.txt");
     assert!(
         llms_path.exists(),
         "llms.txt should be created for empty directory"
@@ -293,12 +270,10 @@ fn test_llms_txt_created_for_empty_directory() -> Result<()> {
 #[test]
 fn test_compass_md_created_for_empty_directory() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
-    let compass_path = output_dir.join("COMPASS.md");
+    let compass_path = &ctx.output_dir().join("COMPASS.md");
     assert!(
         compass_path.exists(),
         "COMPASS.md should be created for empty directory"
@@ -327,28 +302,26 @@ fn test_compass_md_created_for_empty_directory() -> Result<()> {
 #[test]
 fn test_output_directory_structure_created() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
     // Verify main output files exist
-    assert!(output_dir.exists(), "Output directory should exist");
+    assert!(&ctx.output_dir().exists(), "Output directory should exist");
     assert!(
-        output_dir.join("INDEX.json").exists(),
+        &ctx.output_dir().join("INDEX.json").exists(),
         "INDEX.json should exist"
     );
     assert!(
-        output_dir.join("llms.txt").exists(),
+        &ctx.output_dir().join("llms.txt").exists(),
         "llms.txt should exist"
     );
     assert!(
-        output_dir.join("COMPASS.md").exists(),
+        &ctx.output_dir().join("COMPASS.md").exists(),
         "COMPASS.md should exist"
     );
 
     // Verify chunks directory exists (even if empty)
-    let chunks_dir = output_dir.join("chunks");
+    let chunks_dir = &ctx.output_dir().join("chunks");
     assert!(chunks_dir.exists(), "chunks directory should be created");
 
     // Note: docs directory is only created when there are documents to write
@@ -361,26 +334,24 @@ fn test_output_directory_structure_created() -> Result<()> {
 #[test]
 fn test_reindexing_empty_directory_is_idempotent() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
     // First indexing run
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
-    let index_path = output_dir.join("INDEX.json");
+    let index_path = &ctx.output_dir().join("INDEX.json");
     let first_content =
         fs::read_to_string(&index_path).context("Failed to read INDEX.json after first run")?;
 
-    let llms_path = output_dir.join("llms.txt");
+    let llms_path = &ctx.output_dir().join("llms.txt");
     let _first_llms =
         fs::read_to_string(&llms_path).context("Failed to read llms.txt after first run")?;
 
-    let compass_path = output_dir.join("COMPASS.md");
+    let compass_path = &ctx.output_dir().join("COMPASS.md");
     let _first_compass =
         fs::read_to_string(&compass_path).context("Failed to read COMPASS.md after first run")?;
 
     // Second indexing run (should be idempotent)
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
     let second_content =
         fs::read_to_string(&index_path).context("Failed to read INDEX.json after second run")?;
@@ -441,19 +412,17 @@ fn test_reindexing_empty_directory_is_idempotent() -> Result<()> {
 #[test]
 fn test_empty_directory_with_only_ignored_files() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
 
     // Create only ignored files (in node_modules)
-    let node_modules = source_dir.join("node_modules");
+    let node_modules = ctx.root().join("node_modules");
     fs::create_dir_all(&node_modules).context("Failed to create node_modules directory")?;
     fs::write(node_modules.join("package.md"), "# Package\n\nContent")
         .context("Failed to write ignored file")?;
 
-    let output_dir = ctx.create_output_dir()?;
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
     // Should behave like empty directory
-    let index_path = output_dir.join("INDEX.json");
+    let index_path = &ctx.output_dir().join("INDEX.json");
     let index_content = fs::read_to_string(&index_path).context("Failed to read INDEX.json")?;
     let index_json: Value =
         serde_json::from_str(&index_content).context("Failed to parse INDEX.json")?;
@@ -476,12 +445,10 @@ fn test_empty_directory_with_only_ignored_files() -> Result<()> {
 #[test]
 fn test_index_json_structure_valid_when_empty() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
-    let index_path = output_dir.join("INDEX.json");
+    let index_path = &ctx.output_dir().join("INDEX.json");
     let index_content = fs::read_to_string(&index_path).context("Failed to read INDEX.json")?;
     let index_json: Value =
         serde_json::from_str(&index_content).context("Failed to parse INDEX.json")?;
@@ -547,24 +514,22 @@ fn test_index_json_structure_valid_when_empty() -> Result<()> {
 #[test]
 fn test_all_output_files_readable_for_empty_directory() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
     // INDEX.json should be valid JSON
-    let index_path = output_dir.join("INDEX.json");
+    let index_path = &ctx.output_dir().join("INDEX.json");
     let index_content = fs::read_to_string(&index_path).context("Failed to read INDEX.json")?;
     let _: Value =
         serde_json::from_str(&index_content).with_context(|| "INDEX.json should be valid JSON")?;
 
     // llms.txt should be readable text
-    let llms_path = output_dir.join("llms.txt");
+    let llms_path = &ctx.output_dir().join("llms.txt");
     let llms_content = fs::read_to_string(&llms_path).context("Failed to read llms.txt")?;
     assert!(!llms_content.is_empty(), "llms.txt should not be empty");
 
     // COMPASS.md should be readable markdown
-    let compass_path = output_dir.join("COMPASS.md");
+    let compass_path = &ctx.output_dir().join("COMPASS.md");
     let compass_content = fs::read_to_string(&compass_path).context("Failed to read COMPASS.md")?;
     assert!(
         !compass_content.is_empty(),
@@ -578,12 +543,10 @@ fn test_all_output_files_readable_for_empty_directory() -> Result<()> {
 #[test]
 fn test_empty_keywords_map() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
-    let index_path = output_dir.join("INDEX.json");
+    let index_path = &ctx.output_dir().join("INDEX.json");
     let index_content = fs::read_to_string(&index_path).context("Failed to read INDEX.json")?;
     let index_json: Value =
         serde_json::from_str(&index_content).context("Failed to parse INDEX.json")?;
@@ -606,13 +569,11 @@ fn test_empty_keywords_map() -> Result<()> {
 #[test]
 fn test_chunks_directory_created_docs_not_created() -> Result<()> {
     let ctx = TestContext::new()?;
-    let source_dir = ctx.create_source_dir()?;
-    let output_dir = ctx.create_output_dir()?;
 
-    run_indexing_pipeline(&source_dir, &output_dir)?;
+    run_indexing_pipeline(ctx.root(), &ctx.output_dir())?;
 
-    let chunks_dir = output_dir.join("chunks");
-    let docs_dir = output_dir.join("docs");
+    let chunks_dir = &ctx.output_dir().join("chunks");
+    let docs_dir = &ctx.output_dir().join("docs");
 
     // chunks directory should exist even when empty
     assert!(chunks_dir.exists(), "chunks directory should exist");
