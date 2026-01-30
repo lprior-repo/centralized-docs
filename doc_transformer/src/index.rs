@@ -4,6 +4,7 @@ use crate::chunking_adapter::{Chunk, ChunksResult};
 use crate::graph::{EdgeType, GraphEdge, GraphNode, KnowledgeDAG, NodeType};
 use crate::search;
 use crate::similarity::{build_index_with_params, query_neighbors};
+use crate::types::is_stopword;
 use anyhow::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -53,6 +54,14 @@ pub struct RelatedChunk {
     pub similarity: f32,
 }
 
+/// Intermediate result from document indexing phase
+#[derive(Debug)]
+struct DocumentIndexResult {
+    documents: Vec<IndexDocument>,
+    keywords: HashMap<String, Vec<String>>,
+    document_tags: Vec<(String, Vec<String>, String)>,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn build_and_write_index(
     analyses: &[Analysis],
@@ -64,16 +73,61 @@ pub fn build_and_write_index(
     hnsw_m: Option<usize>,
     hnsw_ef_construction: Option<usize>,
 ) -> Result<()> {
-    let mut documents = Vec::new();
-    let mut chunks_metadata = Vec::new();
-    let mut keywords: HashMap<String, Vec<String>> = HashMap::new();
-    let mut document_chunk_tags: Vec<(String, Vec<String>, String)> = Vec::new();
+    // Phase 1: Build document index and extract metadata
+    let doc_index = build_document_index(analyses, link_map, chunks_result)?;
 
-    // Build document index
+    // Phase 2: Build knowledge graph
+    let dag = build_knowledge_dag(
+        &doc_index.documents,
+        &chunks_result.chunks_metadata,
+        &doc_index.document_tags,
+        max_related_chunks,
+        hnsw_m,
+        hnsw_ef_construction,
+    )?;
+
+    // Phase 3: Build chunk metadata with related chunks from DAG
+    let chunks_metadata = build_chunk_metadata(&chunks_result.chunks_metadata, &dag);
+
+    // Phase 4: Compute graph analytics
+    let analytics = compute_graph_analytics(&dag, &doc_index.documents);
+
+    // Phase 5: Assemble and write index JSON
+    let ctx = IndexAssemblyContext {
+        documents: &doc_index.documents,
+        chunks_metadata: &chunks_metadata,
+        keywords: &doc_index.keywords,
+        dag: &dag,
+        analytics: &analytics,
+        total_chunks: chunks_result.total_chunks,
+        project_name,
+    };
+    let index_json = assemble_index_json(ctx)?;
+    write_index_file(output_dir, &index_json)?;
+
+    // Phase 6: Build Tantivy index (optional, best-effort)
+    build_tantivy_index(output_dir, &doc_index.documents)?;
+
+    Ok(())
+}
+
+/// Build document index from analyses and link mapping.
+///
+/// Extracts documents, keywords, and tags for downstream processing.
+/// This is a pure data transformation with no I/O.
+fn build_document_index(
+    analyses: &[Analysis],
+    link_map: &HashMap<String, IdMapping>,
+    chunks_result: &ChunksResult,
+) -> Result<DocumentIndexResult> {
+    let mut documents = Vec::new();
+    let mut keywords: HashMap<String, Vec<String>> = HashMap::new();
+    let mut document_tags = Vec::new();
+
     for analysis in analyses {
         if let Some(mapping) = link_map.get(&analysis.source_path) {
             let tags = extract_tags(analysis);
-            document_chunk_tags.push((mapping.id.clone(), tags.clone(), analysis.category.clone()));
+            document_tags.push((mapping.id.clone(), tags.clone(), analysis.category.clone()));
 
             // Build keywords from headings
             for heading in &analysis.headings {
@@ -110,64 +164,76 @@ pub fn build_and_write_index(
         }
     }
 
-    // Build knowledge graph (DAG) first so we can use it for related chunks
-    let dag = build_knowledge_dag(
-        &documents,
-        &chunks_result.chunks_metadata,
-        &document_chunk_tags,
-        max_related_chunks,
-        hnsw_m,
-        hnsw_ef_construction,
-    )?;
-    let dag_stats = dag.statistics();
+    Ok(DocumentIndexResult {
+        documents,
+        keywords,
+        document_tags,
+    })
+}
 
-    // Build chunk metadata for semantic navigation (with related chunks from DAG)
-    for chunk in &chunks_result.chunks_metadata {
-        // Get related chunks from the DAG
-        let related = dag.get_related_chunks(&chunk.chunk_id);
-        let related_chunks: Vec<RelatedChunk> = related
-            .into_iter()
-            .take(5) // Limit to top 5 related chunks
-            .map(|(id, similarity)| RelatedChunk {
-                chunk_id: id,
-                similarity,
-            })
-            .collect();
+/// Build chunk metadata enriched with related chunks from the knowledge graph.
+///
+/// This is a pure data transformation - no I/O performed.
+fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Vec<ChunkMetadata> {
+    chunks
+        .iter()
+        .map(|chunk| {
+            // Get related chunks from the DAG
+            let related = dag.get_related_chunks(&chunk.chunk_id);
+            let related_chunks: Vec<RelatedChunk> = related
+                .into_iter()
+                .take(5) // Limit to top 5 related chunks
+                .map(|(id, similarity)| RelatedChunk {
+                    chunk_id: id,
+                    similarity,
+                })
+                .collect();
 
-        chunks_metadata.push(ChunkMetadata {
-            chunk_id: chunk.chunk_id.clone(),
-            doc_id: chunk.doc_id.clone(),
-            doc_title: chunk.doc_title.clone(),
-            heading: chunk.heading.clone(),
-            chunk_type: chunk.chunk_type.clone(),
-            token_count: chunk.token_count,
-            summary: chunk.summary.clone(),
-            previous_chunk_id: chunk.previous_chunk_id.clone(),
-            next_chunk_id: chunk.next_chunk_id.clone(),
-            path: format!(
-                "chunks/{}-{}.md",
-                chunk.chunk_id.replace(['/', '#'], "-"),
-                chunk.chunk_level.as_str()
-            ),
-            related_chunks,
-            chunk_level: chunk.chunk_level.as_str().to_string(),
-            parent_chunk_id: chunk.parent_chunk_id.clone(),
-            child_chunk_ids: chunk.child_chunk_ids.clone(),
-        });
-    }
+            ChunkMetadata {
+                chunk_id: chunk.chunk_id.clone(),
+                doc_id: chunk.doc_id.clone(),
+                doc_title: chunk.doc_title.clone(),
+                heading: chunk.heading.clone(),
+                chunk_type: chunk.chunk_type.clone(),
+                token_count: chunk.token_count,
+                summary: chunk.summary.clone(),
+                previous_chunk_id: chunk.previous_chunk_id.clone(),
+                next_chunk_id: chunk.next_chunk_id.clone(),
+                path: format!(
+                    "chunks/{}-{}.md",
+                    chunk.chunk_id.replace(['/', '#'], "-"),
+                    chunk.chunk_level.as_str()
+                ),
+                related_chunks,
+                chunk_level: chunk.chunk_level.as_str().to_string(),
+                parent_chunk_id: chunk.parent_chunk_id.clone(),
+                child_chunk_ids: chunk.child_chunk_ids.clone(),
+            }
+        })
+        .collect()
+}
 
-    // Compute topological order for traversal
+/// Graph analytics computed from the knowledge DAG.
+#[derive(Debug)]
+struct GraphAnalytics {
+    topo_order: Vec<String>,
+    reachability: HashMap<String, Vec<String>>,
+    node_importance: HashMap<String, f32>,
+}
+
+/// Compute topological order, reachability, and node importance from the DAG.
+///
+/// This is a pure computation - no I/O performed.
+fn compute_graph_analytics(dag: &KnowledgeDAG, documents: &[IndexDocument]) -> GraphAnalytics {
     let topo_order = dag.topological_order();
 
-    // Compute reachability from each document node (transitive closure)
     let mut reachability: HashMap<String, Vec<String>> = HashMap::new();
     let mut node_importance: HashMap<String, f32> = HashMap::new();
-    for doc in &documents {
+
+    for doc in documents {
         let reachable = dag.reachable_from(&doc.id);
-        let mut reachable_list: Vec<String> = reachable
-            .into_iter()
-            .filter(|id| id != &doc.id) // Exclude self
-            .collect();
+        let mut reachable_list: Vec<String> =
+            reachable.into_iter().filter(|id| id != &doc.id).collect();
         reachable_list.sort();
         reachability.insert(doc.id.clone(), reachable_list);
 
@@ -175,18 +241,42 @@ pub fn build_and_write_index(
         node_importance.insert(doc.id.clone(), dag.node_importance(&doc.id));
     }
 
+    GraphAnalytics {
+        topo_order,
+        reachability,
+        node_importance,
+    }
+}
+
+/// Context for index JSON assembly - groups related parameters.
+struct IndexAssemblyContext<'a> {
+    documents: &'a [IndexDocument],
+    chunks_metadata: &'a [ChunkMetadata],
+    keywords: &'a HashMap<String, Vec<String>>,
+    dag: &'a KnowledgeDAG,
+    analytics: &'a GraphAnalytics,
+    total_chunks: usize,
+    project_name: &'a str,
+}
+
+/// Assemble the complete index JSON structure.
+///
+/// This is a pure data transformation - no I/O performed.
+fn assemble_index_json(ctx: IndexAssemblyContext<'_>) -> Result<serde_json::Value> {
+    let dag_stats = ctx.dag.statistics();
     let timestamp = chrono::Utc::now().to_rfc3339();
-    let index = json!({
+
+    Ok(json!({
         "version": "5.0",
-        "project": project_name,
+        "project": ctx.project_name,
         "updated": timestamp,
         "stats": {
-            "doc_count": documents.len(),
-            "chunk_count": chunks_result.total_chunks,
-            "avg_chunk_size_tokens": chunks_result.chunks_metadata.iter()
+            "doc_count": ctx.documents.len(),
+            "chunk_count": ctx.total_chunks,
+            "avg_chunk_size_tokens": ctx.chunks_metadata.iter()
                 .map(|c| c.token_count)
                 .sum::<usize>()
-                .checked_div(chunks_result.total_chunks)
+                .checked_div(ctx.total_chunks)
                 .unwrap_or(0),
             "graph": {
                 "node_count": dag_stats.node_count,
@@ -196,15 +286,15 @@ pub fn build_and_write_index(
                 "reference_edges": dag_stats.reference_edges
             }
         },
-        "documents": documents,
-        "chunks": chunks_metadata,
-        "keywords": keywords,
+        "documents": ctx.documents,
+        "chunks": ctx.chunks_metadata,
+        "keywords": ctx.keywords,
         "graph": {
-            "nodes": dag.nodes(),
-            "edges": dag.edges(),
-            "topological_order": topo_order,
-            "reachability": reachability,
-            "node_importance": node_importance,
+            "nodes": ctx.dag.nodes(),
+            "edges": ctx.dag.edges(),
+            "topological_order": ctx.analytics.topo_order,
+            "reachability": ctx.analytics.reachability,
+            "node_importance": ctx.analytics.node_importance,
             "statistics": dag_stats
         },
         "navigation": {
@@ -215,21 +305,28 @@ pub fn build_and_write_index(
             "similarity_metric": "jaccard_on_tags_and_category",
             "min_similarity_threshold": 0.3
         }
-    });
+    }))
+}
 
+/// Write the index JSON to disk.
+fn write_index_file(output_dir: &Path, index: &serde_json::Value) -> Result<()> {
     let index_file = output_dir.join("INDEX.json");
-    fs::write(index_file, serde_json::to_string_pretty(&index)?)?;
+    fs::write(index_file, serde_json::to_string_pretty(index)?)
+        .map_err(|e| anyhow::anyhow!("Failed to write INDEX.json: {e}"))
+}
 
-    // Build Tantivy index for faster searching
-    // This is optional - if it fails, we can still search via INDEX.json
-    if let Err(e) = search::open_or_create_index(output_dir)
-        .and_then(|index| search::index_documents(&index, documents))
-    {
-        eprintln!("Warning: Failed to build Tantivy index: {e}");
-        eprintln!("Search will fall back to INDEX.json, but will be slower");
-    }
-
-    Ok(())
+/// Build Tantivy full-text search index.
+///
+/// This is a best-effort operation - failure only logs a warning
+/// since search can fall back to INDEX.json.
+fn build_tantivy_index(output_dir: &Path, documents: &[IndexDocument]) -> Result<()> {
+    search::open_or_create_index(output_dir)
+        .and_then(|index| search::index_documents(&index, documents.to_vec()))
+        .map_err(|e| {
+            eprintln!("Warning: Failed to build Tantivy index: {e}");
+            eprintln!("Search will fall back to INDEX.json, but will be slower");
+            anyhow::anyhow!("Tantivy index build failed (non-fatal): {e}")
+        })
 }
 
 pub fn build_and_write_compass(
@@ -298,15 +395,6 @@ fn extract_tags(analysis: &Analysis) -> Vec<String> {
         .dedup()
         .take(5)
         .collect()
-}
-
-/// Stopwords to filter out from tags
-const STOPWORDS: [&str; 10] = [
-    "this", "that", "these", "those", "about", "guide", "the", "and", "or", "for",
-];
-
-fn is_stopword(word: &str) -> bool {
-    STOPWORDS.contains(&word)
 }
 
 /// Generate a simple embedding vector from tags and category.
@@ -707,9 +795,9 @@ mod tests {
             let max_edges = n.saturating_mul(20).saturating_mul(15).saturating_div(10);
 
             assert!(
-                dag.edges_vec.len() < max_edges,
+                dag.edges().len() < max_edges,
                 "Edge count {} exceeds linear bound {} for {} chunks",
-                dag.edges_vec.len(),
+                dag.edges().len(),
                 max_edges,
                 n
             );

@@ -31,6 +31,29 @@ use tantivy::query::QueryParser;
 use tantivy::schema::{Field, Schema, Value, STORED, TEXT};
 use tantivy::Index;
 
+/// BM25 parameter: term frequency saturation.
+///
+/// Controls how quickly the term frequency component saturates.
+/// Higher values reduce the impact of repeated term occurrences.
+///
+/// - Range: 1.2-2.0 is typical
+/// - 1.2 = lower saturation (term frequency continues to contribute)
+/// - 2.0 = higher saturation (diminishing returns kicks in earlier)
+///
+/// See: Robertson & Zaragoza (2009) "The Probabilistic Relevance Framework: BM25 and Beyond"
+const BM25_K1: f32 = 1.2;
+
+/// BM25 parameter: document length normalization.
+///
+/// Controls how much document length affects the score.
+///
+/// - 0.0 = no length normalization (long documents have no penalty)
+/// - 1.0 = full normalization (long documents heavily penalized)
+/// - 0.75 = standard value (balances length and relevance)
+///
+/// See: Robertson & Zaragoza (2009) "The Probabilistic Relevance Framework: BM25 and Beyond"
+const BM25_B: f32 = 0.75;
+
 /// Schema field indices (cached for performance)
 pub struct SchemaFields {
     pub id: Field,
@@ -42,7 +65,7 @@ pub struct SchemaFields {
 }
 
 /// Single search result with score
-#[allow(dead_code)] // Public API for library users
+#[allow(dead_code)] // Exported for library users - not used internally
 #[derive(Debug, Clone)]
 pub struct SearchResult {
     pub id: String,
@@ -210,7 +233,7 @@ pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument
 /// # Returns
 ///
 /// Vector of SearchResult sorted by relevance (highest score first)
-#[allow(dead_code)] // Public API for library users
+#[allow(dead_code)] // Exported for library users - not used internally
 pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<SearchResult>> {
     let (_schema, fields) = create_schema();
 
@@ -297,16 +320,16 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
     Ok(results)
 }
 
-/// Simple BM25 scoring for a single document
+/// Simple BM25 scoring for a single document.
 ///
 /// Used as fallback when Tantivy index is unavailable.
 /// This is the original simplified BM25 implementation.
 ///
 /// ## Parameters
 ///
-/// - k1 = 1.2 (term frequency saturation point)
-/// - b = 0.75 (length normalization)
-/// - IDF = ln(10) per term (simplified, not actual document frequency)
+/// - `BM25_K1`: term frequency saturation point (1.2)
+/// - `BM25_B`: length normalization (0.75)
+/// - IDF: ln(10) per term (simplified, not actual document frequency)
 ///
 /// # Arguments
 ///
@@ -318,10 +341,12 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
 /// # Returns
 ///
 /// BM25 score (higher = more relevant)
-#[allow(dead_code)] // Public API for library users
+///
+/// See: Robertson & Zaragoza (2009) "The Probabilistic Relevance Framework: BM25 and Beyond"
+#[allow(dead_code)] // Exported for library users - not used internally
 pub fn score_document_simple(title: &str, summary: &str, query: &str, word_count: f32) -> f32 {
-    let k1 = 1.2;
-    let b = 0.75;
+    let k1 = BM25_K1;
+    let b = BM25_B;
 
     let document = format!("{title} {summary}");
     let doc_words: Vec<&str> = document.split_whitespace().collect();

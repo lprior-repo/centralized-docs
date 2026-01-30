@@ -1,9 +1,10 @@
 #![allow(clippy::wildcard_enum_match_arm)]
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
+use crate::types::is_stopword;
 use anyhow::Result;
 use itertools::Itertools;
-use pulldown_cmark::{html, CowStr, Event, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{CowStr, Event, Options, Parser, Tag, TagEnd};
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -76,10 +77,10 @@ fn transform_file(
     let filename = &mapping.filename;
 
     // Step 1: Fix heading structure using AST
-    let mut content = fix_headings_ast(&analysis.content);
+    let content = fix_headings_ast(&analysis.content);
 
     // Step 2: Rewrite internal links using AST
-    let broken_links = rewrite_links_ast(&mut content, &analysis.source_path, link_map);
+    let (content, broken_links) = rewrite_links_ast(&content, &analysis.source_path, link_map);
 
     // Log any broken links found
     if !broken_links.is_empty() {
@@ -97,10 +98,10 @@ fn transform_file(
     }
 
     // Step 3: Ensure single H1 using AST
-    ensure_h1_ast(&mut content, &analysis.title);
+    let content = ensure_h1_ast(&content, &analysis.title);
 
     // Step 4: Add context block if missing using AST
-    if !content_has_blockquote_context(&content) {
+    let content = if !content_has_blockquote_context(&content) {
         let context_text = if analysis.first_paragraph.is_empty() {
             analysis.title.clone()
         } else {
@@ -111,13 +112,17 @@ fn transform_file(
                 .take(max_chars)
                 .collect::<String>()
         };
-        inject_context_block_ast(&mut content, &context_text);
-    }
+        inject_context_block_ast(&content, &context_text)
+    } else {
+        content
+    };
 
     // Step 5: Add See Also section if missing using AST
-    if !content_has_see_also(&content) {
-        content.push_str("\n## See Also\n\n- [Documentation Index](./COMPASS.md)\n");
-    }
+    let content = if !content_has_see_also(&content) {
+        format!("{content}\n## See Also\n\n- [Documentation Index](./COMPASS.md)\n")
+    } else {
+        content
+    };
 
     // Generate frontmatter
     let tags = generate_tags(analysis);
@@ -147,49 +152,6 @@ fn parse_markdown(content: &str) -> Vec<Event<'_>> {
     let options = Options::all();
     let parser = Parser::new_ext(content, options);
     parser.collect()
-}
-
-/// Render events back to markdown (via HTML intermediate for safety)
-#[allow(dead_code)] // Utility function for future markdown transformations
-fn render_markdown(events: Vec<Event>) -> String {
-    let mut html = String::new();
-    html::push_html(&mut html, events.into_iter());
-
-    // Basic HTML-to-Markdown fallback for critical elements
-    // In production, you might use html2md crate
-    html.replace("<h1>", "# ")
-        .replace("<h2>", "## ")
-        .replace("<h3>", "### ")
-        .replace("<h4>", "#### ")
-        .replace("<h5>", "##### ")
-        .replace("<h6>", "###### ")
-        .replace("</h1>\n", "\n")
-        .replace("</h2>\n", "\n")
-        .replace("</h3>\n", "\n")
-        .replace("</h4>\n", "\n")
-        .replace("</h5>\n", "\n")
-        .replace("</h6>\n", "\n")
-        .replace("<p>", "")
-        .replace("</p>\n", "\n")
-        .replace("<em>", "*")
-        .replace("</em>", "*")
-        .replace("<strong>", "**")
-        .replace("</strong>", "**")
-        .replace("<code>", "`")
-        .replace("</code>", "`")
-        .replace("<pre><code>", "```\n")
-        .replace("</code></pre>", "\n```")
-        .replace("<blockquote>\n", "> ")
-        .replace("</blockquote>\n", "")
-        .replace("<ul>\n", "")
-        .replace("</ul>\n", "")
-        .replace("<ol>\n", "")
-        .replace("</ol>\n", "")
-        .replace("<li>", "- ")
-        .replace("</li>\n", "\n")
-        .replace("<a href=\"", "[")
-        .replace("\">", "](")
-        .replace("</a>", ")")
 }
 
 /// Fix heading structure: no skipped levels, max level 4 (AST-based)
@@ -292,12 +254,14 @@ fn heading_level_to_usize(level: pulldown_cmark::HeadingLevel) -> usize {
     heading_level_to_u32(level) as usize
 }
 
-/// Rewrite internal links to new filenames (AST-based)
+/// Rewrite internal links to new filenames (AST-based).
+///
+/// Returns the transformed content and a list of broken links.
 fn rewrite_links_ast(
-    content: &mut String,
+    content: &str,
     source_path: &str,
     link_map: &HashMap<String, IdMapping>,
-) -> Vec<String> {
+) -> (String, Vec<String>) {
     let events = parse_markdown(content);
     let source_dir = Path::new(source_path)
         .parent()
@@ -379,12 +343,13 @@ fn rewrite_links_ast(
         }
     }
 
-    *content = events_to_markdown(transformed_events);
-    broken_links
+    (events_to_markdown(transformed_events), broken_links)
 }
 
-/// Ensure document has exactly one H1 heading (AST-based)
-fn ensure_h1_ast(content: &mut String, title: &str) {
+/// Ensure document has exactly one H1 heading (AST-based).
+///
+/// Returns the content with H1 added if missing.
+fn ensure_h1_ast(content: &str, title: &str) -> String {
     let events = parse_markdown(content);
 
     let has_h1 = events.iter().any(|e| {
@@ -412,7 +377,9 @@ fn ensure_h1_ast(content: &mut String, title: &str) {
             Event::SoftBreak,
         ];
         new_events.extend(events);
-        *content = events_to_markdown(new_events);
+        events_to_markdown(new_events)
+    } else {
+        content.to_string()
     }
 }
 
@@ -440,8 +407,10 @@ fn content_has_blockquote_context(content: &str) -> bool {
     false
 }
 
-/// Inject context block after H1 (AST-based)
-fn inject_context_block_ast(content: &mut String, context_text: &str) {
+/// Inject context block after H1 (AST-based).
+///
+/// Returns the content with context block added.
+fn inject_context_block_ast(content: &str, context_text: &str) -> String {
     let events = parse_markdown(content);
     let mut new_events = Vec::new();
     let mut inserted = false;
@@ -473,7 +442,7 @@ fn inject_context_block_ast(content: &mut String, context_text: &str) {
         }
     }
 
-    *content = events_to_markdown(new_events);
+    events_to_markdown(new_events)
 }
 
 /// Check if content already has "## See Also" section (simple text check)
@@ -584,13 +553,6 @@ fn generate_tags(analysis: &Analysis) -> Vec<String> {
         .collect()
 }
 
-fn is_stopword(word: &str) -> bool {
-    matches!(
-        word.to_lowercase().as_str(),
-        "this" | "that" | "these" | "those" | "about" | "guide"
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -630,15 +592,15 @@ mod tests {
 
     #[test]
     fn test_ensure_h1() {
-        let mut content = "No heading here".to_string();
-        ensure_h1_ast(&mut content, "Test Title");
+        let content = "No heading here";
+        let content = ensure_h1_ast(content, "Test Title");
         assert!(content.contains("# Test Title"));
     }
 
     #[test]
     fn test_h1_already_exists() {
-        let mut content = "# Already H1\n\nContent".to_string();
-        ensure_h1_ast(&mut content, "New Title");
+        let content = "# Already H1\n\nContent";
+        let content = ensure_h1_ast(content, "New Title");
         // Should not add another H1
         let h1_count = content.matches("# ").count();
         assert_eq!(h1_count, 1);
@@ -699,8 +661,8 @@ mod tests {
             },
         );
 
-        let mut content = "[Click here](target.md)".to_string();
-        let broken = rewrite_links_ast(&mut content, "/docs/source.md", &link_map);
+        let content = "[Click here](target.md)";
+        let (content, broken) = rewrite_links_ast(content, "/docs/source.md", &link_map);
 
         // Should have no broken links
         assert_eq!(broken.len(), 0);
@@ -714,8 +676,8 @@ mod tests {
         // Test that broken links are properly collected
         let link_map = HashMap::new(); // Empty - all links are broken
 
-        let mut content = "[link1](missing1.md) [link2](missing2.md)".to_string();
-        let broken = rewrite_links_ast(&mut content, "/docs/source.md", &link_map);
+        let content = "[link1](missing1.md) [link2](missing2.md)";
+        let (_content, broken) = rewrite_links_ast(content, "/docs/source.md", &link_map);
 
         // Should have collected broken links
         assert_eq!(broken.len(), 2);
@@ -728,9 +690,8 @@ mod tests {
         // External links should not be modified
         let link_map = HashMap::new();
 
-        let mut content =
-            "[External](https://example.com) [Mailto](mailto:test@example.com)".to_string();
-        let broken = rewrite_links_ast(&mut content, "/docs/source.md", &link_map);
+        let content = "[External](https://example.com) [Mailto](mailto:test@example.com)";
+        let (content, broken) = rewrite_links_ast(content, "/docs/source.md", &link_map);
 
         // No broken links for external links
         assert_eq!(broken.len(), 0);
@@ -744,8 +705,8 @@ mod tests {
         // Anchor links should not be modified
         let link_map = HashMap::new();
 
-        let mut content = "[Section](#some-section)".to_string();
-        let broken = rewrite_links_ast(&mut content, "/docs/source.md", &link_map);
+        let content = "[Section](#some-section)";
+        let (content, broken) = rewrite_links_ast(content, "/docs/source.md", &link_map);
 
         // No broken links for anchors
         assert_eq!(broken.len(), 0);
@@ -767,8 +728,8 @@ mod tests {
             },
         );
 
-        let mut content = "[Link](./target.md)".to_string();
-        let broken = rewrite_links_ast(&mut content, "/docs/source.md", &link_map);
+        let content = "[Link](./target.md)";
+        let (content, broken) = rewrite_links_ast(content, "/docs/source.md", &link_map);
 
         assert_eq!(broken.len(), 0);
         assert!(content.contains("](./target-456.md)"));
@@ -779,8 +740,8 @@ mod tests {
         // Links inside code blocks should not be rewritten or marked as broken
         let link_map = HashMap::new();
 
-        let mut content = "```\n[fake](nonexistent.md)\n```".to_string();
-        let broken = rewrite_links_ast(&mut content, "/docs/source.md", &link_map);
+        let content = "```\n[fake](nonexistent.md)\n```";
+        let (_content, broken) = rewrite_links_ast(content, "/docs/source.md", &link_map);
 
         // No broken links - link was in code block
         assert_eq!(broken.len(), 0);
@@ -791,8 +752,8 @@ mod tests {
         // Test that multiple broken links in one file are all collected
         let link_map = HashMap::new();
 
-        let mut content = "[a](broken1.md) text [b](broken2.md) more [c](broken3.md)".to_string();
-        let broken = rewrite_links_ast(&mut content, "/docs/source.md", &link_map);
+        let content = "[a](broken1.md) text [b](broken2.md) more [c](broken3.md)";
+        let (_content, broken) = rewrite_links_ast(content, "/docs/source.md", &link_map);
 
         assert_eq!(broken.len(), 3);
         assert!(broken.contains(&"broken1.md".to_string()));
@@ -814,8 +775,8 @@ mod tests {
             },
         );
 
-        let mut content = "[Example Doc](example.md)".to_string();
-        rewrite_links_ast(&mut content, "/docs/source.md", &link_map);
+        let content = "[Example Doc](example.md)";
+        let (content, _broken) = rewrite_links_ast(content, "/docs/source.md", &link_map);
 
         // The result should have the correct format
         assert!(content.contains("](./example-789.md)"));

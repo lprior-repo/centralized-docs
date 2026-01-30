@@ -65,12 +65,11 @@ impl std::fmt::Display for EdgeType {
 pub struct KnowledgeDAG {
     graph: DiGraph<GraphNode, GraphEdgeData>,
     node_map: HashMap<String, NodeIndex>,
-    pub nodes_vec: Vec<GraphNode>,
-    pub edges_vec: Vec<GraphEdge>,
+    nodes_vec: Vec<GraphNode>,
+    edges_vec: Vec<GraphEdge>,
 }
 
 /// Edge data for petgraph
-#[allow(dead_code)] // Field needed for graph traversal context
 #[derive(Debug, Clone)]
 struct GraphEdgeData {
     edge_type: EdgeType,
@@ -247,7 +246,6 @@ pub struct GraphStatistics {
 /// let similarity = jaccard_similarity(&tags1, &tags2);
 /// assert!((similarity - 0.333).abs() < 0.01); // 1 common / 3 total
 /// ```
-#[allow(dead_code)] // Public API kept for future use in scoring HNSW candidates
 pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
     if tags1.is_empty() && tags2.is_empty() {
         return 1.0;
@@ -286,7 +284,7 @@ mod tests {
         };
 
         dag.add_node(node1);
-        assert_eq!(dag.nodes_vec.len(), 1);
+        assert_eq!(dag.nodes().len(), 1);
     }
 
     #[test]
@@ -318,7 +316,7 @@ mod tests {
         };
 
         dag.add_edge(edge);
-        assert_eq!(dag.edges_vec.len(), 1);
+        assert_eq!(dag.edges().len(), 1);
     }
 
     #[test]

@@ -1,84 +1,47 @@
+use crate::types::{HnswEfConstruction, HnswM, MaxRelatedChunks};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
 /// Configuration for knowledge graph construction parameters
-#[allow(dead_code)] // Public API for library users
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphConfig {
     /// Maximum number of related chunks to link per document (1-1000)
-    pub max_related_chunks: usize,
+    pub max_related_chunks: MaxRelatedChunks,
     /// HNSW graph connectivity parameter (4-64)
-    pub hnsw_m: usize,
+    pub hnsw_m: HnswM,
     /// HNSW graph construction effort level (50-1000)
-    pub hnsw_ef_construction: usize,
+    pub hnsw_ef_construction: HnswEfConstruction,
 }
 
-#[allow(dead_code)] // Public API for library users
 impl GraphConfig {
     /// Create GraphConfig with default values
     pub fn new() -> Self {
         Self {
-            max_related_chunks: 20,
-            hnsw_m: 16,
-            hnsw_ef_construction: 200,
+            max_related_chunks: MaxRelatedChunks::default(),
+            hnsw_m: HnswM::default(),
+            hnsw_ef_construction: HnswEfConstruction::default(),
         }
     }
 
     /// Load configuration from a YAML file with validation
     pub fn load_from_file(path: &Path) -> Result<Self> {
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        struct GraphConfigRaw {
+            max_related_chunks: usize,
+            hnsw_m: usize,
+            hnsw_ef_construction: usize,
+        }
+
         let content = fs::read_to_string(path)?;
-        let config: GraphConfig = serde_yaml::from_str(&content)?;
-        config.validate()?;
-        Ok(config)
-    }
+        let raw_config: GraphConfigRaw = serde_yaml::from_str(&content)?;
 
-    /// Validate all graph configuration parameters
-    fn validate(&self) -> Result<()> {
-        // Validate max_related_chunks: [1, 1000]
-        if self.max_related_chunks < 1 {
-            anyhow::bail!(
-                "GraphConfig error: max_related_chunks must be at least 1, got {}",
-                self.max_related_chunks
-            );
-        }
-        if self.max_related_chunks > 1000 {
-            anyhow::bail!(
-                "GraphConfig error: max_related_chunks must be at most 1000, got {}",
-                self.max_related_chunks
-            );
-        }
-
-        // Validate hnsw_m: [4, 64]
-        if self.hnsw_m < 4 {
-            anyhow::bail!(
-                "GraphConfig error: hnsw_m must be at least 4 for proper connectivity (too sparse otherwise), got {}",
-                self.hnsw_m
-            );
-        }
-        if self.hnsw_m > 64 {
-            anyhow::bail!(
-                "GraphConfig error: hnsw_m must be at most 64 for reasonable memory/performance, got {}",
-                self.hnsw_m
-            );
-        }
-
-        // Validate hnsw_ef_construction: [50, 1000]
-        if self.hnsw_ef_construction < 50 {
-            anyhow::bail!(
-                "GraphConfig error: hnsw_ef_construction must be at least 50 for acceptable build quality, got {}",
-                self.hnsw_ef_construction
-            );
-        }
-        if self.hnsw_ef_construction > 1000 {
-            anyhow::bail!(
-                "GraphConfig error: hnsw_ef_construction must be at most 1000 for reasonable build times, got {}",
-                self.hnsw_ef_construction
-            );
-        }
-
-        Ok(())
+        Ok(Self {
+            max_related_chunks: MaxRelatedChunks::new(raw_config.max_related_chunks)?,
+            hnsw_m: HnswM::new(raw_config.hnsw_m)?,
+            hnsw_ef_construction: HnswEfConstruction::new(raw_config.hnsw_ef_construction)?,
+        })
     }
 
     /// Create config with custom values (validates them)
@@ -87,13 +50,26 @@ impl GraphConfig {
         hnsw_m: usize,
         hnsw_ef_construction: usize,
     ) -> Result<Self> {
-        let config = Self {
-            max_related_chunks,
-            hnsw_m,
-            hnsw_ef_construction,
-        };
-        config.validate()?;
-        Ok(config)
+        Ok(Self {
+            max_related_chunks: MaxRelatedChunks::new(max_related_chunks)?,
+            hnsw_m: HnswM::new(hnsw_m)?,
+            hnsw_ef_construction: HnswEfConstruction::new(hnsw_ef_construction)?,
+        })
+    }
+
+    /// Get max_related_chunks as usize
+    pub fn get_max_related_chunks(&self) -> usize {
+        self.max_related_chunks.get()
+    }
+
+    /// Get hnsw_m as usize
+    pub fn get_hnsw_m(&self) -> usize {
+        self.hnsw_m.get()
+    }
+
+    /// Get hnsw_ef_construction as usize
+    pub fn get_hnsw_ef_construction(&self) -> usize {
+        self.hnsw_ef_construction.get()
     }
 }
 
@@ -579,17 +555,17 @@ mod graph_config_tests {
     #[test]
     fn test_graph_config_default() {
         let config = GraphConfig::new();
-        assert_eq!(config.max_related_chunks, 20);
-        assert_eq!(config.hnsw_m, 16);
-        assert_eq!(config.hnsw_ef_construction, 200);
+        assert_eq!(config.get_max_related_chunks(), 20);
+        assert_eq!(config.get_hnsw_m(), 16);
+        assert_eq!(config.get_hnsw_ef_construction(), 200);
     }
 
     #[test]
     fn test_graph_config_default_trait() {
         let config = GraphConfig::default();
-        assert_eq!(config.max_related_chunks, 20);
-        assert_eq!(config.hnsw_m, 16);
-        assert_eq!(config.hnsw_ef_construction, 200);
+        assert_eq!(config.get_max_related_chunks(), 20);
+        assert_eq!(config.get_hnsw_m(), 16);
+        assert_eq!(config.get_hnsw_ef_construction(), 200);
     }
 
     #[test]
@@ -604,36 +580,36 @@ hnsw_ef_construction: 300
         fs::write(&config_path, yaml_content)?;
 
         let config = GraphConfig::load_from_file(&config_path)?;
-        assert_eq!(config.max_related_chunks, 25);
-        assert_eq!(config.hnsw_m, 20);
-        assert_eq!(config.hnsw_ef_construction, 300);
+        assert_eq!(config.get_max_related_chunks(), 25);
+        assert_eq!(config.get_hnsw_m(), 20);
+        assert_eq!(config.get_hnsw_ef_construction(), 300);
         Ok(())
     }
 
     #[test]
     fn test_graph_config_with_params_valid() -> anyhow::Result<()> {
         let config = GraphConfig::with_params(50, 32, 400)?;
-        assert_eq!(config.max_related_chunks, 50);
-        assert_eq!(config.hnsw_m, 32);
-        assert_eq!(config.hnsw_ef_construction, 400);
+        assert_eq!(config.get_max_related_chunks(), 50);
+        assert_eq!(config.get_hnsw_m(), 32);
+        assert_eq!(config.get_hnsw_ef_construction(), 400);
         Ok(())
     }
 
     #[test]
     fn test_graph_config_with_params_min_values() -> anyhow::Result<()> {
         let config = GraphConfig::with_params(1, 4, 50)?;
-        assert_eq!(config.max_related_chunks, 1);
-        assert_eq!(config.hnsw_m, 4);
-        assert_eq!(config.hnsw_ef_construction, 50);
+        assert_eq!(config.get_max_related_chunks(), 1);
+        assert_eq!(config.get_hnsw_m(), 4);
+        assert_eq!(config.get_hnsw_ef_construction(), 50);
         Ok(())
     }
 
     #[test]
     fn test_graph_config_with_params_max_values() -> anyhow::Result<()> {
         let config = GraphConfig::with_params(1000, 64, 1000)?;
-        assert_eq!(config.max_related_chunks, 1000);
-        assert_eq!(config.hnsw_m, 64);
-        assert_eq!(config.hnsw_ef_construction, 1000);
+        assert_eq!(config.get_max_related_chunks(), 1000);
+        assert_eq!(config.get_hnsw_m(), 64);
+        assert_eq!(config.get_hnsw_ef_construction(), 1000);
         Ok(())
     }
 
@@ -848,7 +824,8 @@ hnsw_ef_construction: 10000
         // Should report the first validation failure
         if let Err(e) = result {
             let err_msg = e.to_string();
-            assert!(err_msg.contains("GraphConfig error"));
+            // ConfigError provides specific error messages
+            assert!(err_msg.contains("max_related_chunks") || err_msg.contains("too large"));
         }
         Ok(())
     }
@@ -860,7 +837,7 @@ hnsw_ef_construction: 10000
         // Test boundaries near minimum
         for value in 1..=5 {
             let config = GraphConfig::with_params(value, 16, 200)?;
-            assert_eq!(config.max_related_chunks, value);
+            assert_eq!(config.get_max_related_chunks(), value);
         }
         Ok(())
     }
@@ -870,7 +847,7 @@ hnsw_ef_construction: 10000
         // Test boundaries near maximum
         for value in 996..=1000 {
             let config = GraphConfig::with_params(value, 16, 200)?;
-            assert_eq!(config.max_related_chunks, value);
+            assert_eq!(config.get_max_related_chunks(), value);
         }
         Ok(())
     }
@@ -880,7 +857,7 @@ hnsw_ef_construction: 10000
         // Test boundaries near minimum
         for value in 4..=8 {
             let config = GraphConfig::with_params(20, value, 200)?;
-            assert_eq!(config.hnsw_m, value);
+            assert_eq!(config.get_hnsw_m(), value);
         }
         Ok(())
     }
@@ -890,7 +867,7 @@ hnsw_ef_construction: 10000
         // Test boundaries near maximum
         for value in 60..=64 {
             let config = GraphConfig::with_params(20, value, 200)?;
-            assert_eq!(config.hnsw_m, value);
+            assert_eq!(config.get_hnsw_m(), value);
         }
         Ok(())
     }
@@ -900,7 +877,7 @@ hnsw_ef_construction: 10000
         // Test boundaries near minimum
         for value in 50..=55 {
             let config = GraphConfig::with_params(20, 16, value)?;
-            assert_eq!(config.hnsw_ef_construction, value);
+            assert_eq!(config.get_hnsw_ef_construction(), value);
         }
         Ok(())
     }
@@ -910,7 +887,7 @@ hnsw_ef_construction: 10000
         // Test boundaries near maximum
         for value in 995..=1000 {
             let config = GraphConfig::with_params(20, 16, value)?;
-            assert_eq!(config.hnsw_ef_construction, value);
+            assert_eq!(config.get_hnsw_ef_construction(), value);
         }
         Ok(())
     }
@@ -946,18 +923,18 @@ hnsw_ef_construction: 200
     fn test_load_yaml_all_defaults_work() {
         // Verify that defaults can be loaded
         let config = GraphConfig::default();
-        assert!(config.max_related_chunks >= 1 && config.max_related_chunks <= 1000);
-        assert!(config.hnsw_m >= 4 && config.hnsw_m <= 64);
-        assert!(config.hnsw_ef_construction >= 50 && config.hnsw_ef_construction <= 1000);
+        assert!(config.get_max_related_chunks() >= 1 && config.get_max_related_chunks() <= 1000);
+        assert!(config.get_hnsw_m() >= 4 && config.get_hnsw_m() <= 64);
+        assert!(config.get_hnsw_ef_construction() >= 50 && config.get_hnsw_ef_construction() <= 1000);
     }
 
     #[test]
     fn test_clone_preserves_validation() -> anyhow::Result<()> {
         let config = GraphConfig::with_params(100, 32, 500)?;
         let cloned = config.clone();
-        assert_eq!(cloned.max_related_chunks, 100);
-        assert_eq!(cloned.hnsw_m, 32);
-        assert_eq!(cloned.hnsw_ef_construction, 500);
+        assert_eq!(cloned.max_related_chunks.get(), 100);
+        assert_eq!(cloned.hnsw_m.get(), 32);
+        assert_eq!(cloned.hnsw_ef_construction.get(), 500);
         Ok(())
     }
 
@@ -966,10 +943,10 @@ hnsw_ef_construction: 200
         let config = GraphConfig::with_params(50, 24, 350)?;
         let yaml = serde_yaml::to_string(&config)?;
         let deserialized: GraphConfig = serde_yaml::from_str(&yaml)?;
-        assert_eq!(config.max_related_chunks, deserialized.max_related_chunks);
-        assert_eq!(config.hnsw_m, deserialized.hnsw_m);
+        assert_eq!(config.get_max_related_chunks(), deserialized.max_related_chunks);
+        assert_eq!(config.get_hnsw_m(), deserialized.hnsw_m);
         assert_eq!(
-            config.hnsw_ef_construction,
+            config.get_hnsw_ef_construction(),
             deserialized.hnsw_ef_construction
         );
         Ok(())

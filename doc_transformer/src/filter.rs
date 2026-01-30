@@ -9,12 +9,16 @@
 //! while preserving main documentation content. Falls back to density-based pruning
 //! when Readability cannot extract content.
 
+use anyhow::Result;
 use readability::extractor;
 use scraper::{Html, Selector};
 use tap::Pipe;
+use tantivy::collector::TopDocs;
+use tantivy::query::QueryParser;
+use tantivy::schema::{Schema, TEXT};
+use tantivy::Index;
 
 /// Strategy for content filtering (PLAN.md requirement)
-#[allow(dead_code)] // Public API - all variants available for library users
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum FilterStrategy {
     /// Use pruning heuristics (text/link density)
@@ -27,7 +31,6 @@ pub enum FilterStrategy {
 }
 
 /// Configuration for content filtering
-#[allow(dead_code)] // Public API for library users
 #[derive(Debug, Clone)]
 pub struct FilterConfig {
     /// Filtering strategy to use
@@ -76,14 +79,12 @@ impl Default for FilterConfig {
 #[derive(Debug)]
 pub struct FilterResult {
     /// Cleaned HTML content (used in tests and for future filtering enhancements)
-    #[allow(dead_code)]
     pub html: String,
     /// Number of elements removed
     pub removed_count: usize,
     /// Density score of kept content
     pub density_score: f32,
     /// Whether Readability was successfully used (vs fallback to custom pruning)
-    #[allow(dead_code)]
     pub used_readability: bool,
 }
 
@@ -527,22 +528,11 @@ pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
 ///
 /// Creates ONE index for ALL documents (O(1) memory, not O(n)), then scores.
 /// Replaces O(n) index creations with single reusable index.
-/// Used by search fallback path when Tantivy index unavailable.
-#[allow(dead_code)] // Used by main binary, appears unused in lib build
-pub fn bm25_score_documents<'a>(
+pub fn batch_score_documents_bm25<'a>(
     documents: &'a [serde_json::Value],
     query: &str,
     limit: usize,
-) -> Result<Vec<(f32, &'a serde_json::Value)>, anyhow::Error> {
-    use tantivy::collector::TopDocs;
-    use tantivy::query::QueryParser;
-    use tantivy::schema::{Schema, TEXT};
-    use tantivy::Index;
-
-    if documents.is_empty() || query.trim().is_empty() {
-        return Ok(Vec::new());
-    }
-
+) -> Result<Vec<(f32, &'a serde_json::Value)>> {
     // Validate limit (must be > 0 to avoid tantivy panic)
     crate::validate::validate_limit(limit).map_err(|e| anyhow::anyhow!("{e}"))?;
 

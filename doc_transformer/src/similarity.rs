@@ -14,7 +14,7 @@ use hnsw_rs::prelude::DistCosine;
 use thiserror::Error;
 
 /// Errors that can occur during HNSW index operations.
-#[allow(dead_code)] // All error variants available for completeness
+#[allow(dead_code)] // All error variants available for library API completeness
 #[derive(Debug, Error, Clone, PartialEq)]
 pub enum SimilarityError {
     /// Embedding dimensions do not match the index dimension.
@@ -106,7 +106,7 @@ fn validate_dimensions(embeddings: &[Vec<f32>]) -> Result<usize, SimilarityError
 /// - `SimilarityError::DimensionMismatch` if embeddings have inconsistent dimensions
 /// - `SimilarityError::InvalidEmbedding` if any embedding contains `NaN` or Infinity
 /// - `SimilarityError::IndexBuildFailed` if HNSW construction fails
-#[allow(dead_code)]
+#[allow(dead_code)] // Exported for library users - not used internally
 pub fn build_index(embeddings: &[Vec<f32>]) -> Result<HnswIndex, SimilarityError> {
     build_index_with_params(embeddings, None, None)
 }

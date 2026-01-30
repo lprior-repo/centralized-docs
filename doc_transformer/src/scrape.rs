@@ -662,11 +662,9 @@ fn url_to_slug(url: &str) -> Result<String> {
     let path = parsed.path().trim_matches('/');
 
     // Strip common HTML extensions first (before replacing dots)
-    let path = path
-        .strip_suffix(".html")
-        .unwrap_or(path)
-        .strip_suffix(".htm")
-        .unwrap_or(path);
+    // Note: Must use sequential let bindings to avoid variable capture issues in chaining
+    let path = path.strip_suffix(".html").unwrap_or(path);
+    let path = path.strip_suffix(".htm").unwrap_or(path);
 
     // Use path, or empty string if no path
     let raw_slug = path.replace(['/', '.'], "-");
@@ -889,13 +887,13 @@ mod tests {
         let result1 = url_to_slug("https://example.com/docs/getting-started");
         assert!(matches!(result1, Ok(ref s) if s == "docs-getting-started"));
 
+        // HTML extensions should be stripped
         let result2 = url_to_slug("https://example.com/api/v1/users.html");
-        // Debug to understand what's happening
-        if let Ok(ref s) = result2 {
-            eprintln!("DEBUG: Actual slug was: '{s}'");
-        }
-        // For now, accept the actual behavior (we can fix later)
-        assert!(matches!(result2, Ok(ref s) if s == "api-v1-users" || s == "api-v1-users-html"));
+        assert!(matches!(result2, Ok(ref s) if s == "api-v1-users"));
+
+        // HTM extension should also be stripped
+        let result3 = url_to_slug("https://example.com/docs/guide.htm");
+        assert!(matches!(result3, Ok(ref s) if s == "docs-guide"));
     }
 
     #[test]
