@@ -30,7 +30,8 @@ fn score_document_simple(title: &str, summary: &str, query: &str, word_count: f3
         .map(|tf| {
             let idf = (10.0_f32).ln();
             let numerator = tf * (BM25_K1 + 1.0);
-            let denominator = tf + BM25_K1 * (1.0 - BM25_B + BM25_B * (doc_length / avg_doc_length));
+            let denominator =
+                tf + BM25_K1 * (1.0 - BM25_B + BM25_B * (doc_length / avg_doc_length));
             idf * (numerator / denominator.max(0.0001))
         })
         .sum()
@@ -291,7 +292,12 @@ mod unit_tests {
     /// Test that completely unrelated terms return zero.
     #[test]
     fn test_unrelated_terms() {
-        let score = score_document_simple("rust programming", "systems language", "python django", 100.0);
+        let score = score_document_simple(
+            "rust programming",
+            "systems language",
+            "python django",
+            100.0,
+        );
         assert_eq!(score, 0.0, "No matching terms should produce zero score");
     }
 
@@ -300,6 +306,9 @@ mod unit_tests {
     fn test_special_characters() {
         let score = score_document_simple("test", "content", "test!@#$%", 100.0);
         // Function should not panic on special characters
-        assert!(score.is_finite(), "Special characters should not cause non-finite score");
+        assert!(
+            score.is_finite(),
+            "Special characters should not cause non-finite score"
+        );
     }
 }

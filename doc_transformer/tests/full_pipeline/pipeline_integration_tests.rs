@@ -15,7 +15,6 @@
 use crate::common::*;
 use doc_transformer::discover;
 use std::path::{Path, PathBuf};
-use tempfile::TempDir;
 
 // =============================================================================
 // INTEGRATION TEST CONTEXT (extends common fixtures)
@@ -47,7 +46,10 @@ impl IntegrationTestContext {
     /// Discover files in the test directory
     fn discover_files(&self) -> Vec<PathBuf> {
         match discover::discover_files(self.root()) {
-            Ok((files, _)) => files.into_iter().map(|df| PathBuf::from(df.source_path)).collect(),
+            Ok((files, _)) => files
+                .into_iter()
+                .map(|df| PathBuf::from(df.source_path))
+                .collect(),
             Err(e) => {
                 eprintln!("Discovery failed: {e}");
                 vec![]

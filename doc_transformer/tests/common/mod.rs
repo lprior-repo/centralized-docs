@@ -175,9 +175,12 @@ impl TestContext {
             .filter(|e| {
                 let path = e.path();
                 // Exclude common ignore directories
-                !path
-                    .components()
-                    .any(|c| matches!(c.as_os_str().to_str(), Some("node_modules" | ".git" | "target")))
+                !path.components().any(|c| {
+                    matches!(
+                        c.as_os_str().to_str(),
+                        Some("node_modules" | ".git" | "target")
+                    )
+                })
             })
             .filter(|e| {
                 let path = e.path();
@@ -733,11 +736,10 @@ pub fn run_search<P: AsRef<Path>>(
     query: &str,
     limit: usize,
 ) -> Result<Vec<SearchResult>> {
-    let index = search::open_or_create_index(index_dir.as_ref())
-        .context("Failed to open search index")?;
+    let index =
+        search::open_or_create_index(index_dir.as_ref()).context("Failed to open search index")?;
 
-    let raw_results = search::search_index(&index, query, limit)
-        .context("Search query failed")?;
+    let raw_results = search::search_index(&index, query, limit).context("Search query failed")?;
 
     // Convert to our SearchResult wrapper
     let results = raw_results
@@ -801,15 +803,29 @@ pub fn assert_index_valid<P: AsRef<Path>>(index_dir: P, min_documents: usize) ->
     let content = fs::read_to_string(&index_path)
         .with_context(|| format!("Failed to read INDEX.json at: {}", index_path.display()))?;
 
-    let value: Value = serde_json::from_str(&content)
-        .with_context(|| format!("Failed to parse INDEX.json as JSON: {}", index_path.display()))?;
+    let value: Value = serde_json::from_str(&content).with_context(|| {
+        format!(
+            "Failed to parse INDEX.json as JSON: {}",
+            index_path.display()
+        )
+    })?;
 
     // Check required top-level keys
     let obj = value.as_object().ok_or_else(|| {
-        anyhow::anyhow!("INDEX.json is not a JSON object at: {}", index_path.display())
+        anyhow::anyhow!(
+            "INDEX.json is not a JSON object at: {}",
+            index_path.display()
+        )
     })?;
 
-    for key in &["version", "project", "updated", "stats", "documents", "chunks"] {
+    for key in &[
+        "version",
+        "project",
+        "updated",
+        "stats",
+        "documents",
+        "chunks",
+    ] {
         assert!(
             obj.contains_key(*key),
             "INDEX.json missing required key: '{}' at: {}",
@@ -917,7 +933,8 @@ pub fn assert_document_exists<P: AsRef<Path>>(index_dir: P, title: &str) -> Resu
 
     if let Some(docs) = value.get("documents").and_then(|v| v.as_array()) {
         for doc in docs {
-            if doc.get("title")
+            if doc
+                .get("title")
                 .and_then(|t| t.as_str())
                 .map(|t| t == title)
                 .unwrap_or(false)
@@ -952,7 +969,10 @@ pub fn assert_chunks_valid<P: AsRef<Path>>(output_dir: P, min_chunks: usize) -> 
     let entries = fs::read_dir(&chunks_dir)
         .with_context(|| format!("Failed to read chunks directory: {}", chunks_dir.display()))?;
 
-    let count = entries.filter_map(|e| e.ok()).filter(|e| e.path().is_file()).count();
+    let count = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_file())
+        .count();
 
     assert!(
         count >= min_chunks,
@@ -1344,11 +1364,8 @@ mod tests {
     fn test_test_context_create_docs() {
         let ctx = TestContext::new().expect("Failed to create TestContext");
 
-        ctx.create_docs(&[
-            ("README.md", "# Readme"),
-            ("docs/guide.md", "# Guide"),
-        ])
-        .expect("Failed to create docs");
+        ctx.create_docs(&[("README.md", "# Readme"), ("docs/guide.md", "# Guide")])
+            .expect("Failed to create docs");
 
         assert!(ctx.file_exists("README.md"));
         assert!(ctx.file_exists("docs/guide.md"));
@@ -1375,31 +1392,30 @@ mod tests {
         )
         .expect("Failed to create sample docs");
 
-        let result = run_index_simple(ctx.root(), "Test Project")
-            .expect("Failed to run index");
+        let result = run_index_simple(ctx.root(), "Test Project").expect("Failed to run index");
 
         assert_eq!(result.document_count, 2);
         assert!(result.chunk_count > 0);
 
         // Verify index is valid
-        assert_index_valid(&result.output_dir, 2)
-            .expect("Index validation failed");
+        assert_index_valid(&result.output_dir, 2).expect("Index validation failed");
     }
 
     #[test]
     fn test_assert_document_exists() {
         let ctx = TestContext::new().expect("Failed to create TestContext");
 
-        create_single_doc(ctx.root(), "guide.md", SAMPLE_MARKDOWN)
-            .expect("Failed to create doc");
+        create_single_doc(ctx.root(), "guide.md", SAMPLE_MARKDOWN).expect("Failed to create doc");
 
-        run_index_simple(ctx.root(), "Test")
-            .expect("Failed to run index");
+        run_index_simple(ctx.root(), "Test").expect("Failed to run index");
 
         let doc = assert_document_exists(ctx.output_dir(), "Getting Started Guide")
             .expect("Document not found");
 
-        assert_eq!(doc.get("title").unwrap().as_str().unwrap(), "Getting Started Guide");
+        assert_eq!(
+            doc.get("title").unwrap().as_str().unwrap(),
+            "Getting Started Guide"
+        );
     }
 
     #[test]
@@ -1438,10 +1454,8 @@ mod tests {
         ctx.create_doc("test.md", SAMPLE_MARKDOWN)
             .expect("Failed to create doc");
 
-        run_index_simple(ctx.root(), "Test")
-            .expect("Failed to run index");
+        run_index_simple(ctx.root(), "Test").expect("Failed to run index");
 
-        assert_chunks_valid(ctx.output_dir(), 1)
-            .expect("Chunks validation failed");
+        assert_chunks_valid(ctx.output_dir(), 1).expect("Chunks validation failed");
     }
 }

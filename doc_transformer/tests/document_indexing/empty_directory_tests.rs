@@ -23,11 +23,11 @@
 // Use common test fixtures
 use crate::common::*;
 use anyhow::{Context, Result};
-use doc_transformer::{analyze, assign, chunk, discover, index, llms};
 use doc_transformer::llms::LlmsConfig;
+use doc_transformer::{analyze, assign, chunk, discover, index, llms};
 use serde_json::Value;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 // =============================================================================
 // EXTENDED PIPELINE RUNNER (for llms.txt and COMPASS.md generation)
@@ -45,8 +45,12 @@ struct ExtendedIndexResult {
 /// which are tested specifically in this file.
 fn run_indexing_pipeline(source_dir: &Path, output_dir: &Path) -> Result<ExtendedIndexResult> {
     // Create output directory
-    fs::create_dir_all(output_dir)
-        .with_context(|| format!("Failed to create output directory: {}", output_dir.display()))?;
+    fs::create_dir_all(output_dir).with_context(|| {
+        format!(
+            "Failed to create output directory: {}",
+            output_dir.display()
+        )
+    })?;
 
     // Phase 1: DISCOVER
     let (discovered_files, _manifest) =
@@ -54,8 +58,8 @@ fn run_indexing_pipeline(source_dir: &Path, output_dir: &Path) -> Result<Extende
     let discovered_count = discovered_files.len();
 
     // Phase 2: ANALYZE
-    let analyses =
-        analyze::analyze_files(&discovered_files, source_dir, None).context("Analysis phase failed")?;
+    let analyses = analyze::analyze_files(&discovered_files, source_dir, None)
+        .context("Analysis phase failed")?;
 
     // Phase 3: ASSIGN IDs
     let (_analyses_with_ids, link_map) = assign::assign_ids(analyses.clone());
@@ -83,21 +87,15 @@ fn run_indexing_pipeline(source_dir: &Path, output_dir: &Path) -> Result<Extende
         project_description: "Test documentation".to_string(),
         ..Default::default()
     };
-    llms::generate_llms_txt(
-        &analyses,
-        &link_map,
-        &llms_config,
-        output_dir,
-    )
-    .context("Failed to generate llms.txt")?;
+    llms::generate_llms_txt(&analyses, &link_map, &llms_config, output_dir)
+        .context("Failed to generate llms.txt")?;
 
     // Phase 7: Generate COMPASS.md (using llms.txt as source)
     let llms_path = output_dir.join("llms.txt");
     let llms_content = fs::read_to_string(&llms_path)
         .context("Failed to read llms.txt for COMPASS.md generation")?;
     let compass_path = output_dir.join("COMPASS.md");
-    fs::write(&compass_path, llms_content)
-        .context("Failed to write COMPASS.md")?;
+    fs::write(&compass_path, llms_content).context("Failed to write COMPASS.md")?;
 
     let index_path = output_dir.join("INDEX.json");
 
