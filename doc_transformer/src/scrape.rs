@@ -2283,10 +2283,7 @@ fn test_invalid_path_filter_produces_error() {
         }
         Ok(_) => false,
     };
-    assert!(
-        error_msg_matches,
-        "Error message should be descriptive"
-    );
+    assert!(error_msg_matches, "Error message should be descriptive");
 }
 
 /// Test: ScrapeConfig has reasonable defaults for spider-rs integration
@@ -2468,7 +2465,7 @@ async fn spider_rs_whitelist_url_actually_filters_urls() {
     println!(
         "whitelist_url test passed: {count_no_filter} pages without filter, {count_whitelist} pages with filter"
     );
-    println!("Filtered URLs: {:?}", urls);
+    println!("Filtered URLs: {urls:?}");
 }
 
 /// Test: What URL format does whitelist_url match?
@@ -2532,14 +2529,12 @@ async fn spider_rs_whitelist_url_format_full_url_vs_path() {
         .unwrap_or_default();
 
     println!(
-        "Full URL pattern matched {} pages: {:?}",
-        urls_full.len(),
-        urls_full
+        "Full URL pattern matched {} pages: {urls_full:?}",
+        urls_full.len()
     );
     println!(
-        "Path-only pattern matched {} pages: {:?}",
-        urls_path.len(),
-        urls_path
+        "Path-only pattern matched {} pages: {urls_path:?}",
+        urls_path.len()
     );
 
     // DETERMINE which format works:
@@ -2622,14 +2617,8 @@ async fn spider_rs_configure_allowlist_is_required() {
     let pages_with_config = website_with_config.get_pages();
     let count_with_config = pages_with_config.as_ref().map(|p| p.len()).unwrap_or(0);
 
-    println!(
-        "WITHOUT configure_allowlist(): {} pages scraped",
-        count_no_config
-    );
-    println!(
-        "WITH configure_allowlist(): {} pages scraped",
-        count_with_config
-    );
+    println!("WITHOUT configure_allowlist(): {count_no_config} pages scraped");
+    println!("WITH configure_allowlist(): {count_with_config} pages scraped");
 
     // If configure_allowlist() is required:
     // - WITHOUT it: should crawl MORE pages (filtering not active)
@@ -2649,8 +2638,7 @@ async fn spider_rs_configure_allowlist_is_required() {
     if count_no_config > count_with_config {
         println!("CONCLUSION: configure_allowlist() IS REQUIRED for whitelist_url to work");
         println!(
-            "Without it: {} pages (filtering inactive), With it: {} pages (filtering active)",
-            count_no_config, count_with_config
+            "Without it: {count_no_config} pages (filtering inactive), With it: {count_with_config} pages (filtering active)"
         );
     } else if count_with_config > 0 && all_match_pattern {
         println!(
@@ -2773,7 +2761,7 @@ async fn spider_rs_whitelist_regex_format_exploration() {
             pattern, count
         );
         if !urls.is_empty() {
-            println!("                              URLs: {:?}", urls);
+            println!("                              URLs: {urls:?}");
         }
     }
 }
@@ -2806,16 +2794,11 @@ async fn spider_rs_with_limit_single_domain_behavior() {
     let pages = website.get_pages();
     let count = pages.as_ref().map(|p| p.len()).unwrap_or(0);
 
-    println!(
-        "with_limit({limit}) on single domain: scraped {} pages",
-        count
-    );
+    println!("with_limit({limit}) on single domain: scraped {count} pages");
 
     // ASSERT: Should not exceed limit
     assert!(
         count <= limit as usize,
-        "with_limit() should prevent scraping more than {} pages, got {}",
-        limit,
-        count
+        "with_limit() should prevent scraping more than {limit} pages, got {count}"
     );
 }
