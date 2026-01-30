@@ -89,9 +89,9 @@ impl ScenarioContext {
 struct IndexResult {
     document_count: usize,
     chunk_count: usize,
-    summary_chunks: usize,
-    standard_chunks: usize,
-    detailed_chunks: usize,
+    _summary_chunks: usize,
+    _standard_chunks: usize,
+    _detailed_chunks: usize,
 }
 
 /// Run the full indexing pipeline
@@ -135,9 +135,9 @@ fn run_index_pipeline(source_dir: &Path, output_dir: &Path) -> anyhow::Result<In
     Ok(IndexResult {
         document_count: analyses.len(),
         chunk_count: chunks_result.total_chunks,
-        summary_chunks: chunks_result.summary_chunks,
-        standard_chunks: chunks_result.standard_chunks,
-        detailed_chunks: chunks_result.detailed_chunks,
+        _summary_chunks: chunks_result.summary_chunks,
+        _standard_chunks: chunks_result.standard_chunks,
+        _detailed_chunks: chunks_result.detailed_chunks,
     })
 }
 
@@ -302,7 +302,7 @@ Utility functions for common operations.
     let doc_count = index["documents"].as_array().map(|v| v.len()).unwrap_or(0);
 
     assert!(doc_count >= 4, "Index should contain at least 4 documents");
-    println!("  ✓ Index contains {} documents", doc_count);
+    println!("  ✓ Index contains {doc_count} documents");
 
     // Test search works
     let search_results = run_search(&output_dir, "configuration", 10)?;
@@ -430,18 +430,15 @@ Advanced settings for performance tuning.
 
     // Test 3: Empty query should be rejected with helpful error
     println!("\n  Testing empty query rejection...");
-    let empty_result = validate::validate_query("");
-    assert!(
-        matches!(empty_result, Err(validate::ValidationError::EmptyQuery)),
-        "Empty query should be rejected with EmptyQuery error"
-    );
-    let error_msg = empty_result.unwrap_err().to_string();
+    let error_msg = match validate::validate_query("") {
+        Err(e) => e.to_string(),
+        Ok(_) => bail!("Empty query should be rejected with EmptyQuery error"),
+    };
     assert!(
         error_msg.contains("empty") || error_msg.contains("Empty"),
-        "Error message should mention 'empty': {}",
-        error_msg
+        "Error message should mention 'empty': {error_msg}"
     );
-    println!("  ✓ Empty query rejected with: '{}'", error_msg);
+    println!("  ✓ Empty query rejected with: '{error_msg}'");
 
     // Test 4: Case-insensitive search
     let lower_results = run_search(&output_dir, "RUST PROGRAMMING", 10)?;
@@ -588,11 +585,11 @@ fn scenario_scraping_with_content_filtering() -> anyhow::Result<()> {
         "api reference",
         100.0,
     );
-    println!("    Score for 'api reference' query: {:.2}", relevant_score);
+    println!("    Score for 'api reference' query: {relevant_score:.2}");
 
     let irrelevant_score =
         search::score_document_simple("Navigation", "Links and more links", "api reference", 50.0);
-    println!("    Score for navigation page: {:.2}", irrelevant_score);
+    println!("    Score for navigation page: {irrelevant_score:.2}");
 
     assert!(
         relevant_score > irrelevant_score,
@@ -601,15 +598,9 @@ fn scenario_scraping_with_content_filtering() -> anyhow::Result<()> {
     println!("  ✓ BM25 scoring ranks relevant content higher");
 
     let bm25_threshold = 1.0;
-    println!("\n  With BM25 threshold of {:.1}", bm25_threshold);
-    println!(
-        "    - High quality page (score {:.2}) would be KEPT",
-        relevant_score
-    );
-    println!(
-        "    - Low quality page (score {:.2}) would be FILTERED",
-        irrelevant_score
-    );
+    println!("\n  With BM25 threshold of {bm25_threshold:.1}");
+    println!("    - High quality page (score {relevant_score:.2}) would be KEPT");
+    println!("    - Low quality page (score {irrelevant_score:.2}) would be FILTERED");
 
     println!("\n=== SCENARIO 3 PASSED: Content filtering works correctly ===\n");
 
@@ -638,9 +629,9 @@ fn scenario_error_messages_are_helpful() -> anyhow::Result<()> {
     println!("Test 1: Empty query");
     let result = validate_query("");
     match result {
-        Err(ValidationError::EmptyQuery) => {
-            let msg = result.unwrap_err().to_string();
-            println!("  Error: '{}'", msg);
+        Err(ref e) => {
+            let msg = e.to_string();
+            println!("  Error: '{msg}'");
             assert!(
                 msg.contains("empty") || msg.contains("Empty"),
                 "Error should mention 'empty'"
@@ -655,9 +646,9 @@ fn scenario_error_messages_are_helpful() -> anyhow::Result<()> {
     println!("\nTest 2: Whitespace-only query");
     let result = validate_query("   \n\t  ");
     match result {
-        Err(ValidationError::EmptyQuery) => {
-            let msg = result.unwrap_err().to_string();
-            println!("  Error: '{}'", msg);
+        Err(ref e) => {
+            let msg = e.to_string();
+            println!("  Error: '{msg}'");
             println!("  ✓ Correctly identifies whitespace as empty");
         }
         _ => bail!("Should return EmptyQuery for whitespace"),
@@ -668,49 +659,53 @@ fn scenario_error_messages_are_helpful() -> anyhow::Result<()> {
     let long_query = "search ".repeat(300);
     let result = validate_query(&long_query);
     match result {
-        Err(ValidationError::QueryTooLong { length, max }) => {
-            let msg = result.unwrap_err().to_string();
-            println!("  Error: '{}'", msg);
-            println!("  Length: {}, Max: {}", length, max);
-            assert!(
-                msg.contains(&length.to_string()) || msg.contains(&max.to_string()),
-                "Error should include actual and max length"
-            );
-            println!("  ✓ Shows actual ({}) vs expected ({}) length", length, max);
+        Err(ref e) => {
+            let msg = e.to_string();
+            println!("  Error: '{msg}'");
+            if let ValidationError::QueryTooLong { length, max } = e {
+                println!("  Length: {length}, Max: {max}");
+                assert!(
+                    msg.contains(&length.to_string()) || msg.contains(&max.to_string()),
+                    "Error should include actual and max length"
+                );
+                println!("  ✓ Shows actual ({length}) vs expected ({max}) length");
+            }
         }
-        _ => bail!("Should return QueryTooLong error"),
+        Ok(_) => bail!("Should return QueryTooLong error"),
     }
 
     // Test 4: Invalid limit (zero)
     println!("\nTest 4: Invalid limit (zero)");
     let result = validate_limit(0);
     match result {
-        Err(ValidationError::InvalidLimit { limit }) => {
-            let msg = result.unwrap_err().to_string();
-            println!("  Error: '{}'", msg);
-            assert!(
-                msg.contains("0") || msg.contains(&limit.to_string()),
-                "Error should show the invalid value"
-            );
+        Err(ref e) => {
+            let msg = e.to_string();
+            println!("  Error: '{msg}'");
+            if let ValidationError::InvalidLimit { limit } = e {
+                assert!(
+                    msg.contains("0") || msg.contains(&limit.to_string()),
+                    "Error should show the invalid value"
+                );
+            }
             println!("  ✓ Explains the requirement clearly");
         }
-        _ => bail!("Should return InvalidLimit error"),
+        Ok(_) => bail!("Should return InvalidLimit error"),
     }
 
     // Test 5: Regex pattern rejection (security)
     println!("\nTest 5: Regex pattern rejected (security)");
     let result = validate_query("/[a-z]+/");
     match result {
-        Err(ValidationError::RegexNotAllowed) => {
-            let msg = result.unwrap_err().to_string();
-            println!("  Error: '{}'", msg);
+        Err(ref e) => {
+            let msg = e.to_string();
+            println!("  Error: '{msg}'");
             assert!(
                 msg.contains("Regex") || msg.contains("regex") || msg.contains("pattern"),
                 "Error should mention regex/pattern"
             );
             println!("  ✓ Explains why regex was rejected");
         }
-        _ => bail!("Should reject regex patterns"),
+        Ok(_) => bail!("Should reject regex patterns"),
     }
 
     println!("\nTHEN: All error messages are helpful\n");

@@ -652,7 +652,7 @@ Finally, we have a conclusion section that wraps up the document.
     // Verify each chunk file has valid content
     for entry in chunk_files {
         let path = entry.path();
-        if path.extension().map_or(false, |e| e == "md") {
+        if path.extension().is_some_and(|e| e == "md") {
             let content = fs::read_to_string(&path).expect("Failed to read chunk file");
             // Chunk files should have frontmatter
             assert!(

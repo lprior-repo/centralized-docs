@@ -1841,14 +1841,11 @@ mod tests {
         let result = validate_delay("+250");
         // Plus sign might be accepted or rejected depending on parser
         match result {
-            Ok(v) if v == 250 => {
-                // Acceptable - plus sign was handled correctly
+            Ok(v) => {
+                assert_eq!(v, 250, "delay='+250' should parse to 250");
             }
             Err(_) => {
                 // Also acceptable - parser might reject the plus sign
-            }
-            _ => {
-                assert!(false, "delay='+250' should either parse to 250 or error");
             }
         }
     }

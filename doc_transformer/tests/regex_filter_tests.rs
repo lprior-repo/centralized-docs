@@ -60,13 +60,12 @@ fn test_invalid_regex_unmatched_bracket() {
     let (_success, stdout, stderr) =
         run_scrape_with_filter("https://example.com/docs", "[", &temp_dir);
 
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
     assert!(
         combined.contains("Invalid regex")
             || combined.contains("regex pattern")
             || combined.contains("regex"),
-        "Invalid regex '[' should produce clear error. Output: {}",
-        combined
+        "Invalid regex '[' should produce clear error. Output: {combined}"
     );
 }
 
@@ -78,13 +77,12 @@ fn test_invalid_regex_unmatched_parenthesis() {
     let (_success, stdout, stderr) =
         run_scrape_with_filter("https://example.com/docs", "(unclosed", &temp_dir);
 
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
     assert!(
         combined.contains("Invalid regex")
             || combined.contains("regex pattern")
             || combined.contains("regex"),
-        "Invalid regex '(unclosed' should produce clear error. Output: {}",
-        combined
+        "Invalid regex '(unclosed' should produce clear error. Output: {combined}"
     );
 }
 
@@ -96,14 +94,13 @@ fn test_invalid_regex_invalid_escape() {
     let (_success, stdout, stderr) =
         run_scrape_with_filter("https://example.com/docs", "test\\", &temp_dir);
 
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
     assert!(
         combined.contains("Invalid regex")
             || combined.contains("regex pattern")
             || combined.contains("regex")
             || combined.contains("escape"),
-        "Invalid regex 'test\\' should produce clear error. Output: {}",
-        combined
+        "Invalid regex 'test\\' should produce clear error. Output: {combined}"
     );
 }
 
@@ -119,11 +116,10 @@ fn test_valid_regex_wildcard_dot_star() {
     let (_success, stdout, stderr) =
         run_scrape_with_filter("https://example.com/docs", ".*", &temp_dir);
 
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
     assert!(
         !combined.contains("Invalid regex") && !combined.contains("regex pattern"),
-        "Valid regex '.*' should not produce regex error. Output: {}",
-        combined
+        "Valid regex '.*' should not produce regex error. Output: {combined}"
     );
 }
 
@@ -135,11 +131,10 @@ fn test_valid_regex_character_class() {
     let (_success, stdout, stderr) =
         run_scrape_with_filter("https://example.com/docs", "[a-z]+", &temp_dir);
 
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
     assert!(
         !combined.contains("Invalid regex") && !combined.contains("regex pattern"),
-        "Valid regex '[a-z]+' should not produce regex error. Output: {}",
-        combined
+        "Valid regex '[a-z]+' should not produce regex error. Output: {combined}"
     );
 }
 
@@ -151,10 +146,9 @@ fn test_valid_regex_path_filter() {
     let (_success, stdout, stderr) =
         run_scrape_with_filter("https://example.com", "^/docs/", &temp_dir);
 
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
     assert!(
         !combined.contains("Invalid regex") && !combined.contains("regex pattern"),
-        "Valid regex '^/docs/' should not produce regex error. Output: {}",
-        combined
+        "Valid regex '^/docs/' should not produce regex error. Output: {combined}"
     );
 }
