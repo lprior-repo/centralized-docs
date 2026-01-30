@@ -35,9 +35,10 @@
 //! }
 //! ```
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+#![allow(clippy::unwrap_used)] // Test assertions may use unwrap()
+#![allow(clippy::expect_used)] // Test code may use expect()
+#![allow(clippy::uninlined_format_args)] // Test code with clearer format placeholders
 
 use anyhow::{Context, Result};
 use doc_transformer::{analyze, assign, chunk, discover, index, search};
@@ -451,7 +452,7 @@ Dies ist eine Dokumentation mit Umlauten: äöü ÄÖÜ ß.
 /// ctx.create_doc("large.md", &large_doc)?;
 /// ```
 pub fn generate_large_markdown(title: &str, word_count: usize) -> String {
-    let mut content = format!("# {}\n\nThis is a large document for testing.\n\n", title);
+    let mut content = format!("# {title}\n\nThis is a large document for testing.\n\n");
 
     let section_template = "## Section {}\n\nContent for section {} with details.\n\n";
     let paragraph_template = "This is paragraph {} with relevant information. ";

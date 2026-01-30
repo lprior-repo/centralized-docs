@@ -4,6 +4,9 @@
 //! proptest to generate random inputs. This helps catch edge cases that
 //! unit tests might miss.
 
+#![allow(clippy::uninlined_format_args)] // Test code with clearer format placeholders
+#![allow(clippy::useless_format)] // Test code may use format! for clarity
+
 use proptest::prelude::*;
 
 fn score_document_simple(title: &str, summary: &str, query: &str, word_count: f32) -> f32 {

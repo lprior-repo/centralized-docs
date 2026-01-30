@@ -19,6 +19,7 @@
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+#![allow(clippy::needless_borrows_for_generic_args)] // PathBuf AsRef<Path]
 
 // Use common test fixtures
 use crate::common::*;
