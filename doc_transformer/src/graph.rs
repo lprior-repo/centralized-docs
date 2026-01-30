@@ -72,6 +72,7 @@ pub struct KnowledgeDAG {
 /// Edge data for petgraph
 #[derive(Debug, Clone)]
 struct GraphEdgeData {
+    #[allow(dead_code)] // Stored for graph structure, not currently accessed
     edge_type: EdgeType,
     weight: f32,
 }

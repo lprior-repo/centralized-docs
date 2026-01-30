@@ -12,14 +12,15 @@
 use anyhow::Result;
 use readability::extractor;
 use scraper::{Html, Selector};
-use tap::Pipe;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::{Schema, TEXT};
 use tantivy::Index;
+use tap::Pipe;
 
 /// Strategy for content filtering (PLAN.md requirement)
 #[derive(Debug, Clone, PartialEq, Default)]
+#[allow(dead_code)] // Public API - exported for library users, not used internally
 pub enum FilterStrategy {
     /// Use pruning heuristics (text/link density)
     #[default]
@@ -34,6 +35,7 @@ pub enum FilterStrategy {
 #[derive(Debug, Clone)]
 pub struct FilterConfig {
     /// Filtering strategy to use
+    #[allow(dead_code)] // Public API - part of exported interface
     pub strategy: FilterStrategy,
     /// Minimum text density threshold (0.0 - 1.0)
     pub density_threshold: f32,
@@ -77,14 +79,17 @@ impl Default for FilterConfig {
 
 /// Result of content filtering
 #[derive(Debug)]
+#[allow(dead_code)] // Public API - exported for library users, not used internally
 pub struct FilterResult {
     /// Cleaned HTML content (used in tests and for future filtering enhancements)
+    #[allow(dead_code)] // Public API field
     pub html: String,
     /// Number of elements removed
     pub removed_count: usize,
     /// Density score of kept content
     pub density_score: f32,
     /// Whether Readability was successfully used (vs fallback to custom pruning)
+    #[allow(dead_code)] // Public API field
     pub used_readability: bool,
 }
 
@@ -528,6 +533,7 @@ pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
 ///
 /// Creates ONE index for ALL documents (O(1) memory, not O(n)), then scores.
 /// Replaces O(n) index creations with single reusable index.
+#[allow(dead_code)] // Exported for library users - not used internally
 pub fn batch_score_documents_bm25<'a>(
     documents: &'a [serde_json::Value],
     query: &str,
