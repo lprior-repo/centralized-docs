@@ -6,6 +6,7 @@ use itertools::Itertools;
 use pulldown_cmark::{html, CowStr, Event, Options, Parser, Tag, TagEnd};
 use std::collections::HashMap;
 use std::fs;
+use std::io;
 use std::path::Path;
 
 pub struct TransformResult {
@@ -14,13 +15,34 @@ pub struct TransformResult {
     pub error_count: usize,
 }
 
+/// Create directory with improved error context for permission issues
+fn create_dir_with_context(path: &Path, context: &str) -> Result<()> {
+    fs::create_dir_all(path).map_err(|e| {
+        if e.kind() == io::ErrorKind::PermissionDenied {
+            anyhow::anyhow!(
+                "Permission denied: cannot create {} directory '{}'\n  \
+                 Hint: Check directory permissions or run with appropriate access",
+                context,
+                path.display()
+            )
+        } else {
+            anyhow::anyhow!(
+                "Failed to create {} directory '{}': {}",
+                context,
+                path.display(),
+                e
+            )
+        }
+    })
+}
+
 pub fn transform_all(
     analyses: &[Analysis],
     link_map: &HashMap<String, IdMapping>,
     output_dir: &Path,
 ) -> Result<TransformResult> {
     let docs_dir = output_dir.join("docs");
-    fs::create_dir_all(&docs_dir)?;
+    create_dir_with_context(&docs_dir, "docs")?;
 
     let mut success_count: usize = 0;
     let mut error_count: usize = 0;

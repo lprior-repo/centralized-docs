@@ -288,13 +288,13 @@ async fn scrape_site_internal(config: &ScrapeConfig) -> Result<ScrapeResult> {
         website.scrape().await;
     }
 
-    // Compile path filter regex if provided
-    let path_regex = config
-        .path_filter
-        .as_ref()
-        .map(|p| Regex::new(p))
-        .transpose()
-        .context("Invalid path filter regex")?;
+    // Compile path filter regex if provided, with user-friendly error message
+    let path_regex = match &config.path_filter {
+        Some(pattern) => Regex::new(pattern)
+            .map_err(|e| anyhow::anyhow!("Invalid regex pattern '{pattern}': {e}"))?
+            .into(),
+        None => None,
+    };
 
     // Process results sequentially with size limit tracking
     let mut pages = Vec::new();
@@ -427,7 +427,7 @@ fn transform_page(
         prune_html(&raw_html, &filter_config)
     } else {
         FilterResult {
-            html: raw_html.clone(),
+            html: raw_html,
             removed_count: 0,
             density_score: 1.0,
             used_readability: false,

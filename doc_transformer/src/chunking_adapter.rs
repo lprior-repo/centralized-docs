@@ -11,7 +11,29 @@ use contextual_chunker::{self, Document};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
+use std::io;
 use std::path::Path;
+
+/// Create directory with improved error context for permission issues
+fn create_dir_with_context(path: &Path, context: &str) -> Result<()> {
+    fs::create_dir_all(path).map_err(|e| {
+        if e.kind() == io::ErrorKind::PermissionDenied {
+            anyhow::anyhow!(
+                "Permission denied: cannot create {} directory '{}'\n  \
+                 Hint: Check directory permissions or run with appropriate access",
+                context,
+                path.display()
+            )
+        } else {
+            anyhow::anyhow!(
+                "Failed to create {} directory '{}': {}",
+                context,
+                path.display(),
+                e
+            )
+        }
+    })
+}
 
 /// Extended chunk type for doc_transformer with knowledge graph relationships
 ///
@@ -126,7 +148,7 @@ pub fn chunk_all(
 ) -> Result<ChunksResult> {
     // Create chunks directory
     let chunks_dir = output_dir.join("chunks");
-    fs::create_dir_all(&chunks_dir)?;
+    create_dir_with_context(&chunks_dir, "chunks")?;
 
     // Convert analyses to documents
     let documents: Vec<Document> = analyses

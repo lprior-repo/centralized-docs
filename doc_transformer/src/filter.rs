@@ -543,6 +543,9 @@ pub fn bm25_score_documents<'a>(
         return Ok(Vec::new());
     }
 
+    // Validate limit (must be > 0 to avoid tantivy panic)
+    crate::validate::validate_limit(limit).map_err(|e| anyhow::anyhow!("{e}"))?;
+
     let (schema, content_field) = {
         let mut schema_builder = Schema::builder();
         let field = schema_builder.add_text_field("content", TEXT);

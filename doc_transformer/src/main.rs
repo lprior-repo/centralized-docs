@@ -205,6 +205,34 @@ fn validate_delay(s: &str) -> Result<u64, String> {
         .map_err(|_| format!("delay value too large: {value}"))
 }
 
+/// Validate result limit for search command.
+/// Negative limits are meaningless and indicate user error.
+/// Upper bound prevents impractically large result sets.
+fn validate_limit(s: &str) -> Result<usize, String> {
+    // Try parsing as i64 first to catch negative values
+    let value = s
+        .parse::<i64>()
+        .map_err(|_| format!("limit must be a positive integer, got '{s}'"))?;
+
+    if value < 0 {
+        return Err(format!(
+            "limit must be positive (cannot return negative results), got {value}"
+        ));
+    }
+
+    if value == 0 {
+        return Err("limit must be at least 1 (use --limit 1 or higher)".to_string());
+    }
+
+    if value > 1000 {
+        return Err(format!("limit must be at most 1000 results, got {value}"));
+    }
+
+    value
+        .try_into()
+        .map_err(|_| format!("limit value too large: {value}"))
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "doc_transformer")]
 #[command(version = "5.0")]
@@ -246,12 +274,18 @@ enum Commands {
         #[arg(value_name = "QUERY")]
         query: String,
 
-        /// Directory containing INDEX.json
-        #[arg(short, long, value_name = "DIR", default_value = ".")]
+        /// Directory containing INDEX.json (required)
+        #[arg(short, long, value_name = "DIR")]
         index_dir: PathBuf,
 
         /// Maximum number of results to return
-        #[arg(short = 'n', long, default_value = "10")]
+        #[arg(
+            short = 'n',
+            long,
+            default_value = "10",
+            value_parser = validate_limit,
+            allow_hyphen_values = true
+        )]
         limit: usize,
 
         /// Disable colored output
@@ -490,13 +524,6 @@ async fn main() -> Result<()> {
             println!("[DISCOVER] Found {} markdown files", markdown_files.len());
             println!();
 
-            if markdown_files.is_empty() {
-                anyhow::bail!(
-                    "No markdown files found in cloned repository. \
-                    Please verify that repository contains documentation."
-                );
-            }
-
             let index_config = IndexConfig {
                 generate_llms: true,
                 project_name: project_name.as_ref().cloned().unwrap_or_else(|| {
@@ -699,6 +726,9 @@ fn validate_output_path(path: &Path) -> Result<()> {
                 path.display()
             );
         }
+
+        // Check write permission on existing directory
+        check_write_permission(path)?;
     } else {
         let parent = path
             .parent()
@@ -711,9 +741,44 @@ fn validate_output_path(path: &Path) -> Result<()> {
         if !parent.is_dir() {
             anyhow::bail!("Parent path is not a directory: {}", parent.display());
         }
+
+        // Check write permission on parent directory (where we'll create the new dir)
+        check_write_permission(parent)?;
     }
 
     Ok(())
+}
+
+/// Check if we have write permission to a directory
+/// Attempts to create a temporary file to verify write access
+fn check_write_permission(dir: &Path) -> Result<()> {
+    // Try to create a temporary file to verify write access
+    // Using .permission_check.tmp as a unique name unlikely to conflict
+    let test_file = dir.join(".permission_check.tmp");
+
+    match std::fs::write(&test_file, b"") {
+        Ok(_) => {
+            // Clean up the test file
+            let _ = std::fs::remove_file(&test_file);
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            anyhow::bail!(
+                "Permission denied: cannot write to output directory '{}'\n  \
+                 Hint: Check directory permissions or run with appropriate access",
+                dir.display()
+            );
+        }
+        Err(e) => {
+            // Other errors (e.g., read-only filesystem) - still report but with context
+            anyhow::bail!(
+                "Cannot write to output directory '{}': {}\n  \
+                 Hint: Check if the directory exists and you have write access",
+                dir.display(),
+                e
+            );
+        }
+    }
 }
 
 /// Run the index command (main pipeline)
@@ -746,14 +811,6 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     println!("[STEP 1] DISCOVER");
     let (files, discover_manifest) = discover::discover_files(source)?;
     println!("  Found {} files\n", files.len());
-
-    // Validate non-empty: must have at least one file to index
-    if files.is_empty() {
-        anyhow::bail!(
-            "No markdown files found in {}. Please check the path or add .md files.",
-            source.display()
-        );
-    }
 
     // STEP 2: ANALYZE
     // Use manifest.source_dir for analysis (handles both directory and single file cases)
@@ -927,7 +984,7 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
     // Use the scrape directory as source for indexing
     let index_config = IndexConfig {
         generate_llms: true,
-        project_name: name.clone(),
+        project_name: name,
         project_desc: format!("Documentation scraped from {url}"),
         ..Default::default()
     };
@@ -947,6 +1004,9 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
 
     // Validate query using centralized validation
     let query = validate::validate_query(query).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    // Validate limit (must be > 0 to avoid tantivy panic)
+    let limit = validate::validate_limit(limit).map_err(|e| anyhow::anyhow!("{e}"))?;
 
     // Validate word count (additional constraint beyond basic validation)
     let word_count = query.split_whitespace().count();
@@ -1443,6 +1503,96 @@ mod tests {
         let err_msg = result.as_ref().map_err(|e| e.to_string());
         if let Err(msg) = err_msg {
             assert!(msg.contains("must be an integer"));
+        }
+    }
+
+    // Limit validation tests
+
+    #[test]
+    fn test_validate_limit_one() {
+        // Minimum valid limit
+        let result = validate_limit("1");
+        assert!(result.is_ok());
+        assert_eq!(result.map(|v| v.to_string()).unwrap_or_default(), "1");
+    }
+
+    #[test]
+    fn test_validate_limit_positive() {
+        // Valid positive limit
+        let result = validate_limit("10");
+        assert!(result.is_ok());
+        assert_eq!(result.map(|v| v.to_string()).unwrap_or_default(), "10");
+    }
+
+    #[test]
+    fn test_validate_limit_default_value() {
+        // Default value 10 should pass
+        let result = validate_limit("10");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_limit_at_upper_bound() {
+        // Maximum valid limit
+        let result = validate_limit("1000");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_limit_negative_one_rejected() {
+        // Negative limit -1 should fail with clear message
+        let result = validate_limit("-1");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("positive"));
+            assert!(msg.contains("negative"));
+        }
+    }
+
+    #[test]
+    fn test_validate_limit_zero_rejected() {
+        // Zero limit should fail
+        let result = validate_limit("0");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("at least 1"));
+        }
+    }
+
+    #[test]
+    fn test_validate_limit_exceeds_upper_bound() {
+        // Limit above 1000 should fail
+        let result = validate_limit("1001");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("1000"));
+            assert!(msg.contains("1001"));
+        }
+    }
+
+    #[test]
+    fn test_validate_limit_very_negative_rejected() {
+        // Very negative value should fail
+        let result = validate_limit("-999");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("positive"));
+            assert!(msg.contains("negative"));
+        }
+    }
+
+    #[test]
+    fn test_validate_limit_invalid_string() {
+        // Non-numeric input should fail
+        let result = validate_limit("invalid");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(msg.contains("positive integer"));
         }
     }
 }

@@ -145,7 +145,7 @@ fn discover_single_file(
             .len();
 
         files.push(DiscoveryFile {
-            source_path: filename.clone(),
+            source_path: filename,
             size_bytes: size,
         });
     }

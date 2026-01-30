@@ -35,6 +35,9 @@ pub enum ValidationError {
 
     #[error("Regex queries not allowed (potential ReDoS attack)")]
     RegexNotAllowed,
+
+    #[error("Limit must be greater than 0, got {limit}")]
+    InvalidLimit { limit: usize },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -215,6 +218,14 @@ pub fn validate_query(query: &str) -> Result<&str, ValidationError> {
     }
 
     Ok(trimmed)
+}
+
+/// Validate a limit value (must be greater than 0)
+pub fn validate_limit(limit: usize) -> Result<usize, ValidationError> {
+    if limit == 0 {
+        return Err(ValidationError::InvalidLimit { limit });
+    }
+    Ok(limit)
 }
 
 fn contains_regex_pattern(query: &str) -> bool {
@@ -484,5 +495,43 @@ mod tests {
         assert!(result.is_err());
         let err_msg = result.as_ref().map_err(|e| e.to_string());
         assert!(matches!(err_msg, Err(ref msg) if msg.contains("Regex")));
+    }
+
+    // ============================================================================
+    // Limit validation tests
+    // ============================================================================
+
+    #[test]
+    fn test_validate_limit_zero() {
+        let result = validate_limit(0);
+        assert!(matches!(
+            result,
+            Err(ValidationError::InvalidLimit { limit: 0 })
+        ));
+    }
+
+    #[test]
+    fn test_validate_limit_one() {
+        assert_eq!(validate_limit(1), Ok(1));
+    }
+
+    #[test]
+    fn test_validate_limit_normal() {
+        assert_eq!(validate_limit(10), Ok(10));
+        assert_eq!(validate_limit(100), Ok(100));
+        assert_eq!(validate_limit(1000), Ok(1000));
+    }
+
+    #[test]
+    fn test_validate_limit_large_value() {
+        assert_eq!(validate_limit(usize::MAX), Ok(usize::MAX));
+    }
+
+    #[test]
+    fn test_validate_limit_error_message() {
+        let result = validate_limit(0);
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        assert!(matches!(err_msg, Err(ref msg) if msg.contains("Limit must be greater than 0")));
     }
 }
