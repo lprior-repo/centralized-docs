@@ -286,7 +286,7 @@ enum Commands {
         query: Option<String>,
 
         /// Minimum BM25 score to keep a page (default: 0.1, range: 0.0-10.0)
-        #[arg(long, default_value = "0.1", value_parser = validate_threshold)]
+        #[arg(long, default_value = "0.1", value_parser = validate_threshold, allow_hyphen_values = true)]
         threshold: f32,
     },
 
@@ -375,7 +375,7 @@ enum Commands {
         query: Option<String>,
 
         /// Minimum BM25 score to keep a page (default: 0.1, range: 0.0-10.0)
-        #[arg(long, default_value = "0.1", value_parser = validate_threshold)]
+        #[arg(long, default_value = "0.1", value_parser = validate_threshold, allow_hyphen_values = true)]
         threshold: f32,
 
         /// Project name for llms.txt header
@@ -744,7 +744,7 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
 
     // STEP 1: DISCOVER
     println!("[STEP 1] DISCOVER");
-    let (files, _discover_manifest) = discover::discover_files(source)?;
+    let (files, discover_manifest) = discover::discover_files(source)?;
     println!("  Found {} files\n", files.len());
 
     // Validate non-empty: must have at least one file to index
@@ -756,8 +756,14 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     }
 
     // STEP 2: ANALYZE
+    // Use manifest.source_dir for analysis (handles both directory and single file cases)
+    let analysis_base_path = PathBuf::from(&discover_manifest.source_dir);
     println!("[STEP 2] ANALYZE");
-    let analyses = analyze::analyze_files(&files, source, config.category_config.as_deref())?;
+    let analyses = analyze::analyze_files(
+        &files,
+        &analysis_base_path,
+        config.category_config.as_deref(),
+    )?;
     let categories = analyze::count_categories(&analyses);
     println!("  Processed {} files", analyses.len());
     println!(

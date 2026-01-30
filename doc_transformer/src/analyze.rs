@@ -39,6 +39,10 @@ pub struct Analysis {
 }
 
 /// Analyze files using functional composition with filter_map
+///
+/// Returns an error if files were discovered but none could be analyzed.
+/// This prevents silent failures where I/O errors or encoding issues
+/// cause the pipeline to proceed with 0 documents.
 pub fn analyze_files(
     files: &[DiscoveryFile],
     source_dir: &Path,
@@ -51,7 +55,9 @@ pub fn analyze_files(
         None
     };
 
-    files
+    let input_count = files.len();
+
+    let analyses: Vec<_> = files
         .iter()
         .filter_map(|file| {
             let file_path = source_dir.join(&file.source_path);
@@ -59,8 +65,19 @@ pub fn analyze_files(
                 .map_err(|e| eprintln!("ANALYZE ERROR: {}: {}", file.source_path, e))
                 .ok()
         })
-        .collect::<Vec<_>>()
-        .pipe(Ok)
+        .collect();
+
+    // If we had input files but produced no analyses, all files failed.
+    // This is a critical error - we should not proceed with 0 documents.
+    if input_count > 0 && analyses.is_empty() {
+        anyhow::bail!(
+            "Failed to analyze any of the {input_count} discovered file(s). \
+            Check file permissions, encoding (files must be valid UTF-8), \
+            and that files are not corrupted."
+        );
+    }
+
+    Ok(analyses)
 }
 
 fn analyze_single_file(

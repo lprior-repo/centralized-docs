@@ -19,14 +19,7 @@ pub struct DiscoverManifest {
 
 pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, DiscoverManifest)> {
     if !source_dir.exists() {
-        anyhow::bail!("Source directory not found: {}", source_dir.display());
-    }
-
-    if !source_dir.is_dir() {
-        anyhow::bail!(
-            "Source must be a directory, not a file: {}",
-            source_dir.display()
-        );
+        anyhow::bail!("Source not found: {}", source_dir.display());
     }
 
     let canonical_path = source_dir.canonicalize().context(format!(
@@ -38,6 +31,12 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     let extensions = [".md", ".mdx", ".rst", ".txt"];
     let exclude_dirs = ["node_modules", ".git", "_build", "dist", "vendor"];
 
+    // Handle single file case directly
+    if canonical_path.is_file() {
+        return discover_single_file(&canonical_path, &extensions);
+    }
+
+    // Directory case: walk the directory tree
     for entry in WalkDir::new(&canonical_path).into_iter() {
         let entry = match entry {
             Ok(e) => e,
@@ -105,6 +104,68 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     Ok((files, manifest))
 }
 
+/// Discover a single file (alternative to directory-based discovery)
+///
+/// Design by Contract:
+/// - **Preconditions:**
+///   - file_path exists and is a file
+///   - extensions is a non-empty slice of supported extensions
+/// - **Postconditions:**
+///   - Returns Ok with (files, manifest)
+///   - If file has supported extension: files contains one DiscoveryFile
+///   - If file has unsupported extension: files is empty
+///   - manifest.source_dir is the parent directory
+/// - **Errors:**
+///   - Returns error if metadata cannot be read
+fn discover_single_file(
+    file_path: &Path,
+    extensions: &[&str],
+) -> Result<(Vec<DiscoveryFile>, DiscoverManifest)> {
+    let filename = match file_path.file_name() {
+        Some(name) => name.to_string_lossy().to_string(),
+        None => anyhow::bail!("Invalid file path: {}", file_path.display()),
+    };
+
+    // Check if the file has a supported extension
+    let has_supported_ext = file_path.extension().is_some_and(|ext| {
+        let ext_str = format!(".{}", ext.to_string_lossy());
+        extensions.contains(&ext_str.as_str())
+    });
+
+    let mut files = Vec::new();
+
+    if has_supported_ext {
+        // Get file size using functional error handling
+        let size = file_path
+            .metadata()
+            .context(format!(
+                "Failed to read metadata for {}",
+                file_path.display()
+            ))?
+            .len();
+
+        files.push(DiscoveryFile {
+            source_path: filename.clone(),
+            size_bytes: size,
+        });
+    }
+
+    // Use parent directory as source_dir for manifest
+    let source_dir = file_path
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| ".".to_string());
+
+    let manifest = DiscoverManifest {
+        source_dir,
+        discovered_at: chrono::Utc::now().to_rfc3339(),
+        total_files: files.len(),
+        files: files.clone(),
+    };
+
+    Ok((files, manifest))
+}
+
 #[cfg(test)]
 #[allow(clippy::panic)]
 mod tests {
@@ -112,6 +173,7 @@ mod tests {
     use std::fs::{self, File};
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
+    use std::path::PathBuf;
     use tempfile::TempDir;
 
     /// Test that files with permission errors are skipped gracefully
@@ -311,6 +373,106 @@ mod tests {
             2,
             "Should discover files in nested directories"
         );
+    }
+
+    /// Test that a single markdown file can be indexed directly
+    /// This was P1 bug doc-tx-xpm: discover_files rejected single files
+    #[test]
+    fn test_discover_single_file() {
+        let temp_dir = match TempDir::new() {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
+        let dir_path = temp_dir.path();
+
+        // Create a single markdown file
+        let single_file = dir_path.join("single.md");
+        let mut f = match File::create(&single_file) {
+            Ok(f) => f,
+            Err(e) => panic!("Failed to create single file: {e}"),
+        };
+        match f.write_all(b"# Single Document\n\nThis is a single file to index.") {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to write single file: {e}"),
+        }
+
+        // Test: discover_files should accept a single file path
+        let result = discover_files(&single_file);
+        assert!(
+            result.is_ok(),
+            "discover_files should accept single file, got: {:?}",
+            result.as_ref().map_err(|e| e.to_string())
+        );
+
+        let (files, manifest) = match result {
+            Ok(v) => v,
+            Err(e) => panic!("discover_files failed for single file: {e}"),
+        };
+
+        // Should discover exactly one file
+        assert_eq!(files.len(), 1, "Should discover exactly 1 file");
+        assert_eq!(manifest.total_files, 1, "Manifest should show 1 file");
+
+        // The discovered file should be the single file itself
+        let expected_name = single_file
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        assert_eq!(files[0].source_path, expected_name);
+    }
+
+    /// Test that single file discovery rejects unsupported file types
+    #[test]
+    fn test_discover_single_file_unsupported_type() {
+        let temp_dir = match TempDir::new() {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
+        let dir_path = temp_dir.path();
+
+        // Create a single file with unsupported extension
+        let unsupported_file = dir_path.join("data.json");
+        match File::create(&unsupported_file) {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to create unsupported file: {e}"),
+        }
+
+        // Should succeed but find no files (unsupported type)
+        let result = discover_files(&unsupported_file);
+        assert!(
+            result.is_ok(),
+            "discover_files should succeed even with unsupported file type"
+        );
+
+        let (files, _manifest) = match result {
+            Ok(v) => v,
+            Err(e) => panic!("discover_files failed: {e}"),
+        };
+
+        assert_eq!(
+            files.len(),
+            0,
+            "Should discover 0 files for unsupported type"
+        );
+    }
+
+    /// Test that single file discovery handles non-existent file
+    #[test]
+    fn test_discover_single_file_not_found() {
+        let nonexistent = PathBuf::from("/nonexistent/path/file.md");
+        let result = discover_files(&nonexistent);
+
+        assert!(
+            result.is_err(),
+            "discover_files should error for non-existent file"
+        );
+        let err_msg = result.map_err(|e| e.to_string());
+        if let Err(msg) = err_msg {
+            assert!(
+                msg.contains("not found"),
+                "Error should mention 'not found'"
+            );
+        }
     }
 
     /// Test that excluded directories are skipped
