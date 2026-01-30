@@ -217,6 +217,9 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
     // Validate query using centralized validation
     let query_str = crate::validate::validate_query(query_str).map_err(|e| anyhow!("{e}"))?;
 
+    // Validate limit to prevent Tantivy panic (must be > 0)
+    let limit = crate::validate::validate_limit(limit).map_err(|e| anyhow!("{e}"))?;
+
     // Get reader for searching
     let reader = index.reader()?;
     let searcher = reader.searcher();
