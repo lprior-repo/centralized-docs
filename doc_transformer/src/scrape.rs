@@ -2119,11 +2119,11 @@ fn test_url_normalization_converts_trailing_slash() {
     let parsed_without_result = url::Url::parse(url_without_slash);
 
     assert!(
-        matches!(parsed_with_result, Ok(_)),
+        parsed_with_result.is_ok(),
         "URL with slash should be valid"
     );
     assert!(
-        matches!(parsed_without_result, Ok(_)),
+        parsed_without_result.is_ok(),
         "URL without slash should be valid"
     );
 
