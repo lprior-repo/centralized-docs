@@ -479,9 +479,8 @@ mod tests {
 
     #[test]
     fn test_documentid_valid() {
-        let id = DocumentId::new("doc1").unwrap();
-        assert_eq!(id.as_str(), "doc1");
-        assert_eq!(id.to_string(), "doc1");
+        let result = DocumentId::new("doc1");
+        assert!(matches!(result, Ok(ref id) if id.as_str() == "doc1" && id.to_string() == "doc1"));
     }
 
     #[test]
@@ -499,20 +498,20 @@ mod tests {
 
     #[test]
     fn test_chunkid_valid() {
-        let id = ChunkId::new("chunk_1").unwrap();
-        assert_eq!(id.as_str(), "chunk_1");
+        let result = ChunkId::new("chunk_1");
+        assert!(matches!(result, Ok(ref id) if id.as_str() == "chunk_1"));
     }
 
     #[test]
     fn test_tag_valid() {
-        let tag = Tag::new("Rust").unwrap();
-        assert_eq!(tag.as_str(), "rust");
+        let result = Tag::new("Rust");
+        assert!(matches!(result, Ok(ref tag) if tag.as_str() == "rust"));
     }
 
     #[test]
     fn test_tag_case_insensitive() {
-        let tag = Tag::new("RUST").unwrap();
-        assert_eq!(tag.as_str(), "rust");
+        let result = Tag::new("RUST");
+        assert!(matches!(result, Ok(ref tag) if tag.as_str() == "rust"));
     }
 
     #[test]
@@ -525,8 +524,8 @@ mod tests {
 
     #[test]
     fn test_keyword_valid() {
-        let kw = Keyword::new("function").unwrap();
-        assert_eq!(kw.as_str(), "function");
+        let result = Keyword::new("function");
+        assert!(matches!(result, Ok(ref kw) if kw.as_str() == "function"));
     }
 
     #[test]
@@ -546,7 +545,7 @@ mod tests {
 
     #[test]
     fn test_keyword_case_insensitive() {
-        let kw = Keyword::new("FUNCTION").unwrap();
-        assert_eq!(kw.as_str(), "function");
+        let result = Keyword::new("FUNCTION");
+        assert!(matches!(result, Ok(ref kw) if kw.as_str() == "function"));
     }
 }

@@ -2010,7 +2010,7 @@ fn test_path_filter_to_whitelist_conversion() {
 
     let domain_escaped = regex::escape(&base_domain);
     // The full pattern: domain + path (spider-rs whitelist matches full URL)
-    let full_url_pattern = format!("^{domain_escaped}{}", path_filter);
+    let full_url_pattern = format!("^{domain_escaped}{path_filter}");
 
     // The pattern should be a valid regex
     let regex = Regex::new(&full_url_pattern);
@@ -2019,21 +2019,27 @@ fn test_path_filter_to_whitelist_conversion() {
         "Pattern should be valid regex: {full_url_pattern}"
     );
 
-    // The pattern should match the domain + path
-    let pattern = regex.unwrap();
+    // The pattern should match the domain + path - verify without unwrap
+    let pattern_matches = |url: &str| -> bool {
+        if let Ok(ref p) = regex {
+            p.is_match(url)
+        } else {
+            false
+        }
+    };
 
     // Should match URLs starting with domain + path
     assert!(
-        pattern.is_match("example.com/docs/page1"),
+        pattern_matches("example.com/docs/page1"),
         "Pattern should match domain/path URLs"
     );
     assert!(
-        pattern.is_match("example.com/docs"),
+        pattern_matches("example.com/docs"),
         "Pattern should match domain/path root"
     );
     // Should not match non-docs URLs
     assert!(
-        !pattern.is_match("example.com/blog/page1"),
+        !pattern_matches("example.com/blog/page1"),
         "Pattern should not match non-matching URLs"
     );
 }
@@ -2065,25 +2071,33 @@ fn test_multiple_path_filters_can_be_combined() {
         "Should create valid regex set from patterns"
     );
 
-    let set = regex_set.unwrap();
+    // Helper to check if regex set matches a URL without unwrap
+    let set_matches = |url: &str| -> bool {
+        if let Ok(ref set) = regex_set {
+            set.is_match(url)
+        } else {
+            false
+        }
+    };
+
     // Should match docs URLs
     assert!(
-        set.is_match("example.com/docs/page1"),
+        set_matches("example.com/docs/page1"),
         "Should match /docs/ URLs"
     );
     // Should match api URLs
     assert!(
-        set.is_match("example.com/api/v1/users"),
+        set_matches("example.com/api/v1/users"),
         "Should match /api/ URLs"
     );
     // Should match blog URLs
     assert!(
-        set.is_match("example.com/blog/post"),
+        set_matches("example.com/blog/post"),
         "Should match /blog/ URLs"
     );
     // Should not match other URLs
     assert!(
-        !set.is_match("example.com/contact"),
+        !set_matches("example.com/contact"),
         "Should not match non-whitelisted URLs"
     );
 }
@@ -2100,9 +2114,24 @@ fn test_url_normalization_converts_trailing_slash() {
     let url_with_slash = "https://example.com/docs/";
     let url_without_slash = "https://example.com/docs";
 
-    // Both should parse to the same base URL structure
-    let parsed_with = url::Url::parse(url_with_slash).unwrap();
-    let parsed_without = url::Url::parse(url_without_slash).unwrap();
+    // Both should parse to valid URLs
+    let parsed_with_result = url::Url::parse(url_with_slash);
+    let parsed_without_result = url::Url::parse(url_without_slash);
+
+    assert!(
+        matches!(parsed_with_result, Ok(_)),
+        "URL with slash should be valid"
+    );
+    assert!(
+        matches!(parsed_without_result, Ok(_)),
+        "URL without slash should be valid"
+    );
+
+    // Extract parsed URLs - safe after Ok check above
+    let (parsed_with, parsed_without) = match (parsed_with_result, parsed_without_result) {
+        (Ok(with), Ok(without)) => (with, without),
+        _ => return, // Test failed above
+    };
 
     // Paths differ (spider-rs normalize handles this)
     assert_eq!(
@@ -2141,17 +2170,24 @@ fn test_whitelist_pattern_escapes_domain_dots() {
         .unwrap_or_default();
 
     let domain_escaped = regex::escape(&base_domain);
-    let full_url_pattern = format!("^{domain_escaped}{}", path_filter);
+    let full_url_pattern = format!("^{domain_escaped}{path_filter}");
 
     // Should create valid regex (dots are escaped)
     let regex = Regex::new(&full_url_pattern);
     assert!(regex.is_ok(), "Escaped pattern should be valid regex");
 
-    let pattern = regex.unwrap();
+    // Helper to check if pattern matches without unwrap
+    let pattern_matches = |url: &str| -> bool {
+        if let Ok(ref p) = regex {
+            p.is_match(url)
+        } else {
+            false
+        }
+    };
 
     // Should match the intended URL (domain/path format)
     assert!(
-        pattern.is_match("example.com/docs/page"),
+        pattern_matches("example.com/docs/page"),
         "Should match example.com/docs URLs"
     );
 
@@ -2163,7 +2199,7 @@ fn test_whitelist_pattern_escapes_domain_dots() {
 
     // The dot in "example.com" should not match any character
     assert!(
-        !pattern.is_match("exampleXcom/docs/page"),
+        !pattern_matches("exampleXcom/docs/page"),
         "Escaped dot should be literal, not wildcard"
     );
 }
@@ -2197,9 +2233,17 @@ fn test_path_filter_with_leading_anchor_is_normalized() {
         "Pattern with stripped anchor should be valid"
     );
 
-    let pattern = regex.unwrap();
+    // Helper to check pattern match without unwrap
+    let pattern_matches = |url: &str| -> bool {
+        if let Ok(ref p) = regex {
+            p.is_match(url)
+        } else {
+            false
+        }
+    };
+
     assert!(
-        pattern.is_match("example.com/docs/page"),
+        pattern_matches("example.com/docs/page"),
         "Should match after normalizing leading anchor"
     );
 }
@@ -2231,10 +2275,16 @@ fn test_invalid_path_filter_produces_error() {
     let result = Regex::new(invalid_pattern);
     assert!(result.is_err(), "Invalid regex should fail to parse");
 
-    let err = result.unwrap_err();
-    let err_msg = err.to_string();
+    // Check error message without unwrap_err - using match pattern
+    let error_msg_matches = match &result {
+        Err(e) => {
+            let msg = e.to_string();
+            msg.contains("unclosed") || msg.contains("group") || msg.contains("regex")
+        }
+        Ok(_) => false,
+    };
     assert!(
-        err_msg.contains("unclosed") || err_msg.contains("group") || err_msg.contains("regex"),
+        error_msg_matches,
         "Error message should be descriptive"
     );
 }
