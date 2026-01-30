@@ -1,0 +1,12 @@
+/home/lewis/src/centralized-docs/rust_out/debug/deps/fs4-740a3bea3708c69d.d: /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/lib.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/unix.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/unix/sync_impl.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/file_ext.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/fs_stats.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/unix/sync_impl/std_impl.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/file_ext/sync_impl.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/file_ext/sync_impl/std_impl.rs
+
+/home/lewis/src/centralized-docs/rust_out/debug/deps/libfs4-740a3bea3708c69d.rmeta: /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/lib.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/unix.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/unix/sync_impl.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/file_ext.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/fs_stats.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/unix/sync_impl/std_impl.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/file_ext/sync_impl.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/file_ext/sync_impl/std_impl.rs
+
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/lib.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/unix.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/unix/sync_impl.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/file_ext.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/fs_stats.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/unix/sync_impl/std_impl.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/file_ext/sync_impl.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fs4-0.13.1/src/file_ext/sync_impl/std_impl.rs:

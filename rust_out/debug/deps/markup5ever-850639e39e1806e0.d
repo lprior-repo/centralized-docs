@@ -1,0 +1,15 @@
+/home/lewis/src/centralized-docs/rust_out/debug/deps/markup5ever-850639e39e1806e0.d: /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/lib.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/data/mod.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/interface/mod.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/interface/tree_builder.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/serialize.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/util/buffer_queue.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/util/smallcharset.rs /home/lewis/src/centralized-docs/rust_out/debug/build/markup5ever-980d54c8a04e5ede/out/generated.rs /home/lewis/src/centralized-docs/rust_out/debug/build/markup5ever-980d54c8a04e5ede/out/named_entities.rs
+
+/home/lewis/src/centralized-docs/rust_out/debug/deps/libmarkup5ever-850639e39e1806e0.rmeta: /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/lib.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/data/mod.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/interface/mod.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/interface/tree_builder.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/serialize.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/util/buffer_queue.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/util/smallcharset.rs /home/lewis/src/centralized-docs/rust_out/debug/build/markup5ever-980d54c8a04e5ede/out/generated.rs /home/lewis/src/centralized-docs/rust_out/debug/build/markup5ever-980d54c8a04e5ede/out/named_entities.rs
+
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/lib.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/data/mod.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/interface/mod.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/interface/tree_builder.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/serialize.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/util/buffer_queue.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.13.0/util/smallcharset.rs:
+/home/lewis/src/centralized-docs/rust_out/debug/build/markup5ever-980d54c8a04e5ede/out/generated.rs:
+/home/lewis/src/centralized-docs/rust_out/debug/build/markup5ever-980d54c8a04e5ede/out/named_entities.rs:
+
+# env-dep:OUT_DIR=/home/lewis/src/centralized-docs/rust_out/debug/build/markup5ever-980d54c8a04e5ede/out

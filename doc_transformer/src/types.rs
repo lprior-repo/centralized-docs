@@ -12,6 +12,7 @@ pub struct DocumentId(String);
 
 impl DocumentId {
     /// Create a new DocumentId, validating that it's not empty.
+    #[allow(dead_code)]
     pub fn new(id: impl Into<String>) -> Result<Self, DocumentIdError> {
         let s = id.into();
         if s.trim().is_empty() {
@@ -22,11 +23,13 @@ impl DocumentId {
     }
 
     /// Get the underlying string value.
+    #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Convert to owned String.
+    #[allow(dead_code)]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -63,6 +66,7 @@ pub struct ChunkId(String);
 
 impl ChunkId {
     /// Create a new ChunkId, validating that it's not empty.
+    #[allow(dead_code)]
     pub fn new(id: impl Into<String>) -> Result<Self, ChunkIdError> {
         let s = id.into();
         if s.trim().is_empty() {
@@ -73,11 +77,13 @@ impl ChunkId {
     }
 
     /// Get the underlying string value.
+    #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Convert to owned String.
+    #[allow(dead_code)]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -114,6 +120,7 @@ pub struct Tag(String);
 
 impl Tag {
     /// Create a new Tag, validating that it's not empty and reasonably sized.
+    #[allow(dead_code)]
     pub fn new(tag: impl Into<String>) -> Result<Self, TagError> {
         let s = tag.into();
         let trimmed = s.trim();
@@ -130,11 +137,13 @@ impl Tag {
     }
 
     /// Get the underlying string value.
+    #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Convert to owned String.
+    #[allow(dead_code)]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -171,6 +180,7 @@ pub struct Keyword(String);
 
 impl Keyword {
     /// Create a new Keyword, validating that it's not empty and meets minimum length.
+    #[allow(dead_code)]
     pub fn new(keyword: impl Into<String>) -> Result<Self, KeywordError> {
         let s = keyword.into();
         let trimmed = s.trim();
@@ -191,11 +201,13 @@ impl Keyword {
     }
 
     /// Get the underlying string value.
+    #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Convert to owned String.
+    #[allow(dead_code)]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -230,6 +242,7 @@ impl Borrow<str> for Keyword {
 
 /// Errors that can occur when creating DocumentId.
 #[derive(Debug, Clone, thiserror::Error)]
+#[allow(dead_code)]
 pub enum DocumentIdError {
     #[error("Document ID cannot be empty")]
     Empty,
@@ -237,6 +250,7 @@ pub enum DocumentIdError {
 
 /// Errors that can occur when creating ChunkId.
 #[derive(Debug, Clone, thiserror::Error)]
+#[allow(dead_code)]
 pub enum ChunkIdError {
     #[error("Chunk ID cannot be empty")]
     Empty,
@@ -244,6 +258,7 @@ pub enum ChunkIdError {
 
 /// Errors that can occur when creating Tag.
 #[derive(Debug, Clone, thiserror::Error)]
+#[allow(dead_code)]
 pub enum TagError {
     #[error("Tag cannot be empty")]
     Empty,
@@ -253,6 +268,7 @@ pub enum TagError {
 
 /// Errors that can occur when creating Keyword.
 #[derive(Debug, Clone, thiserror::Error)]
+#[allow(dead_code)]
 pub enum KeywordError {
     #[error("Keyword cannot be empty")]
     Empty,

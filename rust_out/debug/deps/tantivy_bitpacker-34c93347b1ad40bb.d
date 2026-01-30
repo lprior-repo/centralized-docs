@@ -1,0 +1,10 @@
+/home/lewis/src/centralized-docs/rust_out/debug/deps/tantivy_bitpacker-34c93347b1ad40bb.d: /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/lib.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/bitpacker.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/blocked_bitpacker.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/filter_vec/mod.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/filter_vec/avx2.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/filter_vec/scalar.rs
+
+/home/lewis/src/centralized-docs/rust_out/debug/deps/libtantivy_bitpacker-34c93347b1ad40bb.rmeta: /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/lib.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/bitpacker.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/blocked_bitpacker.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/filter_vec/mod.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/filter_vec/avx2.rs /home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/filter_vec/scalar.rs
+
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/lib.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/bitpacker.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/blocked_bitpacker.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/filter_vec/mod.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/filter_vec/avx2.rs:
+/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-bitpacker-0.9.0/src/filter_vec/scalar.rs:
