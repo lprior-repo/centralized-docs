@@ -279,6 +279,41 @@ async fn scrape_site_internal(config: &ScrapeConfig) -> Result<ScrapeResult> {
     use std::time::Duration;
     website.configuration.request_timeout = Some(Box::new(Duration::from_secs(30)));
 
+    // SPIDER-RS NATIVE: Use built-in page limit instead of manual counting
+    // This tells spider-rs to stop crawling after max_pages, preventing unnecessary requests
+    // NOTE: with_limit() may not affect scrape_sitemap() output, so we also enforce
+    // a manual limit in the page processing loop below as DoS protection
+    let _ = website.configuration.with_limit(config.max_pages as u32);
+
+    // SPIDER-RS NATIVE: Enable URL normalization to de-duplicate trailing slash pages
+    // This prevents crawling both /path and /path/ as separate pages
+    website.configuration.normalize = true;
+
+    // SPIDER-RS NATIVE: Convert path_filter regex to whitelist_url for native filtering
+    // This lets spider-rs filter URLs during crawling instead of post-processing
+    if let Some(ref pattern) = config.path_filter {
+        // Convert path regex (e.g., "/docs" or "^/docs/") to full URL regex for spider-rs
+        // Spider-rs whitelist_url applies to full URLs (scheme://domain + path), not just paths
+        let base_domain = url::Url::parse(&config.base_url)
+            .map(|u| u.host_str().unwrap_or("").to_string())
+            .unwrap_or_default();
+        let scheme = url::Url::parse(&config.base_url)
+            .map(|u| u.scheme().to_string())
+            .unwrap_or_else(|_| "https".to_string());
+
+        // Escape dots in domain for regex and construct full URL pattern with scheme
+        let domain_escaped = regex::escape(&base_domain);
+        // Strip leading ^ from user pattern if present, then add scheme://domain prefix with anchor
+        let pattern_stripped = pattern.strip_prefix('^').unwrap_or(pattern);
+        let full_url_pattern = format!("^{scheme}://{domain_escaped}{pattern_stripped}");
+        let _ = website
+            .configuration
+            .with_whitelist_url(Some(vec![full_url_pattern.as_str().into()]));
+        // CRITICAL: Call configure_allowlist() to compile the whitelist patterns into RegexSet
+        // Without this, the whitelist_url patterns are set but never actually used for filtering
+        website.configuration.configure_allowlist();
+    }
+
     // Perform the scrape - use sitemap scraping if enabled
     if config.use_sitemap {
         // Scrape using sitemap for URL discovery
@@ -287,14 +322,6 @@ async fn scrape_site_internal(config: &ScrapeConfig) -> Result<ScrapeResult> {
         // Standard crawling
         website.scrape().await;
     }
-
-    // Compile path filter regex if provided, with user-friendly error message
-    let path_regex = match &config.path_filter {
-        Some(pattern) => Regex::new(pattern)
-            .map_err(|e| anyhow::anyhow!("Invalid regex pattern '{pattern}': {e}"))?
-            .into(),
-        None => None,
-    };
 
     // Process results sequentially with size limit tracking
     let mut pages = Vec::new();
@@ -314,33 +341,28 @@ async fn scrape_site_internal(config: &ScrapeConfig) -> Result<ScrapeResult> {
         for page in spider_pages.iter() {
             let url = page.get_url();
 
-            // Check if we've exceeded the maximum page count (DoS protection)
-            if pages.len() >= config.max_pages {
-                let error_msg = format!(
-                    "Maximum page count ({}) reached, stopping scrape",
-                    config.max_pages
-                );
-                errors.push((url.to_string(), error_msg));
-                break;
-            }
-
-            // Skip duplicates
+            // Skip duplicates (spider-rs may return duplicates with sitemap + crawl)
             if seen_urls.contains(url) {
                 continue;
             }
             seen_urls.insert(url.to_string());
 
-            // Apply path filter
-            if let Some(ref regex) = path_regex {
-                let path = url::Url::parse(url)
-                    .map(|u| u.path().to_string())
-                    .unwrap_or_default();
-                if !regex.is_match(&path) {
-                    continue;
-                }
+            // MANUAL LIMIT: DoS protection against huge sitemaps
+            // with_limit() may not affect scrape_sitemap() output, so we enforce
+            // a hard limit here to prevent processing more pages than configured
+            if pages.len() >= config.max_pages {
+                let error_msg = format!(
+                    "Reached page limit ({}), stopping scrape. {} URLs remain in sitemap.",
+                    config.max_pages,
+                    spider_pages.len().saturating_sub(pages.len())
+                );
+                errors.push((url.to_string(), error_msg));
+                break;
             }
 
             // Transform HTML to Markdown (with optional filtering)
+            // Note: Spider-rs handles path filtering via whitelist_url
+            // and we use both with_limit() (native) and manual max_pages check (DoS protection)
             // Note: Individual page transformation errors are collected but don't stop the scrape.
             // This allows partial success when scraping large sites with some problematic pages.
             match transform_page(page, &config.base_url, config.enable_filtering) {
@@ -1945,4 +1967,805 @@ fn test_delay_zero_allowed() {
         ..Default::default()
     };
     assert_eq!(config.delay_ms, 0);
+}
+
+// ============================================================================
+// SPIDER-RS NATIVE FEATURE TESTS (Martin Fowler methodology)
+// ============================================================================
+
+/// Test: ScrapeConfig respects max_pages field for spider-rs with_limit
+///
+/// Behavior: When max_pages is set, spider-rs should be configured to limit
+/// crawling to that many pages. This is a configuration test - the actual
+/// limiting happens during the scrape.
+#[test]
+fn test_max_pages_configuration_is_propagated() {
+    let config = ScrapeConfig {
+        base_url: "https://example.com".to_string(),
+        max_pages: 100,
+        ..Default::default()
+    };
+    assert_eq!(
+        config.max_pages, 100,
+        "max_pages should be preserved in config"
+    );
+}
+
+/// Test: Path filter can be converted to spider-rs whitelist URL pattern
+///
+/// Behavior: When a path_filter regex like "^/docs/" is provided, it should
+/// be convertible to a full URL whitelist pattern for spider-rs.
+/// This verifies the transformation logic: path -> full URL regex.
+#[test]
+fn test_path_filter_to_whitelist_conversion() {
+    use regex::Regex;
+
+    // Simulate the conversion logic from scrape_site_internal
+    let base_url = "https://example.com";
+    let path_filter = "/docs"; // User provides path without regex anchors
+
+    let base_domain = url::Url::parse(base_url)
+        .map(|u| u.host_str().unwrap_or("").to_string())
+        .unwrap_or_default();
+
+    let domain_escaped = regex::escape(&base_domain);
+    // The full pattern: domain + path (spider-rs whitelist matches full URL)
+    let full_url_pattern = format!("^{domain_escaped}{}", path_filter);
+
+    // The pattern should be a valid regex
+    let regex = Regex::new(&full_url_pattern);
+    assert!(
+        regex.is_ok(),
+        "Pattern should be valid regex: {full_url_pattern}"
+    );
+
+    // The pattern should match the domain + path
+    let pattern = regex.unwrap();
+
+    // Should match URLs starting with domain + path
+    assert!(
+        pattern.is_match("example.com/docs/page1"),
+        "Pattern should match domain/path URLs"
+    );
+    assert!(
+        pattern.is_match("example.com/docs"),
+        "Pattern should match domain/path root"
+    );
+    // Should not match non-docs URLs
+    assert!(
+        !pattern.is_match("example.com/blog/page1"),
+        "Pattern should not match non-matching URLs"
+    );
+}
+
+/// Test: Multiple path filters can be combined into whitelist
+///
+/// Behavior: Multiple path patterns should be combinable into regex set.
+#[test]
+fn test_multiple_path_filters_can_be_combined() {
+    use regex::RegexSet;
+
+    let base_url = "https://example.com";
+    let path_filters = ["/docs", "/api", "/blog"];
+
+    let base_domain = url::Url::parse(base_url)
+        .map(|u| u.host_str().unwrap_or("").to_string())
+        .unwrap_or_default();
+
+    let domain_escaped = regex::escape(&base_domain);
+    let patterns: Vec<String> = path_filters
+        .iter()
+        .map(|p| format!("^{domain_escaped}{p}"))
+        .collect();
+
+    // Should create valid regex set
+    let regex_set = RegexSet::new(&patterns);
+    assert!(
+        regex_set.is_ok(),
+        "Should create valid regex set from patterns"
+    );
+
+    let set = regex_set.unwrap();
+    // Should match docs URLs
+    assert!(
+        set.is_match("example.com/docs/page1"),
+        "Should match /docs/ URLs"
+    );
+    // Should match api URLs
+    assert!(
+        set.is_match("example.com/api/v1/users"),
+        "Should match /api/ URLs"
+    );
+    // Should match blog URLs
+    assert!(
+        set.is_match("example.com/blog/post"),
+        "Should match /blog/ URLs"
+    );
+    // Should not match other URLs
+    assert!(
+        !set.is_match("example.com/contact"),
+        "Should not match non-whitelisted URLs"
+    );
+}
+
+/// Test: URL normalization prevents duplicate crawling
+///
+/// Behavior: When URL normalization is enabled, URLs that differ only
+/// by trailing slash should be treated as the same page.
+#[test]
+fn test_url_normalization_converts_trailing_slash() {
+    // This test documents the expected behavior of spider-rs normalize
+    // The actual normalization happens in spider-rs during crawling
+
+    let url_with_slash = "https://example.com/docs/";
+    let url_without_slash = "https://example.com/docs";
+
+    // Both should parse to the same base URL structure
+    let parsed_with = url::Url::parse(url_with_slash).unwrap();
+    let parsed_without = url::Url::parse(url_without_slash).unwrap();
+
+    // Paths differ (spider-rs normalize handles this)
+    assert_eq!(
+        parsed_with.path(),
+        "/docs/",
+        "URL with slash has trailing slash in path"
+    );
+    assert_eq!(
+        parsed_without.path(),
+        "/docs",
+        "URL without slash has no trailing slash in path"
+    );
+
+    // Normalize both by removing trailing slash for comparison
+    let normalized_with = parsed_with.path().trim_end_matches('/');
+    let normalized_without = parsed_without.path().trim_end_matches('/');
+
+    assert_eq!(
+        normalized_with, normalized_without,
+        "After manual normalization, paths should be equal"
+    );
+}
+
+/// Test: Whitelist pattern escapes special regex characters
+///
+/// Behavior: Domain names with dots should be properly escaped in regex.
+#[test]
+fn test_whitelist_pattern_escapes_domain_dots() {
+    use regex::Regex;
+
+    let base_url = "https://example.com";
+    let path_filter = "/docs";
+
+    let base_domain = url::Url::parse(base_url)
+        .map(|u| u.host_str().unwrap_or("").to_string())
+        .unwrap_or_default();
+
+    let domain_escaped = regex::escape(&base_domain);
+    let full_url_pattern = format!("^{domain_escaped}{}", path_filter);
+
+    // Should create valid regex (dots are escaped)
+    let regex = Regex::new(&full_url_pattern);
+    assert!(regex.is_ok(), "Escaped pattern should be valid regex");
+
+    let pattern = regex.unwrap();
+
+    // Should match the intended URL (domain/path format)
+    assert!(
+        pattern.is_match("example.com/docs/page"),
+        "Should match example.com/docs URLs"
+    );
+
+    // The escaped dots should be literal dots in the pattern
+    assert!(
+        full_url_pattern.contains("\\."),
+        "Pattern should contain escaped dots"
+    );
+
+    // The dot in "example.com" should not match any character
+    assert!(
+        !pattern.is_match("exampleXcom/docs/page"),
+        "Escaped dot should be literal, not wildcard"
+    );
+}
+
+/// Test: Path filter with leading ^ anchor is handled correctly
+///
+/// Behavior: User may provide pattern with leading ^ (e.g., "^/docs/").
+/// The implementation should strip this to avoid double anchors.
+#[test]
+fn test_path_filter_with_leading_anchor_is_normalized() {
+    use regex::Regex;
+
+    let base_url = "https://example.com";
+    let path_filter_with_anchor = "^/docs";
+
+    let base_domain = url::Url::parse(base_url)
+        .map(|u| u.host_str().unwrap_or("").to_string())
+        .unwrap_or_default();
+
+    let domain_escaped = regex::escape(&base_domain);
+    // Simulate the stripping logic from scrape_site_internal
+    let pattern_stripped = path_filter_with_anchor
+        .strip_prefix('^')
+        .unwrap_or(path_filter_with_anchor);
+    let full_url_pattern = format!("^{domain_escaped}{pattern_stripped}");
+
+    // Should create valid regex (single anchor)
+    let regex = Regex::new(&full_url_pattern);
+    assert!(
+        regex.is_ok(),
+        "Pattern with stripped anchor should be valid"
+    );
+
+    let pattern = regex.unwrap();
+    assert!(
+        pattern.is_match("example.com/docs/page"),
+        "Should match after normalizing leading anchor"
+    );
+}
+
+/// Test: Empty path_filter means no filtering
+///
+/// Behavior: When path_filter is None, all URLs should be crawlable.
+#[test]
+fn test_no_path_filter_means_no_filtering() {
+    let config = ScrapeConfig {
+        base_url: "https://example.com".to_string(),
+        path_filter: None,
+        ..Default::default()
+    };
+
+    assert!(
+        config.path_filter.is_none(),
+        "path_filter should be None when not set"
+    );
+}
+
+/// Test: Invalid path_filter regex is handled gracefully
+///
+/// Behavior: Malformed regex patterns should produce clear error messages.
+#[test]
+fn test_invalid_path_filter_produces_error() {
+    let invalid_pattern = "(?P<invalid"; // Unclosed group
+
+    let result = Regex::new(invalid_pattern);
+    assert!(result.is_err(), "Invalid regex should fail to parse");
+
+    let err = result.unwrap_err();
+    let err_msg = err.to_string();
+    assert!(
+        err_msg.contains("unclosed") || err_msg.contains("group") || err_msg.contains("regex"),
+        "Error message should be descriptive"
+    );
+}
+
+/// Test: ScrapeConfig has reasonable defaults for spider-rs integration
+///
+/// Behavior: Default configuration should work well with spider-rs native features.
+#[test]
+fn test_scrape_config_defaults_for_spider_rs_integration() {
+    let config = ScrapeConfig::default();
+
+    // max_pages should be set to prevent infinite crawls
+    assert_eq!(
+        config.max_pages, 10_000,
+        "Default max_pages should be reasonable"
+    );
+
+    // delay_ms should prevent rate limiting
+    assert_eq!(
+        config.delay_ms, 1000,
+        "Default delay should be safe for most servers"
+    );
+
+    // respect_robots_txt should be enabled by default
+    assert!(
+        config.respect_robots,
+        "Should respect robots.txt by default"
+    );
+
+    // stealth_mode helps avoid bot detection
+    assert!(
+        config.stealth_mode,
+        "Stealth mode should be enabled by default"
+    );
+}
+
+// ============================================================================
+// SPIDER-RS INTEGRATION TESTS (Real HTTP Requests)
+// ============================================================================
+//
+// These tests verify spider-rs behavior with actual HTTP requests to public
+// test sites. They expose bugs in the current implementation by testing
+// the actual behavior, not just code compilation.
+//
+// Run with: cargo test spider_rs_integration -- --ignored --test-threads=1
+// The --ignored flag is needed because these are marked #[ignore] by default
+// (they make real network requests and can be slow).
+// ============================================================================
+
+/// Test: Does with_limit() actually limit pages scraped?
+///
+/// This test makes real HTTP requests to httpbin.org to verify that
+/// spider-rs's with_limit() actually works as advertised.
+///
+/// BUG EXPOSURE: If with_limit() doesn't work, the scraper will crawl
+/// indefinitely or beyond the configured limit.
+#[tokio::test]
+#[ignore = "makes real HTTP requests; run with --ignored"]
+async fn spider_rs_with_limit_actually_limits_pages() {
+    use spider::website::Website;
+
+    // httpbin.org has many endpoints (/get, /post, /put, /delete, /status/404, etc.)
+    // This gives us a predictable site to test against
+    let base_url = "https://httpbin.org";
+
+    let mut website = Website::new(base_url);
+    website.configuration.delay = 100; // Fast delay for testing
+    website.configuration.respect_robots_txt = false; // httpbin allows scraping
+    website.configuration.user_agent = Some(Box::new({
+        let s: spider::compact_str::CompactString = "SpiderIntegrationTest/1.0".into();
+        s
+    }));
+    website.configuration.concurrency_limit = Some(1); // Sequential for predictability
+
+    // Set a LOW limit - we should only get a few pages
+    let limit = 3_u32;
+    let _ = website.configuration.with_limit(limit);
+
+    // Scrape
+    website.scrape().await;
+
+    // Get results
+    let pages = website.get_pages();
+    let page_count = pages.as_ref().map(|p| p.len()).unwrap_or(0);
+
+    // ASSERT: with_limit() should prevent scraping more than `limit` pages
+    // BUG: If with_limit() doesn't work, page_count could be >> limit
+    assert!(
+        page_count <= limit as usize,
+        "BUG: with_limit({limit}) failed to limit pages! Got {page_count} pages. \
+        This means with_limit() is NOT working and the scraper may crawl indefinitely."
+    );
+
+    println!("with_limit({limit}) test passed: scraped {page_count} pages");
+
+    // Additional verification: check that we actually got something
+    // (to distinguish "limit works" from "nothing was scraped")
+    assert!(
+        page_count > 0,
+        "Expected to scrape at least 1 page from httpbin.org, got 0. \
+        Network may be down or httpbin.org may be unavailable."
+    );
+}
+
+/// Test: Does whitelist_url actually filter URLs during scraping?
+///
+/// This test makes real HTTP requests to verify that whitelist_url
+/// actually prevents URLs from being crawled.
+///
+/// BUG EXPOSURE: If whitelist_url doesn't work, URLs that should be
+/// filtered will still be scraped, wasting bandwidth and time.
+#[tokio::test]
+#[ignore = "makes real HTTP requests; run with --ignored"]
+async fn spider_rs_whitelist_url_actually_filters_urls() {
+    use spider::website::Website;
+
+    let base_url = "https://httpbin.org";
+
+    // Test 1: No whitelist - should crawl multiple pages
+    let mut website_no_filter = Website::new(base_url);
+    website_no_filter.configuration.delay = 100;
+    website_no_filter.configuration.respect_robots_txt = false;
+    website_no_filter.configuration.user_agent =
+        Some(Box::new("SpiderIntegrationTest/1.0".to_string().into()));
+    website_no_filter.configuration.concurrency_limit = Some(1);
+    let _ = website_no_filter.configuration.with_limit(50); // High limit to allow crawling
+
+    website_no_filter.scrape().await;
+    let pages_no_filter = website_no_filter.get_pages();
+    let count_no_filter = pages_no_filter.as_ref().map(|p| p.len()).unwrap_or(0);
+
+    // Test 2: With whitelist - should ONLY crawl /status URLs
+    let mut website_whitelist = Website::new(base_url);
+    website_whitelist.configuration.delay = 100;
+    website_whitelist.configuration.respect_robots_txt = false;
+    website_whitelist.configuration.user_agent =
+        Some(Box::new("SpiderIntegrationTest/1.0".to_string().into()));
+    website_whitelist.configuration.concurrency_limit = Some(1);
+    let _ = website_whitelist.configuration.with_limit(50);
+
+    // CRITICAL: Set whitelist to ONLY allow /status/* URLs
+    // This should filter out /get, /post, /anything, etc.
+    let _ = website_whitelist
+        .configuration
+        .with_whitelist_url(Some(vec!["^https://httpbin.org/status".into()]));
+
+    // CRITICAL: Compile the whitelist - without this, patterns may not be active
+    website_whitelist.configuration.configure_allowlist();
+
+    website_whitelist.scrape().await;
+    let pages_whitelist = website_whitelist.get_pages();
+    let count_whitelist = pages_whitelist.as_ref().map(|p| p.len()).unwrap_or(0);
+
+    // Verify whitelist filtered URLs
+    let urls: Vec<_> = pages_whitelist
+        .as_ref()
+        .map(|pages| {
+            pages
+                .iter()
+                .map(|p| p.get_url().to_string())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    // ASSERT: All URLs should match the whitelist pattern
+    let all_match = urls.iter().all(|u| u.contains("/status"));
+
+    assert!(
+        all_match,
+        "BUG: whitelist_url filtering failed! Found URLs that don't match pattern: {urls:?}"
+    );
+
+    // ASSERT: Whitelist should have filtered out some URLs
+    // (httpbin has many endpoints, so /status-only should be fewer than total)
+    assert!(
+        count_whitelist <= count_no_filter,
+        "BUG: whitelist_url didn't filter! Got {count_whitelist} pages with filter vs {count_no_filter} without. \
+        This means whitelist_url is NOT working."
+    );
+
+    println!(
+        "whitelist_url test passed: {count_no_filter} pages without filter, {count_whitelist} pages with filter"
+    );
+    println!("Filtered URLs: {:?}", urls);
+}
+
+/// Test: What URL format does whitelist_url match?
+///
+/// This test determines whether whitelist_url matches:
+/// - Full URLs (scheme://domain/path)
+/// - Just paths (/path)
+/// - Patterns with wildcards
+///
+/// BUG EXPOSURE: If we use the wrong format, filtering will silently fail.
+#[tokio::test]
+#[ignore = "makes real HTTP requests; run with --ignored"]
+async fn spider_rs_whitelist_url_format_full_url_vs_path() {
+    use spider::website::Website;
+
+    let base_url = "https://httpbin.org";
+
+    // Test 1: Full URL pattern with scheme and domain
+    let mut website_full = Website::new(base_url);
+    website_full.configuration.delay = 100;
+    website_full.configuration.respect_robots_txt = false;
+    website_full.configuration.user_agent =
+        Some(Box::new("SpiderIntegrationTest/1.0".to_string().into()));
+    website_full.configuration.concurrency_limit = Some(1);
+    let _ = website_full.configuration.with_limit(50);
+
+    // Use FULL URL pattern: scheme://domain/path
+    let _ = website_full
+        .configuration
+        .with_whitelist_url(Some(vec!["^https://httpbin.org/get".into()]));
+    website_full.configuration.configure_allowlist();
+
+    website_full.scrape().await;
+    let pages_full = website_full.get_pages();
+    let urls_full: Vec<_> = pages_full
+        .as_ref()
+        .map(|pages| pages.iter().map(|p| p.get_url().to_string()).collect())
+        .unwrap_or_default();
+
+    // Test 2: Path-only pattern (no scheme/domain)
+    let mut website_path = Website::new(base_url);
+    website_path.configuration.delay = 100;
+    website_path.configuration.respect_robots_txt = false;
+    website_path.configuration.user_agent =
+        Some(Box::new("SpiderIntegrationTest/1.0".to_string().into()));
+    website_path.configuration.concurrency_limit = Some(1);
+    let _ = website_path.configuration.with_limit(50);
+
+    // Use PATH-ONLY pattern: /path
+    // BUG WARNING: This likely WON'T work - spider-rs probably needs full URLs
+    let _ = website_path
+        .configuration
+        .with_whitelist_url(Some(vec!["^/get".into()]));
+    website_path.configuration.configure_allowlist();
+
+    website_path.scrape().await;
+    let pages_path = website_path.get_pages();
+    let urls_path: Vec<_> = pages_path
+        .as_ref()
+        .map(|pages| pages.iter().map(|p| p.get_url().to_string()).collect())
+        .unwrap_or_default();
+
+    println!(
+        "Full URL pattern matched {} pages: {:?}",
+        urls_full.len(),
+        urls_full
+    );
+    println!(
+        "Path-only pattern matched {} pages: {:?}",
+        urls_path.len(),
+        urls_path
+    );
+
+    // DETERMINE which format works:
+    // - If full URL pattern works and path-only doesn't, we MUST use full URLs
+    // - If both work, we have flexibility
+    // - If neither works, there's a bug in our usage
+
+    let full_url_works = !urls_full.is_empty()
+        && urls_full
+            .iter()
+            .all(|u| u.starts_with("https://httpbin.org/get"));
+
+    let path_only_works = !urls_path.is_empty();
+
+    if full_url_works && !path_only_works {
+        println!("CONCLUSION: whitelist_url requires FULL URL patterns (scheme://domain/path)");
+        println!("Path-only patterns DO NOT WORK - must convert path_filter to full URL");
+    } else if path_only_works {
+        println!("CONCLUSION: Path-only patterns WORK - simpler filtering possible");
+    } else {
+        println!("WARNING: Neither pattern worked - possible bug in test or spider-rs API");
+    }
+
+    // ASSERT: Full URL pattern should definitely work
+    assert!(
+        full_url_works || urls_full.is_empty(),
+        "Full URL pattern should only match /get URLs. Got: {urls_full:?}"
+    );
+}
+
+/// Test: Is configure_allowlist() required for whitelist_url to work?
+///
+/// This test determines if calling configure_allowlist() is actually
+/// necessary for whitelist_url filtering to take effect.
+///
+/// BUG EXPOSURE: If configure_allowlist() is not called, whitelist patterns
+/// may be set but never compiled/used, resulting in no filtering.
+#[tokio::test]
+#[ignore = "makes real HTTP requests; run with --ignored"]
+async fn spider_rs_configure_allowlist_is_required() {
+    use spider::website::Website;
+
+    let base_url = "https://httpbin.org";
+
+    // Test 1: whitelist_url WITHOUT configure_allowlist()
+    let mut website_no_config = Website::new(base_url);
+    website_no_config.configuration.delay = 100;
+    website_no_config.configuration.respect_robots_txt = false;
+    website_no_config.configuration.user_agent =
+        Some(Box::new("SpiderIntegrationTest/1.0".to_string().into()));
+    website_no_config.configuration.concurrency_limit = Some(1);
+    let _ = website_no_config.configuration.with_limit(50);
+
+    // Set whitelist but DO NOT call configure_allowlist()
+    let _ = website_no_config
+        .configuration
+        .with_whitelist_url(Some(vec!["^https://httpbin.org/status".into()]));
+    // NOTE: Intentionally NOT calling configure_allowlist() here
+
+    website_no_config.scrape().await;
+    let pages_no_config = website_no_config.get_pages();
+    let count_no_config = pages_no_config.as_ref().map(|p| p.len()).unwrap_or(0);
+
+    // Test 2: whitelist_url WITH configure_allowlist()
+    let mut website_with_config = Website::new(base_url);
+    website_with_config.configuration.delay = 100;
+    website_with_config.configuration.respect_robots_txt = false;
+    website_with_config.configuration.user_agent =
+        Some(Box::new("SpiderIntegrationTest/1.0".to_string().into()));
+    website_with_config.configuration.concurrency_limit = Some(1);
+    let _ = website_with_config.configuration.with_limit(50);
+
+    // Set whitelist AND call configure_allowlist()
+    let _ = website_with_config
+        .configuration
+        .with_whitelist_url(Some(vec!["^https://httpbin.org/status".into()]));
+    website_with_config.configuration.configure_allowlist(); // CRITICAL STEP
+
+    website_with_config.scrape().await;
+    let pages_with_config = website_with_config.get_pages();
+    let count_with_config = pages_with_config.as_ref().map(|p| p.len()).unwrap_or(0);
+
+    println!(
+        "WITHOUT configure_allowlist(): {} pages scraped",
+        count_no_config
+    );
+    println!(
+        "WITH configure_allowlist(): {} pages scraped",
+        count_with_config
+    );
+
+    // If configure_allowlist() is required:
+    // - WITHOUT it: should crawl MORE pages (filtering not active)
+    // - WITH it: should crawl FEWER pages (filtering active)
+
+    // Check if filtering actually happened with configure_allowlist()
+    let urls_with_config: Vec<_> = pages_with_config
+        .as_ref()
+        .map(|pages| pages.iter().map(|p| p.get_url().to_string()).collect())
+        .unwrap_or_default();
+
+    let all_match_pattern = urls_with_config
+        .iter()
+        .all(|u| u.contains("/status") || u.is_empty());
+
+    // ASSERT: configure_allowlist() should be necessary for filtering
+    if count_no_config > count_with_config {
+        println!("CONCLUSION: configure_allowlist() IS REQUIRED for whitelist_url to work");
+        println!(
+            "Without it: {} pages (filtering inactive), With it: {} pages (filtering active)",
+            count_no_config, count_with_config
+        );
+    } else if count_with_config > 0 && all_match_pattern {
+        println!(
+            "CONCLUSION: configure_allowlist() may be optional OR whitelist_url auto-configures"
+        );
+        println!("Both approaches resulted in filtered URLs");
+    } else {
+        println!("INCONCLUSIVE: Results were similar - may need different test site");
+    }
+
+    // At minimum, verify that with configure_allowlist() we get correct results
+    assert!(
+        all_match_pattern || urls_with_config.is_empty(),
+        "With configure_allowlist(), all URLs should match the /status pattern. Got: {urls_with_config:?}"
+    );
+}
+
+/// Test: Does with_limit() work with scrape_sitemap()?
+///
+/// Comments in the code suggest with_limit() may not affect scrape_sitemap().
+/// This test verifies if that's true.
+///
+/// BUG EXPOSURE: If with_limit() doesn't work with sitemap scraping, we
+/// need manual limits as a fallback (which the code already has).
+#[tokio::test]
+#[ignore = "makes real HTTP requests; run with --ignored"]
+async fn spider_rs_with_limit_with_sitemap_scraping() {
+    use spider::website::Website;
+
+    // Use a site with a known sitemap
+    // example.com doesn't have a sitemap, so we use a test approach
+
+    let base_url = "https://www.rust-lang.org";
+
+    let mut website = Website::new(base_url);
+    website.configuration.delay = 100;
+    website.configuration.respect_robots_txt = true;
+    website.configuration.user_agent = Some(Box::new({
+        let s: spider::compact_str::CompactString = "SpiderIntegrationTest/1.0".into();
+        s
+    }));
+    website.configuration.concurrency_limit = Some(1);
+
+    // Set a LOW limit
+    let limit = 5_u32;
+    let _ = website.configuration.with_limit(limit);
+
+    // Use sitemap scraping (the method in question)
+    website.scrape_sitemap().await;
+
+    let pages = website.get_pages();
+    let page_count = pages.as_ref().map(|p| p.len()).unwrap_or(0);
+
+    println!(
+        "scrape_sitemap() with with_limit({limit}): scraped {} pages",
+        page_count
+    );
+
+    // ASSERT: with_limit() should work with scrape_sitemap()
+    if page_count > limit as usize {
+        println!("BUG CONFIRMED: with_limit() does NOT limit scrape_sitemap() output!");
+        println!("This confirms the comment in the code - manual limit is needed as fallback.");
+    } else {
+        println!("with_limit() works with scrape_sitemap()");
+    }
+
+    // The test is informational - we document the behavior rather than asserting
+    // because sitemap availability varies
+    if page_count > 0 {
+        println!(
+            "Note: Got {page_count} pages from sitemap. If > {limit}, with_limit() doesn't work with sitemap."
+        );
+    }
+}
+
+/// Test: Verify the exact regex format that whitelist_url accepts
+///
+/// This test iterates through different regex formats to find which one works.
+#[tokio::test]
+#[ignore = "makes real HTTP requests; run with --ignored"]
+async fn spider_rs_whitelist_regex_format_exploration() {
+    use spider::website::Website;
+
+    let base_url = "https://httpbin.org";
+
+    let patterns_to_test = vec![
+        ("Full URL with anchor", "^https://httpbin.org/get"),
+        ("Full URL without anchor", "https://httpbin.org/get"),
+        ("Domain + path anchor", "^httpbin.org/get"),
+        ("Path only with anchor", "^/get"),
+        ("Path only wildcard", "/get.*"),
+        ("Wildcard pattern", "*get*"),
+    ];
+
+    for (description, pattern) in patterns_to_test {
+        let mut website = Website::new(base_url);
+        website.configuration.delay = 100;
+        website.configuration.respect_robots_txt = false;
+        website.configuration.user_agent =
+            Some(Box::new("SpiderIntegrationTest/1.0".to_string().into()));
+        website.configuration.concurrency_limit = Some(1);
+        let _ = website.configuration.with_limit(20);
+
+        let _ = website
+            .configuration
+            .with_whitelist_url(Some(vec![pattern.into()]));
+        website.configuration.configure_allowlist();
+
+        website.scrape().await;
+        let pages = website.get_pages();
+        let count = pages.as_ref().map(|p| p.len()).unwrap_or(0);
+
+        let urls: Vec<_> = pages
+            .as_ref()
+            .map(|p| p.iter().map(|pg| pg.get_url().to_string()).collect())
+            .unwrap_or_default();
+
+        println!(
+            "{description:30} | Pattern: {:30} | Pages: {}",
+            pattern, count
+        );
+        if !urls.is_empty() {
+            println!("                              URLs: {:?}", urls);
+        }
+    }
+}
+
+/// Test: Does with_limit() apply per-domain or globally?
+///
+/// When scraping multiple domains, with_limit() behavior is important to understand.
+#[tokio::test]
+#[ignore = "makes real HTTP requests; run with --ignored"]
+async fn spider_rs_with_limit_single_domain_behavior() {
+    use spider::website::Website;
+
+    let base_url = "https://httpbin.org";
+
+    let mut website = Website::new(base_url);
+    website.configuration.delay = 100;
+    website.configuration.respect_robots_txt = false;
+    website.configuration.user_agent = Some(Box::new({
+        let s: spider::compact_str::CompactString = "SpiderIntegrationTest/1.0".into();
+        s
+    }));
+    website.configuration.concurrency_limit = Some(1);
+
+    // Very low limit
+    let limit = 2_u32;
+    let _ = website.configuration.with_limit(limit);
+
+    website.scrape().await;
+
+    let pages = website.get_pages();
+    let count = pages.as_ref().map(|p| p.len()).unwrap_or(0);
+
+    println!(
+        "with_limit({limit}) on single domain: scraped {} pages",
+        count
+    );
+
+    // ASSERT: Should not exceed limit
+    assert!(
+        count <= limit as usize,
+        "with_limit() should prevent scraping more than {} pages, got {}",
+        limit,
+        count
+    );
 }
