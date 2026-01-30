@@ -2692,10 +2692,7 @@ async fn spider_rs_with_limit_with_sitemap_scraping() {
     let pages = website.get_pages();
     let page_count = pages.as_ref().map(|p| p.len()).unwrap_or(0);
 
-    println!(
-        "scrape_sitemap() with with_limit({limit}): scraped {} pages",
-        page_count
-    );
+    println!("scrape_sitemap() with with_limit({limit}): scraped {page_count} pages");
 
     // ASSERT: with_limit() should work with scrape_sitemap()
     if page_count > limit as usize {
@@ -2756,10 +2753,7 @@ async fn spider_rs_whitelist_regex_format_exploration() {
             .map(|p| p.iter().map(|pg| pg.get_url().to_string()).collect())
             .unwrap_or_default();
 
-        println!(
-            "{description:30} | Pattern: {:30} | Pages: {}",
-            pattern, count
-        );
+        println!("{description:30} | Pattern: {pattern:30} | Pages: {count}");
         if !urls.is_empty() {
             println!("                              URLs: {urls:?}");
         }
