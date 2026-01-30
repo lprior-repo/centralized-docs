@@ -236,6 +236,16 @@ pub fn validate_limit(s: &str) -> Result<usize, String> {
         .map_err(|_| format!("limit value too large: {value}"))
 }
 
+/// Validate regex pattern for URL filtering.
+///
+/// Attempts to compile the pattern as a regex to ensure it's valid.
+/// Returns the pattern unchanged if valid, or an error message if invalid.
+fn validate_filter_regex(pattern: &str) -> Result<(), String> {
+    regex::Regex::new(pattern)
+        .map(|_| ())
+        .map_err(|e| format!("Invalid regex pattern '{pattern}': {e}"))
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "doc_transformer")]
 #[command(version = "5.0")]
@@ -659,6 +669,11 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
     let query_ref = config.query.as_deref();
     validate_query_length(&query_ref)?;
 
+    // Validate filter regex pattern if provided
+    if let Some(ref filter) = config.filter {
+        validate_filter_regex(filter).map_err(|e| anyhow::anyhow!(e))?;
+    }
+
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER v5.0 - SCRAPE");
     println!("{}\n", "=".repeat(70));
@@ -938,6 +953,11 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
     // Validate query length before processing (prevents DoS)
     let query_ref = query.as_deref();
     validate_query_length(&query_ref)?;
+
+    // Validate filter regex pattern if provided
+    if let Some(ref f) = filter {
+        validate_filter_regex(f).map_err(|e| anyhow::anyhow!(e))?;
+    }
 
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER v5.0 - INGEST (Scrape + Index)");
