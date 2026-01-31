@@ -1,0 +1,37 @@
+---
+version: "1.0"
+project: "Documentation"
+project_version: "0.1.0"
+updated: "2026-01-30"
+documents: 36
+index: "./INDEX.json"
+---
+
+# Documentation
+
+> AI-optimized documentation index
+
+Key context for AI:
+- Total documents: 36
+- Format: Markdown with YAML frontmatter
+- Chunking: Semantic chunks with context prefix (~170 tokens)
+- Navigation: Knowledge DAG with Jaccard similarity
+
+## Getting Started
+
+- [Modules | CUE](./docs/tutorial-general-docs-concept-modules.md): **Source:** https://cuelang.org/docs/concept/modules/
+- [Getting started using CUE in Java | CUE](./docs/tutorial-general-docs-tutorial-get-started-cue-java.md): **Source:** https://cuelang.org/docs/tutorial/get-started...
+- [Publishing modules to the Central Registry | CUE](./docs/tutorial-general-docs-tutorial-publishing-modules-to-the-.md): **Source:** https://cuelang.org/docs/tutorial/publishing-...
+
+## Operations
+
+- [Community | CUE](./docs/ops-general-community.md): **Source:** https://cuelang.org/community/
+- [Concept Guides | CUE](./docs/ops-general-docs-concept.md): **Source:** https://cuelang.org/docs/concept/
+- [Frequently Asked Questions | CUE](./docs/ops-general-docs-concept-faq.md): **Source:** https://cuelang.org/docs/concept/faq/
+- [How CUE works with Go | CUE](./docs/ops-general-docs-concept-how-cue-works-with-go.md): **Source:** https://cuelang.org/docs/concept/how-cue-work...
+- [How CUE works with JSON Schema | CUE](./docs/ops-general-docs-concept-how-cue-works-with-json-sch.md): **Source:** https://cuelang.org/docs/concept/how-cue-work...
+
+## Machine-Readable Index
+
+- [INDEX.json](./INDEX.json): Complete searchable index with keywords, chunks, and knowledge graph
+- [COMPASS.md](./COMPASS.md): Human-readable navigation guide

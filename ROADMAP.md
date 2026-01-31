@@ -265,12 +265,10 @@ centralized-docs-indexes/
 ### v5.0 Metrics ✅ Achieved
 - [x] 535/535 tests passing
 - [x] O(n log n) DAG building performance
-- [x] MCP server functional
 - [x] Contextual chunking implemented
 - [x] Production deployment ready
 
 ### v6.0 Targets
-- [ ] MCP server with basic tools (planned expansion from current single tool)
 - [ ] contextual-chunker published to crates.io
 - [ ] 100+ downloads of standalone crate
 - [ ] spider-rs integration working for 5+ real sites
@@ -301,13 +299,11 @@ centralized-docs-indexes/
 - **Testing:** criterion 0.5, tempfile 3.8
 
 ### Planned Dependencies (v6.0+)
-- **MCP SDK:** rust-mcp-sdk (when available)
 - **Embeddings:** sentence-transformers (via Python/ONNX)
 - **Vector DB:** qdrant-client or similar
 - **Validation:** Custom llms-txt-validator
 
 ### Integration Points
-- **Claude Desktop:** MCP server for documentation queries
 - **VS Code:** Extension for inline documentation
 - **CI/CD:** GitHub Actions for automated indexing
 - **Documentation Sites:** Jekyll, Hugo, Docusaurus plugins
@@ -322,7 +318,6 @@ centralized-docs-indexes/
 |------|--------|------------|
 | spider-rs library bugs | Medium | Alternative scraping library ready |
 | HNSW performance at scale | Low | Benchmarks prove O(n log n) |
-| MCP protocol changes | Medium | Follow MCP SDK updates closely |
 | Tantivy API changes | Low | Pin versions, test before upgrade |
 
 ### Community Risks
@@ -359,7 +354,7 @@ centralized-docs-indexes/
 
 ### For Users
 1. v5.0 is production-ready - use it now!
-2. v6.0 will enhance MCP capabilities
+2. v6.0 will enhance crate extraction capabilities
 3. v7.0 will standardize llms.txt
 4. Provide feedback on priorities
 
@@ -373,7 +368,6 @@ The foundation is solid:
 - Pure functional Rust with zero panic risk
 - Exceptional performance (85x better than targets)
 - Complete test coverage (535/535 tests)
-- Working MCP server
 - Proven contextual chunking (35% improvement)
 
 **Next Steps:**
@@ -398,20 +392,17 @@ The roadmap is ambitious but achievable. Each phase builds on the previous one, 
 - ✅ **Knowledge DAG**: Builds document relationships, verified O(n log n) performance
 - ✅ **Contextual chunking**: 50-100 token prefixes for better retrieval
 - ✅ **AI integration**: Generates llms.txt, INDEX.json, COMPASS.md, AGENTS.md
-- ✅ **MCP server**: Single functional tool (query_index)
 - ✅ **Testing**: 535/535 tests passing (100%)
 - ✅ **Performance**: 85x better than targets (2.3ms for 100 chunks)
 
 #### Known Limitations (Accepted)
 - ⚠️ **Chunk sizes**: ~512 tokens (standard), ~128 (summary), ~1024 (detailed) - working as designed
 - ⚠️ **spider-rs**: Runtime panic bug (workaround: use local files)
-- ⚠️ **MCP server**: Single tool only, expansion planned for v6.0
 
 ### What's Planned (v6.0 - v8.0) 🔮
 
 #### v6.0: Crate Extraction (In Progress)
 - ⏳ **contextual-chunker** crate ready for crates.io publication
-- ⏳ MCP server expansion beyond single tool
 - ⏳ Additional standalone crates
 
 #### v7.0: Standards & Community (75% Complete)
@@ -430,7 +421,6 @@ The roadmap is ambitious but achievable. Each phase builds on the previous one, 
 
 | Feature | v5.0 Reality | Earlier Planning Status |
 |---------|--------------|------------------------|
-| MCP Tools | 1 tool functional | Claimed "10 tools available" (incorrect) |
 | Search | BM25 + Jaccard similarity | Vector embeddings planned for v8.0 |
 | Chunk Size | 512 tokens (working) | Listed as "issue" (not a bug) |
 | Web Scraping | Local files (spider-rs workaround) | Full site scraping (has bugs) |
