@@ -1,5 +1,0 @@
-cargo:rustc-cfg=build_script_ran
-cargo:rerun-if-changed=/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spider_fingerprint-2.37.231/assets/high_quality_referrers.txt
-cargo:rerun-if-changed=/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spider_fingerprint-2.37.231/assets/referrers_20k_urls.txt
-cargo:rerun-if-changed=/home/lewis/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spider_fingerprint-2.37.231/assets/merged_referrers.txt
-cargo:rerun-if-changed=build/chrome_versions.rs.fallback
