@@ -145,14 +145,16 @@ impl KnowledgeDAG {
     /// Get topologically sorted nodes (respects dependencies)
     /// Uses functional composition for cleaner flow
     pub fn topological_order(&self) -> Vec<String> {
-        toposort(&self.graph, None)
-            .map(|sorted| {
-                sorted
-                    .into_iter()
-                    .filter_map(|idx| self.graph.node_weight(idx).map(|node| node.id.clone()))
-                    .collect()
-            })
-            .unwrap_or_default()
+        match toposort(&self.graph, None) {
+            Ok(sorted) => sorted
+                .into_iter()
+                .filter_map(|idx| self.graph.node_weight(idx).map(|node| node.id.clone()))
+                .collect(),
+            Err(_) => {
+                eprintln!("Warning: Graph contains cycles, cannot compute topological order");
+                Vec::new()
+            }
+        }
     }
 
     /// Get all nodes reachable from a given node (transitive closure)

@@ -76,13 +76,15 @@ pub struct ChunksResult {
 /// falling back to slugified source path.
 #[allow(clippy::panic)]
 fn analysis_to_document(analysis: &Analysis, link_map: &HashMap<String, IdMapping>) -> Document {
-    let doc_id = link_map
-        .get(&analysis.source_path)
-        .map(|m| m.id.clone())
-        .unwrap_or_else(|| panic!(
-            "link_map missing entry for source_path '{}'. This should never happen - link_map is built from the same analyses vector.",
-            analysis.source_path
-        ));
+    let doc_id = match link_map.get(&analysis.source_path) {
+        Some(m) => m.id.clone(),
+        None => {
+            panic!(
+                "link_map missing entry for source_path '{}'. This should never happen - link_map is built from the same analyses vector.",
+                analysis.source_path
+            )
+        }
+    };
 
     Document::new(doc_id, analysis.title.clone(), analysis.content.clone())
 }

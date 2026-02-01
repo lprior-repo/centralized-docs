@@ -539,17 +539,17 @@ pub fn build_knowledge_dag(
         let embeddings: Vec<Vec<f32>> = chunks
             .iter()
             .map(|chunk| {
-                let tags = document_tags
+                let (tags, category) = document_tags
                     .iter()
                     .find(|(id, _, _)| id == &chunk.doc_id)
-                    .map(|(_, tags, _)| tags.clone())
-                    .unwrap_or_default();
-
-                let category = document_tags
-                    .iter()
-                    .find(|(id, _, _)| id == &chunk.doc_id)
-                    .map(|(_, _, cat)| cat.clone())
-                    .unwrap_or_default();
+                    .map(|(_, tags, cat)| (tags.clone(), cat.clone()))
+                    .unwrap_or_else(|| {
+                        eprintln!(
+                            "Warning: Document {} has no tags/category metadata, using empty tags",
+                            chunk.doc_id
+                        );
+                        (Vec::new(), "unknown".to_string())
+                    });
 
                 generate_embedding_from_tags(&tags, &category, &vocabulary, embedding_dim)
             })
@@ -560,17 +560,17 @@ pub fn build_knowledge_dag(
             Ok(index) => {
                 // Query top-k neighbors for each chunk
                 for (i, chunk) in chunks.iter().enumerate() {
-                    let chunk_tags = document_tags
+                    let (chunk_tags, chunk_category) = document_tags
                         .iter()
                         .find(|(id, _, _)| id == &chunk.doc_id)
-                        .map(|(_, tags, _)| tags.clone())
-                        .unwrap_or_default();
-
-                    let chunk_category = document_tags
-                        .iter()
-                        .find(|(id, _, _)| id == &chunk.doc_id)
-                        .map(|(_, _, cat)| cat.clone())
-                        .unwrap_or_default();
+                        .map(|(_, tags, cat)| (tags.clone(), cat.clone()))
+                        .unwrap_or_else(|| {
+                            eprintln!(
+                                "Warning: Document {} has no tags/category metadata, using empty tags",
+                                chunk.doc_id
+                            );
+                            (Vec::new(), "unknown".to_string())
+                        });
 
                     let query_embedding = generate_embedding_from_tags(
                         &chunk_tags,

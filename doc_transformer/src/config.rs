@@ -195,11 +195,15 @@ impl CategoryConfig {
     ) -> bool {
         // Check filename patterns (case-insensitive)
         if let Some(patterns) = &criteria.filename {
-            let fname_lower = Path::new(filename)
-                .file_stem()
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string_lossy().to_lowercase())
-                .unwrap_or_default();
+            let fname_lower = if let Some(stem) = Path::new(filename).file_stem() {
+                if !stem.is_empty() {
+                    stem.to_string_lossy().to_lowercase()
+                } else {
+                    String::new()
+                }
+            } else {
+                String::new()
+            };
 
             if patterns
                 .iter()

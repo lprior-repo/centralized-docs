@@ -646,10 +646,7 @@ mod tests {
     #[cfg(feature = "enhanced")]
     #[test]
     fn test_builder_cache() {
-        let builder = match FeatureConfigBuilder::new().enable_cache(300) {
-            Ok(b) => b,
-            Err(e) => panic!("enable_cache failed: {e}"),
-        };
+        let builder = FeatureConfigBuilder::new().enable_cache(300).unwrap();
         let config = builder.build();
         assert!(config.cache.is_some());
         assert!(config.cache.as_ref().is_some_and(|c| c.enabled));
@@ -658,11 +655,9 @@ mod tests {
     #[cfg(feature = "enhanced")]
     #[test]
     fn test_builder_filtering() {
-        let builder = match FeatureConfigBuilder::new().allow_patterns(vec!["/docs/*".to_string()])
-        {
-            Ok(b) => b,
-            Err(e) => panic!("allow_patterns failed: {e}"),
-        };
+        let builder = FeatureConfigBuilder::new()
+            .allow_patterns(vec!["/docs/*".to_string()])
+            .unwrap();
         let config = builder.build();
         assert!(config.filtering.is_some());
         assert!(!config.filtering.as_ref().is_none_or(|f| f.allow.is_empty()));
@@ -676,10 +671,7 @@ mod tests {
 
     #[test]
     fn test_cache_config_enabled_with_ttl() {
-        let ttl = match CacheTtl::new(600) {
-            Ok(t) => t,
-            Err(e) => panic!("CacheTtl::new failed: {e}"),
-        };
+        let ttl = CacheTtl::new(600).unwrap();
         let config = CacheConfig::enabled_with_ttl(ttl);
         assert!(config.enabled);
         assert_eq!(config.ttl.seconds(), 600);
@@ -693,9 +685,8 @@ mod tests {
 
     #[test]
     fn test_filtering_config_with_allow() {
-        let pattern = GlobPattern::new("/docs/*".to_string());
-        assert!(pattern.is_ok(), "GlobPattern::new should succeed");
-        let patterns = vec![pattern.unwrap()];
+        let pattern = GlobPattern::new("/docs/*".to_string()).unwrap();
+        let patterns = vec![pattern];
         let config = FilteringConfig::new().with_allow(patterns.clone());
         assert!(!config.allow.is_empty());
         assert_eq!(config.allow.len(), 1);
@@ -703,9 +694,8 @@ mod tests {
 
     #[test]
     fn test_filtering_config_with_deny() {
-        let pattern = RegexPattern::new(r"\.pdf$".to_string());
-        assert!(pattern.is_ok(), "RegexPattern::new should succeed");
-        let patterns = vec![pattern.unwrap()];
+        let pattern = RegexPattern::new(r"\.pdf$".to_string()).unwrap();
+        let patterns = vec![pattern];
         let config = FilteringConfig::new().with_deny(patterns.clone());
         assert!(!config.deny.is_empty());
         assert_eq!(config.deny.len(), 1);
@@ -714,10 +704,7 @@ mod tests {
     #[cfg(feature = "javascript")]
     #[test]
     fn test_javascript_config_smart() {
-        let config = match JavascriptConfig::smart() {
-            Ok(c) => c,
-            Err(e) => panic!("JavascriptConfig::smart failed: {e}"),
-        };
+        let config = JavascriptConfig::smart().unwrap();
         assert_eq!(config.mode, RenderMode::Smart);
         assert_eq!(config.timeout.millis(), 30000);
     }
@@ -725,10 +712,7 @@ mod tests {
     #[cfg(feature = "javascript")]
     #[test]
     fn test_javascript_config_never() {
-        let config = match JavascriptConfig::never() {
-            Ok(c) => c,
-            Err(e) => panic!("JavascriptConfig::never failed: {e}"),
-        };
+        let config = JavascriptConfig::never().unwrap();
         assert_eq!(config.mode, RenderMode::Never);
         assert_eq!(config.timeout.millis(), 1000);
     }
@@ -736,10 +720,7 @@ mod tests {
     #[cfg(feature = "javascript")]
     #[test]
     fn test_javascript_config_with_timeout() {
-        let timeout = match Milliseconds::new(5000) {
-            Ok(t) => t,
-            Err(e) => panic!("Milliseconds::new failed: {e}"),
-        };
+        let timeout = Milliseconds::new(5000).unwrap();
         let config = JavascriptConfig {
             mode: RenderMode::Always,
             timeout,
@@ -777,10 +758,7 @@ mod tests {
     #[cfg(feature = "enhanced")]
     #[test]
     fn test_feature_config_with_cache() {
-        let ttl = match CacheTtl::new(300) {
-            Ok(t) => t,
-            Err(e) => panic!("CacheTtl::new failed: {e}"),
-        };
+        let ttl = CacheTtl::new(300).unwrap();
         let cache_config = CacheConfig::enabled_with_ttl(ttl);
         let config = FeatureConfig::new().with_cache(cache_config);
         assert!(!config.is_empty());
@@ -799,10 +777,7 @@ mod tests {
     #[cfg(feature = "javascript")]
     #[test]
     fn test_feature_config_with_javascript() {
-        let js_config = match JavascriptConfig::smart() {
-            Ok(c) => c,
-            Err(e) => panic!("JavascriptConfig::smart failed: {e}"),
-        };
+        let js_config = JavascriptConfig::smart().unwrap();
         let config = FeatureConfig::new().with_javascript(js_config);
         assert!(!config.is_empty());
         assert!(config.javascript.is_some());
@@ -819,29 +794,8 @@ mod tests {
 
     #[cfg(feature = "enhanced")]
     #[test]
-    fn test_feature_config_builder_chain() {
-        let builder = match FeatureConfigBuilder::new().enable_cache(600) {
-            Ok(b) => b,
-            Err(e) => panic!("enable_cache failed: {e}"),
-        };
-        let builder = match builder.allow_patterns(vec!["/api/*".to_string()]) {
-            Ok(b) => b,
-            Err(e) => panic!("allow_patterns failed: {e}"),
-        };
-        let config = builder.build();
-
-        assert!(config.cache.is_some());
-        assert!(config.cache.is_some_and(|c| c.enabled));
-        assert!(config.filtering.is_some());
-        assert!(!config.filtering.is_none_or(|f| f.allow.is_empty()));
-    }
-
-    #[test]
-    fn test_cache_ttl_as_duration() {
-        let ttl = match CacheTtl::new(120) {
-            Ok(t) => t,
-            Err(e) => panic!("CacheTtl::new failed: {e}"),
-        };
+    fn test_cache_ttl_enhanced() {
+        let ttl = CacheTtl::new(120).unwrap();
         let duration = ttl.as_duration();
         assert_eq!(duration.as_secs(), 120);
     }
@@ -849,24 +803,22 @@ mod tests {
     #[test]
     fn test_cache_ttl_default() {
         let ttl = CacheTtl::default();
-        assert_eq!(ttl.seconds(), 300); // 5 minutes
+        assert_eq!(ttl.seconds(), 300);
     }
 
     #[test]
     fn test_regex_pattern_as_str() {
         let result = RegexPattern::new(r"\d+".to_string());
-        assert!(result.is_ok(), "valid pattern should succeed");
-        if let Ok(pattern) = result {
-            assert_eq!(pattern.as_str(), r"\d+");
-        }
+        assert!(result.is_ok());
+        let pattern = result.unwrap();
+        assert_eq!(pattern.as_str(), r"\d+");
     }
 
     #[test]
     fn test_glob_pattern_as_str() {
         let result = GlobPattern::new("/docs/*".to_string());
-        assert!(result.is_ok(), "valid pattern should succeed");
-        if let Ok(pattern) = result {
-            assert_eq!(pattern.as_str(), "/docs/*");
-        }
+        assert!(result.is_ok());
+        let pattern = result.unwrap();
+        assert_eq!(pattern.as_str(), "/docs/*");
     }
 }

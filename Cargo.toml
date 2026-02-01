@@ -14,6 +14,14 @@ repository = "https://github.com/lewisreader/centralized-docs"
 unsafe_code = "forbid"
 missing_docs = "allow"
 
+[workspace.dependencies]
+# FP primitives (The Holy Trinity)
+im = "15.1"
+tap = "1"
+itertools = "0.14"
+strum = { version = "0.26", features = ["derive"] }
+thiserror = "2"
+
 [workspace.lints.clippy]
 # Zero unwrap law - COMPILE ERRORS
 unwrap_used = "forbid"
@@ -21,6 +29,26 @@ expect_used = "forbid"
 panic = "forbid"
 todo = "forbid"
 unimplemented = "forbid"
+unreachable = "forbid"
+
+# Enforce immutability and purity (Haskell-like FP)
+mut_mut = "deny"                      # No deeply mutable references
+mutex_atomic = "deny"                 # Use atomics over mutexes when possible
+print_stdout = "deny"                 # No direct stdout (use tracing)
+print_stderr = "deny"                 # No direct stderr (use tracing)
+use_debug = "deny"                    # No println!/dbg! for debugging
+exit = "deny"                         # No process::exit
+indexing_slicing = "deny"             # No panicking [] indexing - use .get()
+
+# Enforce functional iteration patterns
+needless_range_loop = "deny"          # Use .iter() instead of for i in 0..len
+explicit_counter_loop = "deny"        # Use .enumerate() instead
+manual_find = "deny"                  # Use .find() instead of manual loop
+filter_map_next = "deny"              # Use .find_map() instead
+
+# Enforce Result/Option handling
+option_if_let_else = "deny"           # Use .map_or() instead
+manual_ok_or = "deny"                 # Use .ok_or() instead
 
 # Quality enforcement (with priority)
 all = { level = "warn", priority = -1 }

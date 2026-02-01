@@ -280,7 +280,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
             .get_first(fields.summary)
             .map(tantivy::schema::OwnedValue::from)
             .and_then(|v| v.as_ref().as_str().map(|s| s.to_string()))
-            .unwrap_or_default();
+            .unwrap_or_else(|| "No summary available".to_string());
 
         let category = retrieved_doc
             .get_first(fields.category)
