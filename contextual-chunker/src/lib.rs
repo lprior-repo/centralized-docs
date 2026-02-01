@@ -107,7 +107,7 @@
 //! - **Unicode Handling**: Safe on emoji, multibyte, CJK characters
 //! - **Token Estimation**: Consistent within ±10% (4 chars ≈ 1 token)
 //! - **API Stability**: Chunk structure frozen; no breaking changes in 0.x
-//! - **Panic Safety**: No unwrap(), no expect() except hardcoded regex (tested)
+//! - **Panic Safety**: No `unwrap()`, no `expect()` except hardcoded regex (tested)
 //!
 //! ## Performance
 //!
