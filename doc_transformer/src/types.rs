@@ -475,6 +475,389 @@ pub enum ConfigError {
     HnswEfConstructionTooLarge(usize),
 }
 
+/// A newtype wrapper for project names.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct ProjectName(String);
+
+#[allow(dead_code)]
+impl ProjectName {
+    /// Create a new ProjectName, validating format.
+    pub fn new(name: impl Into<String>) -> Result<Self, ProjectNameError> {
+        let s = name.into();
+        let trimmed = s.trim();
+
+        if trimmed.is_empty() {
+            return Err(ProjectNameError::Empty);
+        }
+
+        if trimmed.len() > 100 {
+            return Err(ProjectNameError::TooLong(trimmed.len()));
+        }
+
+        if !trimmed
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == ' ')
+        {
+            return Err(ProjectNameError::InvalidCharacters);
+        }
+
+        Ok(ProjectName(trimmed.to_string()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl fmt::Display for ProjectName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Deref for ProjectName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for ProjectName {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Borrow<str> for ProjectName {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum ProjectNameError {
+    #[error("Project name cannot be empty")]
+    Empty,
+    #[error("Project name too long: {0} characters (max 100)")]
+    TooLong(usize),
+    #[error("Project name contains invalid characters (only alphanumeric, hyphen, underscore, space allowed)")]
+    InvalidCharacters,
+}
+
+/// A newtype wrapper for validated file paths.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct FilePath(String);
+
+#[allow(dead_code)]
+impl FilePath {
+    /// Create a new FilePath from a PathBuf or string.
+    pub fn new(path: impl Into<String>) -> Result<Self, FilePathError> {
+        let s = path.into();
+        let trimmed = s.trim();
+
+        if trimmed.is_empty() {
+            return Err(FilePathError::Empty);
+        }
+
+        if trimmed.contains("..") {
+            return Err(FilePathError::ContainsParentDirectory);
+        }
+
+        Ok(FilePath(trimmed.to_string()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+
+    pub fn extension(&self) -> Option<&str> {
+        std::path::Path::new(&self.0)
+            .extension()
+            .and_then(|ext| ext.to_str())
+    }
+
+    pub fn filename(&self) -> Option<&str> {
+        std::path::Path::new(&self.0)
+            .file_name()
+            .and_then(|name| name.to_str())
+    }
+}
+
+impl fmt::Display for FilePath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Deref for FilePath {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for FilePath {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<std::path::PathBuf> for FilePath {
+    fn from(path: std::path::PathBuf) -> Self {
+        FilePath(path.to_string_lossy().into_owned())
+    }
+}
+
+impl From<&std::path::Path> for FilePath {
+    fn from(path: &std::path::Path) -> Self {
+        FilePath(path.to_string_lossy().into_owned())
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum FilePathError {
+    #[error("File path cannot be empty")]
+    Empty,
+    #[error("File path contains parent directory reference (..)")]
+    ContainsParentDirectory,
+}
+
+/// A newtype wrapper for category names.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct Category(String);
+
+#[allow(dead_code)]
+impl Category {
+    /// Create a new Category.
+    pub fn new(category: impl Into<String>) -> Result<Self, CategoryError> {
+        let s = category.into();
+        let trimmed = s.trim().to_lowercase();
+
+        if trimmed.is_empty() {
+            return Err(CategoryError::Empty);
+        }
+
+        if trimmed.len() > 50 {
+            return Err(CategoryError::TooLong(trimmed.len()));
+        }
+
+        if !trimmed
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
+            return Err(CategoryError::InvalidCharacters);
+        }
+
+        Ok(Category(trimmed))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl fmt::Display for Category {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Deref for Category {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for Category {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Borrow<str> for Category {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum CategoryError {
+    #[error("Category cannot be empty")]
+    Empty,
+    #[error("Category too long: {0} characters (max 50)")]
+    TooLong(usize),
+    #[error(
+        "Category contains invalid characters (only alphanumeric, hyphen, underscore allowed)"
+    )]
+    InvalidCharacters,
+}
+
+/// A newtype wrapper for document titles.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct Title(String);
+
+#[allow(dead_code)]
+impl Title {
+    /// Create a new Title.
+    pub fn new(title: impl Into<String>) -> Result<Self, TitleError> {
+        let s = title.into();
+        let trimmed = s.trim().to_string();
+
+        if trimmed.is_empty() {
+            return Err(TitleError::Empty);
+        }
+
+        if trimmed.len() > 500 {
+            return Err(TitleError::TooLong(trimmed.len()));
+        }
+
+        Ok(Title(trimmed))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl fmt::Display for Title {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Deref for Title {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for Title {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum TitleError {
+    #[error("Title cannot be empty")]
+    Empty,
+    #[error("Title too long: {0} characters (max 500)")]
+    TooLong(usize),
+}
+
+/// A newtype wrapper for URL-safe slugs.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct Slug(String);
+
+#[allow(dead_code)]
+impl Slug {
+    /// Create a new Slug from a string.
+    pub fn new(slug: impl Into<String>) -> Result<Self, SlugError> {
+        let s = slug.into();
+        let cleaned = s.trim().to_lowercase();
+
+        if cleaned.is_empty() {
+            return Err(SlugError::Empty);
+        }
+
+        if cleaned.len() > 200 {
+            return Err(SlugError::TooLong(cleaned.len()));
+        }
+
+        if !cleaned
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
+            return Err(SlugError::InvalidCharacters);
+        }
+
+        Ok(Slug(cleaned))
+    }
+
+    /// Create a Slug from a title or name.
+    pub fn from_text(text: &str) -> Self {
+        let slug = text
+            .trim()
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+            .take(200)
+            .collect::<String>();
+
+        if slug.is_empty() {
+            return Slug("untitled".to_string());
+        }
+
+        Slug(slug)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl fmt::Display for Slug {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Deref for Slug {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for Slug {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Borrow<str> for Slug {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum SlugError {
+    #[error("Slug cannot be empty")]
+    Empty,
+    #[error("Slug too long: {0} characters (max 200)")]
+    TooLong(usize),
+    #[error("Slug contains invalid characters (only alphanumeric, hyphen, underscore allowed)")]
+    InvalidCharacters,
+}
+
 /// Stopwords to filter out from tags and keywords.
 ///
 /// Used across multiple modules to ensure consistent filtering.
@@ -563,5 +946,95 @@ mod tests {
     fn test_keyword_case_insensitive() {
         let result = Keyword::new("FUNCTION");
         assert!(matches!(result, Ok(ref kw) if kw.as_str() == "function"));
+    }
+
+    #[test]
+    fn test_project_name_valid() {
+        let result = ProjectName::new("My Project");
+        assert!(matches!(result, Ok(ref name) if name.as_str() == "My Project"));
+    }
+
+    #[test]
+    fn test_project_name_empty() {
+        let result = ProjectName::new("");
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ProjectNameError::Empty)));
+    }
+
+    #[test]
+    fn test_project_name_invalid_chars() {
+        let result = ProjectName::new("Test@Project");
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ProjectNameError::InvalidCharacters)));
+    }
+
+    #[test]
+    fn test_category_valid() {
+        let result = Category::new("tutorial");
+        assert!(matches!(result, Ok(ref cat) if cat.as_str() == "tutorial"));
+    }
+
+    #[test]
+    fn test_category_case_insensitive() {
+        let result = Category::new("TUTORIAL");
+        assert!(matches!(result, Ok(ref cat) if cat.as_str() == "tutorial"));
+    }
+
+    #[test]
+    fn test_category_empty() {
+        let result = Category::new("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_title_valid() {
+        let result = Title::new("Getting Started with Rust");
+        assert!(matches!(result, Ok(ref title) if title.as_str() == "Getting Started with Rust"));
+    }
+
+    #[test]
+    fn test_title_empty() {
+        let result = Title::new("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_slug_from_text() {
+        let slug = Slug::from_text("Hello World!");
+        assert_eq!(slug.as_str(), "hello-world");
+    }
+
+    #[test]
+    fn test_slug_from_empty_text() {
+        let slug = Slug::from_text("   ");
+        assert_eq!(slug.as_str(), "untitled");
+    }
+
+    #[test]
+    fn test_slug_valid() {
+        let result = Slug::new("my-document-slug");
+        assert!(matches!(result, Ok(ref slug) if slug.as_str() == "my-document-slug"));
+    }
+
+    #[test]
+    fn test_slug_invalid_chars() {
+        let result = Slug::new("invalid@slug!");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_filepath_valid() {
+        let result = FilePath::new("docs/tutorial.md");
+        assert!(matches!(result, Ok(ref path) if path.as_str() == "docs/tutorial.md"));
+    }
+
+    #[test]
+    fn test_filepath_contains_parent() {
+        let result = FilePath::new("../etc/passwd");
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(FilePathError::ContainsParentDirectory)
+        ));
     }
 }

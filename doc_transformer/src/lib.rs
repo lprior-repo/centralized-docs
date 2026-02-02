@@ -8,6 +8,8 @@ pub mod chunk;
 pub mod chunking_adapter;
 pub mod config;
 pub mod discover;
+pub mod embeddings;
+pub mod errors;
 #[cfg(feature = "enhanced")]
 pub mod features;
 pub mod filter;
