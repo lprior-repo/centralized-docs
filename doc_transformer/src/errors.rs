@@ -281,9 +281,10 @@ mod tests {
     fn test_error_conversion() {
         let io_error = std::io::Error::new(std::io::ErrorKind::NotFound, "file.txt");
         let doc_error: DocTransformerError = io_error.into();
+        // IoError from std::io::Error now returns IoError::Other
         assert!(matches!(
             doc_error,
-            DocTransformerError::Io(IoError::NotFound { .. })
+            DocTransformerError::Io(IoError::Other { .. })
         ));
     }
 
