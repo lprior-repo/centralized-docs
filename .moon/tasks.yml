@@ -33,6 +33,10 @@ tasks:
     options:
       cache: true
       runInCI: true
+      mutex: "rust_heavy"
+      runDepsInParallel: false
+    env:
+      CARGO_BUILD_JOBS: "6"
 
   test-doc:
     command: "cargo test --doc --workspace"
@@ -49,6 +53,10 @@ tasks:
     options:
       cache: true
       runInCI: true
+      mutex: "rust_heavy"
+      runDepsInParallel: false
+    env:
+      CARGO_BUILD_JOBS: "8"
 
   install:
     command: "sh -c 'cargo build --release --workspace && for bin in doc_transformer llms_txt_validator; do [ -f target/release/$bin ] && cp target/release/$bin ~/.local/bin/$bin; done && chmod +x ~/.local/bin/doc_transformer ~/.local/bin/llms-txt-validator 2>/dev/null || true'"
