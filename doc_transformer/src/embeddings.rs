@@ -17,7 +17,7 @@
 //!
 //! # Usage
 //!
-//! ```
+//! ```no_run
 //! use doc_transformer::embeddings::{EmbeddingProvider, OpenAIProvider, Embedding};
 //!
 //! #[tokio::main]
@@ -562,6 +562,6 @@ mod tests {
         assert!(provider.is_ok());
 
         let slug = Slug::from_text("Hello World!");
-        assert_eq!(slug.as_str(), "helloworld");
+        assert_eq!(slug.as_str(), "hello-world");
     }
 }

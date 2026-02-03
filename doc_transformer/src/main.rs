@@ -435,7 +435,7 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
+    let result = match cli.command {
         Some(Commands::Search {
             query,
             index_dir,
@@ -597,7 +597,9 @@ async fn main() -> Result<()> {
                 );
             }
         }
-    }
+    };
+
+    result
 }
 
 /// Validate query length to prevent DoS attacks and resource exhaustion
@@ -1047,66 +1049,53 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
     println!("{}\n", "=".repeat(70));
     println!("Query: \"{query}\"");
 
-    // Try Tantivy index first
-    let tantivy_available = doc_transformer::search::open_or_create_index(index_dir).is_ok();
+    // Try Tantivy index first (only if it already exists)
+    if let Some(index) = doc_transformer::search::open_existing_index(index_dir)? {
+        match doc_transformer::search::search_index(&index, query, limit) {
+            Ok(results) => {
+                println!("Using Tantivy index\n");
 
-    if tantivy_available {
-        // Use Tantivy if available
-        match doc_transformer::search::open_or_create_index(index_dir) {
-            Ok(index) => {
-                match doc_transformer::search::search_index(&index, query, limit) {
-                    Ok(results) => {
-                        println!("Using Tantivy index\n");
-
-                        if results.is_empty() {
-                            println!("No results found for \"{query}\"");
+                if results.is_empty() {
+                    println!("No results found for \"{query}\"");
+                } else {
+                    println!("Results:\n");
+                    for (i, result) in results.iter().enumerate() {
+                        // Truncate summary
+                        let summary_short = if result.summary.chars().count() > 80 {
+                            let truncated: String = result.summary.chars().take(77).collect();
+                            format!("{truncated}...")
                         } else {
-                            println!("Results:\n");
-                            for (i, result) in results.iter().enumerate() {
-                                // Truncate summary
-                                let summary_short = if result.summary.chars().count() > 80 {
-                                    let truncated: String =
-                                        result.summary.chars().take(77).collect();
-                                    format!("{truncated}...")
-                                } else {
-                                    result.summary.clone()
-                                };
+                            result.summary.clone()
+                        };
 
-                                println!(
-                                    "{}. [{}] {} (score: {:.2})",
-                                    i.saturating_add(1),
-                                    result.category,
-                                    result.title,
-                                    result.score
-                                );
-                                println!("   Path: {}", result.path);
-                                println!("   {summary_short}\n");
-                            }
-
-                            println!("{}", "=".repeat(70));
-                            println!(
-                                "Showing {} of {} results",
-                                results.len().min(limit),
-                                results.len()
-                            );
-                            println!("{}\n", "=".repeat(70));
-                        }
-
-                        return Ok(());
+                        println!(
+                            "{}. [{}] {} (score: {:.2})",
+                            i.saturating_add(1),
+                            result.category,
+                            result.title,
+                            result.score
+                        );
+                        println!("   Path: {}", result.path);
+                        println!("   {summary_short}\n");
                     }
-                    Err(e) => {
-                        // Fall through to JSON-based search with informative message
-                        println!("Note: Query contains special characters unsupported by advanced search.");
-                        println!("  Reason: {e}");
-                        println!("  Tip: Try simpler terms or remove special characters.");
-                        println!("  Falling back to basic search...\n");
-                    }
+
+                    println!("{}", "=".repeat(70));
+                    println!(
+                        "Showing {} of {} results",
+                        results.len().min(limit),
+                        results.len()
+                    );
+                    println!("{}\n", "=".repeat(70));
                 }
+
+                return Ok(());
             }
             Err(e) => {
-                // Fall through to JSON-based search
-                println!("Tantivy index not available: {e}");
-                println!("Using INDEX.json for search\n");
+                // Fall through to JSON-based search with informative message
+                println!("Note: Query contains special characters unsupported by advanced search.");
+                println!("  Reason: {e}");
+                println!("  Tip: Try simpler terms or remove special characters.");
+                println!("  Falling back to basic search...\n");
             }
         }
     }

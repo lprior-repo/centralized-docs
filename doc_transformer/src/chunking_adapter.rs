@@ -6,6 +6,7 @@
 
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
+use crate::types::Slug;
 use anyhow::Result;
 use contextual_chunker::{self, Document};
 use serde::{Deserialize, Serialize};
@@ -73,20 +74,48 @@ pub struct ChunksResult {
 ///
 /// Maps doc_transformer's Analysis type to the simpler Document type
 /// used by contextual-chunker. Uses link_map to get the assigned doc ID,
-/// falling back to slugified source path.
-#[allow(clippy::panic)]
+/// falling back to a deterministic slugified ID if missing.
 fn analysis_to_document(analysis: &Analysis, link_map: &HashMap<String, IdMapping>) -> Document {
-    let doc_id = match link_map.get(&analysis.source_path) {
-        Some(m) => m.id.clone(),
-        None => {
-            panic!(
-                "link_map missing entry for source_path '{}'. This should never happen - link_map is built from the same analyses vector.",
-                analysis.source_path
-            )
-        }
-    };
+    let doc_id = link_map
+        .get(&analysis.source_path)
+        .map(|m| m.id.clone())
+        .unwrap_or_else(|| fallback_doc_id(analysis));
 
     Document::new(doc_id, analysis.title.clone(), analysis.content.clone())
+}
+
+fn fallback_doc_id(analysis: &Analysis) -> String {
+    let parts: Vec<&str> = analysis.source_path.split('/').collect();
+    let subcategory = parts
+        .get(parts.len().saturating_sub(2))
+        .map(|s| s.to_lowercase())
+        .unwrap_or_else(|| "general".to_string());
+    let filename_stem = Path::new(&analysis.source_path)
+        .file_stem()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "untitled".to_string());
+    let slug = slugify(&filename_stem);
+
+    format!("{}/{}/{}", analysis.category, subcategory, slug)
+}
+
+fn slugify(text: &str) -> String {
+    let slug = text
+        .to_lowercase()
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == ' ' {
+                c
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-");
+    Slug::from_text(&slug).into_string()
 }
 
 /// Convert contextual_chunker::Chunk to doc_transformer::Chunk
@@ -239,7 +268,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analysis_to_document_missing_link_map_panics() {
+    fn test_analysis_to_document_missing_link_map_fallbacks() {
         let analysis = Analysis {
             source_path: "concept/general/test.md".to_string(),
             title: "Test Document".to_string(),
@@ -256,15 +285,9 @@ mod tests {
 
         let link_map = HashMap::new();
 
-        // Should panic with helpful error message when link_map entry is missing
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            analysis_to_document(&analysis, &link_map);
-        }));
+        let doc = analysis_to_document(&analysis, &link_map);
 
-        assert!(
-            result.is_err(),
-            "Should panic when link_map entry is missing"
-        );
+        assert_eq!(doc.id, "concept/general/test");
     }
 
     #[test]

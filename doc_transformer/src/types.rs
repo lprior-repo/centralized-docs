@@ -803,7 +803,18 @@ impl Slug {
             .trim()
             .to_lowercase()
             .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    ' '
+                }
+            })
+            .collect::<String>()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join("-")
+            .chars()
             .take(200)
             .collect::<String>();
 

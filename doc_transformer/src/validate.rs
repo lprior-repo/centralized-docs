@@ -70,27 +70,8 @@ pub fn validate_all(output_dir: &Path) -> Result<ValidationResult> {
         });
     }
 
-    let file_results: Vec<(String, Vec<String>, Vec<String>)> = fs::read_dir(docs_dir)?
-        .filter_map(|entry| entry.ok())
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
-        .filter_map(|path| {
-            let path_str = path.display().to_string();
-            fs::read_to_string(&path)
-                .ok()
-                .map(|content| (path_str, content))
-        })
-        .map(|(path, content)| {
-            let (errors, warnings) = validate_file(&content);
-            (path, errors, warnings)
-        })
-        .collect();
-
-    let files_checked = file_results.len();
-    let total_errors = file_results.iter().map(|(_, e, _)| e.len()).sum();
-    let total_warnings = file_results.iter().map(|(_, _, w)| w.len()).sum();
-    let files_passed = file_results.iter().filter(|(_, e, _)| e.is_empty()).count();
-
+    let file_results = collect_validation_results(&docs_dir)?;
+    let summary = summarize_results(&file_results);
     let failed_files = file_results
         .into_iter()
         .filter(|(_, e, w)| !e.is_empty() || !w.is_empty())
@@ -102,12 +83,57 @@ pub fn validate_all(output_dir: &Path) -> Result<ValidationResult> {
         .collect();
 
     Ok(ValidationResult {
+        files_checked: summary.files_checked,
+        files_passed: summary.files_passed,
+        total_errors: summary.total_errors,
+        total_warnings: summary.total_warnings,
+        failed_files,
+    })
+}
+
+fn collect_validation_results(docs_dir: &Path) -> Result<Vec<(String, Vec<String>, Vec<String>)>> {
+    fs::read_dir(docs_dir)?
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
+        .map(validate_path)
+        .collect()
+}
+
+fn validate_path(path: std::path::PathBuf) -> Result<(String, Vec<String>, Vec<String>)> {
+    let path_str = path.display().to_string();
+    match fs::read_to_string(&path) {
+        Ok(content) => {
+            let (errors, warnings) = validate_file(&content);
+            Ok((path_str, errors, warnings))
+        }
+        Err(err) => Ok((
+            path_str,
+            vec![format!("Failed to read file: {err}")],
+            Vec::new(),
+        )),
+    }
+}
+
+struct ValidationSummary {
+    files_checked: usize,
+    files_passed: usize,
+    total_errors: usize,
+    total_warnings: usize,
+}
+
+fn summarize_results(file_results: &[(String, Vec<String>, Vec<String>)]) -> ValidationSummary {
+    let files_checked = file_results.len();
+    let total_errors = file_results.iter().map(|(_, e, _)| e.len()).sum();
+    let total_warnings = file_results.iter().map(|(_, _, w)| w.len()).sum();
+    let files_passed = file_results.iter().filter(|(_, e, _)| e.is_empty()).count();
+
+    ValidationSummary {
         files_checked,
         files_passed,
         total_errors,
         total_warnings,
-        failed_files,
-    })
+    }
 }
 
 fn validate_file(content: &str) -> (Vec<String>, Vec<String>) {
@@ -257,6 +283,37 @@ fn contains_regex_pattern(query: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_validate_all_reports_read_error() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let docs_dir = temp_dir.path().join("docs");
+        fs::create_dir_all(&docs_dir)?;
+
+        let file_path = docs_dir.join("bad.md");
+        fs::write(&file_path, "---\n")?;
+
+        let mut perms = fs::metadata(&file_path)?.permissions();
+        perms.set_mode(0o000);
+        fs::set_permissions(&file_path, perms)?;
+
+        let result = validate_all(temp_dir.path())?;
+
+        let mut restore_perms = fs::metadata(&file_path)?.permissions();
+        restore_perms.set_mode(0o644);
+        fs::set_permissions(&file_path, restore_perms)?;
+
+        assert_eq!(result.files_checked, 1);
+        assert_eq!(result.total_errors, 1);
+        assert!(result.failed_files[0]
+            .errors
+            .first()
+            .is_some_and(|msg| msg.contains("Failed to read")));
+
+        Ok(())
+    }
 
     #[test]
     fn test_validate_h1_at_start() {

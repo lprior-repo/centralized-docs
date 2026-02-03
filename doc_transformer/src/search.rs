@@ -152,6 +152,22 @@ pub fn open_or_create_index(index_path: &Path) -> Result<Index> {
     Index::create_in_dir(&index_dir, schema).map_err(|e| anyhow!("Failed to create index: {e}"))
 }
 
+/// Open Tantivy index if it already exists.
+///
+/// Returns Ok(None) when no index directory is present.
+#[allow(dead_code)]
+pub fn open_existing_index(index_path: &Path) -> Result<Option<Index>> {
+    let index_dir = index_path.join(".tantivy_index");
+
+    if !index_dir.exists() {
+        return Ok(None);
+    }
+
+    Index::open_in_dir(&index_dir)
+        .map(Some)
+        .map_err(|e| anyhow!("Failed to open index: {e}"))
+}
+
 /// Index a batch of documents into Tantivy
 ///
 /// ## Behavior
