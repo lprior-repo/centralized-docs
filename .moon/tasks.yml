@@ -33,8 +33,6 @@ tasks:
     options:
       cache: true
       runInCI: true
-      mutex: "rust_heavy"
-      runDepsInParallel: false
     env:
       CARGO_BUILD_JOBS: "16"
 
@@ -53,8 +51,6 @@ tasks:
     options:
       cache: true
       runInCI: true
-      mutex: "rust_heavy"
-      runDepsInParallel: false
     env:
       CARGO_BUILD_JOBS: "24"
 
