@@ -91,7 +91,9 @@ pub fn validate_all(output_dir: &Path) -> Result<ValidationResult> {
     })
 }
 
-fn collect_validation_results(docs_dir: &Path) -> Result<Vec<(String, Vec<String>, Vec<String>)>> {
+type ValidationEntry = (String, Vec<String>, Vec<String>);
+
+fn collect_validation_results(docs_dir: &Path) -> Result<Vec<ValidationEntry>> {
     fs::read_dir(docs_dir)?
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
@@ -100,7 +102,7 @@ fn collect_validation_results(docs_dir: &Path) -> Result<Vec<(String, Vec<String
         .collect()
 }
 
-fn validate_path(path: std::path::PathBuf) -> Result<(String, Vec<String>, Vec<String>)> {
+fn validate_path(path: std::path::PathBuf) -> Result<ValidationEntry> {
     let path_str = path.display().to_string();
     match fs::read_to_string(&path) {
         Ok(content) => {
@@ -122,7 +124,7 @@ struct ValidationSummary {
     total_warnings: usize,
 }
 
-fn summarize_results(file_results: &[(String, Vec<String>, Vec<String>)]) -> ValidationSummary {
+fn summarize_results(file_results: &[ValidationEntry]) -> ValidationSummary {
     let files_checked = file_results.len();
     let total_errors = file_results.iter().map(|(_, e, _)| e.len()).sum();
     let total_warnings = file_results.iter().map(|(_, _, w)| w.len()).sum();

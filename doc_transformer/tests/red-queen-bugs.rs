@@ -82,8 +82,7 @@ fn test_corrupted_index_returns_error() {
         stderr_lower.contains("invalid")
             || stderr_lower.contains("parse")
             || stderr_lower.contains("error"),
-        "Should report JSON parse error, got: {}",
-        stderr
+        "Should report JSON parse error, got: {stderr}",
     );
 }
 
@@ -116,8 +115,7 @@ fn test_empty_parent_path_shows_full_path() {
     );
     assert!(
         stderr.contains("nonexistent"),
-        "Error message should show full parent path 'nonexistent', got: {}",
-        stderr
+        "Error message should show full parent path 'nonexistent', got: {stderr}",
     );
 
     fs::remove_dir_all(temp_dir).expect("Failed to clean up");
