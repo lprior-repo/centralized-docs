@@ -1151,12 +1151,8 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
     // Extract fields from config
     let filter = config.filter.clone();
     let delay = config.delay;
-    let request_timeout_secs = config.request_timeout_secs;
-    let max_retries = config.max_retries;
-    let redirect_policy = config.redirect_policy.clone();
     let max_page_bytes = config.max_page_bytes;
     let max_total_bytes = config.max_total_bytes;
-    let concurrency_limit = config.concurrency_limit;
     let query = config.query.clone();
     let threshold = config.threshold;
     let project_name = config.project_name.clone();
@@ -1184,10 +1180,10 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
         delay_ms: delay,
         max_page_size_bytes: max_page_bytes.unwrap_or(10 * 1024 * 1024),
         max_total_size_bytes: max_total_bytes.unwrap_or(500 * 1024 * 1024),
-        request_timeout_secs,
-        max_retries,
-        redirect_policy,
-        concurrency_limit,
+        request_timeout_secs: config.request_timeout_secs,
+        max_retries: config.max_retries,
+        redirect_policy: config.redirect_policy.clone(),
+        concurrency_limit: config.concurrency_limit,
         ..Default::default()
     };
 
