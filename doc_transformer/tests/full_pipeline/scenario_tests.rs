@@ -129,6 +129,7 @@ fn run_index_pipeline(source_dir: &Path, output_dir: &Path) -> anyhow::Result<In
         None,
         None,
         None,
+        None,
     )
     .context("Indexing phase failed")?;
 

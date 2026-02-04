@@ -499,6 +499,7 @@ fn test_document_validation_negative_word_count() {
         None,
         None,
         None,
+        None,
     );
 
     assert!(
@@ -546,6 +547,7 @@ fn test_document_validation_zero_word_count() {
         &chunks_result,
         index_path,
         "test_project",
+        None,
         None,
         None,
         None,

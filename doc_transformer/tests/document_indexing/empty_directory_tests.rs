@@ -79,6 +79,7 @@ fn run_indexing_pipeline(source_dir: &Path, output_dir: &Path) -> Result<Extende
         None, // max_related_chunks
         None, // hnsw_m
         None, // hnsw_ef_construction
+        None, // max_chunk_keywords
     )
     .context("Indexing phase failed")?;
 
