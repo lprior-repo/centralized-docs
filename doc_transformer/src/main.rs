@@ -45,6 +45,7 @@ struct IndexConfig {
     project_desc: String,
     category_config: Option<PathBuf>,
     max_related_chunks: Option<usize>,
+    max_chunk_keywords: Option<usize>,
     hnsw_m: Option<usize>,
     hnsw_ef_construction: Option<usize>,
 }
@@ -57,6 +58,7 @@ impl Default for IndexConfig {
             project_desc: "AI-optimized documentation index".to_string(),
             category_config: None,
             max_related_chunks: None,
+            max_chunk_keywords: None,
             hnsw_m: None,
             hnsw_ef_construction: None,
         }
@@ -142,6 +144,18 @@ fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
     }
     if value > 100 {
         return Err("max_related_chunks must be at most 100".to_string());
+    }
+
+    Ok(value)
+}
+
+fn validate_max_chunk_keywords(s: &str) -> Result<usize, String> {
+    let value = s
+        .parse::<usize>()
+        .map_err(|_| format!("max_chunk_keywords must be a non-negative integer, got '{s}'"))?;
+
+    if value > 50 {
+        return Err("max_chunk_keywords must be at most 50".to_string());
     }
 
     Ok(value)
@@ -506,6 +520,10 @@ enum Commands {
         #[arg(long, value_name = "N", value_parser = validate_max_related_chunks)]
         max_related_chunks: Option<usize>,
 
+        /// Maximum number of chunk keywords to include in similarity (0-50, default: 12)
+        #[arg(long, value_name = "N", value_parser = validate_max_chunk_keywords)]
+        max_chunk_keywords: Option<usize>,
+
         /// HNSW graph connectivity parameter (4-64, default: 16)
         #[arg(long, value_name = "M", value_parser = validate_hnsw_m)]
         hnsw_m: Option<usize>,
@@ -622,6 +640,7 @@ async fn main() -> Result<()> {
             project_desc,
             category_config,
             max_related_chunks,
+            max_chunk_keywords,
             hnsw_m,
             hnsw_ef_construction,
         }) => {
@@ -631,6 +650,7 @@ async fn main() -> Result<()> {
                 project_desc,
                 category_config,
                 max_related_chunks,
+                max_chunk_keywords,
                 hnsw_m,
                 hnsw_ef_construction,
             };
@@ -987,10 +1007,14 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     if config.max_related_chunks.is_some()
         || config.hnsw_m.is_some()
         || config.hnsw_ef_construction.is_some()
+        || config.max_chunk_keywords.is_some()
     {
         println!("[CONFIG] Graph Parameters:");
         if let Some(n) = config.max_related_chunks {
             println!("  max_related_chunks: {n} (default: 20)");
+        }
+        if let Some(n) = config.max_chunk_keywords {
+            println!("  max_chunk_keywords: {n} (default: 12)");
         }
         if let Some(m) = config.hnsw_m {
             println!("  hnsw_m: {m} (default: 16)");
@@ -1063,6 +1087,7 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
         config.max_related_chunks,
         config.hnsw_m,
         config.hnsw_ef_construction,
+        config.max_chunk_keywords,
     )?;
     index::build_and_write_compass(&analyses, &link_map, output)?;
     println!("  Created INDEX.json and COMPASS.md\n");

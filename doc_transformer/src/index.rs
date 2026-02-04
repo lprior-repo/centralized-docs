@@ -32,11 +32,17 @@ pub struct ChunkMetadata {
     pub doc_id: String,
     pub doc_title: String,
     pub heading: Option<String>,
+    #[serde(default)]
+    pub heading_path: Vec<String>,
+    #[serde(default)]
+    pub heading_anchor: Option<String>,
     pub chunk_type: String,
     pub token_count: usize,
     pub summary: String,
     pub previous_chunk_id: Option<String>,
     pub next_chunk_id: Option<String>,
+    #[serde(default)]
+    pub section_index: usize,
     pub path: String,
     /// Related chunks with similarity scores (populated from knowledge DAG)
     pub related_chunks: Vec<RelatedChunk>,
@@ -46,6 +52,8 @@ pub struct ChunkMetadata {
     pub parent_chunk_id: Option<String>,
     /// Child chunk IDs (for hierarchical navigation)
     pub child_chunk_ids: Vec<String>,
+    #[serde(default)]
+    pub sibling_chunk_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,6 +80,7 @@ pub fn build_and_write_index(
     max_related_chunks: Option<usize>,
     hnsw_m: Option<usize>,
     hnsw_ef_construction: Option<usize>,
+    max_chunk_keywords: Option<usize>,
 ) -> Result<()> {
     // Phase 1: Build document index and extract metadata
     let doc_index = build_document_index(analyses, link_map, chunks_result)?;
@@ -84,6 +93,7 @@ pub fn build_and_write_index(
         max_related_chunks,
         hnsw_m,
         hnsw_ef_construction,
+        max_chunk_keywords,
     )?;
 
     // Phase 3: Build chunk metadata with related chunks from DAG
@@ -175,6 +185,16 @@ fn build_document_index(
 ///
 /// This is a pure data transformation - no I/O performed.
 fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Vec<ChunkMetadata> {
+    let mut siblings_map: HashMap<String, Vec<String>> = HashMap::new();
+
+    for chunk in chunks {
+        let key = format!("{}::{}", chunk.doc_id, chunk.chunk_level.as_str());
+        siblings_map
+            .entry(key)
+            .or_default()
+            .push(chunk.chunk_id.clone());
+    }
+
     chunks
         .iter()
         .map(|chunk| {
@@ -189,16 +209,39 @@ fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Vec<ChunkMetada
                 })
                 .collect();
 
+            let heading_path = if chunk.heading_path.is_empty() {
+                vec!["Intro".to_string()]
+            } else {
+                chunk.heading_path.clone()
+            };
+            let heading_anchor = chunk
+                .heading
+                .as_ref()
+                .map(|heading| slugify_heading(heading));
+            let sibling_key = format!("{}::{}", chunk.doc_id, chunk.chunk_level.as_str());
+            let sibling_chunk_ids = siblings_map
+                .get(&sibling_key)
+                .map(|ids| {
+                    ids.iter()
+                        .filter(|id| *id != &chunk.chunk_id)
+                        .cloned()
+                        .collect()
+                })
+                .unwrap_or_default();
+
             ChunkMetadata {
                 chunk_id: chunk.chunk_id.clone(),
                 doc_id: chunk.doc_id.clone(),
                 doc_title: chunk.doc_title.clone(),
                 heading: chunk.heading.clone(),
+                heading_path,
+                heading_anchor,
                 chunk_type: chunk.chunk_type.clone(),
                 token_count: chunk.token_count,
                 summary: chunk.summary.clone(),
                 previous_chunk_id: chunk.previous_chunk_id.clone(),
                 next_chunk_id: chunk.next_chunk_id.clone(),
+                section_index: chunk.chunk_index,
                 path: format!(
                     "chunks/{}-{}.md",
                     chunk.chunk_id.replace(['/', '#'], "-"),
@@ -208,9 +251,26 @@ fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Vec<ChunkMetada
                 chunk_level: chunk.chunk_level.as_str().to_string(),
                 parent_chunk_id: chunk.parent_chunk_id.clone(),
                 child_chunk_ids: chunk.child_chunk_ids.clone(),
+                sibling_chunk_ids,
             }
         })
         .collect()
+}
+
+fn slugify_heading(text: &str) -> String {
+    text.to_lowercase()
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' {
+                c
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 /// Graph analytics computed from the knowledge DAG.
@@ -400,22 +460,28 @@ fn extract_tags(analysis: &Analysis) -> Vec<String> {
         .collect()
 }
 
-/// Generate a simple embedding vector from tags and category.
+const DEFAULT_MAX_CHUNK_KEYWORDS: usize = 12;
+const TAG_WEIGHT: f32 = 1.0;
+const HEADING_WEIGHT: f32 = 2.0;
+const SUMMARY_WEIGHT: f32 = 1.0;
+const CATEGORY_WEIGHT: f32 = 2.0;
+
+/// Generate a simple embedding vector from weighted terms and category.
 /// Uses a bag-of-words approach with a fixed vocabulary built from all unique words.
-/// Returns a sparse embedding where each dimension represents a word's presence.
-fn generate_embedding_from_tags(
-    tags: &[String],
+/// Returns a sparse embedding where each dimension represents a word's weighted presence.
+fn generate_embedding_from_terms(
+    terms: &[(String, f32)],
     category: &str,
     vocabulary: &HashMap<String, usize>,
     embedding_dim: usize,
 ) -> Vec<f32> {
     let mut embedding = vec![0.0; embedding_dim];
 
-    // Add tag contributions
-    for tag in tags {
-        if let Some(&idx) = vocabulary.get(tag) {
+    // Add term contributions
+    for (term, weight) in terms {
+        if let Some(&idx) = vocabulary.get(term) {
             if idx < embedding_dim {
-                embedding[idx] = 1.0;
+                embedding[idx] += *weight;
             }
         }
     }
@@ -423,7 +489,7 @@ fn generate_embedding_from_tags(
     // Add category contribution (weighted higher)
     if let Some(&idx) = vocabulary.get(category) {
         if idx < embedding_dim {
-            embedding[idx] = 2.0;
+            embedding[idx] += CATEGORY_WEIGHT;
         }
     }
 
@@ -436,9 +502,11 @@ fn generate_embedding_from_tags(
     embedding
 }
 
-/// Build vocabulary from all tags and categories
+/// Build vocabulary from all tags, categories, and chunk keywords
 fn build_vocabulary(
     document_tags: &[(String, Vec<String>, String)],
+    chunks: &[Chunk],
+    max_chunk_keywords: usize,
 ) -> Result<HashMap<String, usize>> {
     let mut vocab = HashMap::new();
     let mut idx: usize = 0;
@@ -463,7 +531,94 @@ fn build_vocabulary(
         }
     }
 
+    for chunk in chunks {
+        for (keyword, _) in chunk_terms(chunk, max_chunk_keywords) {
+            if !vocab.contains_key(&keyword) {
+                vocab.insert(keyword, idx);
+                idx = idx.checked_add(1).ok_or_else(|| {
+                    anyhow::anyhow!("Vocabulary index overflow - too many unique tags/categories")
+                })?;
+            }
+        }
+    }
+
     Ok(vocab)
+}
+
+fn chunk_terms(chunk: &Chunk, max_chunk_keywords: usize) -> Vec<(String, f32)> {
+    if max_chunk_keywords == 0 {
+        return Vec::new();
+    }
+
+    let mut terms: HashMap<String, f32> = HashMap::new();
+
+    if let Some(heading) = &chunk.heading {
+        for (term, weight) in extract_keywords_weighted(heading, HEADING_WEIGHT) {
+            terms
+                .entry(term)
+                .and_modify(|existing| {
+                    if *existing < weight {
+                        *existing = weight;
+                    }
+                })
+                .or_insert(weight);
+        }
+    }
+
+    if !chunk.summary.is_empty() {
+        for (term, weight) in extract_keywords_weighted(&chunk.summary, SUMMARY_WEIGHT) {
+            terms
+                .entry(term)
+                .and_modify(|existing| {
+                    if *existing < weight {
+                        *existing = weight;
+                    }
+                })
+                .or_insert(weight);
+        }
+    }
+
+    let mut weighted: Vec<(String, f32)> = terms.into_iter().collect();
+    weighted.sort_by(|(a_term, a_weight), (b_term, b_weight)| {
+        b_weight
+            .partial_cmp(a_weight)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a_term.cmp(b_term))
+    });
+    weighted.truncate(max_chunk_keywords);
+    weighted
+}
+
+fn merge_weighted_terms(terms: Vec<(String, f32)>) -> Vec<(String, f32)> {
+    let mut merged: HashMap<String, f32> = HashMap::new();
+    for (term, weight) in terms {
+        merged
+            .entry(term)
+            .and_modify(|existing| {
+                if *existing < weight {
+                    *existing = weight;
+                }
+            })
+            .or_insert(weight);
+    }
+    merged.into_iter().collect()
+}
+
+fn extract_keywords_weighted(text: &str, weight: f32) -> Vec<(String, f32)> {
+    text.split_whitespace()
+        .filter_map(|word| {
+            let cleaned = word
+                .chars()
+                .filter(|c| c.is_alphanumeric())
+                .collect::<String>()
+                .to_lowercase();
+            if cleaned.len() > 3 && !is_stopword(&cleaned) {
+                Some((cleaned, weight))
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 /// Build a knowledge graph DAG from documents and chunks
@@ -476,6 +631,7 @@ pub fn build_knowledge_dag(
     max_related_chunks: Option<usize>,
     hnsw_m: Option<usize>,
     hnsw_ef_construction: Option<usize>,
+    max_chunk_keywords: Option<usize>,
 ) -> Result<KnowledgeDAG> {
     let mut dag = KnowledgeDAG::new();
 
@@ -531,15 +687,16 @@ pub fn build_knowledge_dag(
 
     // Detect and add related chunk edges using HNSW (O(n log n) instead of O(n²))
     let max_related = max_related_chunks.unwrap_or(5);
+    let max_chunk_keywords = max_chunk_keywords.unwrap_or(DEFAULT_MAX_CHUNK_KEYWORDS);
     const SIMILARITY_THRESHOLD: f32 = 0.3;
 
     if !chunks.is_empty() {
-        // Build vocabulary from all tags and categories
-        let vocabulary = build_vocabulary(document_tags)?;
+        // Build vocabulary from tags, categories, and chunk keywords
+        let vocabulary = build_vocabulary(document_tags, chunks, max_chunk_keywords)?;
         let embedding_dim = vocabulary.len().max(1); // At least 1 dimension
 
-        // Generate embeddings for all chunks
-        let embeddings: Vec<Vec<f32>> = chunks
+        // Prepare per-chunk terms and categories
+        let chunk_terms_list: Vec<(Vec<(String, f32)>, String)> = chunks
             .iter()
             .map(|chunk| {
                 let (tags, category) = document_tags
@@ -554,7 +711,19 @@ pub fn build_knowledge_dag(
                         (Vec::new(), "unknown".to_string())
                     });
 
-                generate_embedding_from_tags(&tags, &category, &vocabulary, embedding_dim)
+                let mut terms: Vec<(String, f32)> =
+                    tags.into_iter().map(|tag| (tag, TAG_WEIGHT)).collect();
+                terms.extend(chunk_terms(chunk, max_chunk_keywords));
+                let terms = merge_weighted_terms(terms);
+                (terms, category)
+            })
+            .collect();
+
+        // Generate embeddings for all chunks
+        let embeddings: Vec<Vec<f32>> = chunk_terms_list
+            .iter()
+            .map(|(terms, category)| {
+                generate_embedding_from_terms(terms, category, &vocabulary, embedding_dim)
             })
             .collect();
 
@@ -563,21 +732,11 @@ pub fn build_knowledge_dag(
             Ok(index) => {
                 // Query top-k neighbors for each chunk
                 for (i, chunk) in chunks.iter().enumerate() {
-                    let (chunk_tags, chunk_category) = document_tags
-                        .iter()
-                        .find(|(id, _, _)| id == &chunk.doc_id)
-                        .map(|(_, tags, cat)| (tags.clone(), cat.clone()))
-                        .unwrap_or_else(|| {
-                            eprintln!(
-                                "Warning: Document {} has no tags/category metadata, using empty tags",
-                                chunk.doc_id
-                            );
-                            (Vec::new(), "unknown".to_string())
-                        });
+                    let (chunk_tags, chunk_category) = &chunk_terms_list[i];
 
-                    let query_embedding = generate_embedding_from_tags(
-                        &chunk_tags,
-                        &chunk_category,
+                    let query_embedding = generate_embedding_from_terms(
+                        chunk_tags,
+                        chunk_category,
                         &vocabulary,
                         embedding_dim,
                     );
@@ -629,6 +788,10 @@ mod tests {
     use contextual_chunker::ChunkLevel;
     use std::collections::HashMap;
 
+    fn tags_to_terms(tags: &[String]) -> Vec<(String, f32)> {
+        tags.iter().cloned().map(|tag| (tag, TAG_WEIGHT)).collect()
+    }
+
     /// Generate synthetic test chunks with realistic structure
     fn generate_test_chunks(n: usize) -> Vec<Chunk> {
         let docs_per_batch = (n as f64).sqrt().ceil() as usize;
@@ -676,6 +839,7 @@ mod tests {
                     ),
                     token_count: 256_usize.saturating_add(chunk_idx % 256),
                     heading: Some(format!("Section {chunk_idx}")),
+                    heading_path: vec!["Document".to_string(), format!("Section {chunk_idx}")],
                     chunk_type: "standard".to_string(),
                     previous_chunk_id,
                     next_chunk_id,
@@ -792,7 +956,7 @@ mod tests {
             let docs = generate_test_docs(&chunks);
             let tags = generate_test_tags(&chunks);
 
-            let dag = match build_knowledge_dag(&docs, &chunks, &tags, None, None, None) {
+            let dag = match build_knowledge_dag(&docs, &chunks, &tags, None, None, None, None) {
                 Ok(d) => d,
                 Err(e) => panic!("Failed to build knowledge DAG for edge count test: {e}"),
             };
@@ -844,6 +1008,7 @@ mod tests {
                 content: format!("Content for chunk {i}"),
                 token_count: 100,
                 heading: Some(format!("Heading {i}")),
+                heading_path: vec!["Document".to_string(), format!("Heading {i}")],
                 chunk_type: "standard".to_string(),
                 previous_chunk_id: if i > 0 {
                     Some(format!("chunk_{}", i - 1))
@@ -871,7 +1036,15 @@ mod tests {
             .collect();
 
         // Build the DAG
-        let dag = match build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None) {
+        let dag = match build_knowledge_dag(
+            &documents,
+            &chunks,
+            &document_tags,
+            None,
+            None,
+            None,
+            None,
+        ) {
             Ok(d) => d,
             Err(e) => panic!("Failed to build knowledge DAG for linear edge count test: {e}"),
         };
@@ -932,23 +1105,45 @@ mod tests {
             ),
         ];
 
-        let vocab = match build_vocabulary(&document_tags) {
+        let chunks = vec![Chunk {
+            chunk_id: "doc1#0-standard".to_string(),
+            doc_id: "doc1".to_string(),
+            doc_title: "Doc 1".to_string(),
+            chunk_index: 0,
+            content: "Content".to_string(),
+            token_count: 10,
+            heading: Some("Ownership Basics".to_string()),
+            heading_path: vec!["Doc 1".to_string(), "Ownership Basics".to_string()],
+            chunk_type: "prose".to_string(),
+            previous_chunk_id: None,
+            next_chunk_id: None,
+            related_chunk_ids: vec![],
+            summary: "Rust ownership guide".to_string(),
+            chunk_level: ChunkLevel::Standard,
+            parent_chunk_id: None,
+            child_chunk_ids: vec![],
+        }];
+
+        let vocab = match build_vocabulary(&document_tags, &chunks, 10) {
             Ok(v) => v,
             Err(e) => panic!("Failed to build vocabulary from test document tags: {e}"),
         };
 
-        // Should have 3 unique tags (rust, programming, web) + 2 categories (tutorial, guide) = 5 total
+        // Should have 3 unique tags (rust, programming, web) + 2 categories (tutorial, guide)
+        // plus chunk keywords (ownership, basics) = 7 total
         // "rust" appears in both documents but is only counted once
-        assert_eq!(vocab.len(), 5);
+        assert_eq!(vocab.len(), 7);
         assert!(vocab.contains_key("rust"));
         assert!(vocab.contains_key("programming"));
         assert!(vocab.contains_key("web"));
         assert!(vocab.contains_key("tutorial"));
         assert!(vocab.contains_key("guide"));
+        assert!(vocab.contains_key("ownership"));
+        assert!(vocab.contains_key("basics"));
     }
 
     #[test]
-    fn test_generate_embedding_from_tags() {
+    fn test_generate_embedding_from_terms() {
         let mut vocab = HashMap::new();
         vocab.insert("rust".to_string(), 0);
         vocab.insert("programming".to_string(), 1);
@@ -957,7 +1152,7 @@ mod tests {
         let tags = vec!["rust".to_string(), "programming".to_string()];
         let category = "tutorial";
 
-        let embedding = generate_embedding_from_tags(&tags, category, &vocab, 3);
+        let embedding = generate_embedding_from_terms(&tags_to_terms(&tags), category, &vocab, 3);
 
         // Should be normalized
         let magnitude: f32 = embedding.iter().map(|&x| x * x).sum::<f32>().sqrt();
@@ -976,7 +1171,15 @@ mod tests {
         let chunks = vec![];
         let document_tags = vec![];
 
-        let dag = match build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None) {
+        let dag = match build_knowledge_dag(
+            &documents,
+            &chunks,
+            &document_tags,
+            None,
+            None,
+            None,
+            None,
+        ) {
             Ok(d) => d,
             Err(e) => panic!("Failed to build knowledge DAG with empty chunks: {e}"),
         };
@@ -987,7 +1190,7 @@ mod tests {
     }
 
     // ===========================================================================
-    // Property-based tests for generate_embedding_from_tags
+    // Property-based tests for generate_embedding_from_terms
     // ===========================================================================
     // These tests verify invariants that should hold for all possible inputs
 
@@ -1050,13 +1253,23 @@ mod tests {
             // If vocabulary is empty, produce zero embedding (always has magnitude 0)
             if vocab.is_empty() {
                 let dim = embedding_dim.max(1);
-                let zero_embedding = generate_embedding_from_tags(&clean_tags, &clean_category, &vocab, dim);
+                let zero_embedding = generate_embedding_from_terms(
+                    &tags_to_terms(&clean_tags),
+                    &clean_category,
+                    &vocab,
+                    dim,
+                );
                 prop_assert_eq!(zero_embedding.len(), dim, "Zero embedding length mismatch");
             } else {
                 // Ensure embedding_dim is at least 1
                 let dim = embedding_dim.max(1);
 
-                let embedding = generate_embedding_from_tags(&clean_tags, &clean_category, &vocab, dim);
+                let embedding = generate_embedding_from_terms(
+                    &tags_to_terms(&clean_tags),
+                    &clean_category,
+                    &vocab,
+                    dim,
+                );
 
                 // Property: magnitude should be approximately 1.0 for non-zero embeddings
                 let magnitude: f32 = embedding.iter().map(|&x| x * x).sum::<f32>().sqrt();
@@ -1085,7 +1298,12 @@ mod tests {
         proptest!(|(tags in strategy.0, category in strategy.1, embedding_dim in strategy.2)| {
             let vocab = build_test_vocabulary(&[tags.clone()], &[category.clone()]);
 
-            let embedding = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
+            let embedding = generate_embedding_from_terms(
+                &tags_to_terms(&tags),
+                &category,
+                &vocab,
+                embedding_dim,
+            );
 
             // Property: output length must equal requested dimension
             prop_assert_eq!(
@@ -1113,8 +1331,18 @@ mod tests {
             let vocab = build_test_vocabulary(&[tags.clone()], &[category.clone()]);
 
             // Generate embedding twice with same inputs
-            let embedding1 = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
-            let embedding2 = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
+            let embedding1 = generate_embedding_from_terms(
+                &tags_to_terms(&tags),
+                &category,
+                &vocab,
+                embedding_dim,
+            );
+            let embedding2 = generate_embedding_from_terms(
+                &tags_to_terms(&tags),
+                &category,
+                &vocab,
+                embedding_dim,
+            );
 
             // Clone for error message since prop_assert_eq! takes ownership
             let e1_repr = format!("{embedding1:?}");
@@ -1141,7 +1369,12 @@ mod tests {
             let empty_tags: Vec<String> = vec![];
             let empty_category = "";
 
-            let embedding = generate_embedding_from_tags(&empty_tags, empty_category, &vocab, embedding_dim);
+            let embedding = generate_embedding_from_terms(
+                &tags_to_terms(&empty_tags),
+                empty_category,
+                &vocab,
+                embedding_dim,
+            );
 
             // Property: empty input should produce zero vector (normalized to zero)
             // All elements should be 0.0
@@ -1175,7 +1408,12 @@ mod tests {
         proptest!(|(tags in strategy.0, category in strategy.1, embedding_dim in strategy.2)| {
             let vocab = build_test_vocabulary(&[tags.clone()], &[category.clone()]);
 
-            let embedding = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
+            let embedding = generate_embedding_from_terms(
+                &tags_to_terms(&tags),
+                &category,
+                &vocab,
+                embedding_dim,
+            );
 
             // Property: all values must be >= 0
             prop_assert!(
@@ -1203,8 +1441,18 @@ mod tests {
 
             let vocab = build_test_vocabulary(&[tags.clone(), tags_sorted.clone()], &[category.clone()]);
 
-            let embedding1 = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
-            let embedding2 = generate_embedding_from_tags(&tags_sorted, &category, &vocab, embedding_dim);
+            let embedding1 = generate_embedding_from_terms(
+                &tags_to_terms(&tags),
+                &category,
+                &vocab,
+                embedding_dim,
+            );
+            let embedding2 = generate_embedding_from_terms(
+                &tags_to_terms(&tags_sorted),
+                &category,
+                &vocab,
+                embedding_dim,
+            );
 
             // Clone for error message since prop_assert_eq! takes ownership
             let e1_repr = format!("{embedding1:?}");
@@ -1232,7 +1480,12 @@ mod tests {
         proptest!(|(tags in tags_strategy, category in "[a-z]{1,10}", vocab in vocab_strategy)| {
             let embedding_dim = vocab.len().max(1);
 
-            let embedding = generate_embedding_from_tags(&tags, &category, &vocab, embedding_dim);
+            let embedding = generate_embedding_from_terms(
+                &tags_to_terms(&tags),
+                &category,
+                &vocab,
+                embedding_dim,
+            );
 
             // Count non-zero elements
             let non_zero_count = embedding.iter().filter(|&&x| x > 0.0).count();

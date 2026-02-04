@@ -43,6 +43,7 @@ fn generate_test_chunks(n: usize) -> Vec<Chunk> {
                 ),
                 token_count: 256 + (chunk_idx % 256),
                 heading: Some(format!("Section {chunk_idx}")),
+                heading_path: vec!["Document".to_string(), format!("Section {chunk_idx}")],
                 chunk_type: "standard".to_string(),
                 previous_chunk_id,
                 next_chunk_id,

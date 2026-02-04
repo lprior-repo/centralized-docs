@@ -126,6 +126,7 @@ fn test_index_invalid_hnsw_parameters() {
             None,
             hnsw_m,
             ef_construction,
+            None,
         );
         // Should either fail gracefully or handle invalid parameters
         assert!(
@@ -162,6 +163,9 @@ fn test_index_empty_analyses() {
         &chunks_result,
         index_path,
         "test_project",
+        None,
+        None,
+        None,
         None,
         None,
         None,
@@ -210,6 +214,8 @@ fn test_index_missing_chunks_result() {
         &chunks_result,
         index_path,
         "test_project",
+        None,
+        None,
         None,
         None,
         None,
@@ -265,6 +271,7 @@ fn test_index_large_document_count() {
         &chunks_result,
         index_path,
         "test_project",
+        None,
         None,
         None,
         None,

@@ -117,6 +117,10 @@ pub struct Chunk {
     /// Helps users understand context when chunk is viewed in isolation
     pub heading: Option<String>,
 
+    /// Full heading path for this chunk (e.g. ["Guide", "Setup", "Install"])
+    /// Includes H1/H2/H3 levels when available
+    pub heading_path: Vec<String>,
+
     /// Content type classification: "code", "table", or "prose"
     /// Enables specialized handling in retrieval systems
     pub chunk_type: String,
@@ -176,6 +180,10 @@ static H1_REGEX: LazyLock<Regex> =
 
 static TABLE_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\|.*\|").expect("valid table regex (verified by tests)"));
+
+static HEADING_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid heading regex (verified by tests)")
+});
 
 /// Chunk a single document at a specific hierarchical level
 ///
@@ -387,6 +395,9 @@ fn create_chunks_at_level(
     let mut chunks = Vec::new();
     let mut current_chunk = String::new();
     let mut current_heading: Option<String> = None;
+    let mut heading_stack: Vec<String> = Vec::new();
+    let mut chunk_heading_path: Vec<String> = vec!["Intro".to_string()];
+    let mut pending_heading_path: Option<Vec<String>> = None;
     let mut chunk_index = 0;
     let mut context_buffer = String::new();
 
@@ -394,6 +405,15 @@ fn create_chunks_at_level(
 
     for line in lines.iter() {
         let current_tokens = estimate_tokens(&current_chunk);
+        if let Some((level, text)) = parse_heading(line) {
+            update_heading_stack(&mut heading_stack, level, text);
+            pending_heading_path = Some(normalize_heading_path(&heading_stack));
+            if current_chunk.is_empty() {
+                if let Some(path) = pending_heading_path.take() {
+                    chunk_heading_path = path;
+                }
+            }
+        }
         let heading_match = if let Some(caps) = H2_REGEX.captures(line) {
             Some(caps)
         } else if use_fallback_headings {
@@ -425,6 +445,7 @@ fn create_chunks_at_level(
                 context_prefix,
                 token_count,
                 heading: current_heading.clone(),
+                heading_path: chunk_heading_path.clone(),
                 chunk_type,
                 previous_chunk_id: chunk_index
                     .checked_sub(1)
@@ -437,6 +458,9 @@ fn create_chunks_at_level(
             });
 
             chunk_index = chunk_index.saturating_add(1);
+            if let Some(path) = pending_heading_path.take() {
+                chunk_heading_path = path;
+            }
 
             let context_tokens = match level {
                 ChunkLevel::Summary => 30,
@@ -475,6 +499,10 @@ fn create_chunks_at_level(
             Some(context_buffer.clone())
         };
 
+        if let Some(path) = pending_heading_path.take() {
+            chunk_heading_path = path;
+        }
+
         chunks.push(Chunk {
             chunk_id,
             doc_id: doc_id.to_string(),
@@ -484,6 +512,7 @@ fn create_chunks_at_level(
             context_prefix,
             token_count,
             heading: current_heading,
+            heading_path: chunk_heading_path.clone(),
             chunk_type,
             previous_chunk_id: chunk_index
                 .checked_sub(1)
@@ -511,6 +540,7 @@ fn create_chunks_at_level(
             context_prefix: None,
             token_count,
             heading: None,
+            heading_path: vec!["Intro".to_string()],
             chunk_type,
             previous_chunk_id: None,
             next_chunk_id: None,
@@ -535,6 +565,42 @@ fn link_chunks(chunks: &mut [Chunk]) {
                 chunks[i].next_chunk_id = Some(chunks[next_i].chunk_id.clone());
             }
         }
+    }
+}
+
+fn parse_heading(line: &str) -> Option<(usize, String)> {
+    let caps = HEADING_REGEX.captures(line)?;
+    let level = caps.get(1)?.as_str().len();
+    let text = caps.get(2)?.as_str().trim().to_string();
+    Some((level, text))
+}
+
+fn update_heading_stack(stack: &mut Vec<String>, level: usize, text: String) {
+    if level == 0 {
+        return;
+    }
+
+    let target_len = level.saturating_sub(1);
+    if stack.len() > target_len {
+        stack.truncate(target_len);
+    }
+    while stack.len() < target_len {
+        stack.push("".to_string());
+    }
+    stack.push(text);
+}
+
+fn normalize_heading_path(stack: &[String]) -> Vec<String> {
+    let path: Vec<String> = stack
+        .iter()
+        .filter(|item| !item.is_empty())
+        .cloned()
+        .collect();
+
+    if path.is_empty() {
+        vec!["Intro".to_string()]
+    } else {
+        path
     }
 }
 

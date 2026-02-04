@@ -75,6 +75,7 @@ fn test_document_validation_missing_required_fields() {
             None,
             None,
             None,
+            None,
         );
         // Should either fail gracefully or handle missing fields
         assert!(
@@ -142,6 +143,7 @@ fn test_document_validation_whitespace_only() {
             None,
             None,
             None,
+            None,
         );
         assert!(
             result.is_ok() || result.is_err(),
@@ -193,6 +195,7 @@ fn test_document_validation_extremely_long_content() {
         &chunks_result,
         index_path,
         "test_project",
+        None,
         None,
         None,
         None,
@@ -283,6 +286,7 @@ fn test_document_validation_empty_headings() {
         None,
         None,
         None,
+        None,
     );
 
     assert!(
@@ -340,6 +344,7 @@ fn test_document_validation_extremely_long_headings() {
         None,
         None,
         None,
+        None,
     );
     let duration = start.elapsed();
 
@@ -388,6 +393,7 @@ fn test_document_validation_empty_links() {
         &chunks_result,
         index_path,
         "test_project",
+        None,
         None,
         None,
         None,
