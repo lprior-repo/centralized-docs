@@ -44,11 +44,11 @@ fn test_cli_invalid_flags() {
         .output()
         .unwrap();
 
-    assert!(!output.status.success(), "CLI should reject negative limit");
+    assert!(!output.status.success(), "CLI should reject invalid flag");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("positive"),
-        "Error message should mention 'positive'"
+        stderr.contains("unexpected") || stderr.contains("argument") || stderr.contains("flag"),
+        "Error message should mention unexpected argument"
     );
 }
 
@@ -154,7 +154,9 @@ fn test_cli_zero_limit() {
     assert!(!output.status.success(), "CLI should reject zero limit");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("at least 1") || stderr.contains("positive"),
+        stderr.contains("at least 1")
+            || stderr.contains("positive")
+            || stderr.contains("or higher"),
         "Error message should mention limit must be positive or at least 1"
     );
 }
@@ -168,8 +170,9 @@ fn test_cli_negative_threshold() {
 
     let args = vec![
         "doc_transformer",
-        "search",
-        "--index-dir",
+        "scrape",
+        "https://example.com",
+        "--output",
         index_path.to_str().expect("path should exist"),
         "--threshold",
         "-0.5",
@@ -180,7 +183,15 @@ fn test_cli_negative_threshold() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "CLI should reject negative threshold"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("threshold") || stderr.contains("range"),
+        "Error message should mention threshold range"
+    );
 }
 
 #[test]
@@ -192,8 +203,9 @@ fn test_cli_threshold_greater_than_ten() {
 
     let args = vec![
         "doc_transformer",
-        "search",
-        "--index-dir",
+        "scrape",
+        "https://example.com",
+        "--output",
         index_path.to_str().expect("path should exist"),
         "--threshold",
         "10.5",
@@ -204,7 +216,12 @@ fn test_cli_threshold_greater_than_ten() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(!output.status.success(), "CLI should reject threshold > 10");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("threshold") || stderr.contains("range"),
+        "Error message should mention threshold range"
+    );
 }
 
 #[test]
@@ -216,8 +233,9 @@ fn test_cli_negative_delay() {
 
     let args = vec![
         "doc_transformer",
-        "search",
-        "--index-dir",
+        "scrape",
+        "https://example.com",
+        "--output",
         index_path.to_str().expect("path should exist"),
         "--delay",
         "-100",
@@ -228,7 +246,15 @@ fn test_cli_negative_delay() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "CLI should reject invalid regex pattern"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("regex") || stderr.contains("pattern") || stderr.contains("Invalid"),
+        "Error message should mention regex/pattern"
+    );
 }
 
 #[test]
@@ -240,8 +266,9 @@ fn test_cli_delay_greater_than_sixty_seconds() {
 
     let args = vec![
         "doc_transformer",
-        "search",
-        "--index-dir",
+        "scrape",
+        "https://example.com",
+        "--output",
         index_path.to_str().expect("path should exist"),
         "--delay",
         "60001",
@@ -252,7 +279,12 @@ fn test_cli_delay_greater_than_sixty_seconds() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(!output.status.success(), "CLI should reject delay > 60000");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("delay") || stderr.contains("range"),
+        "Error message should mention delay range"
+    );
 }
 
 #[test]
@@ -276,7 +308,15 @@ fn test_cli_extremely_large_limit() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "CLI should reject extremely large limit"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("limit") || stderr.contains("1000") || stderr.contains("too large"),
+        "Error message should mention limit limit"
+    );
 }
 
 #[test]
@@ -288,7 +328,8 @@ fn test_cli_invalid_output_format() {
 
     let args = vec![
         "doc_transformer",
-        "search",
+        "index",
+        "some_file.md",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
         "--output",
@@ -300,7 +341,10 @@ fn test_cli_invalid_output_format() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "CLI should reject invalid output path"
+    );
 }
 
 #[test]
@@ -335,10 +379,11 @@ fn test_cli_pattern_rejection() {
 
     let args = vec![
         "doc_transformer",
-        "search",
-        "--index-dir",
+        "scrape",
+        "https://example.com",
+        "--output",
         index_path.to_str().expect("path should exist"),
-        "--pattern",
+        "--filter",
         "/re_pattern/",
     ];
 
@@ -347,7 +392,15 @@ fn test_cli_pattern_rejection() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "CLI should reject invalid regex pattern"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("regex") || stderr.contains("pattern"),
+        "Error message should mention regex/pattern"
+    );
 }
 
 #[test]
@@ -359,10 +412,11 @@ fn test_cli_project_name_with_special_characters() {
 
     let args = vec![
         "doc_transformer",
-        "search",
-        "--index-dir",
+        "scrape",
+        "https://example.com",
+        "--output",
         index_path.to_str().expect("path should exist"),
-        "--project",
+        "--project-name",
         "project<script>alert('xss')</script>",
     ];
 
@@ -371,7 +425,15 @@ fn test_cli_project_name_with_special_characters() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "CLI should reject project name with HTML/JS"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("project") || stderr.contains("name"),
+        "Error message should mention project name"
+    );
 }
 
 #[test]
@@ -471,9 +533,8 @@ fn test_cli_output_to_nonexistent_directory() {
     let output_dir = temp_dir.path().join("nonexistent_output");
     let args = vec![
         "doc_transformer",
-        "search",
-        "--index-dir",
-        index_path.to_str().expect("path should exist"),
+        "index",
+        "some_nonexistent_dir",
         "--output",
         output_dir.to_str().expect("path should exist"),
     ];
@@ -483,7 +544,10 @@ fn test_cli_output_to_nonexistent_directory() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "CLI should reject nonexistent source directory"
+    );
 }
 
 #[test]
@@ -510,7 +574,15 @@ fn test_cli_multiple_search_queries() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "CLI should reject multiple --query arguments"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("unexpected") || stderr.contains("argument") || stderr.contains("query"),
+        "Error message should mention unexpected argument"
+    );
 }
 
 #[test]
@@ -533,7 +605,12 @@ fn test_cli_invalid_boolean_flag() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(!output.status.success(), "CLI should reject invalid flag");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("unexpected") || stderr.contains("argument") || stderr.contains("flag"),
+        "Error message should mention unexpected argument"
+    );
 }
 
 #[test]
@@ -545,10 +622,11 @@ fn test_cli_empty_string_for_project() {
 
     let args = vec![
         "doc_transformer",
-        "search",
-        "--index-dir",
+        "scrape",
+        "https://example.com",
+        "--output",
         index_path.to_str().expect("path should exist"),
-        "--project",
+        "--project-name",
         "",
     ];
 
@@ -557,7 +635,15 @@ fn test_cli_empty_string_for_project() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "CLI should reject empty project name"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("project") || stderr.contains("name") || stderr.contains("empty"),
+        "Error message should mention project name"
+    );
 }
 
 #[test]
@@ -581,5 +667,13 @@ fn test_cli_whitespace_only_query() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "CLI should reject empty/whitespace-only query"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("empty") || stderr.contains("query") || stderr.contains("trim"),
+        "Error message should mention empty query"
+    );
 }

@@ -34,6 +34,7 @@ mod validate;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use spider::configuration::RedirectPolicy;
 use std::path::{Path, PathBuf};
 
 /// Configuration for the index command
@@ -70,6 +71,12 @@ struct ScrapeCommandConfig {
     delay: u64,
     query: Option<String>,
     threshold: f32,
+    request_timeout_secs: u64,
+    max_retries: u32,
+    redirect_policy: RedirectPolicy,
+    max_page_bytes: Option<u64>,
+    max_total_bytes: Option<u64>,
+    concurrency_limit: usize,
 }
 
 impl Default for ScrapeCommandConfig {
@@ -80,6 +87,12 @@ impl Default for ScrapeCommandConfig {
             delay: 250,
             query: None,
             threshold: 0.1,
+            request_timeout_secs: 30,
+            max_retries: 3,
+            redirect_policy: RedirectPolicy::Loose,
+            max_page_bytes: None,
+            max_total_bytes: None,
+            concurrency_limit: 1,
         }
     }
 }
@@ -92,6 +105,12 @@ struct IngestConfig {
     query: Option<String>,
     threshold: f32,
     project_name: Option<String>,
+    request_timeout_secs: u64,
+    max_retries: u32,
+    redirect_policy: RedirectPolicy,
+    max_page_bytes: Option<u64>,
+    max_total_bytes: Option<u64>,
+    concurrency_limit: usize,
 }
 
 impl Default for IngestConfig {
@@ -102,6 +121,12 @@ impl Default for IngestConfig {
             query: None,
             threshold: 0.1,
             project_name: None,
+            request_timeout_secs: 30,
+            max_retries: 3,
+            redirect_policy: RedirectPolicy::Loose,
+            max_page_bytes: None,
+            max_total_bytes: None,
+            concurrency_limit: 1,
         }
     }
 }
@@ -181,6 +206,96 @@ pub fn validate_threshold(s: &str) -> Result<f32, String> {
     }
 
     Ok(value)
+}
+
+/// Validate retry count (0-255 inclusive)
+fn validate_retry_count(s: &str) -> Result<u32, String> {
+    let value = s
+        .parse::<i64>()
+        .map_err(|_| format!("retry must be an integer, got '{s}'"))?;
+
+    if value < 0 {
+        return Err(format!(
+            "retry must be non-negative (0 disables spider retry), got {value}"
+        ));
+    }
+
+    if value > u8::MAX as i64 {
+        return Err(format!("retry must be at most {}, got {value}", u8::MAX));
+    }
+
+    value
+        .try_into()
+        .map_err(|_| format!("retry value too large: {value}"))
+}
+
+/// Validate timeout seconds (1-600)
+fn validate_timeout_secs(s: &str) -> Result<u64, String> {
+    let value = s
+        .parse::<i64>()
+        .map_err(|_| format!("timeout must be an integer, got '{s}'"))?;
+
+    if value < 1 {
+        return Err("timeout must be at least 1 second".to_string());
+    }
+
+    if value > 600 {
+        return Err(format!(
+            "timeout must be at most 600 seconds (10 minutes), got {value}"
+        ));
+    }
+
+    value
+        .try_into()
+        .map_err(|_| format!("timeout value too large: {value}"))
+}
+
+/// Validate positive byte limits (>=1)
+fn validate_positive_bytes(s: &str) -> Result<u64, String> {
+    let value = s
+        .parse::<i64>()
+        .map_err(|_| format!("bytes must be an integer, got '{s}'"))?;
+
+    if value < 1 {
+        return Err(format!("bytes must be at least 1, got {value}"));
+    }
+
+    value
+        .try_into()
+        .map_err(|_| format!("bytes value too large: {value}"))
+}
+
+/// Validate concurrency (1-2 inclusive)
+fn validate_concurrency_limit(s: &str) -> Result<usize, String> {
+    let value = s
+        .parse::<i64>()
+        .map_err(|_| format!("concurrency must be an integer, got '{s}'"))?;
+
+    if value < 1 {
+        return Err(format!("concurrency must be at least 1, got {value}"));
+    }
+
+    if value > 2 {
+        return Err(format!(
+            "concurrency must be at most 2 for safety, got {value}"
+        ));
+    }
+
+    value
+        .try_into()
+        .map_err(|_| format!("concurrency value too large: {value}"))
+}
+
+/// Parse redirect policy (loose|strict|none)
+fn parse_redirect_policy(s: &str) -> Result<RedirectPolicy, String> {
+    match s.to_ascii_lowercase().as_str() {
+        "loose" => Ok(RedirectPolicy::Loose),
+        "strict" => Ok(RedirectPolicy::Strict),
+        "none" => Ok(RedirectPolicy::None),
+        other => Err(format!(
+            "redirect policy must be one of: loose, strict, none (got '{other}')"
+        )),
+    }
 }
 
 /// Delay between HTTP requests in milliseconds.
@@ -305,6 +420,30 @@ enum Commands {
         #[arg(short, long, default_value = "250", value_parser = validate_delay, allow_hyphen_values = true)]
         delay: u64,
 
+        /// Request timeout in seconds (1-600)
+        #[arg(long, default_value = "30", value_parser = validate_timeout_secs, allow_hyphen_values = true)]
+        request_timeout_secs: u64,
+
+        /// Max spider retries (0 disables spider retry)
+        #[arg(long, default_value = "3", value_parser = validate_retry_count, allow_hyphen_values = true)]
+        max_retries: u32,
+
+        /// Redirect policy: loose (default), strict, none
+        #[arg(long, default_value = "loose", value_parser = parse_redirect_policy)]
+        redirect_policy: RedirectPolicy,
+
+        /// Max bytes per page (spider-level, before transform)
+        #[arg(long, value_parser = validate_positive_bytes)]
+        max_page_bytes: Option<u64>,
+
+        /// Max total bytes across crawl (spider-level)
+        #[arg(long, value_parser = validate_positive_bytes)]
+        max_total_bytes: Option<u64>,
+
+        /// Concurrency (1-2, default 1) capped for politeness
+        #[arg(long, default_value = "1", value_parser = validate_concurrency_limit, allow_hyphen_values = true)]
+        concurrency: usize,
+
         /// Filter pages by BM25 relevance to query
         #[arg(short, long, value_name = "QUERY")]
         query: Option<String>,
@@ -394,6 +533,30 @@ enum Commands {
         #[arg(short, long, default_value = "250", value_parser = validate_delay, allow_hyphen_values = true)]
         delay: u64,
 
+        /// Request timeout in seconds (1-600)
+        #[arg(long, default_value = "30", value_parser = validate_timeout_secs, allow_hyphen_values = true)]
+        request_timeout_secs: u64,
+
+        /// Max spider retries (0 disables spider retry)
+        #[arg(long, default_value = "3", value_parser = validate_retry_count, allow_hyphen_values = true)]
+        max_retries: u32,
+
+        /// Redirect policy: loose (default), strict, none
+        #[arg(long, default_value = "loose", value_parser = parse_redirect_policy)]
+        redirect_policy: RedirectPolicy,
+
+        /// Max bytes per page (spider-level, before transform)
+        #[arg(long, value_parser = validate_positive_bytes)]
+        max_page_bytes: Option<u64>,
+
+        /// Max total bytes across crawl (spider-level)
+        #[arg(long, value_parser = validate_positive_bytes)]
+        max_total_bytes: Option<u64>,
+
+        /// Concurrency (1-2, default 1) capped for politeness
+        #[arg(long, default_value = "1", value_parser = validate_concurrency_limit, allow_hyphen_values = true)]
+        concurrency: usize,
+
         /// Filter pages by BM25 relevance to query
         #[arg(short, long, value_name = "QUERY")]
         query: Option<String>,
@@ -428,6 +591,12 @@ async fn main() -> Result<()> {
             delay,
             query,
             threshold,
+            request_timeout_secs,
+            max_retries,
+            redirect_policy,
+            max_page_bytes,
+            max_total_bytes,
+            concurrency,
         }) => {
             let config = ScrapeCommandConfig {
                 use_sitemap: !no_sitemap,
@@ -435,6 +604,12 @@ async fn main() -> Result<()> {
                 delay,
                 query,
                 threshold,
+                request_timeout_secs,
+                max_retries,
+                redirect_policy,
+                max_page_bytes,
+                max_total_bytes,
+                concurrency_limit: concurrency,
             };
             run_scrape(&url, &output, &config).await
         }
@@ -550,6 +725,12 @@ async fn main() -> Result<()> {
             output,
             filter,
             delay,
+            request_timeout_secs,
+            max_retries,
+            redirect_policy,
+            max_page_bytes,
+            max_total_bytes,
+            concurrency,
             query,
             threshold,
             project_name,
@@ -557,6 +738,12 @@ async fn main() -> Result<()> {
             let config = IngestConfig {
                 filter,
                 delay,
+                request_timeout_secs,
+                max_retries,
+                redirect_policy,
+                max_page_bytes,
+                max_total_bytes,
+                concurrency_limit: concurrency,
                 query,
                 threshold,
                 project_name,
@@ -659,8 +846,16 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
 
     println!("[SCRAPE] Target: {url}");
     println!(
-        "  Options: sitemap={}, delay={}ms",
-        config.use_sitemap, config.delay
+        "  Options: sitemap={}, delay={}ms, timeout={}s, retries={}, concurrency={}",
+        config.use_sitemap,
+        config.delay,
+        config.request_timeout_secs,
+        config.max_retries,
+        config.concurrency_limit
+    );
+    println!(
+        "  Redirect: {:?}, page_bytes={:?}, total_bytes={:?}",
+        config.redirect_policy, config.max_page_bytes, config.max_total_bytes
     );
     if let Some(ref f) = config.filter {
         println!("  Filter: {f}");
@@ -672,6 +867,8 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
         use_sitemap: config.use_sitemap,
         path_filter: config.filter.clone(),
         delay_ms: config.delay,
+        max_page_size_bytes: config.max_page_size_bytes.unwrap_or(10 * 1024 * 1024),
+        max_total_size_bytes: config.max_total_size_bytes.unwrap_or(500 * 1024 * 1024),
         ..Default::default()
     };
 
@@ -925,6 +1122,12 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
     // Extract fields from config
     let filter = config.filter.clone();
     let delay = config.delay;
+    let request_timeout_secs = config.request_timeout_secs;
+    let max_retries = config.max_retries;
+    let redirect_policy = config.redirect_policy.clone();
+    let max_page_bytes = config.max_page_bytes;
+    let max_total_bytes = config.max_total_bytes;
+    let concurrency_limit = config.concurrency_limit;
     let query = config.query.clone();
     let threshold = config.threshold;
     let project_name = config.project_name.clone();
@@ -950,6 +1153,8 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
         use_sitemap: true,
         path_filter: filter,
         delay_ms: delay,
+        max_page_size_bytes: max_page_size_bytes.unwrap_or(10 * 1024 * 1024),
+        max_total_size_bytes: max_total_size_bytes.unwrap_or(500 * 1024 * 1024),
         ..Default::default()
     };
 
@@ -1490,6 +1695,80 @@ mod tests {
         if let Err(msg) = err_msg {
             assert!(msg.contains("must be an integer"));
         }
+    }
+
+    #[test]
+    fn test_validate_retry_count_bounds() {
+        let zero = validate_retry_count("0");
+        assert!(zero.is_ok());
+        assert_eq!(zero.unwrap_or_default(), 0);
+
+        let max_ok = validate_retry_count(&u8::MAX.to_string());
+        assert!(max_ok.is_ok());
+        assert_eq!(max_ok.unwrap_or_default(), u8::MAX as u32);
+
+        let too_high = validate_retry_count(&(u8::MAX as i32 + 1).to_string());
+        assert!(too_high.is_err());
+    }
+
+    #[test]
+    fn test_validate_timeout_secs_bounds() {
+        let min_ok = validate_timeout_secs("1");
+        assert!(min_ok.is_ok());
+        assert_eq!(min_ok.unwrap_or_default(), 1);
+
+        let max_ok = validate_timeout_secs("600");
+        assert!(max_ok.is_ok());
+        assert_eq!(max_ok.unwrap_or_default(), 600);
+
+        let too_low = validate_timeout_secs("0");
+        assert!(too_low.is_err());
+        let too_high = validate_timeout_secs("601");
+        assert!(too_high.is_err());
+    }
+
+    #[test]
+    fn test_validate_positive_bytes() {
+        let ok = validate_positive_bytes("1024");
+        assert!(ok.is_ok());
+        assert_eq!(ok.unwrap_or_default(), 1024);
+
+        let zero = validate_positive_bytes("0");
+        assert!(zero.is_err());
+        let negative = validate_positive_bytes("-5");
+        assert!(negative.is_err());
+    }
+
+    #[test]
+    fn test_parse_redirect_policy_variants() {
+        let loose = parse_redirect_policy("loose");
+        assert!(matches!(loose, Ok(RedirectPolicy::Loose)));
+
+        let strict = parse_redirect_policy("STRICT");
+        assert!(matches!(strict, Ok(RedirectPolicy::Strict)));
+
+        let none = parse_redirect_policy("None");
+        assert!(matches!(none, Ok(RedirectPolicy::None)));
+
+        let invalid = parse_redirect_policy("invalid");
+        assert!(invalid.is_err());
+    }
+
+    #[test]
+    fn test_validate_concurrency_limit_bounds() {
+        let one = validate_concurrency_limit("1");
+        assert!(one.is_ok());
+        assert_eq!(one.unwrap_or_default(), 1);
+
+        let two = validate_concurrency_limit("2");
+        assert!(two.is_ok());
+        assert_eq!(two.unwrap_or_default(), 2);
+
+        let zero = validate_concurrency_limit("0");
+        assert!(zero.is_err());
+
+        let too_high = validate_concurrency_limit("3");
+        assert!(too_high.is_err());
     }
 
     // Limit validation tests

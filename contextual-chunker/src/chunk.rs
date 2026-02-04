@@ -11,6 +11,7 @@ use crate::document::Document;
 use anyhow::Result;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::LazyLock;
 use tap::Pipe;
 
@@ -167,6 +168,12 @@ pub struct ChunkingResult {
 static H2_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^## (.+)$").expect("valid H2 regex (verified by tests)"));
 
+static H3_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^### (.+)$").expect("valid H3 regex (verified by tests)"));
+
+static H1_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^# (.+)$").expect("valid H1 regex (verified by tests)"));
+
 static TABLE_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\|.*\|").expect("valid table regex (verified by tests)"));
 
@@ -192,6 +199,7 @@ static TABLE_REGEX: LazyLock<Regex> =
 ///
 /// Chunks respect markdown structure:
 /// - H2 headings (##) are primary boundaries
+/// - H3/H1 headings are used only when no H2 headings exist
 /// - Token limit is secondary (if section too long)
 /// - Always preserves at least one line of context from previous section
 ///
@@ -260,39 +268,22 @@ pub fn chunk_all(documents: &[Document]) -> Result<ChunkingResult> {
     let (all_chunks, summary_count, standard_count, detailed_count) = documents.iter().fold(
         (Vec::new(), 0usize, 0usize, 0usize),
         |(mut chunks, sum_count, std_count, det_count), doc| {
-            let summary =
+            let mut summary =
                 create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Summary);
-            let standard =
+            let mut standard =
                 create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Standard);
-            let detailed =
+            let mut detailed =
                 create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Detailed);
+
+            assign_hierarchy(&mut summary, &mut standard, &mut detailed);
 
             let summary_count = summary.len();
             let standard_count = standard.len();
             let detailed_count = detailed.len();
 
-            let summary_ids: Vec<String> = summary.iter().map(|c| c.chunk_id.clone()).collect();
-            let standard_ids: Vec<String> = standard.iter().map(|c| c.chunk_id.clone()).collect();
-            let detailed_ids: Vec<String> = detailed.iter().map(|c| c.chunk_id.clone()).collect();
-
-            // Add summary chunks with standard as children
-            chunks.extend(summary.into_iter().map(|mut chunk| {
-                chunk.child_chunk_ids = standard_ids.clone();
-                chunk
-            }));
-
-            // Add standard chunks with relationships
-            chunks.extend(standard.into_iter().map(|mut chunk| {
-                chunk.parent_chunk_id = summary_ids.first().cloned();
-                chunk.child_chunk_ids = detailed_ids.clone();
-                chunk
-            }));
-
-            // Add detailed chunks with parent
-            chunks.extend(detailed.into_iter().map(|mut chunk| {
-                chunk.parent_chunk_id = standard_ids.first().cloned();
-                chunk
-            }));
+            chunks.extend(summary);
+            chunks.extend(standard);
+            chunks.extend(detailed);
 
             (
                 chunks,
@@ -311,6 +302,77 @@ pub fn chunk_all(documents: &[Document]) -> Result<ChunkingResult> {
     })
 }
 
+fn heading_key(chunk: &Chunk) -> String {
+    chunk.heading.clone().unwrap_or_else(|| "intro".to_string())
+}
+
+fn group_by_heading(chunks: &[Chunk]) -> HashMap<String, Vec<usize>> {
+    let mut groups: HashMap<String, Vec<usize>> = HashMap::new();
+    for (idx, chunk) in chunks.iter().enumerate() {
+        groups.entry(heading_key(chunk)).or_default().push(idx);
+    }
+    groups
+}
+
+fn assign_hierarchy(summary: &mut [Chunk], standard: &mut [Chunk], detailed: &mut [Chunk]) {
+    if summary.is_empty() && standard.is_empty() && detailed.is_empty() {
+        return;
+    }
+
+    let summary_groups = group_by_heading(summary);
+    let standard_groups = group_by_heading(standard);
+    let detailed_groups = group_by_heading(detailed);
+
+    let mut summary_children: HashMap<usize, Vec<String>> = HashMap::new();
+    let mut standard_children: HashMap<usize, Vec<String>> = HashMap::new();
+
+    for (heading, standard_indices) in &standard_groups {
+        let summary_indices = summary_groups
+            .get(heading)
+            .or_else(|| summary_groups.get("intro"));
+
+        if let Some(summary_indices) = summary_indices {
+            for (pos, standard_idx) in standard_indices.iter().enumerate() {
+                let parent_pos = (pos * summary_indices.len()) / standard_indices.len();
+                let parent_idx = summary_indices[parent_pos];
+                standard[*standard_idx].parent_chunk_id =
+                    Some(summary[parent_idx].chunk_id.clone());
+                summary_children
+                    .entry(parent_idx)
+                    .or_default()
+                    .push(standard[*standard_idx].chunk_id.clone());
+            }
+        }
+    }
+
+    for (heading, detailed_indices) in &detailed_groups {
+        let standard_indices = standard_groups
+            .get(heading)
+            .or_else(|| standard_groups.get("intro"));
+
+        if let Some(standard_indices) = standard_indices {
+            for (pos, detailed_idx) in detailed_indices.iter().enumerate() {
+                let parent_pos = (pos * standard_indices.len()) / detailed_indices.len();
+                let parent_idx = standard_indices[parent_pos];
+                detailed[*detailed_idx].parent_chunk_id =
+                    Some(standard[parent_idx].chunk_id.clone());
+                standard_children
+                    .entry(parent_idx)
+                    .or_default()
+                    .push(detailed[*detailed_idx].chunk_id.clone());
+            }
+        }
+    }
+
+    for (idx, children) in summary_children {
+        summary[idx].child_chunk_ids = children;
+    }
+
+    for (idx, children) in standard_children {
+        standard[idx].child_chunk_ids = children;
+    }
+}
+
 /// Internal: Create chunks at a specific level
 fn create_chunks_at_level(
     doc_id: &str,
@@ -319,6 +381,8 @@ fn create_chunks_at_level(
     level: ChunkLevel,
 ) -> Vec<Chunk> {
     let target_tokens = level.target_tokens();
+    let has_h2 = content.lines().any(|line| H2_REGEX.is_match(line));
+    let use_fallback_headings = !has_h2;
 
     let mut chunks = Vec::new();
     let mut current_chunk = String::new();
@@ -330,7 +394,14 @@ fn create_chunks_at_level(
 
     for line in lines.iter() {
         let current_tokens = estimate_tokens(&current_chunk);
-        let should_split = H2_REGEX.captures(line).is_some()
+        let heading_match = if let Some(caps) = H2_REGEX.captures(line) {
+            Some(caps)
+        } else if use_fallback_headings {
+            H3_REGEX.captures(line).or_else(|| H1_REGEX.captures(line))
+        } else {
+            None
+        };
+        let should_split = heading_match.is_some()
             || (current_tokens >= target_tokens && !current_chunk.is_empty());
 
         if should_split && !current_chunk.is_empty() {
@@ -339,13 +410,19 @@ fn create_chunks_at_level(
             let token_count = estimate_tokens(&current_chunk);
             let chunk_type = detect_chunk_type(&current_chunk);
 
+            let context_prefix = if context_buffer.is_empty() {
+                None
+            } else {
+                Some(context_buffer.clone())
+            };
+
             chunks.push(Chunk {
                 chunk_id,
                 doc_id: doc_id.to_string(),
                 doc_title: doc_title.to_string(),
                 chunk_index,
                 content: current_chunk.clone(),
-                context_prefix: Some(context_buffer.clone()),
+                context_prefix,
                 token_count,
                 heading: current_heading.clone(),
                 chunk_type,
@@ -371,7 +448,7 @@ fn create_chunks_at_level(
             current_chunk.clear();
         }
 
-        if let Some(caps) = H2_REGEX.captures(line) {
+        if let Some(caps) = heading_match {
             current_heading = caps.get(1).map(|m| m.as_str().to_string());
 
             if !context_buffer.is_empty() {
@@ -392,13 +469,19 @@ fn create_chunks_at_level(
         let token_count = estimate_tokens(&current_chunk);
         let chunk_type = detect_chunk_type(&current_chunk);
 
+        let context_prefix = if context_buffer.is_empty() {
+            None
+        } else {
+            Some(context_buffer.clone())
+        };
+
         chunks.push(Chunk {
             chunk_id,
             doc_id: doc_id.to_string(),
             doc_title: doc_title.to_string(),
             chunk_index,
             content: current_chunk,
-            context_prefix: Some(context_buffer.clone()),
+            context_prefix,
             token_count,
             heading: current_heading,
             chunk_type,

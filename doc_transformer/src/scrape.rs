@@ -33,6 +33,7 @@ use crate::features::AntiDetectionConfig;
 use anyhow::{Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use spider::configuration::RedirectPolicy;
 use spider::website::Website;
 use spider_transformations::transformation::content::{
     self, ReturnFormat, SelectorConfiguration, TransformConfig,
@@ -72,9 +73,6 @@ pub struct ScrapeConfig {
     pub respect_robots: bool,
     /// Enable content filtering to remove nav/footer/boilerplate (default: true)
     pub enable_filtering: bool,
-    /// Maximum number of retries for failed requests (default: 3)
-    #[allow(dead_code)] // Reserved for retry logic implementation
-    pub max_retries: u32,
     /// Enable exponential backoff for retries (default: true)
     #[allow(dead_code)] // Reserved for retry logic implementation
     pub use_exponential_backoff: bool,
@@ -91,6 +89,18 @@ pub struct ScrapeConfig {
     /// Enable stealth mode to avoid bot detection (default: true)
     /// Sets realistic browser headers and mimics browser behavior
     pub stealth_mode: bool,
+    /// Concurrency limit for spider (safe capped)
+    pub concurrency_limit: usize,
+    /// HTTP request timeout in seconds (default: 30s)
+    pub request_timeout_secs: u64,
+    /// Spider retry count (0 disables, default: 3) and backoff attempts
+    pub max_retries: u32,
+    /// Redirect policy for HTTP requests (default: Loose)
+    pub redirect_policy: RedirectPolicy,
+    /// Spider-level max bytes per page (pre-transform). None = spider default.
+    pub spider_max_page_bytes: Option<u64>,
+    /// Spider-level max bytes across crawl. None = spider default.
+    pub spider_max_total_bytes: Option<u64>,
 }
 
 impl Default for ScrapeConfig {
@@ -105,7 +115,6 @@ impl Default for ScrapeConfig {
             user_agent: "DocTransformer/5.0 (AI Documentation Indexer)".to_string(),
             respect_robots: true,
             enable_filtering: true,
-            max_retries: 3,
             use_exponential_backoff: true,
             max_page_size_bytes: 10 * 1024 * 1024, // 10MB per page
             max_total_size_bytes: 500 * 1024 * 1024, // 500MB total
@@ -113,8 +122,54 @@ impl Default for ScrapeConfig {
             max_pages: 10_000,                     // Maximum pages to scrape
             max_links_per_page: 1_000,             // Maximum links per page
             stealth_mode: true,                    // Enable stealth mode by default
+            concurrency_limit: 1,                  // Safe default (capped)
+            request_timeout_secs: 30,              // 30s per-request timeout
+            max_retries: 3,                        // Spider retries
+            redirect_policy: RedirectPolicy::Loose, // Default redirect handling
+            spider_max_page_bytes: None,
+            spider_max_total_bytes: None,
         }
     }
+}
+
+/// Build a spider Website with shared base configuration (no network IO)
+fn build_website_base(url: &str, config: &ScrapeConfig) -> Website {
+    let mut website = Website::new(url);
+
+    // Configure spider via the website's configuration
+    website.configuration.delay = config.delay_ms;
+    website.configuration.respect_robots_txt = config.respect_robots;
+    website.configuration.user_agent = Some(Box::new(config.user_agent.clone().into()));
+
+    // Concurrency limit (cap to 2 for safety; minimum 1)
+    let capped_concurrency = config.concurrency_limit.clamp(1, 2);
+    website.configuration.concurrency_limit = Some(capped_concurrency);
+
+    // Enable stealth mode to mimic a real browser and avoid bot detection
+    website.configuration.modify_headers = config.stealth_mode;
+
+    // Enable retry for transient failures (network blips, temporary rate limits)
+    website.configuration.retry = config.max_retries.min(u8::MAX as u32) as u8;
+
+    // Set HTTP timeouts to avoid hanging on slow responses
+    use std::time::Duration;
+    website.configuration.request_timeout =
+        Some(Box::new(Duration::from_secs(config.request_timeout_secs)));
+
+    // Apply redirect policy
+    website.configuration.redirect_policy = config.redirect_policy.clone();
+
+    // Spider-level byte limits (pre-transform)
+    website.configuration.max_page_bytes = config.spider_max_page_bytes.map(|v| v as f64);
+    website.configuration.max_bytes_allowed = config.spider_max_total_bytes;
+
+    // SPIDER-RS NATIVE: Use built-in page limit instead of manual counting
+    let _ = website.configuration.with_limit(config.max_pages as u32);
+
+    // SPIDER-RS NATIVE: Enable URL normalization to de-duplicate trailing slash pages
+    website.configuration.normalize = true;
+
+    website
 }
 
 /// A scraped page with extracted content
@@ -264,40 +319,7 @@ async fn scrape_site_internal(config: &ScrapeConfig) -> Result<ScrapeResult> {
     // Validate URL before passing to spider (prevents panic)
     let validated_url = validate_url(&config.base_url)?;
 
-    let mut website = Website::new(validated_url.as_str());
-
-    // Configure spider via the website's configuration
-    website.configuration.delay = config.delay_ms;
-    website.configuration.respect_robots_txt = config.respect_robots;
-    website.configuration.user_agent = Some(Box::new(config.user_agent.clone().into()));
-
-    // CRITICAL: Set concurrency limit to 1 for AWS and other rate-limited sites
-    // Without this, spider-rs uses CPU count (e.g., 8) concurrent workers
-    // With 200ms delay + 8 workers = 40 req/s which triggers rate limiting
-    // With 1000ms delay + 1 worker = 1 req/s (safe for most sites)
-    website.configuration.concurrency_limit = Some(1);
-
-    // Enable stealth mode to mimic a real browser and avoid bot detection
-    // When stealth_mode is enabled, modify headers to look like a browser
-    website.configuration.modify_headers = config.stealth_mode;
-
-    // Enable retry for transient failures (network blips, temporary rate limits)
-    // Use the configured max_retries value, capped to u8::MAX
-    website.configuration.retry = config.max_retries.min(u8::MAX as u32) as u8;
-
-    // Set HTTP timeouts to avoid hanging on slow responses
-    use std::time::Duration;
-    website.configuration.request_timeout = Some(Box::new(Duration::from_secs(30)));
-
-    // SPIDER-RS NATIVE: Use built-in page limit instead of manual counting
-    // This tells spider-rs to stop crawling after max_pages, preventing unnecessary requests
-    // NOTE: with_limit() may not affect scrape_sitemap() output, so we also enforce
-    // a manual limit in the page processing loop below as DoS protection
-    let _ = website.configuration.with_limit(config.max_pages as u32);
-
-    // SPIDER-RS NATIVE: Enable URL normalization to de-duplicate trailing slash pages
-    // This prevents crawling both /path and /path/ as separate pages
-    website.configuration.normalize = true;
+    let mut website = build_website_base(validated_url.as_str(), config);
 
     // SPIDER-RS NATIVE: Convert path_filter regex to whitelist_url for native filtering
     // This lets spider-rs filter URLs during crawling instead of post-processing
@@ -691,31 +713,7 @@ fn build_website_with_features(
     config: &ScrapeConfig,
     features: Option<FeatureConfig>,
 ) -> Result<Website> {
-    let mut website = Website::new(url);
-
-    // Apply basic configuration
-    website.configuration.delay = config.delay_ms;
-    website.configuration.respect_robots_txt = config.respect_robots;
-    website.configuration.user_agent = Some(Box::new(config.user_agent.clone().into()));
-
-    // CRITICAL: Set concurrency limit to 1 for AWS and other rate-limited sites
-    website.configuration.concurrency_limit = Some(1);
-
-    // Enable stealth mode to mimic a real browser
-    website.configuration.modify_headers = config.stealth_mode;
-
-    // Enable retry for transient failures
-    website.configuration.retry = config.max_retries.min(u8::MAX as u32) as u8;
-
-    // Set HTTP timeouts
-    use std::time::Duration;
-    website.configuration.request_timeout = Some(Box::new(Duration::from_secs(30)));
-
-    // Set page limit
-    let _ = website.configuration.with_limit(config.max_pages as u32);
-
-    // Enable URL normalization
-    website.configuration.normalize = true;
+    let mut website = build_website_base(url, config);
 
     // Apply features if present
     if let Some(f) = features {
@@ -2065,26 +2063,57 @@ mod tests {
         // Test that max_retries field is actually used
         let config = ScrapeConfig {
             base_url: "https://example.com".to_string(),
-            use_sitemap: true,
-            path_filter: None,
-            delay_ms: 1000,
-            user_agent: "TestAgent".to_string(),
-            respect_robots: true,
-            enable_filtering: true,
             max_retries: 7, // Custom retry count
-            use_exponential_backoff: true,
-            max_page_size_bytes: 10 * 1024 * 1024,
-            max_total_size_bytes: 500 * 1024 * 1024,
-            max_markdown_size_bytes: 5 * 1024 * 1024,
-            max_pages: 100,
-            max_links_per_page: 100,
-            stealth_mode: true,
+            ..Default::default()
         };
 
         assert_eq!(
             config.max_retries, 7,
             "Custom max_retries should be preserved"
         );
+    }
+
+    #[test]
+    fn test_build_website_base_applies_limits_and_timeouts() {
+        let config = ScrapeConfig {
+            base_url: "https://example.com".to_string(),
+            delay_ms: 1500,
+            max_retries: 9,
+            request_timeout_secs: 45,
+            redirect_policy: RedirectPolicy::Strict,
+            spider_max_page_bytes: Some(1234),
+            spider_max_total_bytes: Some(9999),
+            concurrency_limit: 2,
+            ..Default::default()
+        };
+
+        let website = build_website_base(&config.base_url, &config);
+
+        assert_eq!(website.configuration.delay, 1500);
+        assert_eq!(website.configuration.retry, 9);
+        assert_eq!(
+            website.configuration.redirect_policy,
+            RedirectPolicy::Strict
+        );
+        assert_eq!(website.configuration.concurrency_limit, Some(2));
+        assert_eq!(
+            website.configuration.request_timeout,
+            Some(Box::new(std::time::Duration::from_secs(45)))
+        );
+        assert_eq!(website.configuration.max_page_bytes, Some(1234_f64));
+        assert_eq!(website.configuration.max_bytes_allowed, Some(9999));
+    }
+
+    #[test]
+    fn test_build_website_base_caps_concurrency_to_two() {
+        let config = ScrapeConfig {
+            base_url: "https://example.com".to_string(),
+            concurrency_limit: 10,
+            ..Default::default()
+        };
+
+        let website = build_website_base(&config.base_url, &config);
+        assert_eq!(website.configuration.concurrency_limit, Some(2));
     }
 
     // ============================================================================

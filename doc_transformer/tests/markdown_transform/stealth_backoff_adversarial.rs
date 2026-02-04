@@ -195,6 +195,7 @@ fn test_full_config_with_all_fields() {
         max_pages: 5000,
         max_links_per_page: 2000,
         stealth_mode: true,
+        ..Default::default()
     };
 
     // Verify all fields are set correctly

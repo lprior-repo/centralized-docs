@@ -265,6 +265,13 @@ struct IndexAssemblyContext<'a> {
 fn assemble_index_json(ctx: IndexAssemblyContext<'_>) -> Result<serde_json::Value> {
     let dag_stats = ctx.dag.statistics();
     let timestamp = chrono::Utc::now().to_rfc3339();
+    let avg_chunk_size_tokens = ctx
+        .chunks_metadata
+        .iter()
+        .map(|c| c.token_count)
+        .sum::<usize>()
+        .checked_div(ctx.total_chunks)
+        .unwrap_or(0);
 
     Ok(json!({
         "version": "5.0",
@@ -273,11 +280,7 @@ fn assemble_index_json(ctx: IndexAssemblyContext<'_>) -> Result<serde_json::Valu
         "stats": {
             "doc_count": ctx.documents.len(),
             "chunk_count": ctx.total_chunks,
-            "avg_chunk_size_tokens": ctx.chunks_metadata.iter()
-                .map(|c| c.token_count)
-                .sum::<usize>()
-                .checked_div(ctx.total_chunks)
-                .unwrap_or(0),
+            "avg_chunk_size_tokens": avg_chunk_size_tokens,
             "graph": {
                 "node_count": dag_stats.node_count,
                 "edge_count": dag_stats.edge_count,
@@ -299,8 +302,8 @@ fn assemble_index_json(ctx: IndexAssemblyContext<'_>) -> Result<serde_json::Valu
         },
         "navigation": {
             "type": "contextual_retrieval_with_dag",
-            "strategy": "50-100 token context prefix + H2 boundaries + knowledge DAG with semantic similarity",
-            "avg_tokens_per_chunk": 170,
+            "strategy": "50-100 token context prefix + H2/H3/H1 boundaries + knowledge DAG with semantic similarity",
+            "avg_tokens_per_chunk": avg_chunk_size_tokens,
             "graph_enabled": true,
             "similarity_metric": "jaccard_on_tags_and_category",
             "min_similarity_threshold": 0.3
