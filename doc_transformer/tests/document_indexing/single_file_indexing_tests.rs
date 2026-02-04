@@ -93,6 +93,7 @@ More content.
         None,
         None,
         None,
+        None,
     )
     .expect("build_and_write_index should succeed");
 
@@ -184,6 +185,7 @@ And should work with the indexing pipeline.
         None,
         None,
         None,
+        None,
     )
     .expect("build_and_write_index should succeed");
 
@@ -262,6 +264,7 @@ With some content.
         &chunks_result,
         &output_dir,
         "test_project",
+        None,
         None,
         None,
         None,
@@ -419,6 +422,7 @@ Some content here.
         None,
         None,
         None,
+        None,
     )
     .expect("build_and_write_index should succeed");
 
@@ -491,6 +495,7 @@ Content B.
         &chunks_result,
         &output_dir,
         "single_file_test",
+        None,
         None,
         None,
         None,
@@ -679,6 +684,7 @@ Finally, we have a conclusion section that wraps up the document.
         None,
         None,
         None,
+        None,
     )
     .expect("build_and_write_index should succeed");
 
@@ -790,6 +796,7 @@ This is an MDX file with JSX components.
         &chunks_result,
         &output_dir,
         "test_project",
+        None,
         None,
         None,
         None,

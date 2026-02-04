@@ -40,6 +40,7 @@ fn test_index_json_has_required_fields() {
         None, // max_related_chunks
         None, // hnsw_m
         None, // hnsw_ef_construction
+        None, // max_chunk_keywords
     )
     .expect("Failed to build index");
 
@@ -108,6 +109,7 @@ fn test_index_json_no_generated_field() {
         None, // max_related_chunks
         None, // hnsw_m
         None, // hnsw_ef_construction
+        None, // max_chunk_keywords
     )
     .expect("Failed to build index");
 

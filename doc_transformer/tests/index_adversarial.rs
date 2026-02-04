@@ -167,8 +167,6 @@ fn test_index_empty_analyses() {
         None,
         None,
         None,
-        None,
-        None,
     );
 
     assert!(
@@ -214,7 +212,6 @@ fn test_index_missing_chunks_result() {
         &chunks_result,
         index_path,
         "test_project",
-        None,
         None,
         None,
         None,
@@ -324,6 +321,7 @@ fn test_index_empty_documents_array() {
         None,
         None,
         None,
+        None,
     );
 
     assert!(
@@ -353,6 +351,7 @@ fn test_index_invalid_path() {
         },
         Path::new("/invalid/path/with/slashes"),
         "test_project",
+        None,
         None,
         None,
         None,
@@ -404,6 +403,7 @@ fn test_index_very_long_project_name() {
         &chunks_result,
         index_path,
         &long_name,
+        None,
         None,
         None,
         None,

@@ -266,7 +266,7 @@ tags: rust, testing
 
 ### Phase 4: INDEX
 - **Module**: `doc_transformer::index`
-- **Function**: `build_and_write_index(...) -> Result<()>`
+- **Function**: `build_and_write_index(..., max_chunk_keywords) -> Result<()>`
 - **Test Coverage**: Index generation, DAG construction
 
 ## Maintenance

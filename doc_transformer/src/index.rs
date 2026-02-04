@@ -214,9 +214,9 @@ fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Vec<ChunkMetada
             } else {
                 chunk.heading_path.clone()
             };
-            let heading_anchor = chunk
-                .heading
-                .as_ref()
+            let heading_anchor = heading_path
+                .last()
+                .filter(|heading| heading.as_str() != "Intro")
                 .map(|heading| slugify_heading(heading));
             let sibling_key = format!("{}::{}", chunk.doc_id, chunk.chunk_level.as_str());
             let sibling_chunk_ids = siblings_map
@@ -365,7 +365,7 @@ fn assemble_index_json(ctx: IndexAssemblyContext<'_>) -> Result<serde_json::Valu
             "strategy": "50-100 token context prefix + H2/H3/H1 boundaries + knowledge DAG with semantic similarity",
             "avg_tokens_per_chunk": avg_chunk_size_tokens,
             "graph_enabled": true,
-            "similarity_metric": "jaccard_on_tags_and_category",
+            "similarity_metric": "weighted_terms_on_tags_heading_summary",
             "min_similarity_threshold": 0.3
         }
     }))
@@ -533,8 +533,9 @@ fn build_vocabulary(
 
     for chunk in chunks {
         for (keyword, _) in chunk_terms(chunk, max_chunk_keywords) {
-            if !vocab.contains_key(&keyword) {
-                vocab.insert(keyword, idx);
+            use std::collections::hash_map::Entry;
+            if let Entry::Vacant(e) = vocab.entry(keyword) {
+                e.insert(idx);
                 idx = idx.checked_add(1).ok_or_else(|| {
                     anyhow::anyhow!("Vocabulary index overflow - too many unique tags/categories")
                 })?;

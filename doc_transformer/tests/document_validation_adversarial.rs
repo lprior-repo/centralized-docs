@@ -447,6 +447,7 @@ fn test_document_validation_extremely_long_link_urls() {
         None,
         None,
         None,
+        None,
     );
     let duration = start.elapsed();
 
