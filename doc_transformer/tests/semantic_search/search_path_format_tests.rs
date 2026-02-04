@@ -149,3 +149,38 @@ fn test_search_result_path_matches_index_json_format() {
         test_doc.path, search_result.path
     );
 }
+
+#[test]
+fn test_search_result_prefers_indexed_path_over_id_format() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let index_dir = temp_dir.path();
+
+    let docs = vec![doc_transformer::index::IndexDocument {
+        id: "category/subcategory/slug".to_string(),
+        title: "Custom Path Document".to_string(),
+        summary: "Doc with a custom path stored in the index".to_string(),
+        path: "docs/custom-path-alias.md".to_string(),
+        category: "category".to_string(),
+        word_count: 12,
+        tags: vec![],
+        chunk_ids: vec![],
+        headings: vec![],
+    }];
+
+    let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
+    doc_transformer::search::index_documents(&index, docs).unwrap();
+
+    let result = doc_transformer::search::search_index(&index, "custom path", 10);
+
+    assert!(result.is_ok(), "Search should succeed");
+    let results = result.unwrap();
+    assert!(!results.is_empty(), "Should find results");
+
+    let search_result = &results[0];
+    assert_eq!(
+        search_result.path, "docs/custom-path-alias.md",
+        "Search results should return the stored path from INDEX.json. Expected: \
+         docs/custom-path-alias.md, Got: {}",
+        search_result.path
+    );
+}

@@ -249,6 +249,7 @@ pub fn validate_query(query: &str) -> Result<&str, ValidationError> {
 }
 
 /// Validate a limit value (must be greater than 0)
+/// Used by internal library functions to prevent Tantivy panics
 pub fn validate_limit(limit: usize) -> Result<usize, ValidationError> {
     if limit == 0 {
         return Err(ValidationError::InvalidLimit { limit });

@@ -106,6 +106,55 @@ fn test_search_results_sorted_by_score() {
 }
 
 #[test]
+fn test_search_results_sorted_by_recalculated_score() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let index_dir = temp_dir.path();
+
+    let docs = vec![
+        doc_transformer::index::IndexDocument {
+            id: "test/high-tf-low-avg".to_string(),
+            title: "Rust Rust Rust Rust Rust".to_string(),
+            summary: "Rust Rust".to_string(),
+            path: "test/high-tf-low-avg.md".to_string(),
+            category: "tutorial".to_string(),
+            word_count: 1,
+            tags: vec![],
+            chunk_ids: vec![],
+            headings: vec![],
+        },
+        doc_transformer::index::IndexDocument {
+            id: "test/low-tf-high-avg".to_string(),
+            title: "Rust".to_string(),
+            summary: "Rust".to_string(),
+            path: "test/low-tf-high-avg.md".to_string(),
+            category: "tutorial".to_string(),
+            word_count: 10_000,
+            tags: vec![],
+            chunk_ids: vec![],
+            headings: vec![],
+        },
+    ];
+
+    let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
+    doc_transformer::search::index_documents(&index, docs).unwrap();
+
+    let result = doc_transformer::search::search_index(&index, "rust", 10);
+
+    assert!(result.is_ok(), "Search should succeed");
+    let results = result.unwrap();
+    assert!(results.len() >= 2, "Should return both documents");
+
+    assert!(
+        results[0].score >= results[1].score,
+        "Results should be sorted by recalculated score"
+    );
+    assert_eq!(
+        results[0].id, "test/low-tf-high-avg",
+        "Lower TF with larger average length should still rank higher after rescoring"
+    );
+}
+
+#[test]
 fn test_search_boolean_or_operator() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     create_test_index(temp_dir.path()).expect("Failed to create index");
@@ -159,6 +208,39 @@ fn test_search_unicode_basic() {
     assert!(
         results.iter().any(|r| r.id == "test/unicode-doc"),
         "Should find the unicode document"
+    );
+}
+
+#[test]
+fn test_search_matches_terms_in_path() {
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let index_dir = temp_dir.path();
+
+    let docs = vec![doc_transformer::index::IndexDocument {
+        id: "test/path-only".to_string(),
+        title: "Path Only Document".to_string(),
+        summary: "No keyword in title or summary".to_string(),
+        path: "docs/special-path-token.md".to_string(),
+        category: "tutorial".to_string(),
+        word_count: 40,
+        tags: vec![],
+        chunk_ids: vec![],
+        headings: vec![],
+    }];
+
+    let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
+    doc_transformer::search::index_documents(&index, docs).unwrap();
+
+    let result = doc_transformer::search::search_index(&index, "special-path-token", 10);
+
+    assert!(result.is_ok(), "Search should succeed");
+    let results = result.unwrap();
+    assert!(!results.is_empty(), "Should find results from path matches");
+    assert!(
+        results
+            .iter()
+            .any(|r| r.id == "test/path-only" && r.score > 0.0),
+        "Path-only match should return a positive score"
     );
 }
 

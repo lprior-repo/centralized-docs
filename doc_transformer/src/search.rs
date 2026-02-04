@@ -23,6 +23,7 @@
 //! ```
 
 use anyhow::{anyhow, Result};
+use std::cmp::Ordering;
 use std::fs;
 use std::path::Path;
 use tantivy::collector::TopDocs;
@@ -62,6 +63,7 @@ pub struct SchemaFields {
     pub content: Field,
     pub category: Field,
     pub word_count: Field,
+    pub path: Field,
 }
 
 /// Single search result with score
@@ -85,6 +87,7 @@ pub struct SearchResult {
 /// - `content`: Combined searchable content (title + summary, indexed but not stored)
 /// - `category`: Text field for filtering (stored, not indexed)
 /// - `word_count`: U64 field for relevance calculation (stored, not indexed)
+/// - `path`: Stored file path for accurate output
 ///
 /// # Returns
 ///
@@ -98,6 +101,7 @@ fn create_schema() -> (Schema, SchemaFields) {
     let content = schema_builder.add_text_field("content", TEXT);
     let category = schema_builder.add_text_field("category", TEXT | STORED);
     let word_count = schema_builder.add_u64_field("word_count", STORED);
+    let path = schema_builder.add_text_field("path", TEXT | STORED);
 
     let schema = schema_builder.build();
     let fields = SchemaFields {
@@ -107,6 +111,7 @@ fn create_schema() -> (Schema, SchemaFields) {
         content,
         category,
         word_count,
+        path,
     };
 
     (schema, fields)
@@ -137,11 +142,15 @@ pub fn open_or_create_index(index_path: &Path) -> Result<Index> {
 
     // Try to open existing index
     if index_dir.exists() {
-        match Index::open_in_dir(&index_dir) {
-            Ok(index) => return Ok(index),
-            Err(_) => {
-                // Index is corrupted, rebuild
-                fs::remove_dir_all(&index_dir).ok();
+        if index_dir.is_file() {
+            fs::remove_file(&index_dir)?;
+        } else {
+            match Index::open_in_dir(&index_dir) {
+                Ok(index) => return Ok(index),
+                Err(_) => {
+                    // Index is corrupted, rebuild
+                    fs::remove_dir_all(&index_dir).ok();
+                }
             }
         }
     }
@@ -207,6 +216,7 @@ pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument
             fields.content => searchable_content.as_str(),
             fields.category => doc.category.as_str(),
             fields.word_count => doc.word_count as u64,
+            fields.path => doc.path.as_str(),
         );
 
         writer.add_document(tantivy_doc)?;
@@ -310,13 +320,27 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
             .and_then(|v| v.as_ref().as_u64())
             .unwrap_or(0);
 
+        let path = retrieved_doc
+            .get_first(fields.path)
+            .map(tantivy::schema::OwnedValue::from)
+            .and_then(|v| v.as_ref().as_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| format!("docs/{}.md", id.replace('/', "-")));
+
+        let title_with_path = if path.is_empty() {
+            title.clone()
+        } else {
+            let path_for_scoring = path
+                .replace(['/', '-', '.', '_'], " ")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            format!("{title} {path} {path_for_scoring}")
+        };
+
         // Recalculate score for this document using simplified BM25
         // (Tantivy's internal score can't be easily extracted)
         // SAFETY: word_count from u64 field, typical values < 100k, well within f32 precision
-        let score = score_document_simple(&title, &summary, query_str, word_count as f32);
-
-        // Convert ID format (category/subcategory/slug) to filename format (category-subcategory-slug.md)
-        let path = format!("docs/{}.md", id.replace('/', "-"));
+        let score = score_document_simple(&title_with_path, &summary, query_str, word_count as f32);
 
         // Only include results with positive scores (filter out non-matches and negative zeros)
         if score <= 0.0 {
@@ -332,6 +356,13 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
             path,
         });
     }
+
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| a.id.cmp(&b.id))
+    });
 
     Ok(results)
 }
@@ -422,6 +453,22 @@ mod tests {
 
         // Both should refer to the same files
         assert!(index_path.join(".tantivy_index").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_open_or_create_index_recovers_from_file_path() -> Result<()> {
+        let dir = TempDir::new()?;
+        let index_path = dir.path();
+        let index_dir = index_path.join(".tantivy_index");
+
+        fs::write(&index_dir, "not a directory")?;
+
+        let _index = open_or_create_index(index_path)?;
+
+        assert!(index_dir.exists());
+        assert!(index_dir.is_dir());
 
         Ok(())
     }
