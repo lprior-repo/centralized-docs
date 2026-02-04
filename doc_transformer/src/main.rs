@@ -887,8 +887,12 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
         use_sitemap: config.use_sitemap,
         path_filter: config.filter.clone(),
         delay_ms: config.delay,
-        max_page_size_bytes: config.max_page_size_bytes.unwrap_or(10 * 1024 * 1024),
-        max_total_size_bytes: config.max_total_size_bytes.unwrap_or(500 * 1024 * 1024),
+        max_page_size_bytes: config.max_page_bytes.unwrap_or(10 * 1024 * 1024),
+        max_total_size_bytes: config.max_total_bytes.unwrap_or(500 * 1024 * 1024),
+        request_timeout_secs: config.request_timeout_secs,
+        max_retries: config.max_retries,
+        redirect_policy: config.redirect_policy.clone(),
+        concurrency_limit: config.concurrency_limit,
         ..Default::default()
     };
 
@@ -1178,8 +1182,12 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
         use_sitemap: true,
         path_filter: filter,
         delay_ms: delay,
-        max_page_size_bytes: max_page_size_bytes.unwrap_or(10 * 1024 * 1024),
-        max_total_size_bytes: max_total_size_bytes.unwrap_or(500 * 1024 * 1024),
+        max_page_size_bytes: max_page_bytes.unwrap_or(10 * 1024 * 1024),
+        max_total_size_bytes: max_total_bytes.unwrap_or(500 * 1024 * 1024),
+        request_timeout_secs,
+        max_retries,
+        redirect_policy,
+        concurrency_limit,
         ..Default::default()
     };
 

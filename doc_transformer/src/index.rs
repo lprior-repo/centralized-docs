@@ -508,6 +508,8 @@ fn build_vocabulary(
     chunks: &[Chunk],
     max_chunk_keywords: usize,
 ) -> Result<HashMap<String, usize>> {
+    use std::collections::hash_map::Entry;
+
     let mut vocab = HashMap::new();
     let mut idx: usize = 0;
 
@@ -522,8 +524,12 @@ fn build_vocabulary(
 
         // Add tags to vocabulary
         for tag in tags {
-            if !vocab.contains_key(tag) && !tag.is_empty() {
-                vocab.insert(tag.clone(), idx);
+            if tag.is_empty() {
+                continue;
+            }
+
+            if let Entry::Vacant(entry) = vocab.entry(tag.clone()) {
+                entry.insert(idx);
                 idx = idx.checked_add(1).ok_or_else(|| {
                     anyhow::anyhow!("Vocabulary index overflow - too many unique tags/categories")
                 })?;
