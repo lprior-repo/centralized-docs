@@ -1,9 +1,9 @@
 use doc_transformer::index;
-use doc_transformer::search;
 use std::fs;
-use std::io::Write;
 use std::path::Path;
 use tempfile::TempDir;
+
+use doc_transformer::search;
 
 /// Test 1: Corrupt index files
 /// Expected: Should handle corruption gracefully and rebuild
@@ -21,8 +21,7 @@ fn test_index_corrupt_index_file() {
     let index = search::open_or_create_index(index_path);
     assert!(
         index.is_ok(),
-        "Should handle corrupt index file, got: {:?}",
-        index
+        "Should handle corrupt index file, got: {index:?}",
     );
 
     // Verify index was rebuilt
@@ -45,8 +44,7 @@ fn test_index_malformed_json() {
     let result = index::build_and_write_compass(&[], &std::collections::HashMap::new(), index_path);
     assert!(
         result.is_ok() || result.is_err(),
-        "Should handle malformed JSON, got: {:?}",
-        result
+        "Should handle malformed JSON, got: {result:?}",
     );
 }
 
@@ -72,8 +70,7 @@ fn test_index_missing_required_fields() {
     let result = index::build_and_write_compass(&[], &std::collections::HashMap::new(), index_path);
     assert!(
         result.is_ok() || result.is_err(),
-        "Should handle missing required fields, got: {:?}",
-        result
+        "Should handle missing chunks result, got: {result:?}",
     );
 }
 
@@ -133,10 +130,9 @@ fn test_index_invalid_hnsw_parameters() {
         // Should either fail gracefully or handle invalid parameters
         assert!(
             result.is_ok() || result.is_err(),
-            "Should handle invalid HNSW params (m={}, ef={}), got: {:?}",
-            hnsw_m.unwrap_or(0),
-            ef_construction.unwrap_or(0),
-            result
+            "Should handle invalid HNSW params (m={m}, ef={ef}), got: {result:?}",
+            m = hnsw_m.unwrap_or(0),
+            ef = ef_construction.unwrap_or(0),
         );
     }
 }
@@ -173,8 +169,7 @@ fn test_index_empty_analyses() {
 
     assert!(
         result.is_ok(),
-        "Should handle empty analyses, got: {:?}",
-        result
+        "Should handle empty analyses, got: {result:?}",
     );
 }
 
@@ -222,8 +217,7 @@ fn test_index_missing_chunks_result() {
 
     assert!(
         result.is_ok(),
-        "Should handle missing chunks result, got: {:?}",
-        result
+        "Should handle missing chunks result, got: {result:?}",
     );
 }
 
@@ -238,12 +232,12 @@ fn test_index_large_document_count() {
     let mut analyses = Vec::new();
     for i in 0..1000 {
         analyses.push(doc_transformer::analyze::Analysis {
-            source_path: format!("test{}.md", i),
-            title: format!("Test Document {}", i),
+            source_path: format!("test{i}.md"),
+            title: format!("Test Document {i}"),
             frontmatter: None,
             headings: vec![],
             links: vec![],
-            first_paragraph: format!("Paragraph {}", i),
+            first_paragraph: format!("Paragraph {i}"),
             word_count: 100,
             has_code: false,
             has_tables: false,
@@ -279,9 +273,7 @@ fn test_index_large_document_count() {
 
     assert!(
         result.is_ok(),
-        "Should handle large document count (1000 docs, took {:?}), got: {:?}",
-        duration,
-        result
+        "Should handle large document count (1000 docs, took {duration:?}), got: {result:?}",
     );
 }
 
@@ -329,8 +321,7 @@ fn test_index_empty_documents_array() {
 
     assert!(
         result.is_ok(),
-        "Should handle empty documents array, got: {:?}",
-        result
+        "Should handle empty documents array, got: {result:?}",
     );
 }
 
@@ -339,7 +330,7 @@ fn test_index_empty_documents_array() {
 #[test]
 fn test_index_invalid_path() {
     let dir = TempDir::new().unwrap();
-    let index_path = dir.path();
+    let _index_path = dir.path();
 
     // Try to create index with invalid path components
     let result = index::build_and_write_index(
@@ -362,8 +353,7 @@ fn test_index_invalid_path() {
 
     assert!(
         result.is_err(),
-        "Should reject invalid path, got: {:?}",
-        result
+        "Should reject invalid path, got: {result:?}",
     );
 }
 
@@ -414,7 +404,6 @@ fn test_index_very_long_project_name() {
 
     assert!(
         result.is_ok() || result.is_err(),
-        "Should handle very long project name, got: {:?}",
-        result
+        "Should handle empty documents array, got: {result:?}",
     );
 }

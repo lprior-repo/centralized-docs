@@ -36,8 +36,14 @@ pub enum ValidationError {
     #[error("Regex queries not allowed (potential ReDoS attack)")]
     RegexNotAllowed,
 
-    #[error("Limit must be greater than 0, got {limit}")]
-    InvalidLimit { limit: usize },
+    #[error("Limit must be positive (cannot return negative results), got {0}")]
+    InvalidLimitNegative(i64),
+
+    #[error("limit must be at least 1 (use --limit 1 or higher)")]
+    InvalidLimitZero,
+
+    #[error("limit must be at most 1000 results, got {0}")]
+    InvalidLimitTooLarge(i64),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -250,11 +256,26 @@ pub fn validate_query(query: &str) -> Result<&str, ValidationError> {
 
 /// Validate a limit value (must be greater than 0)
 /// Used by internal library functions to prevent Tantivy panics
-pub fn validate_limit(limit: usize) -> Result<usize, ValidationError> {
-    if limit == 0 {
-        return Err(ValidationError::InvalidLimit { limit });
+pub fn validate_limit(s: &str) -> Result<usize, ValidationError> {
+    let value = s
+        .parse::<i64>()
+        .map_err(|_| ValidationError::InvalidLimitNegative(0))?;
+
+    if value < 0 {
+        return Err(ValidationError::InvalidLimitNegative(value));
     }
-    Ok(limit)
+
+    if value == 0 {
+        return Err(ValidationError::InvalidLimitZero);
+    }
+
+    if value > 1000 {
+        return Err(ValidationError::InvalidLimitTooLarge(value));
+    }
+
+    value
+        .try_into()
+        .map_err(|_| ValidationError::InvalidLimitTooLarge(value))
 }
 
 fn contains_regex_pattern(query: &str) -> bool {
@@ -563,35 +584,45 @@ mod tests {
 
     #[test]
     fn test_validate_limit_zero() {
-        let result = validate_limit(0);
-        assert!(matches!(
-            result,
-            Err(ValidationError::InvalidLimit { limit: 0 })
-        ));
+        let result = validate_limit("0");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        assert!(matches!(err_msg, Err(ref msg) if msg.contains("at least 1")));
     }
 
     #[test]
     fn test_validate_limit_one() {
-        assert_eq!(validate_limit(1), Ok(1));
+        assert_eq!(validate_limit("1"), Ok(1));
     }
 
     #[test]
     fn test_validate_limit_normal() {
-        assert_eq!(validate_limit(10), Ok(10));
-        assert_eq!(validate_limit(100), Ok(100));
-        assert_eq!(validate_limit(1000), Ok(1000));
+        assert_eq!(validate_limit("10"), Ok(10));
+        assert_eq!(validate_limit("100"), Ok(100));
+        assert_eq!(validate_limit("1000"), Ok(1000));
     }
 
     #[test]
-    fn test_validate_limit_large_value() {
-        assert_eq!(validate_limit(usize::MAX), Ok(usize::MAX));
+    fn test_validate_limit_negative() {
+        let result = validate_limit("-1");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        assert!(matches!(err_msg, Err(ref msg) if msg.contains("positive")));
+    }
+
+    #[test]
+    fn test_validate_limit_too_large() {
+        let result = validate_limit("1001");
+        assert!(result.is_err());
+        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        assert!(matches!(err_msg, Err(ref msg) if msg.contains("at most 1000")));
     }
 
     #[test]
     fn test_validate_limit_error_message() {
-        let result = validate_limit(0);
+        let result = validate_limit("0");
         assert!(result.is_err());
         let err_msg = result.as_ref().map_err(|e| e.to_string());
-        assert!(matches!(err_msg, Err(ref msg) if msg.contains("Limit must be greater than 0")));
+        assert!(matches!(err_msg, Err(ref msg) if msg.contains("at least 1")));
     }
 }

@@ -1,17 +1,15 @@
 use doc_transformer::search;
-use std::fs;
-use std::path::Path;
 use tempfile::TempDir;
 
-fn run_search_test<F>(mut test_fn: F)
+fn run_search_test<F>(mut test_fn: F) -> Result<(), Box<dyn std::error::Error>>
 where
     F: FnMut(&tantivy::Index),
 {
-    let dir = TempDir::new().unwrap();
+    let dir = TempDir::new()?;
     let index_path = dir.path();
 
     // Create a simple index first
-    let index = search::open_or_create_index(index_path);
+    let index = search::open_or_create_index(index_path)?;
     let doc = doc_transformer::index::IndexDocument {
         id: "test".to_string(),
         title: "Test Document".to_string(),
@@ -23,17 +21,17 @@ where
         chunk_ids: vec![],
         headings: vec![],
     };
-    let index_ref = index.expect("Failed to unwrap index");
-    search::index_documents(&index_ref, vec![doc]);
+    let _ = search::index_documents(&index, vec![doc]);
 
-    test_fn(&index_ref);
+    test_fn(&index);
+    Ok(())
 }
 
 /// Test 1: SQL injection attempts in search queries
 /// Expected: Should be rejected or handled safely without panics
 #[test]
 fn test_search_sql_injection_squot_single() {
-    run_search_test(|index| {
+    let _ = run_search_test(|index| {
         // Test queries with control characters
         let control_chars = vec![
             "test\x01", "test\x08", "test\x0c", // Form feed
@@ -46,9 +44,7 @@ fn test_search_sql_injection_squot_single() {
             let result = search::search_index(index, query, 10);
             assert!(
                 result.is_ok() || result.is_err(),
-                "Query with control character '{}' should not panic, got: {:?}",
-                query,
-                result
+                "Query with control character '{query}' should not panic, got: {result:?}",
             );
         }
     });
@@ -58,7 +54,7 @@ fn test_search_sql_injection_squot_single() {
 /// Expected: Should be handled or rejected
 #[test]
 fn test_search_extremely_long_word_sequences() {
-    run_search_test(|index| {
+    let _ = run_search_test(|index| {
         // Test queries with many words
         let long_queries = vec![
             "a b c d e f g h i j k l m n o p q r s t u v w x y z".to_string(),

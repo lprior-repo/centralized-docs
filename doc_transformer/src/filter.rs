@@ -540,7 +540,7 @@ pub fn batch_score_documents_bm25<'a>(
     limit: usize,
 ) -> Result<Vec<(f32, &'a serde_json::Value)>> {
     // Validate limit (must be > 0 to avoid tantivy panic)
-    crate::validate::validate_limit(limit).map_err(|e| anyhow::anyhow!("{e}"))?;
+    crate::validate::validate_limit(&limit.to_string()).map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let (schema, content_field) = {
         let mut schema_builder = Schema::builder();

@@ -357,19 +357,6 @@ async fn scrape_site_internal(config: &ScrapeConfig) -> Result<ScrapeResult> {
             }
             seen_urls.insert(url.to_string());
 
-            // MANUAL LIMIT: DoS protection against huge sitemaps
-            // with_limit() may not affect scrape_sitemap() output, so we enforce
-            // a hard limit here to prevent processing more pages than configured
-            if pages.len() >= config.max_pages {
-                let error_msg = format!(
-                    "Reached page limit ({}), stopping scrape. {} URLs remain in sitemap.",
-                    config.max_pages,
-                    spider_pages.len().saturating_sub(pages.len())
-                );
-                errors.push((url.to_string(), error_msg));
-                break;
-            }
-
             // Transform HTML to Markdown (with optional filtering)
             // Note: Spider-rs handles path filtering via whitelist_url
             // and we use both with_limit() (native) and manual max_pages check (DoS protection)
@@ -397,6 +384,17 @@ async fn scrape_site_internal(config: &ScrapeConfig) -> Result<ScrapeResult> {
                     }
 
                     pages.push(scraped);
+
+                    // Enforce page limit AFTER pushing to avoid off-by-one error
+                    if pages.len() >= config.max_pages {
+                        let error_msg = format!(
+                            "Reached page limit ({}), stopping scrape. {} URLs remain in sitemap.",
+                            config.max_pages,
+                            spider_pages.len().saturating_sub(pages.len())
+                        );
+                        errors.push((url.to_string(), error_msg));
+                        break;
+                    }
                 }
                 Err(e) => {
                     let error_msg = format!("Failed to transform page: {e}");
@@ -1104,7 +1102,11 @@ pub fn filter_pages_by_relevance(
     let total_words: usize = pages.iter().map(|p| p.word_count).sum();
     // SAFETY: Document counts and word counts are small (< 10k documents, < 1M words)
     // well within f32 precision (2^24 ≈ 16.7M)
-    let avg_doc_length = (total_words as f32 / pages.len() as f32).max(1.0);
+    let avg_doc_length = if pages.is_empty() {
+        return (pages, 0);
+    } else {
+        (total_words as f32 / pages.len() as f32).max(1.0)
+    };
 
     // Import bm25_score from filter module
     use crate::filter::bm25_score;

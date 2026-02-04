@@ -33,12 +33,12 @@ fn create_test_index(dir: &tempfile::TempDir) -> anyhow::Result<()> {
 #[test]
 fn test_internal_validate_limit_zero_rejected() {
     // P2: limit = 0 should be rejected (prevents tantivy panic)
-    let result = doc_transformer::validate::validate_limit(0);
+    let result = doc_transformer::validate::validate_limit("0");
     assert!(result.is_err(), "limit=0 should be rejected");
     let err = result.unwrap_err();
     assert!(matches!(
         err,
-        doc_transformer::validate::ValidationError::InvalidLimit { limit: 0 }
+        doc_transformer::validate::ValidationError::InvalidLimitZero
     ));
 }
 
@@ -67,7 +67,7 @@ fn test_cli_validate_limit_exceeds_max_rejected() {
 #[test]
 fn test_internal_validate_limit_one_accepted() {
     // limit = 1 should work (minimum valid)
-    let result = doc_transformer::validate::validate_limit(1);
+    let result = doc_transformer::validate::validate_limit("1");
     assert!(result.is_ok(), "limit=1 should be accepted");
     assert_eq!(result.unwrap(), 1);
 }
@@ -75,7 +75,7 @@ fn test_internal_validate_limit_one_accepted() {
 #[test]
 fn test_internal_validate_limit_default_accepted() {
     // limit = 10 should work (default)
-    let result = doc_transformer::validate::validate_limit(10);
+    let result = doc_transformer::validate::validate_limit("10");
     assert!(result.is_ok(), "limit=10 should be accepted");
     assert_eq!(result.unwrap(), 10);
 }

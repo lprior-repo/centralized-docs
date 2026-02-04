@@ -173,6 +173,9 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
     };
 
     let mut fm = HashMap::new();
+    if lines.len() < 2 || end_idx <= 1 {
+        return (Some(fm), content.to_string());
+    }
     for line in &lines[1..end_idx] {
         if let Some(pos) = line.find(':') {
             let key = line[..pos].trim().to_string();

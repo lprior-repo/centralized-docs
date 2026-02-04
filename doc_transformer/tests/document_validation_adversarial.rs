@@ -1,7 +1,6 @@
 use doc_transformer::index;
 use std::fs;
 use std::io::Write;
-use std::path::Path;
 use tempfile::TempDir;
 
 #[test]
@@ -80,8 +79,7 @@ fn test_document_validation_missing_required_fields() {
         // Should either fail gracefully or handle missing fields
         assert!(
             result.is_ok() || result.is_err(),
-            "Should handle document with missing fields, got: {:?}",
-            result
+            "Should handle document with missing fields, got: {result:?}",
         );
     }
 }
@@ -147,8 +145,7 @@ fn test_document_validation_whitespace_only() {
         );
         assert!(
             result.is_ok() || result.is_err(),
-            "Should handle whitespace-only document, got: {:?}",
-            result
+            "Should handle whitespace-only document, got: {result:?}",
         );
     }
 }
@@ -204,9 +201,7 @@ fn test_document_validation_extremely_long_content() {
 
     assert!(
         result.is_ok(),
-        "Should handle extremely long content (10MB, took {:?}), got: {:?}",
-        duration,
-        result
+        "Should handle extremely long content (10MB, took {duration:?}), got: {result:?}",
     );
 }
 
@@ -215,10 +210,10 @@ fn test_document_validation_extremely_long_content() {
 #[test]
 fn test_document_validation_invalid_utf8() {
     let dir = TempDir::new().expect("Failed to create temp dir");
-    let index_path = dir.path();
+    let _index_path = dir.path();
 
     // Create documents with invalid UTF-8 sequences
-    let mut invalid_utf8_docs = vec![doc_transformer::analyze::Analysis {
+    let _invalid_utf8_docs = vec![doc_transformer::analyze::Analysis {
         source_path: "test1.md".to_string(),
         title: "Test".to_string(),
         category: "ref".to_string(),
@@ -242,8 +237,7 @@ fn test_document_validation_invalid_utf8() {
     let content = fs::read_to_string(&test_file);
     assert!(
         content.is_err(),
-        "Should fail to read invalid UTF-8, got: {:?}",
-        content
+        "Should fail to read invalid UTF-8, got: {content:?}",
     );
 }
 
@@ -293,8 +287,7 @@ fn test_document_validation_empty_headings() {
 
     assert!(
         result.is_ok(),
-        "Should handle empty headings, got: {:?}",
-        result
+        "Should handle empty headings, got: {result:?}",
     );
 }
 
@@ -352,9 +345,7 @@ fn test_document_validation_extremely_long_headings() {
 
     assert!(
         result.is_ok(),
-        "Should handle extremely long headings (10k chars, took {:?}), got: {:?}",
-        duration,
-        result
+        "Should handle extremely long headings (10k chars, took {duration:?}), got: {result:?}",
     );
 }
 
@@ -402,11 +393,7 @@ fn test_document_validation_empty_links() {
         None,
     );
 
-    assert!(
-        result.is_ok(),
-        "Should handle empty links, got: {:?}",
-        result
-    );
+    assert!(result.is_ok(), "Should handle empty links, got: {result:?}",);
 }
 
 /// Test 8: Documents with extremely long link URLs
@@ -417,7 +404,7 @@ fn test_document_validation_extremely_long_link_urls() {
     let index_path = dir.path();
 
     // Create documents with extremely long link URLs
-    let long_url = "https://example.com".repeat(1000); // Very long URL
+    let _long_url = "https://example.com".repeat(1000); // Very long URL
     let docs = vec![doc_transformer::analyze::Analysis {
         source_path: "test.md".to_string(),
         title: "Test".to_string(),
@@ -459,9 +446,7 @@ fn test_document_validation_extremely_long_link_urls() {
 
     assert!(
         result.is_ok(),
-        "Should handle extremely long URLs (100k chars, took {:?}), got: {:?}",
-        duration,
-        result
+        "Should handle extremely long URLs (100k chars, took {duration:?}), got: {result:?}",
     );
 }
 
@@ -511,8 +496,7 @@ fn test_document_validation_negative_word_count() {
 
     assert!(
         result.is_ok(),
-        "Should handle negative word count, got: {:?}",
-        result
+        "Should handle negative word count, got: {result:?}",
     );
 }
 
@@ -562,7 +546,6 @@ fn test_document_validation_zero_word_count() {
 
     assert!(
         result.is_ok(),
-        "Should handle zero word count, got: {:?}",
-        result
+        "Should handle zero word count, got: {result:?}",
     );
 }

@@ -1,28 +1,28 @@
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
 fn create_test_index(temp_dir: &TempDir) -> PathBuf {
     let index_path = temp_dir.path().join("test_index");
-    std::fs::create_dir_all(&index_path);
+    let _ = std::fs::create_dir_all(&index_path);
     index_path
 }
 
-fn write_test_document(index_path: &PathBuf, doc_id: &str, content: &str) {
-    let doc_path = index_path.join(format!("{}.md", doc_id));
-    std::fs::write(&doc_path, content);
+fn write_test_document(index_path: &Path, doc_id: &str, content: &str) {
+    let doc_path = index_path.join(format!("{doc_id}.md"));
+    let _ = std::fs::write(&doc_path, content);
 }
 
 fn create_invalid_index(temp_dir: &TempDir) -> PathBuf {
     let index_path = temp_dir.path().join("invalid_index");
-    std::fs::create_dir_all(&index_path);
+    let _ = std::fs::create_dir_all(&index_path);
 
     let index_path_clone = index_path.clone();
     std::thread::spawn(move || {
-        let mut file = std::fs::OpenOptions::new()
+        let file = std::fs::OpenOptions::new()
             .write(true)
             .open(index_path_clone.join("INDEX.json"));
-        file.unwrap().write_all(b"invalid json content");
+        let _ = file.unwrap().write_all(b"invalid json content");
     });
 
     index_path
@@ -58,14 +58,14 @@ fn test_search_with_malformed_index_json() {
     let temp_dir = TempDir::new().unwrap();
     let index_path = temp_dir.path().join("malformed_index");
 
-    std::fs::create_dir_all(&index_path);
+    let _ = std::fs::create_dir_all(&index_path);
 
     let index_path_clone = index_path.clone();
     std::thread::spawn(move || {
-        let mut file = std::fs::OpenOptions::new()
+        let file = std::fs::OpenOptions::new()
             .write(true)
             .open(index_path_clone.join("INDEX.json"));
-        file.unwrap().write_all(b"{invalid json content}");
+        let _ = file.unwrap().write_all(b"{invalid json content}");
     });
 
     let args = vec![
@@ -89,7 +89,7 @@ fn test_search_with_empty_index_directory() {
     let temp_dir = TempDir::new().unwrap();
     let index_path = temp_dir.path().join("empty_index");
 
-    std::fs::create_dir_all(&index_path);
+    let _ = std::fs::create_dir_all(&index_path);
 
     let args = vec![
         "doc_transformer",

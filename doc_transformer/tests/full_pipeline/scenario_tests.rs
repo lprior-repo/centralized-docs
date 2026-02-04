@@ -676,16 +676,13 @@ fn scenario_error_messages_are_helpful() -> anyhow::Result<()> {
 
     // Test 4: Invalid limit (zero)
     println!("\nTest 4: Invalid limit (zero)");
-    let result = validate_limit(0);
+    let result = validate_limit("0");
     match result {
         Err(ref e) => {
             let msg = e.to_string();
             println!("  Error: '{msg}'");
-            if let ValidationError::InvalidLimit { limit } = e {
-                assert!(
-                    msg.contains("0") || msg.contains(&limit.to_string()),
-                    "Error should show the invalid value"
-                );
+            if matches!(e, ValidationError::InvalidLimitZero) {
+                assert!(msg.contains("0"), "Error should show the invalid value");
             }
             println!("  ✓ Explains the requirement clearly");
         }

@@ -1,15 +1,26 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
 fn create_test_index(temp_dir: &TempDir) -> PathBuf {
     let index_path = temp_dir.path().join("test_index");
-    std::fs::create_dir_all(&index_path);
+    let _ = std::fs::create_dir_all(&index_path);
     index_path
 }
 
-fn write_test_document(index_path: &PathBuf, doc_id: &str, content: &str) {
-    let doc_path = index_path.join(format!("{}.md", doc_id));
-    std::fs::write(&doc_path, content);
+fn write_test_document(index_path: &Path, doc_id: &str, content: &str) {
+    let doc_path = index_path.join(format!("{doc_id}.md"));
+    let _ = std::fs::write(&doc_path, content);
+}
+
+#[allow(dead_code)]
+fn run_cli_test<F>(test_fn: F) -> std::io::Result<()>
+where
+    F: FnOnce() -> std::io::Result<()>,
+{
+    let temp_dir = TempDir::new()?;
+    let index_path = create_test_index(&temp_dir);
+    write_test_document(&index_path, "test", "# Test\n\nTest content");
+    test_fn()
 }
 
 #[test]
@@ -25,6 +36,7 @@ fn test_cli_invalid_flags() {
         "--index-dir",
         index_path.to_str().expect("path should exist"),
         "--invalid-flag",
+        "test",
     ];
 
     let output = std::process::Command::new("doc_transformer")
@@ -32,7 +44,12 @@ fn test_cli_invalid_flags() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(!output.status.success(), "CLI should reject negative limit");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("positive"),
+        "Error message should mention 'positive'"
+    );
 }
 
 #[test]
@@ -47,12 +64,13 @@ fn test_cli_missing_required_args() {
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
+        "test",
     ];
 
     let output = std::process::Command::new("doc_transformer")
         .args(&args)
         .output()
-        .unwrap();
+        .expect("failed to execute command");
 
     assert!(!output.status.success());
 }
@@ -71,14 +89,15 @@ fn test_cli_wrong_data_type_for_limit() {
         index_path.to_str().expect("path should exist"),
         "--limit",
         "invalid",
+        "test",
     ];
 
     let output = std::process::Command::new("doc_transformer")
         .args(&args)
         .output()
-        .unwrap();
+        .expect("failed to execute command");
 
-    assert!(output.status.success());
+    assert!(!output.status.success());
 }
 
 #[test]
@@ -102,7 +121,12 @@ fn test_cli_negative_limit() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(!output.status.success(), "CLI should reject negative limit");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("positive"),
+        "Error message should mention 'positive'"
+    );
 }
 
 #[test]
@@ -119,6 +143,7 @@ fn test_cli_zero_limit() {
         index_path.to_str().expect("path should exist"),
         "--limit",
         "0",
+        "test",
     ];
 
     let output = std::process::Command::new("doc_transformer")
@@ -126,7 +151,12 @@ fn test_cli_zero_limit() {
         .output()
         .unwrap();
 
-    assert!(output.status.success());
+    assert!(!output.status.success(), "CLI should reject zero limit");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("at least 1") || stderr.contains("positive"),
+        "Error message should mention limit must be positive or at least 1"
+    );
 }
 
 #[test]
@@ -366,19 +396,20 @@ fn test_cli_index_directory_is_file() {
     let temp_dir = TempDir::new().unwrap();
     let index_path = temp_dir.path().join("index_file");
 
-    std::fs::write(&index_path, "test");
+    let _ = std::fs::write(&index_path, "test");
 
     let args = vec![
         "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
+        "test",
     ];
 
     let output = std::process::Command::new("doc_transformer")
         .args(&args)
         .output()
-        .unwrap();
+        .expect("failed to execute command");
 
     assert!(!output.status.success());
 }

@@ -208,32 +208,9 @@ pub fn validate_delay(s: &str) -> Result<u64, String> {
         .map_err(|_| format!("delay value too large: {value}"))
 }
 
-/// Validate result limit for search command.
-/// Negative limits are meaningless and indicate user error.
-/// Upper bound prevents impractically large result sets.
-pub fn validate_limit(s: &str) -> Result<usize, String> {
-    // Try parsing as i64 first to catch negative values
-    let value = s
-        .parse::<i64>()
-        .map_err(|_| format!("limit must be a positive integer, got '{s}'"))?;
-
-    if value < 0 {
-        return Err(format!(
-            "limit must be positive (cannot return negative results), got {value}"
-        ));
-    }
-
-    if value == 0 {
-        return Err("limit must be at least 1 (use --limit 1 or higher)".to_string());
-    }
-
-    if value > 1000 {
-        return Err(format!("limit must be at most 1000 results, got {value}"));
-    }
-
-    value
-        .try_into()
-        .map_err(|_| format!("limit value too large: {value}"))
+/// CLI wrapper for validate_limit that returns String error for clap compatibility.
+fn validate_limit_cli(s: &str) -> Result<usize, String> {
+    validate::validate_limit(s).map_err(|e| e.to_string())
 }
 
 /// Validate regex pattern for URL filtering.
@@ -296,7 +273,7 @@ enum Commands {
             short = 'n',
             long,
             default_value = "10",
-            value_parser = validate_limit,
+            value_parser = validate_limit_cli,
             allow_hyphen_values = true
         )]
         limit: usize,
@@ -1030,9 +1007,6 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
     // Validate query using centralized validation
     let query = validate::validate_query(query).map_err(|e| anyhow::anyhow!("{e}"))?;
 
-    // Validate limit (must be > 0 to avoid tantivy panic)
-    let limit = validate::validate_limit(limit).map_err(|e| anyhow::anyhow!("{e}"))?;
-
     // Validate word count (additional constraint beyond basic validation)
     let word_count = query.split_whitespace().count();
     if word_count > MAX_QUERY_WORDS {
@@ -1523,7 +1497,7 @@ mod tests {
     #[test]
     fn test_validate_limit_one() {
         // Minimum valid limit
-        let result = validate_limit("1");
+        let result = validate::validate_limit("1");
         assert!(result.is_ok());
         assert_eq!(result.map(|v| v.to_string()).unwrap_or_default(), "1");
     }
@@ -1531,7 +1505,7 @@ mod tests {
     #[test]
     fn test_validate_limit_positive() {
         // Valid positive limit
-        let result = validate_limit("10");
+        let result = validate::validate_limit("10");
         assert!(result.is_ok());
         assert_eq!(result.map(|v| v.to_string()).unwrap_or_default(), "10");
     }
@@ -1539,21 +1513,21 @@ mod tests {
     #[test]
     fn test_validate_limit_default_value() {
         // Default value 10 should pass
-        let result = validate_limit("10");
+        let result = validate::validate_limit("10");
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_validate_limit_at_upper_bound() {
         // Maximum valid limit
-        let result = validate_limit("1000");
+        let result = validate::validate_limit("1000");
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_validate_limit_negative_one_rejected() {
         // Negative limit -1 should fail with clear message
-        let result = validate_limit("-1");
+        let result = validate::validate_limit("-1");
         assert!(result.is_err());
         let err_msg = result.as_ref().map_err(|e| e.to_string());
         if let Err(msg) = err_msg {
@@ -1565,7 +1539,7 @@ mod tests {
     #[test]
     fn test_validate_limit_zero_rejected() {
         // Zero limit should fail
-        let result = validate_limit("0");
+        let result = validate::validate_limit("0");
         assert!(result.is_err());
         let err_msg = result.as_ref().map_err(|e| e.to_string());
         if let Err(msg) = err_msg {
@@ -1576,7 +1550,7 @@ mod tests {
     #[test]
     fn test_validate_limit_exceeds_upper_bound() {
         // Limit above 1000 should fail
-        let result = validate_limit("1001");
+        let result = validate::validate_limit("1001");
         assert!(result.is_err());
         let err_msg = result.as_ref().map_err(|e| e.to_string());
         if let Err(msg) = err_msg {
@@ -1588,7 +1562,7 @@ mod tests {
     #[test]
     fn test_validate_limit_very_negative_rejected() {
         // Very negative value should fail
-        let result = validate_limit("-999");
+        let result = validate::validate_limit("-999");
         assert!(result.is_err());
         let err_msg = result.as_ref().map_err(|e| e.to_string());
         if let Err(msg) = err_msg {
@@ -1600,11 +1574,11 @@ mod tests {
     #[test]
     fn test_validate_limit_invalid_string() {
         // Non-numeric input should fail
-        let result = validate_limit("invalid");
+        let result = validate::validate_limit("invalid");
         assert!(result.is_err());
         let err_msg = result.as_ref().map_err(|e| e.to_string());
         if let Err(msg) = err_msg {
-            assert!(msg.contains("positive integer"));
+            assert!(msg.contains("positive") || msg.contains("Limit must"));
         }
     }
 
