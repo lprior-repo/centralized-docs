@@ -1064,8 +1064,11 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     println!("[STEP 4] TRANSFORM");
     let transform_result = transform::transform_all(&analyses, &link_map, output)?;
     println!(
-        "  {}/{} files ({} errors)\n",
-        transform_result.success_count, transform_result.total_count, transform_result.error_count
+        "  {}/{} files ({} errors, {} skipped)\n",
+        transform_result.success_count,
+        transform_result.total_count,
+        transform_result.error_count,
+        transform_result.skipped_count
     );
 
     // STEP 5: CHUNK (Hierarchical)

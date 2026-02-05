@@ -14,6 +14,7 @@ pub struct TransformResult {
     pub success_count: usize,
     pub total_count: usize,
     pub error_count: usize,
+    pub skipped_count: usize,
 }
 
 /// Create directory with improved error context for permission issues
@@ -47,23 +48,33 @@ pub fn transform_all(
 
     let mut success_count: usize = 0;
     let mut error_count: usize = 0;
+    let mut skipped_count: usize = 0;
 
     for analysis in analyses {
-        if let Some(mapping) = link_map.get(&analysis.source_path) {
-            match transform_file(analysis, mapping, link_map, &docs_dir) {
+        match link_map.get(&analysis.source_path) {
+            Some(mapping) => match transform_file(analysis, mapping, link_map, &docs_dir) {
                 Ok(_) => success_count = success_count.saturating_add(1),
                 Err(e) => {
                     eprintln!("TRANSFORM ERROR: {}: {}", analysis.source_path, e);
                     error_count = error_count.saturating_add(1);
                 }
+            },
+            None => {
+                skipped_count = skipped_count.saturating_add(1);
+                eprintln!("WARNING: No ID mapping for {}", analysis.source_path);
             }
         }
+    }
+
+    if skipped_count > 0 {
+        eprintln!("WARNING: {skipped_count} documents skipped (no ID mapping)");
     }
 
     Ok(TransformResult {
         success_count,
         total_count: analyses.len(),
         error_count,
+        skipped_count,
     })
 }
 
