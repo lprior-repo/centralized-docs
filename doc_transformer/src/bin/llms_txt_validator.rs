@@ -560,9 +560,19 @@ fn main() -> Result<()> {
 
     print_results(&result, &path);
 
-    // Exit with error code if validation failed
-    if !result.valid {
-        std::process::exit(1);
+    // Exit with severity-based error code (BEAD-013)
+    let error_count = result
+        .errors
+        .iter()
+        .filter(|e| e.severity == Severity::Error)
+        .count();
+    if error_count > 0 {
+        let exit_code = match error_count {
+            1..=10 => 1,   // Minor corruption
+            11..=100 => 2, // Major corruption
+            _ => 3,        // Critical corruption (>100 errors)
+        };
+        std::process::exit(exit_code);
     }
 
     Ok(())
