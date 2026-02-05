@@ -11,8 +11,9 @@
 use super::validation::ScrapeConfig;
 use std::time::Duration;
 
-/// Build a spider Website with shared base configuration
+/// Build a spider `Website` with shared base configuration
 #[must_use]
+#[allow(clippy::cast_precision_loss)]
 pub fn build_website_base(url: &str, config: &ScrapeConfig) -> spider::website::Website {
     let mut website = spider::website::Website::new(url);
 
@@ -45,6 +46,10 @@ pub fn build_website_base(url: &str, config: &ScrapeConfig) -> spider::website::
 }
 
 /// Execute scrape operation with retry logic
+///
+/// # Errors
+/// Returns an error if the scrape operation fails.
+#[must_use]
 pub async fn execute_scrape_with_website(
     website: &mut spider::website::Website,
     config: &ScrapeConfig,
@@ -58,9 +63,13 @@ pub async fn execute_scrape_with_website(
     Ok(())
 }
 
-/// Extract pages from website
+/// Extract pages from `website`
+///
+/// # Errors
+/// This function does not return errors directly; errors are collected in the result.
+#[must_use]
 pub fn extract_pages_from_website(
-    website: spider::website::Website,
+    website: &spider::website::Website,
     config: &ScrapeConfig,
 ) -> super::validation::ScrapeResult {
     use std::collections::HashSet;
@@ -79,59 +88,57 @@ pub fn extract_pages_from_website(
     };
 
     if let Some(spider_pages) = scraped_pages {
-        for page in spider_pages.iter() {
-            let url = page.get_url();
+        spider_pages
+            .iter()
+            .filter(|page| !seen_urls.contains(page.get_url()))
+            .for_each(|page| {
+                seen_urls.insert(page.get_url().to_string());
 
-            if seen_urls.contains(url) {
-                continue;
-            }
-            seen_urls.insert(url.to_string());
+                if pages.len() >= config.max_pages {
+                    let error_msg = format!(
+                        "Reached page limit ({}), stopping scrape. {} URLs remain.",
+                        config.max_pages,
+                        spider_pages.len().saturating_sub(pages.len())
+                    );
+                    errors.push((page.get_url().to_string(), error_msg));
+                    return;
+                }
 
-            if pages.len() >= config.max_pages {
-                let error_msg = format!(
-                    "Reached page limit ({}), stopping scrape. {} URLs remain.",
-                    config.max_pages,
-                    spider_pages.len().saturating_sub(pages.len())
-                );
-                errors.push((url.to_string(), error_msg));
-                break;
-            }
+                match super::transformers::transform_page(
+                    page,
+                    &config.base_url,
+                    config.enable_filtering,
+                ) {
+                    Ok(scraped) => {
+                        let page_size = scraped.markdown.len() as u64;
+                        total_content_size = match total_content_size.checked_add(page_size) {
+                            Some(size) => size,
+                            None => {
+                                let error_msg =
+                                    "Integer overflow: total content size would exceed u64::MAX"
+                                        .to_string();
+                                errors.push((page.get_url().to_string(), error_msg));
+                                return;
+                            }
+                        };
 
-            match super::transformers::transform_page(
-                page,
-                &config.base_url,
-                config.enable_filtering,
-            ) {
-                Ok(scraped) => {
-                    let page_size = scraped.markdown.len() as u64;
-                    total_content_size = match total_content_size.checked_add(page_size) {
-                        Some(size) => size,
-                        None => {
-                            let error_msg =
-                                "Integer overflow: total content size would exceed u64::MAX"
-                                    .to_string();
-                            errors.push((url.to_string(), error_msg));
-                            break;
+                        if total_content_size > config.max_total_size_bytes {
+                            let error_msg = format!(
+                                "Total content size ({} bytes) exceeds limit ({} bytes), stopping scrape",
+                                total_content_size, config.max_total_size_bytes
+                            );
+                            errors.push((page.get_url().to_string(), error_msg));
+                            return;
                         }
-                    };
 
-                    if total_content_size > config.max_total_size_bytes {
-                        let error_msg = format!(
-                            "Total content size ({} bytes) exceeds limit ({} bytes), stopping scrape",
-                            total_content_size, config.max_total_size_bytes
-                        );
-                        errors.push((url.to_string(), error_msg));
-                        break;
+                        pages.push(scraped);
                     }
-
-                    pages.push(scraped);
+                    Err(e) => {
+                        let error_msg = format!("Failed to transform page: {e}");
+                        errors.push((page.get_url().to_string(), error_msg));
+                    }
                 }
-                Err(e) => {
-                    let error_msg = format!("Failed to transform page: {e}");
-                    errors.push((url.to_string(), error_msg));
-                }
-            }
-        }
+            });
     }
 
     let success_count = pages.len();
@@ -164,7 +171,7 @@ mod tests {
     fn test_extract_pages_from_website_empty() {
         let config = ScrapeConfig::default();
         let website = build_website_base("https://example.com", &config);
-        let result = extract_pages_from_website(website, &config);
+        let result = extract_pages_from_website(&website, &config);
 
         assert_eq!(result.pages.len(), 0);
         assert_eq!(result.total_urls, 0);

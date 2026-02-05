@@ -3,6 +3,7 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
+#![allow(clippy::missing_errors_doc)]
 
 //! URL validation and size checking
 //!
@@ -231,16 +232,17 @@ pub fn extract_title(markdown: &str, url: &str) -> String {
         }
     }
 
-    url::Url::parse(url)
-        .map(|u| {
+    url::Url::parse(url).map_or_else(
+        |_| "Untitled".to_string(),
+        |u| {
             u.path()
                 .trim_matches('/')
                 .split('/')
                 .next_back()
                 .unwrap_or("Untitled")
                 .replace(['-', '_'], " ")
-        })
-        .unwrap_or_else(|_| "Untitled".to_string())
+        },
+    )
 }
 
 #[cfg(test)]

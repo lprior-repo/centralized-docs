@@ -87,17 +87,17 @@ pub fn detect_rate_limit_page(html: &str) -> bool {
 pub fn extract_headers(markdown: &str) -> Vec<super::validation::Header> {
     let mut headers = Vec::new();
 
-    for line in markdown.lines() {
-        if let Some(caps) = HEADER_REGEX.captures(line.trim()) {
-            if let Some(level_match) = caps.get(1) {
-                let level = u8::try_from(level_match.as_str().len()).unwrap_or(1);
-                if let Some(text_match) = caps.get(2) {
-                    let text = text_match.as_str().to_string();
-                    headers.push(super::validation::Header { level, text });
-                }
-            }
-        }
-    }
+    markdown
+        .lines()
+        .filter_map(|line| HEADER_REGEX.captures(line.trim()))
+        .filter_map(|caps| {
+            let level_match = caps.get(1)?;
+            let text_match = caps.get(2)?;
+            let level = u8::try_from(level_match.as_str().len()).unwrap_or(1);
+            let text = text_match.as_str().to_string();
+            Some(super::validation::Header { level, text })
+        })
+        .for_each(|header| headers.push(header));
 
     headers
 }
@@ -115,9 +115,12 @@ pub fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
                 if let Ok(resolved) = base.join(href) {
                     if resolved.host() == base.host() {
                         links.push(resolved.to_string());
+                        return;
                     }
                 }
-            } else if href.starts_with('/') || href.starts_with("./") {
+            }
+
+            if href.starts_with('/') || href.starts_with("./") {
                 links.push(href.to_string());
             }
         }

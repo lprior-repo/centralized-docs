@@ -12,6 +12,7 @@ use super::validation::ScrapedPage;
 
 /// Filter scraped pages by BM25 relevance to query
 #[must_use]
+#[allow(clippy::cast_precision_loss)]
 pub fn filter_pages_by_relevance(
     pages: Vec<ScrapedPage>,
     query: &str,

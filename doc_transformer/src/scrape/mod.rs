@@ -34,6 +34,9 @@ pub use validation::{validate_scrape_result, validate_url};
 pub use validation::{Header, ScrapeConfig, ScrapeResult, ScrapedPage};
 
 /// Scrape a documentation site with exponential backoff retry on rate limits
+///
+/// # Errors
+/// Returns an error if the scrape operation fails after all retries are exhausted.
 pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     const BASE_DELAY_MS: u64 = 2000;
 
