@@ -36,7 +36,6 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use spider::configuration::RedirectPolicy;
 use std::path::{Path, PathBuf};
-use validate::ValidationError;
 
 /// Configuration for the index command
 #[derive(Debug, Clone)]
@@ -209,14 +208,12 @@ pub fn validate_threshold(s: &str) -> Result<f32, String> {
         .map_err(|_| format!("threshold must be a number, got '{s}'"))?;
 
     if value < 0.0 {
-        eprintln!("threshold range is 0.0-10.0; negative values are invalid");
         return Err(format!(
             "threshold must be non-negative (BM25 scores are >= 0.0), got {value}"
         ));
     }
 
     if value > 10.0 {
-        eprintln!("threshold must stay within the 0.0-10.0 range, got {value}");
         return Err(format!(
             "threshold must be at most 10.0 for practical filtering, got {value}"
         ));
@@ -324,14 +321,12 @@ pub fn validate_delay(s: &str) -> Result<u64, String> {
         .map_err(|_| format!("delay must be an integer, got '{s}'"))?;
 
     if value < 0 {
-        eprintln!("delay must be non-negative (pattern: digits only), got {value}");
         return Err(format!(
             "delay must be non-negative (milliseconds), got {value}"
         ));
     }
 
     if value > 60_000 {
-        eprintln!("delay must respect the 0-60000 numeric pattern before scraping, got {value}");
         return Err(format!(
             "delay must be at most 60000 milliseconds (60 seconds), got {value}"
         ));
@@ -344,24 +339,7 @@ pub fn validate_delay(s: &str) -> Result<u64, String> {
 
 /// CLI wrapper for validate_limit that returns String error for clap compatibility.
 fn validate_limit_cli(s: &str) -> Result<usize, String> {
-    match validate::validate_limit(s) {
-        Ok(value) => Ok(value),
-        Err(err) => {
-            match &err {
-                ValidationError::InvalidLimitNegative(value) => {
-                    eprintln!("limit must be positive (use a non-negative pattern), got {value}")
-                }
-                ValidationError::InvalidLimitZero => {
-                    eprintln!("limit must be at least 1 (positive numbers only)")
-                }
-                ValidationError::InvalidLimitTooLarge(value) => {
-                    eprintln!("limit must stay within the 1-1000 range, got {value}")
-                }
-                _ => (),
-            }
-            Err(err.to_string())
-        }
-    }
+    validate::validate_limit(s).map_err(|e| e.to_string())
 }
 
 /// Validate regex pattern for URL filtering.
@@ -369,11 +347,9 @@ fn validate_limit_cli(s: &str) -> Result<usize, String> {
 /// Attempts to compile the pattern as a regex to ensure it's valid.
 /// Returns the pattern unchanged if valid, or an error message if invalid.
 fn validate_filter_regex(pattern: &str) -> Result<(), String> {
-    regex::Regex::new(pattern).map(|_| ()).map_err(|e| {
-        let message = format!("Invalid regex pattern '{pattern}': {e}");
-        eprintln!("{message}");
-        message
-    })
+    regex::Regex::new(pattern)
+        .map(|_| ())
+        .map_err(|e| format!("Invalid regex pattern '{pattern}': {e}"))
 }
 
 #[derive(Parser, Debug)]
@@ -853,7 +829,8 @@ fn apply_query_filter(
     threshold: f32,
 ) -> Result<Vec<scrape::ScrapedPage>> {
     if let Some(q) = query {
-        let (kept_pages, filtered_count) = scrape::filter_pages_by_relevance(pages, q, threshold);
+        let (kept_pages, filtered_count) =
+            scrape::filter_pages_by_relevance(pages.clone(), q, threshold);
 
         if kept_pages.is_empty() {
             println!("\n  WARNING: All pages filtered out by query.");
