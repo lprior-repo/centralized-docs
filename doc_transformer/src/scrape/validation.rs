@@ -17,6 +17,12 @@ use std::sync::LazyLock;
 static H1_TITLE_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("hardcoded regex pattern is valid"));
 
+/// Detects nested quantifier patterns that cause ReDoS (catastrophic backtracking).
+/// Matches any group `(...)` containing `+` or `*`, followed by `+` or `*`.
+#[expect(clippy::expect_used)]
+static REDOS_DETECTOR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\([^)]*[+*]\)[+*]").expect("hardcoded regex is valid"));
+
 /// Safely compiles a user-provided regex pattern with ReDoS protection.
 ///
 /// This function validates that the user's regex pattern:
@@ -39,15 +45,13 @@ pub(crate) fn compile_safe_regex(pattern: &str) -> Result<Regex> {
         );
     }
 
-    let redos_patterns = [r"(.*)*", r"(.+)+", r"([a-z]+)+", r"([^]]+)+"];
-
-    for pat in &redos_patterns {
-        if pattern.contains(pat) {
-            anyhow::bail!(
-                "Regex contains potentially slow pattern (ReDoS risk): {pat}. \
-                 This pattern can cause catastrophic backtracking and hang the application.",
-            );
-        }
+    // Detect nested quantifiers: any group containing a quantifier, itself followed by a quantifier
+    // Catches: (.*)*  (.+)+  ([a-z]+)+  (a+)+  (\w+)*  etc.
+    if REDOS_DETECTOR.is_match(pattern) {
+        anyhow::bail!(
+            "Regex contains potentially slow pattern (ReDoS risk): nested quantifiers detected. \
+             This pattern can cause catastrophic backtracking and hang the application.",
+        );
     }
 
     regex::RegexBuilder::new(pattern)
@@ -153,9 +157,17 @@ pub fn validate_url(url: &str) -> Result<url::Url> {
     let parsed = url::Url::parse(trimmed).context("Invalid URL format")?;
 
     match parsed.scheme() {
-        "http" | "https" => Ok(parsed),
+        "http" | "https" => {}
         scheme => anyhow::bail!("Invalid URL scheme '{scheme}': only http and https are supported"),
     }
+
+    match parsed.host_str() {
+        Some(host) if !host.is_empty() => {}
+        Some(_) => anyhow::bail!("URL host cannot be empty"),
+        None => anyhow::bail!("URL must have a valid host"),
+    }
+
+    Ok(parsed)
 }
 
 /// Check if HTML content exceeds size limit
@@ -357,129 +369,23 @@ mod tests {
 
         assert!(result.is_ok(), "Empty pattern should be valid");
     }
-}
-
-#[test]
-fn test_validate_url_invalid() {
-    assert!(validate_url("not-a-url").is_err());
-    assert!(validate_url("").is_err());
-    assert!(validate_url("   ").is_err());
-    assert!(validate_url("ftp://example.com").is_err());
-    assert!(validate_url("example.com").is_err());
-}
-
-#[test]
-fn test_extract_title() {
-    let md = "# Getting Started\n\nThis is content.";
-    assert_eq!(
-        extract_title(md, "https://example.com/foo"),
-        "Getting Started"
-    );
-
-    let md_no_h1 = "Some content without header";
-    assert_eq!(
-        extract_title(md_no_h1, "https://example.com/getting-started"),
-        "getting started"
-    );
-}
-
-#[test]
-fn test_compile_safe_regex_rejects_redos_pattern() {
-    let redos_pattern = "([a-z]+)+$";
 
     #[test]
-    fn test_compile_safe_regex_rejects_redos_pattern() {
-        let redos_pattern = "([a-z]+)+$";
-        let start = std::time::Instant::now();
-        let result = compile_safe_regex(redos_pattern);
-
-        assert!(
-            result.is_err(),
-            "ReDoS pattern should be rejected, got: {result:?}"
-        );
-        assert!(
-            start.elapsed() < std::time::Duration::from_secs(1),
-            "ReDoS rejection should be fast, took: {elapsed:?}",
-            elapsed = start.elapsed()
-        );
-
-        let error_msg = match &result {
-            Err(e) => e.to_string(),
-            Ok(_) => unreachable!(),
-        };
-        assert!(
-            error_msg.contains("ReDoS"),
-            "Error message should mention ReDoS: {error_msg}"
-        );
+    fn test_compile_safe_regex_rejects_single_char_nested_quantifier() {
+        // (a+)+ is the canonical ReDoS pattern — must be caught
+        let result = compile_safe_regex("(a+)+$");
+        assert!(result.is_err(), "(a+)+$ must be rejected as ReDoS");
     }
 
     #[test]
-    fn test_compile_safe_regex_rejects_nested_star_pattern() {
-        let nested_star = "(.*)*";
-        let result = compile_safe_regex(nested_star);
-
-        assert!(result.is_err(), "Nested star pattern should be rejected");
-
-        let error_msg = match &result {
-            Err(e) => e.to_string(),
-            Ok(_) => unreachable!(),
-        };
-        assert!(
-            error_msg.contains("ReDoS"),
-            "Error message should mention ReDoS: {error_msg}"
-        );
+    fn test_validate_url_missing_host() {
+        assert!(validate_url("https://").is_err());
+        assert!(validate_url("https://?foo=bar").is_err());
     }
 
     #[test]
-    fn test_compile_safe_regex_rejects_long_pattern() {
-        let long_pattern = "a".repeat(1000);
-        let result = compile_safe_regex(&long_pattern);
-
-        assert!(result.is_err(), "Pattern > 500 chars should be rejected");
-
-        let error_msg = match &result {
-            Err(e) => e.to_string(),
-            Ok(_) => unreachable!(),
-        };
-        assert!(
-            error_msg.contains("too long"),
-            "Error message should mention length limit: {error_msg}"
-        );
-    }
-
-    #[test]
-    fn test_compile_safe_regex_accepts_valid_pattern() {
-        let valid_pattern = r"^/docs/.*\.md$";
-        let result = compile_safe_regex(valid_pattern);
-
-        assert!(
-            result.is_ok(),
-            "Valid pattern should be accepted, got: {result:?}"
-        );
-    }
-
-    #[test]
-    fn test_compile_safe_regex_rejects_invalid_syntax() {
-        let invalid_syntax = "(?P<invalid";
-        let result = compile_safe_regex(invalid_syntax);
-
-        assert!(result.is_err(), "Invalid syntax should be rejected");
-
-        let error_msg = match &result {
-            Err(e) => e.to_string(),
-            Ok(_) => unreachable!(),
-        };
-        assert!(
-            error_msg.contains("Invalid") || error_msg.contains("regex"),
-            "Error message should describe the error: {error_msg}"
-        );
-    }
-
-    #[test]
-    fn test_compile_safe_regex_accepts_empty_string() {
-        let empty_pattern = "";
-        let result = compile_safe_regex(empty_pattern);
-
-        assert!(result.is_ok(), "Empty pattern should be valid");
+    fn test_validate_url_valid_hosts() {
+        assert!(validate_url("https://example.com").is_ok());
+        assert!(validate_url("https://localhost:3000").is_ok());
     }
 }
