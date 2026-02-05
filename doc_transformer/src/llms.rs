@@ -254,15 +254,27 @@ pub fn generate_llms_full_txt(
 }
 
 /// Truncate summary to fit in a description
-fn truncate_summary(text: &str, max_len: usize) -> String {
+pub fn truncate_summary(text: &str, max_len: usize) -> String {
     let cleaned = text.replace('\n', " ").trim().to_string();
     let char_count = cleaned.chars().count();
+
     if char_count <= max_len {
-        cleaned
-    } else {
-        let truncated: String = cleaned.chars().take(max_len.saturating_sub(3)).collect();
-        format!("{truncated}...")
+        return cleaned;
     }
+
+    // Handle edge cases
+    if max_len == 0 {
+        return String::new();
+    }
+
+    if max_len <= 3 {
+        // Can't fit "...", just return truncated without ellipsis
+        return cleaned.chars().take(max_len).collect();
+    }
+
+    // Normal case: truncate and add "..."
+    let truncated: String = cleaned.chars().take(max_len.saturating_sub(3)).collect();
+    format!("{truncated}...")
 }
 
 /// Skip YAML frontmatter from document content using functional pattern

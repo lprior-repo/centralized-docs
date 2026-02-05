@@ -63,7 +63,13 @@ pub fn url_to_slug(url: &str) -> Result<String> {
         .to_string();
 
     let slug = if slug.len() > 200 {
-        slug[..200].to_string()
+        // Safe truncation at character boundary (BEAD-001 fix)
+        let boundary = slug
+            .char_indices()
+            .take(200)
+            .last()
+            .map_or(slug.len(), |(i, c)| i.saturating_add(c.len_utf8()));
+        slug[..boundary].to_string()
     } else {
         slug
     };

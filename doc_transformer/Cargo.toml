@@ -76,6 +76,10 @@ proptest = "1.4"
 tiny_http = "0.12"
 portpicker = "0.1"
 
+[[test]]
+name = "llms_test_multibyte"
+path = "src/llms_test_multibyte.rs"
+
 [[bench]]
 name = "graph_bench"
 harness = false
