@@ -97,7 +97,7 @@ pub fn build_and_write_index(
     )?;
 
     // Phase 3: Build chunk metadata with related chunks from DAG
-    let chunks_metadata = build_chunk_metadata(&chunks_result.chunks_metadata, &dag);
+    let chunks_metadata = build_chunk_metadata(&chunks_result.chunks_metadata, &dag)?;
 
     // Phase 4: Compute graph analytics
     let analytics = compute_graph_analytics(&dag, &doc_index.documents);
@@ -184,7 +184,15 @@ fn build_document_index(
 /// Build chunk metadata enriched with related chunks from the knowledge graph.
 ///
 /// This is a pure data transformation - no I/O performed.
-fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Vec<ChunkMetadata> {
+fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Result<Vec<ChunkMetadata>> {
+    // Check for duplicate chunk_ids (BEAD-012 fix)
+    let mut seen_ids = std::collections::HashSet::new();
+    for chunk in chunks {
+        if !seen_ids.insert(&chunk.chunk_id) {
+            anyhow::bail!("Duplicate chunk_id found: {}", chunk.chunk_id);
+        }
+    }
+
     let mut siblings_map: HashMap<String, Vec<String>> = HashMap::new();
 
     for chunk in chunks {
@@ -195,7 +203,7 @@ fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Vec<ChunkMetada
             .push(chunk.chunk_id.clone());
     }
 
-    chunks
+    Ok(chunks
         .iter()
         .map(|chunk| {
             // Get related chunks from the DAG
@@ -254,7 +262,7 @@ fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Vec<ChunkMetada
                 sibling_chunk_ids,
             }
         })
-        .collect()
+        .collect())
 }
 
 fn slugify_heading(text: &str) -> String {
@@ -1153,8 +1161,6 @@ mod tests {
     /// This verifies the fix for BEAD-012
     #[test]
     fn test_chunk_metadata_no_duplicate_ids() {
-        use std::collections::HashSet;
-
         // Create test chunks with some duplicates
         let chunks = vec![
             Chunk {
@@ -1214,21 +1220,24 @@ mod tests {
             },
         ];
 
-        // Build chunk metadata - this should detect duplicates
-        let metadata = build_chunk_metadata(&chunks, &KnowledgeDAG::new());
+        // Build chunk metadata - this should detect duplicates and fail
+        let result = build_chunk_metadata(&chunks, &KnowledgeDAG::new());
 
-        // Check for duplicate chunk_ids
-        let mut seen_ids = HashSet::new();
-        for chunk_meta in &metadata {
-            assert!(
-                seen_ids.insert(&chunk_meta.chunk_id),
-                "Duplicate chunk_id found in metadata: {}",
-                chunk_meta.chunk_id
-            );
+        // Should return an error due to duplicate chunk_id
+        match result {
+            Err(e) => {
+                let err_msg = e.to_string();
+                assert!(
+                    err_msg.contains("Duplicate chunk_id"),
+                    "Error should mention duplicate chunk_id"
+                );
+                assert!(
+                    err_msg.contains("doc1#0-standard"),
+                    "Error should mention the specific duplicate ID"
+                );
+            }
+            Ok(_) => panic!("Should fail when duplicate chunk_ids exist"),
         }
-
-        // Total chunks should equal unique chunk IDs
-        assert_eq!(metadata.len(), seen_ids.len());
     }
 
     #[test]
