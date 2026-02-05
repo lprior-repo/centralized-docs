@@ -15,10 +15,13 @@ pub use super::transformers::extract_headers;
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn test_module_exists() {
-        // This module provides re-exports from transformers
-        // Full tests are in transformers module
-        assert!(true);
+    fn test_extract_headers_reexport() {
+        let md = "## Heading Two\n\nSome text.";
+        let headers = extract_headers(md);
+        assert_eq!(headers.len(), 1);
+        assert_eq!(headers[0].text, "Heading Two");
     }
 }

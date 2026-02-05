@@ -108,8 +108,7 @@ async fn scrape_site_internal(
             .map(|u| u.host_str().unwrap_or("").to_string())
             .unwrap_or_default();
         let scheme = url::Url::parse(&config.base_url)
-            .map(|u| u.scheme().to_string())
-            .unwrap_or_else(|_| "https".to_string());
+            .map_or_else(|_| "https".to_string(), |u| u.scheme().to_string());
 
         let domain_escaped = regex::escape(&base_domain);
         let pattern_stripped = pattern.strip_prefix('^').unwrap_or(pattern);

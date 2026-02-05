@@ -172,7 +172,7 @@ pub fn find_related_pages<'a>(
     related.into_iter().take(5).map(|(_, page)| page).collect()
 }
 
-/// Transform a spider page into ScrapedPage format
+/// Transform a spider page into [`ScrapedPage`] format
 pub fn transform_page(
     page: &spider::page::Page,
     base_url: &str,

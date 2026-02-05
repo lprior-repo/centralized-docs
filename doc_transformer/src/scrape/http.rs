@@ -9,8 +9,10 @@
 //! Provides spider-rs website building and HTTP request configuration.
 
 use super::validation::ScrapeConfig;
+use std::time::Duration;
 
 /// Build a spider Website with shared base configuration
+#[must_use]
 pub fn build_website_base(url: &str, config: &ScrapeConfig) -> spider::website::Website {
     let mut website = spider::website::Website::new(url);
 
@@ -23,9 +25,9 @@ pub fn build_website_base(url: &str, config: &ScrapeConfig) -> spider::website::
 
     website.configuration.modify_headers = config.stealth_mode;
 
-    website.configuration.retry = config.max_retries.min(u8::MAX as u32) as u8;
+    website.configuration.retry =
+        u8::try_from(config.max_retries.min(u32::from(u8::MAX))).unwrap_or(u8::MAX);
 
-    use std::time::Duration;
     website.configuration.request_timeout =
         Some(Box::new(Duration::from_secs(config.request_timeout_secs)));
 
@@ -34,7 +36,8 @@ pub fn build_website_base(url: &str, config: &ScrapeConfig) -> spider::website::
     website.configuration.max_page_bytes = config.spider_max_page_bytes.map(|v| v as f64);
     website.configuration.max_bytes_allowed = config.spider_max_total_bytes;
 
-    let _ = website.configuration.with_limit(config.max_pages as u32);
+    let page_limit = u32::try_from(config.max_pages).unwrap_or(u32::MAX);
+    let _ = website.configuration.with_limit(page_limit);
 
     website.configuration.normalize = true;
 
@@ -154,7 +157,7 @@ mod tests {
         let website = build_website_base("https://example.com", &config);
 
         assert_eq!(website.configuration.delay, 1000);
-        assert_eq!(website.configuration.respect_robots_txt, true);
+        assert!(website.configuration.respect_robots_txt);
     }
 
     #[test]

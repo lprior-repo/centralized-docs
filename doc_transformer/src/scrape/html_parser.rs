@@ -19,6 +19,11 @@ mod tests {
     fn test_module_exists() {
         // This module provides re-exports from transformers
         // Full tests are in transformers module
-        assert!(true);
+        // Verify that the transform_page function is accessible
+        let _: fn(
+            &spider::page::Page,
+            &str,
+            bool,
+        ) -> Result<super::super::validation::ScrapedPage, anyhow::Error> = super::transform_page;
     }
 }

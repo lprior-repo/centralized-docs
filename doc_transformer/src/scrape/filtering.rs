@@ -11,6 +11,7 @@
 use super::validation::ScrapedPage;
 
 /// Filter scraped pages by BM25 relevance to query
+#[must_use]
 pub fn filter_pages_by_relevance(
     pages: Vec<ScrapedPage>,
     query: &str,
@@ -29,7 +30,7 @@ pub fn filter_pages_by_relevance(
     let avg_doc_length = if pages.is_empty() {
         return (pages, 0);
     } else {
-        (total_words as f32 / pages.len() as f32).max(1.0)
+        total_words as f64 / (pages.len() as f64).max(1.0)
     };
 
     let (kept, filtered): (Vec<_>, Vec<_>) = pages.into_iter().partition(|page| {
@@ -43,7 +44,8 @@ pub fn filter_pages_by_relevance(
 }
 
 /// Calculate BM25 score for document vs query
-fn bm25_score(document: &str, query: &str, _avg_doc_length: f32) -> f32 {
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+fn bm25_score(document: &str, query: &str, _avg_doc_length: f64) -> f32 {
     let doc_words: Vec<&str> = document.split_whitespace().collect();
     let query_words: Vec<&str> = query.split_whitespace().collect();
 
@@ -51,35 +53,36 @@ fn bm25_score(document: &str, query: &str, _avg_doc_length: f32) -> f32 {
         return 0.0;
     }
 
-    let k1 = 1.2_f32;
-    let k2 = 0.75_f32;
-    let b = 0.75_f32;
+    let k1 = 1.2_f64;
+    let k2 = 0.75_f64;
+    let b = 0.75_f64;
 
-    let doc_length = doc_words.len() as f32;
-    let dl = (doc_length + k1 * b).min(f32::MAX);
+    let doc_length = doc_words.len() as f64;
+    let dl = (doc_length + k1 * b).min(f64::MAX);
 
-    let mut score: f32 = 0.0;
+    let mut score: f64 = 0.0;
 
     for term in &query_words {
         let tf = term_frequency(term, &doc_words);
         let df = document_frequency(term, &query_words);
-        let idf = ((query_words.len() as f32 - df as f32 + 0.5) / (df as f32 + 0.5))
+        let idf = ((query_words.len() as f64 - df as f64 + 0.5) / (df as f64 + 0.5))
             .ln_1p()
             .max(0.0);
 
-        let numerator = (tf * (k1 + 1.0)).min(f32::MAX);
-        let denominator = (tf * k2 + dl).min(f32::MAX);
+        let numerator = (tf * (k1 + 1.0_f64)).min(f64::MAX);
+        let denominator = (tf * k2 + dl).min(f64::MAX);
 
-        score = (score + idf * (numerator / denominator)).min(f32::MAX);
+        score = (score + idf * (numerator / denominator)).min(f64::MAX);
     }
 
-    score
+    score as f32
 }
 
 /// Calculate term frequency in document
-fn term_frequency(term: &str, document: &[&str]) -> f32 {
-    let count = document.iter().filter(|&&w| w == term).count() as f32;
-    let doc_len = document.len() as f32;
+#[allow(clippy::cast_precision_loss)]
+fn term_frequency(term: &str, document: &[&str]) -> f64 {
+    let count = document.iter().filter(|&&w| w == term).count() as f64;
+    let doc_len = document.len() as f64;
 
     if doc_len == 0.0 {
         0.0
@@ -132,8 +135,8 @@ mod tests {
     #[test]
     fn test_term_frequency() {
         let doc = vec!["test", "content", "test", "example"];
-        assert_eq!(term_frequency("test", &doc), 0.5);
-        assert_eq!(term_frequency("nonexistent", &doc), 0.0);
+        assert!((term_frequency("test", &doc) - 0.5).abs() < f64::EPSILON);
+        assert!((term_frequency("nonexistent", &doc) - 0.0).abs() < f64::EPSILON);
     }
 
     #[test]
