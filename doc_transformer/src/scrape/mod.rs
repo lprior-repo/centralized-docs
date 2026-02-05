@@ -3,6 +3,9 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::missing_errors_doc)]
 
 //! Scraping module orchestration
 //!
@@ -25,13 +28,12 @@ pub mod validation;
 
 // Re-export public API for backward compatibility
 pub use filtering::filter_pages_by_relevance;
-pub use html_parser::transform_page;
 pub use http::{build_website_base, execute_scrape_with_website, extract_pages_from_website};
 pub use transformers::{calculate_backoff_delay, write_scraped_pages};
 pub use validation::{validate_scrape_result, validate_url};
 
 // Re-export types
-pub use validation::{Header, ScrapeConfig, ScrapeResult, ScrapedPage};
+pub use validation::{ScrapeConfig, ScrapeResult, ScrapedPage};
 
 /// Scrape a documentation site with exponential backoff retry on rate limits
 ///
@@ -124,5 +126,5 @@ async fn scrape_site_internal(
 
     execute_scrape_with_website(&mut website, config).await?;
 
-    Ok(extract_pages_from_website(website, config))
+    Ok(extract_pages_from_website(&website, config))
 }

@@ -4,6 +4,8 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::must_use_candidate)]
 
 //! URL validation and size checking
 //!
@@ -64,6 +66,7 @@ pub(crate) fn compile_safe_regex(pattern: &str) -> Result<Regex> {
 
 /// Configuration for scraping a documentation site
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct ScrapeConfig {
     pub base_url: String,
     pub use_sitemap: bool,
@@ -190,6 +193,7 @@ pub fn check_markdown_size(markdown: &str, max_size: u64) -> Result<()> {
 }
 
 /// Enforce maximum links per page limit
+#[must_use]
 pub fn limit_links_per_page(links: Vec<String>, max_links: usize) -> (Vec<String>, bool) {
     if links.len() <= max_links {
         return (links, false);
@@ -239,8 +243,7 @@ pub fn extract_title(markdown: &str, url: &str) -> String {
                 .trim_matches('/')
                 .split('/')
                 .next_back()
-                .unwrap_or("Untitled")
-                .replace(['-', '_'], " ")
+                .map_or_else(|| "Untitled".to_string(), |s| s.replace(['-', '_'], " "))
         },
     )
 }

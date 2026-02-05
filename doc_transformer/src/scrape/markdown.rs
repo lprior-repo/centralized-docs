@@ -8,14 +8,10 @@
 //!
 //! Provides functions for extracting headers and converting HTML content.
 
-/// Extract headers from markdown content
-///
-/// This function is re-exported from transformers module.
-pub use super::transformers::extract_headers;
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    #[cfg(test)]
+    use crate::scrape::transformers::extract_headers;
 
     #[test]
     fn test_extract_headers_reexport() {

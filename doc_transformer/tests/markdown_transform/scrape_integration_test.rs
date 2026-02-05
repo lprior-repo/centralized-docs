@@ -17,10 +17,10 @@ fn test_scrape_pipeline_simulation() {
     println!("This test verifies PLAN.md requirement: 'Real site test'");
     println!();
 
-    // Verify scrape.rs module exists and has required functions
+    // Verify scrape module exists (as directory module) and has required functions
     assert!(
-        PathBuf::from("src/scrape.rs").exists(),
-        "scrape.rs module must exist"
+        PathBuf::from("src/scrape/mod.rs").exists(),
+        "scrape/mod.rs module must exist"
     );
 
     // Verify filter.rs module exists
@@ -67,33 +67,50 @@ fn test_scrape_config_validation() {
 
     // Verify the scrape module compiles and types are available
     // We can't directly test private structs, but we verify the module builds
-    let scrape_src = fs::read_to_string("src/scrape.rs").expect("Should be able to read scrape.rs");
+    let mod_src =
+        fs::read_to_string("src/scrape/mod.rs").expect("Should be able to read scrape/mod.rs");
+    let validation_src = fs::read_to_string("src/scrape/validation.rs")
+        .expect("Should be able to read scrape/validation.rs");
 
-    // Verify required structs exist in source
+    // Verify required structs are re-exported from mod.rs
     assert!(
-        scrape_src.contains("struct ScrapeConfig"),
-        "ScrapeConfig must exist"
+        mod_src.contains("ScrapeConfig"),
+        "ScrapeConfig must be re-exported from mod.rs"
     );
     assert!(
-        scrape_src.contains("struct ScrapedPage"),
-        "ScrapedPage must exist"
+        mod_src.contains("ScrapedPage"),
+        "ScrapedPage must be re-exported from mod.rs"
     );
     assert!(
-        scrape_src.contains("struct ScrapeResult"),
-        "ScrapeResult must exist"
+        mod_src.contains("ScrapeResult"),
+        "ScrapeResult must be re-exported from mod.rs"
+    );
+
+    // Verify required structs exist in validation.rs (where they're defined)
+    assert!(
+        validation_src.contains("struct ScrapeConfig"),
+        "ScrapeConfig struct must exist in validation.rs"
+    );
+    assert!(
+        validation_src.contains("struct ScrapedPage"),
+        "ScrapedPage struct must exist in validation.rs"
+    );
+    assert!(
+        validation_src.contains("struct ScrapeResult"),
+        "ScrapeResult struct must exist in validation.rs"
     );
 
     // Verify required fields exist
     assert!(
-        scrape_src.contains("base_url"),
+        validation_src.contains("base_url"),
         "ScrapeConfig needs base_url"
     );
     assert!(
-        scrape_src.contains("delay_ms"),
+        validation_src.contains("delay_ms"),
         "ScrapeConfig needs delay_ms"
     );
     assert!(
-        scrape_src.contains("use_sitemap"),
+        validation_src.contains("use_sitemap"),
         "ScrapeConfig needs use_sitemap"
     );
 

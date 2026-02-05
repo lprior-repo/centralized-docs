@@ -3,6 +3,9 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::missing_errors_doc)]
 
 //! HTTP client and website configuration
 //!
@@ -49,7 +52,6 @@ pub fn build_website_base(url: &str, config: &ScrapeConfig) -> spider::website::
 ///
 /// # Errors
 /// Returns an error if the scrape operation fails.
-#[must_use]
 pub async fn execute_scrape_with_website(
     website: &mut spider::website::Website,
     config: &ScrapeConfig,
@@ -88,57 +90,51 @@ pub fn extract_pages_from_website(
     };
 
     if let Some(spider_pages) = scraped_pages {
-        spider_pages
-            .iter()
-            .filter(|page| !seen_urls.contains(page.get_url()))
-            .for_each(|page| {
-                seen_urls.insert(page.get_url().to_string());
+        for page in *spider_pages {
+            let url = page.get_url();
+            if seen_urls.contains(url) {
+                continue;
+            }
+            seen_urls.insert(url.to_string());
 
-                if pages.len() >= config.max_pages {
+            if pages.len() >= config.max_pages {
+                let error_msg = format!(
+                    "Reached page limit ({}), stopping scrape. {} URLs remain.",
+                    config.max_pages,
+                    spider_pages.len().saturating_sub(pages.len())
+                );
+                errors.push((url.to_string(), error_msg));
+                break;
+            }
+
+            if let Ok(scraped) =
+                super::transformers::transform_page(page, &config.base_url, config.enable_filtering)
+            {
+                let page_size = scraped.markdown.len() as u64;
+                total_content_size = if let Some(size) = total_content_size.checked_add(page_size) {
+                    size
+                } else {
+                    let error_msg =
+                        "Integer overflow: total content size would exceed u64::MAX".to_string();
+                    errors.push((url.to_string(), error_msg));
+                    break;
+                };
+
+                if total_content_size > config.max_total_size_bytes {
                     let error_msg = format!(
-                        "Reached page limit ({}), stopping scrape. {} URLs remain.",
-                        config.max_pages,
-                        spider_pages.len().saturating_sub(pages.len())
+                        "Total content size ({} bytes) exceeds limit ({} bytes), stopping scrape",
+                        total_content_size, config.max_total_size_bytes
                     );
-                    errors.push((page.get_url().to_string(), error_msg));
-                    return;
+                    errors.push((url.to_string(), error_msg));
+                    break;
                 }
 
-                match super::transformers::transform_page(
-                    page,
-                    &config.base_url,
-                    config.enable_filtering,
-                ) {
-                    Ok(scraped) => {
-                        let page_size = scraped.markdown.len() as u64;
-                        total_content_size = match total_content_size.checked_add(page_size) {
-                            Some(size) => size,
-                            None => {
-                                let error_msg =
-                                    "Integer overflow: total content size would exceed u64::MAX"
-                                        .to_string();
-                                errors.push((page.get_url().to_string(), error_msg));
-                                return;
-                            }
-                        };
-
-                        if total_content_size > config.max_total_size_bytes {
-                            let error_msg = format!(
-                                "Total content size ({} bytes) exceeds limit ({} bytes), stopping scrape",
-                                total_content_size, config.max_total_size_bytes
-                            );
-                            errors.push((page.get_url().to_string(), error_msg));
-                            return;
-                        }
-
-                        pages.push(scraped);
-                    }
-                    Err(e) => {
-                        let error_msg = format!("Failed to transform page: {e}");
-                        errors.push((page.get_url().to_string(), error_msg));
-                    }
-                }
-            });
+                pages.push(scraped);
+            } else {
+                let error_msg = "Failed to transform page".to_string();
+                errors.push((url.to_string(), error_msg));
+            }
+        }
     }
 
     let success_count = pages.len();

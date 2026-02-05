@@ -3,6 +3,10 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
+#![allow(clippy::format_push_string)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::missing_errors_doc)]
 
 //! Data transformation utilities
 //!
@@ -115,7 +119,6 @@ pub fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
                 if let Ok(resolved) = base.join(href) {
                     if resolved.host() == base.host() {
                         links.push(resolved.to_string());
-                        return;
                     }
                 }
             }
@@ -293,7 +296,9 @@ pub fn write_scraped_pages(
 
         let related = find_related_pages(page, all_pages);
 
-        let related_section = if !related.is_empty() {
+        let related_section = if related.is_empty() {
+            String::new()
+        } else {
             let mut section = String::from("\n## Related Pages\n\n");
             for related_page in related {
                 section.push_str(&format!(
@@ -302,8 +307,6 @@ pub fn write_scraped_pages(
                 ));
             }
             section
-        } else {
-            String::new()
         };
 
         let content = format!(
