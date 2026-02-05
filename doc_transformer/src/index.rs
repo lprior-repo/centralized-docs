@@ -1149,6 +1149,88 @@ mod tests {
         assert!(vocab.contains_key("basics"));
     }
 
+    /// Test that chunk metadata has no duplicate chunk_ids
+    /// This verifies the fix for BEAD-012
+    #[test]
+    fn test_chunk_metadata_no_duplicate_ids() {
+        use std::collections::HashSet;
+
+        // Create test chunks with some duplicates
+        let chunks = vec![
+            Chunk {
+                chunk_id: "doc1#0-standard".to_string(),
+                doc_id: "doc1".to_string(),
+                doc_title: "Doc 1".to_string(),
+                chunk_index: 0,
+                content: "Content 1".to_string(),
+                token_count: 100,
+                heading: Some("Section 1".to_string()),
+                heading_path: vec!["Doc 1".to_string()],
+                chunk_type: "standard".to_string(),
+                previous_chunk_id: None,
+                next_chunk_id: Some("doc1#1-standard".to_string()),
+                related_chunk_ids: vec![],
+                summary: "Summary 1".to_string(),
+                chunk_level: ChunkLevel::Standard,
+                parent_chunk_id: None,
+                child_chunk_ids: vec![],
+            },
+            Chunk {
+                chunk_id: "doc1#1-standard".to_string(),
+                doc_id: "doc1".to_string(),
+                doc_title: "Doc 1".to_string(),
+                chunk_index: 1,
+                content: "Content 2".to_string(),
+                token_count: 100,
+                heading: Some("Section 2".to_string()),
+                heading_path: vec!["Doc 1".to_string()],
+                chunk_type: "standard".to_string(),
+                previous_chunk_id: Some("doc1#0-standard".to_string()),
+                next_chunk_id: None,
+                related_chunk_ids: vec![],
+                summary: "Summary 2".to_string(),
+                chunk_level: ChunkLevel::Standard,
+                parent_chunk_id: None,
+                child_chunk_ids: vec![],
+            },
+            // Intentionally add duplicate to test detection
+            Chunk {
+                chunk_id: "doc1#0-standard".to_string(), // DUPLICATE ID
+                doc_id: "doc1".to_string(),
+                doc_title: "Doc 1".to_string(),
+                chunk_index: 0,
+                content: "Content 1".to_string(),
+                token_count: 100,
+                heading: Some("Section 1".to_string()),
+                heading_path: vec!["Doc 1".to_string()],
+                chunk_type: "standard".to_string(),
+                previous_chunk_id: None,
+                next_chunk_id: Some("doc1#1-standard".to_string()),
+                related_chunk_ids: vec![],
+                summary: "Summary 1".to_string(),
+                chunk_level: ChunkLevel::Standard,
+                parent_chunk_id: None,
+                child_chunk_ids: vec![],
+            },
+        ];
+
+        // Build chunk metadata - this should detect duplicates
+        let metadata = build_chunk_metadata(&chunks, &KnowledgeDAG::new());
+
+        // Check for duplicate chunk_ids
+        let mut seen_ids = HashSet::new();
+        for chunk_meta in &metadata {
+            assert!(
+                seen_ids.insert(&chunk_meta.chunk_id),
+                "Duplicate chunk_id found in metadata: {}",
+                chunk_meta.chunk_id
+            );
+        }
+
+        // Total chunks should equal unique chunk IDs
+        assert_eq!(metadata.len(), seen_ids.len());
+    }
+
     #[test]
     fn test_generate_embedding_from_terms() {
         let mut vocab = HashMap::new();

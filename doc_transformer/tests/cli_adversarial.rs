@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
+const DOC_TRANSFORMER_BIN: &str = env!("CARGO_BIN_EXE_doc_transformer");
+
 fn create_test_index(temp_dir: &TempDir) -> PathBuf {
     let index_path = temp_dir.path().join("test_index");
     let _ = std::fs::create_dir_all(&index_path);
@@ -39,7 +41,7 @@ fn test_cli_invalid_flags() {
         "test",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -67,7 +69,7 @@ fn test_cli_missing_required_args() {
         "test",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .expect("failed to execute command");
@@ -92,7 +94,7 @@ fn test_cli_wrong_data_type_for_limit() {
         "test",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .expect("failed to execute command");
@@ -116,7 +118,7 @@ fn test_cli_negative_limit() {
         "-1",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -146,7 +148,7 @@ fn test_cli_zero_limit() {
         "test",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -178,7 +180,7 @@ fn test_cli_negative_threshold() {
         "-0.5",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -211,7 +213,7 @@ fn test_cli_threshold_greater_than_ten() {
         "10.5",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -241,7 +243,7 @@ fn test_cli_negative_delay() {
         "-100",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -274,7 +276,7 @@ fn test_cli_delay_greater_than_sixty_seconds() {
         "60001",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -303,7 +305,7 @@ fn test_cli_extremely_large_limit() {
         "999999999999999999",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -336,7 +338,7 @@ fn test_cli_invalid_output_format() {
         "invalid_format",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -362,7 +364,7 @@ fn test_cli_empty_search_query() {
         "--query",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -387,7 +389,7 @@ fn test_cli_pattern_rejection() {
         "/re_pattern/",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -420,7 +422,7 @@ fn test_cli_project_name_with_special_characters() {
         "project<script>alert('xss')</script>",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -445,7 +447,7 @@ fn test_cli_nonexistent_index_directory() {
         "/nonexistent/path/to/index",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -468,7 +470,7 @@ fn test_cli_index_directory_is_file() {
         "test",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .expect("failed to execute command");
@@ -480,7 +482,7 @@ fn test_cli_index_directory_is_file() {
 fn test_cli_search_without_index() {
     let args = vec!["doc_transformer", "search", "--query", "test"];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -492,7 +494,7 @@ fn test_cli_search_without_index() {
 fn test_cli_document_without_index() {
     let args = vec!["doc_transformer", "document", "some_file.md"];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -515,7 +517,7 @@ fn test_cli_document_invalid_file() {
         index_path.to_str().expect("path should exist"),
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -539,7 +541,7 @@ fn test_cli_output_to_nonexistent_directory() {
         output_dir.to_str().expect("path should exist"),
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -569,7 +571,7 @@ fn test_cli_multiple_search_queries() {
         "content",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -600,7 +602,7 @@ fn test_cli_invalid_boolean_flag() {
         "--invalid-bool",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -630,7 +632,7 @@ fn test_cli_empty_string_for_project() {
         "",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();
@@ -662,7 +664,7 @@ fn test_cli_whitespace_only_query() {
         "   ",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
+    let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
         .output()
         .unwrap();

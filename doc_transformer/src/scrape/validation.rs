@@ -1,0 +1,485 @@
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![forbid(unsafe_code)]
+
+//! URL validation and size checking
+//!
+//! Provides validation for URLs, size limits, and scrape result verification.
+
+use anyhow::{Context, Result};
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
+
+#[expect(clippy::expect_used)]
+static H1_TITLE_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("hardcoded regex pattern is valid"));
+
+/// Safely compiles a user-provided regex pattern with ReDoS protection.
+///
+/// This function validates that the user's regex pattern:
+/// - Is not longer than 500 characters
+/// - Does not contain known ReDoS patterns that can cause catastrophic backtracking
+/// - Can be compiled within memory limits (1MB compiled size, 1MB DFA size)
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The pattern exceeds 500 characters
+/// - The pattern contains known ReDoS patterns
+/// - The regex compilation fails (invalid syntax)
+/// - The regex is too complex (exceeds memory limits)
+pub(crate) fn compile_safe_regex(pattern: &str) -> Result<Regex> {
+    if pattern.len() > 500 {
+        anyhow::bail!(
+            "Regex pattern too long (max 500 characters, got {len})",
+            len = pattern.len()
+        );
+    }
+
+    let redos_patterns = [r"(.*)*", r"(.+)+", r"([a-z]+)+", r"([^]]+)+"];
+
+    for pat in &redos_patterns {
+        if pattern.contains(pat) {
+            anyhow::bail!(
+                "Regex contains potentially slow pattern (ReDoS risk): {pat}. \
+                 This pattern can cause catastrophic backtracking and hang the application.",
+            );
+        }
+    }
+
+    regex::RegexBuilder::new(pattern)
+        .size_limit(1024 * 1024)
+        .dfa_size_limit(1024 * 1024)
+        .build()
+        .context("Invalid or too complex regex pattern")
+}
+
+/// Configuration for scraping a documentation site
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScrapeConfig {
+    pub base_url: String,
+    pub use_sitemap: bool,
+    pub path_filter: Option<String>,
+    pub delay_ms: u64,
+    pub user_agent: String,
+    pub respect_robots: bool,
+    pub enable_filtering: bool,
+    #[allow(dead_code)]
+    pub use_exponential_backoff: bool,
+    pub max_page_size_bytes: u64,
+    pub max_total_size_bytes: u64,
+    pub max_markdown_size_bytes: u64,
+    pub max_pages: usize,
+    pub max_links_per_page: usize,
+    pub stealth_mode: bool,
+    pub concurrency_limit: usize,
+    pub request_timeout_secs: u64,
+    pub max_retries: u32,
+    pub redirect_policy: spider::configuration::RedirectPolicy,
+    pub spider_max_page_bytes: Option<u64>,
+    pub spider_max_total_bytes: Option<u64>,
+}
+
+impl Default for ScrapeConfig {
+    fn default() -> Self {
+        Self {
+            base_url: String::new(),
+            use_sitemap: true,
+            path_filter: None,
+            delay_ms: 1000,
+            user_agent: "DocTransformer/5.0 (AI Documentation Indexer)".to_string(),
+            respect_robots: true,
+            enable_filtering: true,
+            use_exponential_backoff: true,
+            max_page_size_bytes: 10 * 1024 * 1024,
+            max_total_size_bytes: 500 * 1024 * 1024,
+            max_markdown_size_bytes: 5 * 1024 * 1024,
+            max_pages: 10_000,
+            max_links_per_page: 1_000,
+            stealth_mode: true,
+            concurrency_limit: 1,
+            request_timeout_secs: 30,
+            max_retries: 3,
+            redirect_policy: spider::configuration::RedirectPolicy::Loose,
+            spider_max_page_bytes: None,
+            spider_max_total_bytes: None,
+        }
+    }
+}
+
+/// A scraped page with extracted content
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScrapedPage {
+    pub url: String,
+    pub markdown: String,
+    pub title: String,
+    pub links: Vec<String>,
+    pub headers: Vec<Header>,
+    pub word_count: usize,
+    pub slug: String,
+    pub filtered: bool,
+    pub elements_removed: usize,
+    pub density_score: f32,
+}
+
+/// A header extracted from page
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Header {
+    pub level: u8,
+    pub text: String,
+}
+
+/// Result of scraping a site
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ScrapeResult {
+    pub pages: Vec<ScrapedPage>,
+    pub total_urls: usize,
+    pub success_count: usize,
+    pub error_count: usize,
+    pub errors: Vec<(String, String)>,
+    pub base_url: String,
+}
+
+/// Validate URL format before passing to spider
+pub fn validate_url(url: &str) -> Result<url::Url> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        anyhow::bail!("URL cannot be empty");
+    }
+
+    let parsed = url::Url::parse(trimmed).context("Invalid URL format")?;
+
+    match parsed.scheme() {
+        "http" | "https" => Ok(parsed),
+        scheme => anyhow::bail!("Invalid URL scheme '{scheme}': only http and https are supported"),
+    }
+}
+
+/// Check if HTML content exceeds size limit
+pub fn check_html_size(html: &str, max_size: u64) -> Result<()> {
+    let size_bytes = html.len() as u64;
+    if size_bytes > max_size {
+        anyhow::bail!("Page HTML too large: {size_bytes} bytes (limit: {max_size} bytes)");
+    }
+    Ok(())
+}
+
+/// Check if markdown content exceeds size limit
+pub fn check_markdown_size(markdown: &str, max_size: u64) -> Result<()> {
+    let size_bytes = markdown.len() as u64;
+    if size_bytes > max_size {
+        anyhow::bail!("Page markdown too large: {size_bytes} bytes (limit: {max_size} bytes)");
+    }
+    Ok(())
+}
+
+/// Enforce maximum links per page limit
+pub fn limit_links_per_page(links: Vec<String>, max_links: usize) -> (Vec<String>, bool) {
+    if links.len() <= max_links {
+        return (links, false);
+    }
+    let mut truncated = links;
+    truncated.truncate(max_links);
+    (truncated, true)
+}
+
+/// Validate that a slug is non-empty and filesystem-safe
+pub fn validate_slug(slug: &str) -> Result<()> {
+    if slug.trim().is_empty() {
+        anyhow::bail!("URL slug cannot be empty: all URLs must produce non-empty identifiers");
+    }
+    Ok(())
+}
+
+/// Validate that a scrape result contains at least one page
+pub fn validate_scrape_result(result: &ScrapeResult) -> Result<()> {
+    if result.success_count == 0 {
+        anyhow::bail!(
+            "Failed to scrape any pages from '{}'. \
+            Please verify:\n  \
+            - The URL is accessible in a browser\n  \
+            - The site has HTML content (not just API endpoints)\n  \
+            - The site allows scraping (check robots.txt)",
+            result.base_url
+        );
+    }
+    Ok(())
+}
+
+/// Extract title from markdown content
+pub fn extract_title(markdown: &str, url: &str) -> String {
+    for line in markdown.lines() {
+        if let Some(caps) = H1_TITLE_REGEX.captures(line.trim()) {
+            if let Some(title_match) = caps.get(1) {
+                return title_match.as_str().to_string();
+            }
+        }
+    }
+
+    url::Url::parse(url)
+        .map(|u| {
+            u.path()
+                .trim_matches('/')
+                .split('/')
+                .next_back()
+                .unwrap_or("Untitled")
+                .replace(['-', '_'], " ")
+        })
+        .unwrap_or_else(|_| "Untitled".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_url_valid() {
+        assert!(validate_url("https://example.com").is_ok());
+        assert!(validate_url("http://docs.rust-lang.org/book").is_ok());
+    }
+
+    #[test]
+    fn test_validate_url_invalid() {
+        assert!(validate_url("not-a-url").is_err());
+        assert!(validate_url("").is_err());
+        assert!(validate_url("   ").is_err());
+        assert!(validate_url("ftp://example.com").is_err());
+        assert!(validate_url("example.com").is_err());
+    }
+
+    #[test]
+    fn test_extract_title() {
+        let md = "# Getting Started\n\nThis is content.";
+        assert_eq!(extract_title(md, "https://example.com"), "Getting Started");
+
+        let md_no_h1 = "Some content without header";
+        assert_eq!(
+            extract_title(md_no_h1, "https://example.com/getting-started"),
+            "getting started"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_rejects_redos_pattern() {
+        let redos_pattern = "([a-z]+)+$";
+        let start = std::time::Instant::now();
+        let result = compile_safe_regex(redos_pattern);
+
+        assert!(
+            result.is_err(),
+            "ReDoS pattern should be rejected, got: {result:?}"
+        );
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(1),
+            "ReDoS rejection should be fast, took: {elapsed:?}",
+            elapsed = start.elapsed()
+        );
+
+        let error_msg = match &result {
+            Err(e) => e.to_string(),
+            Ok(_) => unreachable!(),
+        };
+        assert!(
+            error_msg.contains("ReDoS"),
+            "Error message should mention ReDoS: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_rejects_nested_star_pattern() {
+        let nested_star = "(.*)*";
+        let result = compile_safe_regex(nested_star);
+
+        assert!(result.is_err(), "Nested star pattern should be rejected");
+
+        let error_msg = match &result {
+            Err(e) => e.to_string(),
+            Ok(_) => unreachable!(),
+        };
+        assert!(
+            error_msg.contains("ReDoS"),
+            "Error message should mention ReDoS: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_rejects_long_pattern() {
+        let long_pattern = "a".repeat(1000);
+        let result = compile_safe_regex(&long_pattern);
+
+        assert!(result.is_err(), "Pattern > 500 chars should be rejected");
+
+        let error_msg = match &result {
+            Err(e) => e.to_string(),
+            Ok(_) => unreachable!(),
+        };
+        assert!(
+            error_msg.contains("too long"),
+            "Error message should mention length limit: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_accepts_valid_pattern() {
+        let valid_pattern = r"^/docs/.*\.md$";
+        let result = compile_safe_regex(valid_pattern);
+
+        assert!(
+            result.is_ok(),
+            "Valid pattern should be accepted, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_rejects_invalid_syntax() {
+        let invalid_syntax = "(?P<invalid";
+        let result = compile_safe_regex(invalid_syntax);
+
+        assert!(result.is_err(), "Invalid syntax should be rejected");
+
+        let error_msg = match &result {
+            Err(e) => e.to_string(),
+            Ok(_) => unreachable!(),
+        };
+        assert!(
+            error_msg.contains("Invalid") || error_msg.contains("regex"),
+            "Error message should describe the error: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_accepts_empty_string() {
+        let empty_pattern = "";
+        let result = compile_safe_regex(empty_pattern);
+
+        assert!(result.is_ok(), "Empty pattern should be valid");
+    }
+}
+
+#[test]
+fn test_validate_url_invalid() {
+    assert!(validate_url("not-a-url").is_err());
+    assert!(validate_url("").is_err());
+    assert!(validate_url("   ").is_err());
+    assert!(validate_url("ftp://example.com").is_err());
+    assert!(validate_url("example.com").is_err());
+}
+
+#[test]
+fn test_extract_title() {
+    let md = "# Getting Started\n\nThis is content.";
+    assert_eq!(
+        extract_title(md, "https://example.com/foo"),
+        "Getting Started"
+    );
+
+    let md_no_h1 = "Some content without header";
+    assert_eq!(
+        extract_title(md_no_h1, "https://example.com/getting-started"),
+        "getting started"
+    );
+}
+
+#[test]
+fn test_compile_safe_regex_rejects_redos_pattern() {
+    let redos_pattern = "([a-z]+)+$";
+
+    #[test]
+    fn test_compile_safe_regex_rejects_redos_pattern() {
+        let redos_pattern = "([a-z]+)+$";
+        let start = std::time::Instant::now();
+        let result = compile_safe_regex(redos_pattern);
+
+        assert!(
+            result.is_err(),
+            "ReDoS pattern should be rejected, got: {result:?}"
+        );
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(1),
+            "ReDoS rejection should be fast, took: {elapsed:?}",
+            elapsed = start.elapsed()
+        );
+
+        let error_msg = match &result {
+            Err(e) => e.to_string(),
+            Ok(_) => unreachable!(),
+        };
+        assert!(
+            error_msg.contains("ReDoS"),
+            "Error message should mention ReDoS: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_rejects_nested_star_pattern() {
+        let nested_star = "(.*)*";
+        let result = compile_safe_regex(nested_star);
+
+        assert!(result.is_err(), "Nested star pattern should be rejected");
+
+        let error_msg = match &result {
+            Err(e) => e.to_string(),
+            Ok(_) => unreachable!(),
+        };
+        assert!(
+            error_msg.contains("ReDoS"),
+            "Error message should mention ReDoS: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_rejects_long_pattern() {
+        let long_pattern = "a".repeat(1000);
+        let result = compile_safe_regex(&long_pattern);
+
+        assert!(result.is_err(), "Pattern > 500 chars should be rejected");
+
+        let error_msg = match &result {
+            Err(e) => e.to_string(),
+            Ok(_) => unreachable!(),
+        };
+        assert!(
+            error_msg.contains("too long"),
+            "Error message should mention length limit: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_accepts_valid_pattern() {
+        let valid_pattern = r"^/docs/.*\.md$";
+        let result = compile_safe_regex(valid_pattern);
+
+        assert!(
+            result.is_ok(),
+            "Valid pattern should be accepted, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_rejects_invalid_syntax() {
+        let invalid_syntax = "(?P<invalid";
+        let result = compile_safe_regex(invalid_syntax);
+
+        assert!(result.is_err(), "Invalid syntax should be rejected");
+
+        let error_msg = match &result {
+            Err(e) => e.to_string(),
+            Ok(_) => unreachable!(),
+        };
+        assert!(
+            error_msg.contains("Invalid") || error_msg.contains("regex"),
+            "Error message should describe the error: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_compile_safe_regex_accepts_empty_string() {
+        let empty_pattern = "";
+        let result = compile_safe_regex(empty_pattern);
+
+        assert!(result.is_ok(), "Empty pattern should be valid");
+    }
+}
