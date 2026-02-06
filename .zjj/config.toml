@@ -58,10 +58,10 @@ auto_commit = false
 commit_prefix = "wip:"
 
 [recovery]
-enabled = true
+ enabled = true
 checkpoint_dir = ".zjj/checkpoints"
 auto_checkpoint = true
 checkpoint_interval_minutes = 5
-policy = "Warn"
+policy = "warn"
 max_checkpoints = 10
 log_recovered = true

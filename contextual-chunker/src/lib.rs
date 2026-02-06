@@ -301,42 +301,27 @@ mod tests {
         );
 
         let summary_chunker = ContextualChunker::summary();
-        match summary_chunker.chunk(&doc) {
-            Ok(summary_chunks) => {
-                for chunk in summary_chunks {
-                    assert_eq!(chunk.chunk_level, ChunkLevel::Summary);
-                }
-            }
-            Err(e) => {
-                eprintln!("Failed to chunk summary: {e}");
-                assert!(false);
-            }
+        let summary_chunks = summary_chunker
+            .chunk(&doc)
+            .expect("Failed to chunk summary");
+        for chunk in summary_chunks {
+            assert_eq!(chunk.chunk_level, ChunkLevel::Summary);
         }
 
         let standard_chunker = ContextualChunker::standard();
-        match standard_chunker.chunk(&doc) {
-            Ok(standard_chunks) => {
-                for chunk in standard_chunks {
-                    assert_eq!(chunk.chunk_level, ChunkLevel::Standard);
-                }
-            }
-            Err(e) => {
-                eprintln!("Failed to chunk standard: {e}");
-                assert!(false);
-            }
+        let standard_chunks = standard_chunker
+            .chunk(&doc)
+            .expect("Failed to chunk standard");
+        for chunk in standard_chunks {
+            assert_eq!(chunk.chunk_level, ChunkLevel::Standard);
         }
 
         let detailed_chunker = ContextualChunker::detailed();
-        match detailed_chunker.chunk(&doc) {
-            Ok(detailed_chunks) => {
-                for chunk in detailed_chunks {
-                    assert_eq!(chunk.chunk_level, ChunkLevel::Detailed);
-                }
-            }
-            Err(e) => {
-                eprintln!("Failed to chunk detailed: {e}");
-                assert!(false);
-            }
+        let detailed_chunks = detailed_chunker
+            .chunk(&doc)
+            .expect("Failed to chunk detailed");
+        for chunk in detailed_chunks {
+            assert_eq!(chunk.chunk_level, ChunkLevel::Detailed);
         }
     }
 
@@ -348,13 +333,8 @@ mod tests {
             "## Section\nContent".to_string(),
         );
 
-        match crate::chunk::chunk(&doc, ChunkLevel::Standard) {
-            Ok(chunks) => assert!(!chunks.is_empty()),
-            Err(e) => {
-                eprintln!("Failed to chunk: {e}");
-                assert!(false);
-            }
-        }
+        let chunks = crate::chunk::chunk(&doc, ChunkLevel::Standard).expect("Failed to chunk");
+        assert!(!chunks.is_empty());
     }
 
     #[test]
