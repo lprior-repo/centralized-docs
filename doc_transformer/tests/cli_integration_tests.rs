@@ -147,11 +147,16 @@ fn test_index_empty_directory() {
         output_dir.to_str().unwrap(),
     ]);
 
-    // Should succeed even with empty input (graceful handling)
+    // Should fail with helpful error message for empty directory
     assert!(
-        result.status.success(),
-        "Index with empty directory should succeed. stderr: {}",
-        String::from_utf8_lossy(&result.stderr)
+        !result.status.success(),
+        "Index with empty directory should fail"
+    );
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        stderr.contains("No markdown files found"),
+        "Error message should mention no markdown files. stderr: {}",
+        stderr
     );
 }
 
