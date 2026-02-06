@@ -55,51 +55,55 @@ pub fn highlight_terms(text: &str, query: &str, use_color: bool) -> String {
             continue;
         }
 
-        // Get or create cached regex
-        let re = regex_cache
+        // Get or create cached pattern
+        let pattern = regex_cache
             .entry(term.to_string())
             .or_insert_with(|| compile_highlight_regex(term));
 
-        // Check if regex compilation failed
-        match re {
-            Ok(regex) => {
-                // Use ANSI bold codes: \x1b[1m = bold on, \x1b[0m = reset
-                result = regex.replace_all(&result, "\x1b[1m$1\x1b[0m").to_string();
-            }
-            Err(_) => {
-                // Skip this term if regex fails (already logged by compile_highlight_regex)
-                continue;
-            }
+        // Apply highlighting if regex compiled successfully
+        if let Ok(hp) = pattern {
+            result = hp.regex.replace_all(&result, hp.replacement).to_string();
         }
     }
 
     result
 }
 
-/// Compile a regex pattern for highlighting with word boundary support
+/// Result of compiling a highlight regex
+struct HighlightPattern {
+    regex: Regex,
+    replacement: &'static str,
+}
+
+/// Compile a regex pattern for highlighting with boundary support
 ///
-/// # Arguments
-/// * `term` - The search term to compile into a regex
+/// Uses adaptive boundary markers:
+/// - Standard word boundaries (\b) for fully alphanumeric terms
+/// - Start/end/whitespace boundaries for terms with special chars (e.g., C++, .NET)
 ///
 /// # Returns
-/// A Result containing the compiled Regex or an error if compilation fails
-fn compile_highlight_regex(term: &str) -> Result<Regex, regex::Error> {
-    // Escape special regex characters
+/// A Result containing the pattern and appropriate replacement string
+fn compile_highlight_regex(term: &str) -> Result<HighlightPattern, regex::Error> {
     let escaped = regex::escape(term);
 
-    // Check if term contains only word characters
-    let is_word_only = term.chars().all(|c| c.is_alphanumeric() || c == '_');
+    // Check if term is purely alphanumeric (can use \b word boundaries)
+    let is_pure_word = term.chars().all(|c| c.is_alphanumeric() || c == '_');
 
-    // Add word boundaries only for purely word-based terms
-    // (?i) makes it case-insensitive, ( ) creates a capture group for replacement
-    let pattern = if is_word_only {
-        format!(r"(?i)\b({escaped})\b")
+    if is_pure_word {
+        // Standard word boundary: term is in group 1
+        let pattern = format!(r"(?i)\b({})\b", escaped);
+        Ok(HighlightPattern {
+            regex: Regex::new(&pattern)?,
+            replacement: "\x1b[1m$1\x1b[0m",
+        })
     } else {
-        // For terms with special characters like "C++", don't use word boundaries
-        format!(r"(?i)({escaped})")
-    };
-
-    Regex::new(&pattern)
+        // Special chars: leading=$1, term=$2, trailing=$3
+        let pattern = format!(r"(?i)(^|\s)({})([ ]|$)", escaped);
+        Ok(HighlightPattern {
+            regex: Regex::new(&pattern)?,
+            replacement: "$1\x1b[1m$2\x1b[0m$3",
+        })
+    }
 }
 
 #[cfg(test)]
@@ -139,7 +143,9 @@ mod tests {
     #[test]
     fn test_special_chars_in_query() {
         let result = highlight_terms("C++ programming is great", "C++", true);
+        // Should highlight C++ and preserve surrounding text
         assert!(result.contains("\x1b[1mC++\x1b[0m"));
+        assert!(result.contains("programming")); // Text after C++ preserved
     }
 
     #[test]
