@@ -2,7 +2,7 @@
 //!
 //! This module provides document analysis capabilities that extract structured
 //! metadata from markdown files. It forms the second phase of the pipeline,
-//! following [`crate::discover`] and preceding [`crate::transform`].
+//! following [`discover`] and preceding [`transform`].
 //!
 //! # Analysis Capabilities
 //!
@@ -11,13 +11,26 @@
 //! - **Heading extraction** - Identifies all headings with their levels and positions
 //! - **Link detection** - Finds internal and external links for relationship mapping
 //! - **Content statistics** - Word counts, code block detection, table detection
-//! - **Auto-categorization** - Intelligently categorizes documents
+//! - **Auto-categorization** - Intelligently categorizes documents (tutorial, ops, ref, meta, concept)
 //!
 //! # Core Types
 //!
 //! - [`Analysis`] - Complete analysis result for a single document
 //! - [`Heading`] - Extracted heading with level and position
 //! - [`Link`] - Discovered link with target and internal/external flag
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use doc_transformer::analyze::analyze_files;
+//! use std::path::Path;
+//!
+//! let analyses = analyze_files(&discovered_files, Path::new("./docs"), None)?;
+//! for analysis in &analyses {
+//!     println!("{}: {} words, category: {}",
+//!         analysis.title, analysis.word_count, analysis.category);
+//! }
+//! ```
 
 use crate::config::CategoryConfig;
 use crate::discover::DiscoveryFile;
@@ -144,21 +157,20 @@ fn analyze_single_file(
 
 fn extract_title(content: &str, filename: &str) -> String {
     // (?m) enables multiline mode so ^ matches start of any line, not just start of string
-    #[expect(clippy::expect_used)]
-    let h1_regex = Regex::new(r"(?m)^# (.+)$").expect("hardcoded regex pattern is valid");
-    if let Some(cap) = h1_regex.captures_iter(content).next() {
-        if let Some(title_match) = cap.get(1) {
-            return title_match.as_str().trim().to_string();
-        }
-    }
-
-    // Use filename - fallback to "untitled" if no valid stem
-    let stem = Path::new(filename)
-        .file_stem()
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| std::ffi::OsStr::new("untitled"))
-        .to_string_lossy();
-    let title = stem.replace(['-', '_'], " ").trim().to_string();
+    let title = Regex::new(r"(?m)^# (.+)$")
+        .ok()
+        .and_then(|h1_regex| h1_regex.captures_iter(content).next())
+        .and_then(|cap| cap.get(1))
+        .map(|title_match| title_match.as_str().trim().to_string())
+        .unwrap_or_else(|| {
+            // Use filename - fallback to "untitled" if no valid stem
+            let stem = Path::new(filename)
+                .file_stem()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "untitled".to_string());
+            stem.replace(['-', '_'], " ").trim().to_string()
+        });
 
     title
         .split_whitespace()
@@ -218,8 +230,10 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
 
 /// Extract headings from content using functional composition
 fn extract_headings(content: &str) -> Vec<Heading> {
-    #[expect(clippy::expect_used)]
-    let regex = Regex::new(r"^(#{1,6})\s+(.+)$").expect("hardcoded regex pattern is valid");
+    let regex = match Regex::new(r"^(#{1,6})\s+(.+)$") {
+        Ok(r) => r,
+        Err(_) => return Vec::new(),
+    };
 
     content
         .lines()
@@ -232,7 +246,10 @@ fn extract_headings(content: &str) -> Vec<Heading> {
 
                 // Safe conversion: markdown headers are 1-6 hashes, so length always fits in u32
                 // Using try_from for explicit overflow protection
-                let level = u32::try_from(level_match.as_str().len()).unwrap_or(1);
+                let level = match u32::try_from(level_match.as_str().len()) {
+                    Ok(l) => l,
+                    Err(_) => 1,
+                };
 
                 Some(Heading {
                     level,
@@ -246,8 +263,10 @@ fn extract_headings(content: &str) -> Vec<Heading> {
 
 /// Extract links from content using functional composition
 fn extract_links(content: &str) -> Vec<Link> {
-    #[expect(clippy::expect_used)]
-    let regex = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("hardcoded regex pattern is valid");
+    let regex = match Regex::new(r"\[([^\]]+)\]\(([^)]+)\)") {
+        Ok(r) => r,
+        Err(_) => return Vec::new(),
+    };
 
     regex
         .captures_iter(content)
@@ -296,9 +315,9 @@ fn extract_first_paragraph(content: &str) -> String {
 }
 
 fn has_table(content: &str) -> bool {
-    #[expect(clippy::expect_used)]
-    let re = Regex::new(r"\|.*\|.*\|").expect("hardcoded regex pattern is valid");
-    re.is_match(content)
+    Regex::new(r"\|.*\|.*\|")
+        .map(|re| re.is_match(content))
+        .unwrap_or(false)
 }
 
 fn detect_category(filename: &str, content: &str) -> String {
@@ -324,11 +343,9 @@ fn detect_category(filename: &str, content: &str) -> String {
         || content_lower.contains("step 1")
         || content_lower.contains("step 2")
         || content_lower.contains("## step")
-        || {
-            #[expect(clippy::expect_used)]
-            let step_re = Regex::new(r"^\d+\.\s+").expect("hardcoded regex pattern is valid");
-            step_re.is_match(content)
-        }
+        || Regex::new(r"^\d+\.\s+")
+            .map(|step_re| step_re.is_match(content))
+            .unwrap_or(false)
     {
         return "tutorial".to_string();
     }

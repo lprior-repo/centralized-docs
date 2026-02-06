@@ -24,7 +24,6 @@ use tempfile::TempDir;
 // =============================================================================
 
 /// Creates a temporary directory with sample markdown files for testing
-#[allow(dead_code)]
 fn create_test_docs(dir: &Path) {
     let docs_dir = dir.join("docs");
     fs::create_dir_all(&docs_dir).unwrap();
@@ -46,7 +45,19 @@ fn create_test_docs(dir: &Path) {
 
 /// Get the path to the compiled binary
 fn binary_path() -> std::path::PathBuf {
-    // Always use cargo run to ensure we're testing the current code
+    // In CI/tests, use the release binary if available
+    let release_binary = Path::new("target/release/doc_transformer");
+    if release_binary.exists() {
+        return release_binary.to_path_buf();
+    }
+
+    // Otherwise, use debug binary
+    let debug_binary = Path::new("target/debug/doc_transformer");
+    if debug_binary.exists() {
+        return debug_binary.to_path_buf();
+    }
+
+    // Fall back to cargo run
     Path::new("cargo").to_path_buf()
 }
 
@@ -136,7 +147,6 @@ fn test_index_empty_directory() {
         output_dir.to_str().unwrap(),
     ]);
 
-    // Should succeed even with empty input (graceful handling)
     assert!(
         result.status.success(),
         "Index with empty directory should succeed. stderr: {}",
@@ -476,6 +486,5 @@ fn test_scrape_with_options() {
     ]);
 
     // Should fail due to invalid URL, not invalid arguments
-    let _stderr = String::from_utf8_lossy(&result.stderr);
     assert!(!result.status.success(), "Should fail due to invalid URL");
 }

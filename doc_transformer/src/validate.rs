@@ -8,21 +8,26 @@ use thiserror::Error;
 
 // Lazy-initialized regex patterns for validation
 //
-// SAFETY (BEAD-006): All regex patterns are hardcoded string literals verified to be valid.
-// The `.expect()` calls will never panic - this is guaranteed by:
-// 1. Patterns are compile-time constants (no user input)
-// 2. All patterns are tested in tests/bead_006_regex_initialization_tests.rs
-// 3. If a pattern were invalid, tests would fail immediately
-//
-// Using `.expect()` here is acceptable per BEAD-006 Option A: "Keep LazyLock + Add Compile-Time Test"
-#[expect(clippy::expect_used)]
-static H1_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?m)^# [^#]").expect("hardcoded regex pattern is valid"));
+// These patterns are hardcoded and verified by tests, but we use Option
+// to maintain the zero-panic guarantee across all code.
+static H1_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"(?m)^# [^#]").ok());
 
-#[expect(clippy::expect_used)]
-static TAGS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"tags:\s*\[[^\]]{10,}\]").expect("hardcoded regex pattern is valid")
-});
+static TAGS_REGEX: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"tags:\s*\[[^\]]{10,}\]").ok());
+
+/// Get H1 regex or return error if compilation failed
+fn h1_regex() -> Result<&'static Regex, anyhow::Error> {
+    H1_REGEX
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("H1 regex failed to compile"))
+}
+
+/// Get tags regex or return error if compilation failed
+fn tags_regex() -> Result<&'static Regex, anyhow::Error> {
+    TAGS_REGEX
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Tags regex failed to compile"))
+}
 
 /// Query validation errors
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -149,7 +154,9 @@ fn validate_file(content: &str) -> (Vec<String>, Vec<String>) {
     let mut warnings = Vec::new();
 
     // V001: single_h1
-    let h1_count = H1_REGEX.find_iter(content).count();
+    let h1_count = h1_regex()
+        .map(|regex| regex.find_iter(content).count())
+        .unwrap_or(0);
     if h1_count == 0 {
         errors.push("Missing H1 heading".to_string());
     } else if h1_count > 1 {
@@ -174,7 +181,10 @@ fn validate_file(content: &str) -> (Vec<String>, Vec<String>) {
     }
 
     // V006: min_tags
-    if !TAGS_REGEX.is_match(content) {
+    let has_sufficient_tags = tags_regex()
+        .map(|regex| regex.is_match(content))
+        .unwrap_or(false);
+    if !has_sufficient_tags {
         warnings.push("Insufficient tags (should have at least 10 characters of tags)".to_string());
     }
 

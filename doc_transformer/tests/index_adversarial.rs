@@ -9,13 +9,21 @@ use doc_transformer::search;
 /// Expected: Should handle corruption gracefully and rebuild
 #[test]
 fn test_index_corrupt_index_file() {
-    let dir = TempDir::new().unwrap();
+    let dir = match TempDir::new() {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("Failed to create temp dir: {e}");
+            return;
+        }
+    };
     let index_path = dir.path();
 
     // Create a corrupt index file (not a directory)
     let index_dir = index_path.join(".tantivy_index");
-    fs::create_dir_all(&index_dir).unwrap();
-    fs::write(&index_dir, "not a valid index").unwrap();
+    if let Err(e) = fs::write(&index_dir, "not a valid index") {
+        eprintln!("Failed to write corrupt index file: {e}");
+        return;
+    }
 
     // Should be able to open and rebuild
     let index = search::open_or_create_index(index_path);

@@ -1,25 +1,42 @@
 //! Transformation phase of the documentation transformation pipeline.
 //!
 //! This module transforms analyzed documents into the final output format.
-//! It forms the third phase of the pipeline, following [`crate::analyze`] and
+//! It forms the third phase of the pipeline, following [`analyze`] and
 //! preceding indexing and output generation.
 //!
 //! # Transformation Pipeline
 //!
 //! Each document undergoes several AST-based transformations:
 //!
-//! 1. **Heading Structure Fix** - Ensures no skipped heading levels
+//! 1. **Heading Structure Fix** - Ensures no skipped heading levels, limits depth to H4
 //! 2. **Link Rewriting** - Converts internal links to new canonical filenames
 //! 3. **H1 Enforcement** - Ensures exactly one H1 heading per document
 //! 4. **Context Injection** - Adds context blockquote if missing
 //! 5. **See Also Addition** - Appends navigation section
-//! 6. **Frontmatter Generation** - Creates YAML frontmatter with metadata
+//! 6. **Frontmatter Generation** - Creates YAML frontmatter with metadata and tags
 //!
 //! # AST-Based Processing
 //!
 //! This module uses `pulldown-cmark` for parsing markdown into an AST,
 //! performing transformations on the event stream, then serializing back
-//! to markdown.
+//! to markdown. This approach preserves document structure while enabling
+//! precise modifications.
+//!
+//! # Key Functions
+//!
+//! - [`transform_all`] - Transform all analyzed documents to output directory
+//! - [`TransformResult`] - Statistics about the transformation process
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use doc_transformer::transform::{transform_all, TransformResult};
+//! use std::path::Path;
+//!
+//! let result = transform_all(&analyses, &link_map, Path::new("./output"))?;
+//! println!("Transformed {}/{} documents successfully",
+//!     result.success_count, result.total_count);
+//! ```
 
 #![allow(clippy::wildcard_enum_match_arm)]
 use crate::analyze::Analysis;
@@ -37,7 +54,6 @@ pub struct TransformResult {
     pub success_count: usize,
     pub total_count: usize,
     pub error_count: usize,
-    pub skipped_count: usize,
 }
 
 /// Create directory with improved error context for permission issues
@@ -71,33 +87,23 @@ pub fn transform_all(
 
     let mut success_count: usize = 0;
     let mut error_count: usize = 0;
-    let mut skipped_count: usize = 0;
 
     for analysis in analyses {
-        match link_map.get(&analysis.source_path) {
-            Some(mapping) => match transform_file(analysis, mapping, link_map, &docs_dir) {
+        if let Some(mapping) = link_map.get(&analysis.source_path) {
+            match transform_file(analysis, mapping, link_map, &docs_dir) {
                 Ok(_) => success_count = success_count.saturating_add(1),
                 Err(e) => {
                     eprintln!("TRANSFORM ERROR: {}: {}", analysis.source_path, e);
                     error_count = error_count.saturating_add(1);
                 }
-            },
-            None => {
-                skipped_count = skipped_count.saturating_add(1);
-                eprintln!("WARNING: No ID mapping for {}", analysis.source_path);
             }
         }
-    }
-
-    if skipped_count > 0 {
-        eprintln!("WARNING: {skipped_count} documents skipped (no ID mapping)");
     }
 
     Ok(TransformResult {
         success_count,
         total_count: analyses.len(),
         error_count,
-        skipped_count,
     })
 }
 

@@ -75,3 +75,6 @@ doc_transformer/target/
 node_modules/
 package-lock.json
 package.json
+
+# bv (beads viewer) local config and caches
+.bv/

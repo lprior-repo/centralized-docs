@@ -386,7 +386,7 @@ fn test_cli_pattern_rejection() {
         "--output",
         index_path.to_str().expect("path should exist"),
         "--filter",
-        "/re_pattern/",
+        "[unclosed",
     ];
 
     let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
