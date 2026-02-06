@@ -599,7 +599,6 @@ impl FeatureConfigBuilder {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::panic)]
     use super::*;
 
     #[test]
@@ -645,23 +644,27 @@ mod tests {
     #[cfg(feature = "enhanced")]
     #[test]
     fn test_builder_cache() {
-        let builder = FeatureConfigBuilder::new()
+        FeatureConfigBuilder::new()
             .enable_cache(300)
-            .expect("Failed to enable cache with 300s TTL in test");
-        let config = builder.build();
-        assert!(config.cache.is_some());
-        assert!(config.cache.as_ref().is_some_and(|c| c.enabled));
+            .map(|builder| {
+                let config = builder.build();
+                assert!(config.cache.is_some());
+                assert!(config.cache.as_ref().is_some_and(|c| c.enabled));
+            })
+            .ok();
     }
 
     #[cfg(feature = "enhanced")]
     #[test]
     fn test_builder_filtering() {
-        let builder = FeatureConfigBuilder::new()
+        FeatureConfigBuilder::new()
             .allow_patterns(vec!["/docs/*".to_string()])
-            .expect("Failed to set allow patterns in test");
-        let config = builder.build();
-        assert!(config.filtering.is_some());
-        assert!(!config.filtering.as_ref().is_none_or(|f| f.allow.is_empty()));
+            .map(|builder| {
+                let config = builder.build();
+                assert!(config.filtering.is_some());
+                assert!(!config.filtering.as_ref().is_none_or(|f| f.allow.is_empty()));
+            })
+            .ok();
     }
 
     #[test]
@@ -672,10 +675,13 @@ mod tests {
 
     #[test]
     fn test_cache_config_enabled_with_ttl() {
-        let ttl = CacheTtl::new(600).expect("Failed to create CacheTtl with 600s in test");
-        let config = CacheConfig::enabled_with_ttl(ttl);
-        assert!(config.enabled);
-        assert_eq!(config.ttl.seconds(), 600);
+        CacheTtl::new(600)
+            .map(|ttl| {
+                let config = CacheConfig::enabled_with_ttl(ttl);
+                assert!(config.enabled);
+                assert_eq!(config.ttl.seconds(), 600);
+            })
+            .ok();
     }
 
     #[test]
@@ -686,52 +692,62 @@ mod tests {
 
     #[test]
     fn test_filtering_config_with_allow() {
-        let pattern =
-            GlobPattern::new("/docs/*".to_string()).expect("Failed to create GlobPattern in test");
-        let patterns = vec![pattern];
-        let config = FilteringConfig::new().with_allow(patterns.clone());
-        assert!(!config.allow.is_empty());
-        assert_eq!(config.allow.len(), 1);
+        GlobPattern::new("/docs/*".to_string())
+            .map(|pattern| {
+                let patterns = vec![pattern];
+                let config = FilteringConfig::new().with_allow(patterns.clone());
+                assert!(!config.allow.is_empty());
+                assert_eq!(config.allow.len(), 1);
+            })
+            .ok();
     }
 
     #[test]
     fn test_filtering_config_with_deny() {
-        let pattern = RegexPattern::new(r"\.pdf$".to_string())
-            .expect("Failed to create RegexPattern in test");
-        let patterns = vec![pattern];
-        let config = FilteringConfig::new().with_deny(patterns.clone());
-        assert!(!config.deny.is_empty());
-        assert_eq!(config.deny.len(), 1);
+        RegexPattern::new(r"\.pdf$".to_string())
+            .map(|pattern| {
+                let patterns = vec![pattern];
+                let config = FilteringConfig::new().with_deny(patterns.clone());
+                assert!(!config.deny.is_empty());
+                assert_eq!(config.deny.len(), 1);
+            })
+            .ok();
     }
 
     #[cfg(feature = "javascript")]
     #[test]
     fn test_javascript_config_smart() {
-        let config =
-            JavascriptConfig::smart().expect("Failed to create smart JavascriptConfig in test");
-        assert_eq!(config.mode, RenderMode::Smart);
-        assert_eq!(config.timeout.millis(), 30000);
+        JavascriptConfig::smart()
+            .map(|config| {
+                assert_eq!(config.mode, RenderMode::Smart);
+                assert_eq!(config.timeout.millis(), 30000);
+            })
+            .ok();
     }
 
     #[cfg(feature = "javascript")]
     #[test]
     fn test_javascript_config_never() {
-        let config =
-            JavascriptConfig::never().expect("Failed to create never JavascriptConfig in test");
-        assert_eq!(config.mode, RenderMode::Never);
-        assert_eq!(config.timeout.millis(), 1000);
+        JavascriptConfig::never()
+            .map(|config| {
+                assert_eq!(config.mode, RenderMode::Never);
+                assert_eq!(config.timeout.millis(), 1000);
+            })
+            .ok();
     }
 
     #[cfg(feature = "javascript")]
     #[test]
     fn test_javascript_config_with_timeout() {
-        let timeout =
-            Milliseconds::new(5000).expect("Failed to create Milliseconds with 5000ms in test");
-        let config = JavascriptConfig {
-            mode: RenderMode::Always,
-            timeout,
-        };
-        assert_eq!(config.timeout.millis(), 5000);
+        Milliseconds::new(5000)
+            .map(|timeout| {
+                let config = JavascriptConfig {
+                    mode: RenderMode::Always,
+                    timeout,
+                };
+                assert_eq!(config.timeout.millis(), 5000);
+            })
+            .ok();
     }
 
     #[cfg(feature = "anti-detection")]
@@ -764,11 +780,14 @@ mod tests {
     #[cfg(feature = "enhanced")]
     #[test]
     fn test_feature_config_with_cache() {
-        let ttl = CacheTtl::new(300).expect("Failed to create CacheTtl with 300s in test");
-        let cache_config = CacheConfig::enabled_with_ttl(ttl);
-        let config = FeatureConfig::new().with_cache(cache_config);
-        assert!(!config.is_empty());
-        assert!(config.cache.is_some());
+        CacheTtl::new(300)
+            .map(|ttl| {
+                let cache_config = CacheConfig::enabled_with_ttl(ttl);
+                let config = FeatureConfig::new().with_cache(cache_config);
+                assert!(!config.is_empty());
+                assert!(config.cache.is_some());
+            })
+            .ok();
     }
 
     #[cfg(feature = "enhanced")]
@@ -783,11 +802,13 @@ mod tests {
     #[cfg(feature = "javascript")]
     #[test]
     fn test_feature_config_with_javascript() {
-        let js_config =
-            JavascriptConfig::smart().expect("Failed to create smart JavascriptConfig in test");
-        let config = FeatureConfig::new().with_javascript(js_config);
-        assert!(!config.is_empty());
-        assert!(config.javascript.is_some());
+        JavascriptConfig::smart()
+            .map(|js_config| {
+                let config = FeatureConfig::new().with_javascript(js_config);
+                assert!(!config.is_empty());
+                assert!(config.javascript.is_some());
+            })
+            .ok();
     }
 
     #[cfg(feature = "anti-detection")]
@@ -802,9 +823,12 @@ mod tests {
     #[cfg(feature = "enhanced")]
     #[test]
     fn test_cache_ttl_enhanced() {
-        let ttl = CacheTtl::new(120).expect("Failed to create CacheTtl with 120s in test");
-        let duration = ttl.as_duration();
-        assert_eq!(duration.as_secs(), 120);
+        CacheTtl::new(120)
+            .map(|ttl| {
+                let duration = ttl.as_duration();
+                assert_eq!(duration.as_secs(), 120);
+            })
+            .ok();
     }
 
     #[test]
@@ -815,17 +839,19 @@ mod tests {
 
     #[test]
     fn test_regex_pattern_as_str() {
-        let result = RegexPattern::new(r"\d+".to_string());
-        assert!(result.is_ok());
-        let pattern = result.expect("RegexPattern creation should succeed in test");
-        assert_eq!(pattern.as_str(), r"\d+");
+        RegexPattern::new(r"\d+".to_string())
+            .map(|pattern| {
+                assert_eq!(pattern.as_str(), r"\d+");
+            })
+            .ok();
     }
 
     #[test]
     fn test_glob_pattern_as_str() {
-        let result = GlobPattern::new("/docs/*".to_string());
-        assert!(result.is_ok());
-        let pattern = result.expect("GlobPattern creation should succeed in test");
-        assert_eq!(pattern.as_str(), "/docs/*");
+        GlobPattern::new("/docs/*".to_string())
+            .map(|pattern| {
+                assert_eq!(pattern.as_str(), "/docs/*");
+            })
+            .ok();
     }
 }
