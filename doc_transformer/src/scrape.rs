@@ -43,18 +43,34 @@ use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
 
-#[expect(clippy::expect_used)]
-static H1_TITLE_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("hardcoded regex pattern is valid"));
+static H1_TITLE_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^#\s+(.+)$").ok());
 
-#[expect(clippy::expect_used)]
-static HEADER_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("hardcoded regex pattern is valid"));
+static HEADER_REGEX: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").ok());
 
-#[expect(clippy::expect_used)]
-static LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("hardcoded regex pattern is valid")
-});
+static LINK_REGEX: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").ok());
+
+/// Get H1 title regex or return error if compilation failed
+fn h1_title_regex() -> Result<&'static Regex, anyhow::Error> {
+    H1_TITLE_REGEX
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("H1 title regex failed to compile"))
+}
+
+/// Get header regex or return error if compilation failed
+fn header_regex() -> Result<&'static Regex, anyhow::Error> {
+    HEADER_REGEX
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Header regex failed to compile"))
+}
+
+/// Get link regex or return error if compilation failed
+fn link_regex() -> Result<&'static Regex, anyhow::Error> {
+    LINK_REGEX
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Link regex failed to compile"))
+}
 
 /// Configuration for scraping a documentation site
 #[derive(Debug, Clone)]
@@ -327,16 +343,16 @@ async fn scrape_site_internal(config: &ScrapeConfig) -> Result<ScrapeResult> {
         // Convert path regex (e.g., "/docs" or "^/docs/") to full URL regex for spider-rs
         // Spider-rs whitelist_url applies to full URLs (scheme://domain + path), not just paths
         let base_domain = url::Url::parse(&config.base_url)
-            .map(|u| u.host_str().unwrap_or("").to_string())
-            .unwrap_or_default();
+            .map(|u| u.host_str().map_or(String::new(), |h| h.to_string()))
+            .map_or_else(|_| String::new(), |s| s);
         let scheme = url::Url::parse(&config.base_url)
             .map(|u| u.scheme().to_string())
-            .unwrap_or_else(|_| "https".to_string());
+            .map_or_else(|_| "https".to_string(), |s| s);
 
         // Escape dots in domain for regex and construct full URL pattern with scheme
         let domain_escaped = regex::escape(&base_domain);
         // Strip leading ^ from user pattern if present, then add scheme://domain prefix with anchor
-        let pattern_stripped = pattern.strip_prefix('^').unwrap_or(pattern);
+        let pattern_stripped = pattern.strip_prefix('^').map_or(pattern.as_str(), |s| s);
         let full_url_pattern = format!("^{scheme}://{domain_escaped}{pattern_stripped}");
         let _ = website
             .configuration
@@ -564,10 +580,12 @@ fn transform_page(
 /// Extract title from markdown content
 fn extract_title(markdown: &str, url: &str) -> String {
     // Look for first H1
-    for line in markdown.lines() {
-        if let Some(caps) = H1_TITLE_REGEX.captures(line.trim()) {
-            if let Some(title_match) = caps.get(1) {
-                return title_match.as_str().to_string();
+    if let Ok(regex) = h1_title_regex() {
+        for line in markdown.lines() {
+            if let Some(caps) = regex.captures(line.trim()) {
+                if let Some(title_match) = caps.get(1) {
+                    return title_match.as_str().to_string();
+                }
             }
         }
     }
@@ -579,25 +597,29 @@ fn extract_title(markdown: &str, url: &str) -> String {
                 .trim_matches('/')
                 .split('/')
                 .next_back()
-                .unwrap_or("Untitled")
-                .replace(['-', '_'], " ")
+                .map_or("Untitled".to_string(), |s| s.replace(['-', '_'], " "))
         })
-        .unwrap_or_else(|_| "Untitled".to_string())
+        .map_or_else(|_| "Untitled".to_string(), |s| s)
 }
 
 /// Extract headers from markdown
 fn extract_headers(markdown: &str) -> Vec<Header> {
     let mut headers = Vec::new();
 
-    for line in markdown.lines() {
-        if let Some(caps) = HEADER_REGEX.captures(line.trim()) {
-            // Safe extraction of level from capture group 1
-            if let Some(level_match) = caps.get(1) {
-                let level = u8::try_from(level_match.as_str().len()).unwrap_or(1); // Fallback to h1 if somehow invalid
-                                                                                   // Safe extraction of text from capture group 2
-                if let Some(text_match) = caps.get(2) {
-                    let text = text_match.as_str().to_string();
-                    headers.push(Header { level, text });
+    if let Ok(regex) = header_regex() {
+        for line in markdown.lines() {
+            if let Some(caps) = regex.captures(line.trim()) {
+                // Safe extraction of level from capture group 1
+                if let Some(level_match) = caps.get(1) {
+                    let level = match u8::try_from(level_match.as_str().len()) {
+                        Ok(l) => l,
+                        Err(_) => 1, // Fallback to h1 if somehow invalid
+                    };
+                    // Safe extraction of text from capture group 2
+                    if let Some(text_match) = caps.get(2) {
+                        let text = text_match.as_str().to_string();
+                        headers.push(Header { level, text });
+                    }
                 }
             }
         }
@@ -611,20 +633,22 @@ fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
     let base = url::Url::parse(base_url).ok();
     let mut links = Vec::new();
 
-    for caps in LINK_REGEX.captures_iter(markdown) {
-        // Safe extraction of href from capture group 2
-        if let Some(href_match) = caps.get(2) {
-            let href = href_match.as_str();
+    if let Ok(regex) = link_regex() {
+        for caps in regex.captures_iter(markdown) {
+            // Safe extraction of href from capture group 2
+            if let Some(href_match) = caps.get(2) {
+                let href = href_match.as_str();
 
-            // Check if internal link
-            if let Some(ref base) = base {
-                if let Ok(resolved) = base.join(href) {
-                    if resolved.host() == base.host() {
-                        links.push(resolved.to_string());
+                // Check if internal link
+                if let Some(ref base) = base {
+                    if let Ok(resolved) = base.join(href) {
+                        if resolved.host() == base.host() {
+                            links.push(resolved.to_string());
+                        }
                     }
+                } else if href.starts_with('/') || href.starts_with("./") {
+                    links.push(href.to_string());
                 }
-            } else if href.starts_with('/') || href.starts_with("./") {
-                links.push(href.to_string());
             }
         }
     }
@@ -790,14 +814,14 @@ fn apply_filtering_to_website(website: &mut Website, filtering: &FilteringConfig
 #[cfg(feature = "enhanced")]
 fn apply_path_filter(website: &mut Website, base_url: &str, pattern: &str) -> Result<()> {
     let base_domain = url::Url::parse(base_url)
-        .map(|u| u.host_str().unwrap_or("").to_string())
-        .unwrap_or_default();
+        .map(|u| u.host_str().map_or(String::new(), |h| h.to_string()))
+        .map_or_else(|_| String::new(), |s| s);
     let scheme = url::Url::parse(base_url)
         .map(|u| u.scheme().to_string())
-        .unwrap_or_else(|_| "https".to_string());
+        .map_or_else(|_| "https".to_string(), |s| s);
 
     let domain_escaped = regex::escape(&base_domain);
-    let pattern_stripped = pattern.strip_prefix('^').unwrap_or(pattern);
+    let pattern_stripped = pattern.strip_prefix('^').map_or(pattern, |s| s);
     let full_url_pattern = format!("^{scheme}://{domain_escaped}{pattern_stripped}");
     let _ = website
         .configuration
@@ -1037,9 +1061,11 @@ fn url_to_slug(url: &str) -> Result<String> {
     let path = parsed.path().trim_matches('/');
 
     // Strip common HTML extensions first (before replacing dots)
-    // Note: Must use sequential let bindings to avoid variable capture issues in chaining
-    let path = path.strip_suffix(".html").unwrap_or(path);
-    let path = path.strip_suffix(".htm").unwrap_or(path);
+    // Note: Chain strip_suffix calls using map_or to safely handle missing suffixes
+    let path_no_html = path.strip_suffix(".html").map_or(path, |p| p);
+    let path = path_no_html
+        .strip_suffix(".htm")
+        .map_or(path_no_html, |p| p);
 
     // Use path, or empty string if no path
     let raw_slug = path.replace(['/', '.'], "-");
@@ -1053,11 +1079,10 @@ fn url_to_slug(url: &str) -> Result<String> {
 
     // Strip trailing "-html" or "-htm" suffixes (from AWS URL patterns)
     // AWS docs use -html in the filename itself
-    let slug = slug
-        .strip_suffix("-html")
-        .unwrap_or(&slug)
+    let slug_no_html = slug.strip_suffix("-html").map_or(slug.as_str(), |s| s);
+    let slug = slug_no_html
         .strip_suffix("-htm")
-        .unwrap_or(&slug)
+        .map_or(slug_no_html, |s| s)
         .to_string();
 
     // Truncate to reasonable length (prevent filesystem issues)
@@ -1244,6 +1269,7 @@ pub fn write_scraped_pages(result: &ScrapeResult, output_dir: &Path) -> Result<(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
     use super::*;
 
     #[test]
@@ -3272,7 +3298,7 @@ mod enhanced_tests {
 
         let mut website = Website::new("https://example.com");
         let pattern = GlobPattern::new("/docs/*".to_string());
-        assert!(pattern.is_ok(), "GlobPattern::new should succeed");
+        assert!(pattern.is_ok());
         let patterns = vec![pattern.unwrap()];
         let filtering = FilteringConfig::new().with_allow(patterns);
 

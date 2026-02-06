@@ -1,3 +1,14 @@
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::manual_string_new)]
+#![forbid(unsafe_code)]
+
 //! # contextual-chunker
 //!
 //! Semantic chunking with hierarchical levels for documentation and knowledge bases.
@@ -232,6 +243,10 @@ impl Chunker for ContextualChunker {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
+    #![allow(clippy::assertions_on_constants)]
+    #![allow(clippy::semicolon_if_nothing_returned)]
     use super::*;
 
     #[test]
@@ -245,7 +260,8 @@ mod tests {
 
         let chunks = chunker.chunk(&doc);
         assert!(chunks.is_ok());
-        assert!(!chunks.unwrap().is_empty());
+        let chunks = chunks.unwrap();
+        assert!(!chunks.is_empty());
     }
 
     #[test]
@@ -285,21 +301,42 @@ mod tests {
         );
 
         let summary_chunker = ContextualChunker::summary();
-        let summary_chunks = summary_chunker.chunk(&doc).unwrap();
-        for chunk in summary_chunks {
-            assert_eq!(chunk.chunk_level, ChunkLevel::Summary);
+        match summary_chunker.chunk(&doc) {
+            Ok(summary_chunks) => {
+                for chunk in summary_chunks {
+                    assert_eq!(chunk.chunk_level, ChunkLevel::Summary);
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to chunk summary: {e}");
+                assert!(false);
+            }
         }
 
         let standard_chunker = ContextualChunker::standard();
-        let standard_chunks = standard_chunker.chunk(&doc).unwrap();
-        for chunk in standard_chunks {
-            assert_eq!(chunk.chunk_level, ChunkLevel::Standard);
+        match standard_chunker.chunk(&doc) {
+            Ok(standard_chunks) => {
+                for chunk in standard_chunks {
+                    assert_eq!(chunk.chunk_level, ChunkLevel::Standard);
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to chunk standard: {e}");
+                assert!(false);
+            }
         }
 
         let detailed_chunker = ContextualChunker::detailed();
-        let detailed_chunks = detailed_chunker.chunk(&doc).unwrap();
-        for chunk in detailed_chunks {
-            assert_eq!(chunk.chunk_level, ChunkLevel::Detailed);
+        match detailed_chunker.chunk(&doc) {
+            Ok(detailed_chunks) => {
+                for chunk in detailed_chunks {
+                    assert_eq!(chunk.chunk_level, ChunkLevel::Detailed);
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to chunk detailed: {e}");
+                assert!(false);
+            }
         }
     }
 
@@ -311,8 +348,13 @@ mod tests {
             "## Section\nContent".to_string(),
         );
 
-        let chunks = crate::chunk::chunk(&doc, ChunkLevel::Standard).unwrap();
-        assert!(!chunks.is_empty());
+        match crate::chunk::chunk(&doc, ChunkLevel::Standard) {
+            Ok(chunks) => assert!(!chunks.is_empty()),
+            Err(e) => {
+                eprintln!("Failed to chunk: {e}");
+                assert!(false);
+            }
+        }
     }
 
     #[test]
@@ -326,6 +368,7 @@ mod tests {
 
         let chunks = chunker.chunk(&doc);
         assert!(chunks.is_ok());
-        assert!(!chunks.unwrap().is_empty());
+        let chunks = chunks.unwrap();
+        assert!(!chunks.is_empty());
     }
 }

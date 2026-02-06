@@ -1,3 +1,43 @@
+//! Transformation phase of the documentation transformation pipeline.
+//!
+//! This module transforms analyzed documents into the final output format.
+//! It forms the third phase of the pipeline, following [`analyze`] and
+//! preceding indexing and output generation.
+//!
+//! # Transformation Pipeline
+//!
+//! Each document undergoes several AST-based transformations:
+//!
+//! 1. **Heading Structure Fix** - Ensures no skipped heading levels, limits depth to H4
+//! 2. **Link Rewriting** - Converts internal links to new canonical filenames
+//! 3. **H1 Enforcement** - Ensures exactly one H1 heading per document
+//! 4. **Context Injection** - Adds context blockquote if missing
+//! 5. **See Also Addition** - Appends navigation section
+//! 6. **Frontmatter Generation** - Creates YAML frontmatter with metadata and tags
+//!
+//! # AST-Based Processing
+//!
+//! This module uses `pulldown-cmark` for parsing markdown into an AST,
+//! performing transformations on the event stream, then serializing back
+//! to markdown. This approach preserves document structure while enabling
+//! precise modifications.
+//!
+//! # Key Functions
+//!
+//! - [`transform_all`] - Transform all analyzed documents to output directory
+//! - [`TransformResult`] - Statistics about the transformation process
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use doc_transformer::transform::{transform_all, TransformResult};
+//! use std::path::Path;
+//!
+//! let result = transform_all(&analyses, &link_map, Path::new("./output"))?;
+//! println!("Transformed {}/{} documents successfully",
+//!     result.success_count, result.total_count);
+//! ```
+
 #![allow(clippy::wildcard_enum_match_arm)]
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;

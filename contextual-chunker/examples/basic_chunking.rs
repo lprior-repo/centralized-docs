@@ -89,14 +89,16 @@ If all tests pass, you're ready to go!
                     .chunks
                     .iter()
                     .find(|c| &c.chunk_id == child_id)
-                    .unwrap();
+                    .ok_or_else(|| anyhow::anyhow!("Child chunk {child_id} not found"))?;
                 println!("  └─ Standard: {}", child.chunk_id);
                 for grandchild_id in &child.child_chunk_ids {
                     let grandchild = result
                         .chunks
                         .iter()
                         .find(|c| &c.chunk_id == grandchild_id)
-                        .unwrap();
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("Grandchild chunk {grandchild_id} not found")
+                        })?;
                     println!("     └─ Detailed: {}", grandchild.chunk_id);
                 }
             }

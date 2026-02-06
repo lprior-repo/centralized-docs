@@ -169,21 +169,51 @@ pub struct ChunkingResult {
     pub detailed_count: usize,
 }
 
-static H2_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^## (.+)$").expect("valid H2 regex (verified by tests)"));
+static H2_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^## (.+)$").ok());
 
-static H3_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^### (.+)$").expect("valid H3 regex (verified by tests)"));
+static H3_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^### (.+)$").ok());
 
-static H1_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^# (.+)$").expect("valid H1 regex (verified by tests)"));
+static H1_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^# (.+)$").ok());
 
-static TABLE_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\|.*\|").expect("valid table regex (verified by tests)"));
+static TABLE_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"\|.*\|").ok());
 
-static HEADING_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid heading regex (verified by tests)")
-});
+static HEADING_REGEX: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").ok());
+
+/// Get H2 regex or return error if compilation failed
+fn h2_regex() -> Result<&'static Regex> {
+    H2_REGEX
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("H2 regex failed to compile"))
+}
+
+/// Get H3 regex or return error if compilation failed
+fn h3_regex() -> Result<&'static Regex> {
+    H3_REGEX
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("H3 regex failed to compile"))
+}
+
+/// Get H1 regex or return error if compilation failed
+fn h1_regex() -> Result<&'static Regex> {
+    H1_REGEX
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("H1 regex failed to compile"))
+}
+
+/// Get TABLE regex or return error if compilation failed
+fn table_regex() -> Result<&'static Regex> {
+    TABLE_REGEX
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("TABLE regex failed to compile"))
+}
+
+/// Get HEADING regex or return error if compilation failed
+fn heading_regex() -> Result<&'static Regex> {
+    HEADING_REGEX
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("HEADING regex failed to compile"))
+}
 
 /// Chunk a single document at a specific hierarchical level
 ///
@@ -389,7 +419,9 @@ fn create_chunks_at_level(
     level: ChunkLevel,
 ) -> Vec<Chunk> {
     let target_tokens = level.target_tokens();
-    let has_h2 = content.lines().any(|line| H2_REGEX.is_match(line));
+    let has_h2 = h2_regex()
+        .map(|regex| content.lines().any(|line| regex.is_match(line)))
+        .unwrap_or(false);
     let use_fallback_headings = !has_h2;
 
     let mut chunks = Vec::new();
@@ -414,13 +446,19 @@ fn create_chunks_at_level(
                 }
             }
         }
-        let heading_match = if let Some(caps) = H2_REGEX.captures(line) {
-            Some(caps)
-        } else if use_fallback_headings {
-            H3_REGEX.captures(line).or_else(|| H1_REGEX.captures(line))
-        } else {
-            None
-        };
+        let heading_match = h2_regex()
+            .ok()
+            .and_then(|regex| regex.captures(line))
+            .or_else(|| {
+                if use_fallback_headings {
+                    h3_regex()
+                        .ok()
+                        .and_then(|regex| regex.captures(line))
+                        .or_else(|| h1_regex().ok().and_then(|regex| regex.captures(line)))
+                } else {
+                    None
+                }
+            });
         let should_split = heading_match.is_some()
             || (current_tokens >= target_tokens && !current_chunk.is_empty());
 
@@ -569,7 +607,8 @@ fn link_chunks(chunks: &mut [Chunk]) {
 }
 
 fn parse_heading(line: &str) -> Option<(usize, String)> {
-    let caps = HEADING_REGEX.captures(line)?;
+    let regex = heading_regex().ok()?;
+    let caps = regex.captures(line)?;
     let level = caps.get(1)?.as_str().len();
     let text = caps.get(2)?.as_str().trim().to_string();
     Some((level, text))
@@ -654,7 +693,10 @@ fn get_context_tail(content: &str, max_tokens: usize) -> String {
 /// Detect chunk content type
 fn detect_chunk_type(content: &str) -> String {
     let code_block_count = content.matches("```").count() / 2;
-    let has_table = content.contains('|') && TABLE_REGEX.is_match(content);
+    let has_table = content.contains('|')
+        && table_regex()
+            .map(|regex| regex.is_match(content))
+            .unwrap_or(false);
 
     if code_block_count > 5 {
         "code".to_string()
@@ -667,6 +709,7 @@ fn detect_chunk_type(content: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
     use super::*;
 
     #[test]
@@ -691,7 +734,7 @@ mod tests {
             "## Section 1\nContent 1\n## Section 2\nContent 2".to_string(),
         );
 
-        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+        let chunks = chunk(&doc, ChunkLevel::Standard).expect("Failed to chunk test document");
         assert!(!chunks.is_empty());
         assert_eq!(chunks[0].doc_id, "test-doc");
         assert_eq!(chunks[0].doc_title, "Test Document");
@@ -712,7 +755,7 @@ mod tests {
             ),
         ];
 
-        let result = chunk_all(&docs).unwrap();
+        let result = chunk_all(&docs).expect("Failed to chunk all documents");
         assert!(result.summary_count > 0);
         assert!(result.standard_count > 0);
         assert!(result.detailed_count > 0);
@@ -763,7 +806,7 @@ mod tests {
     #[test]
     fn test_empty_document() {
         let doc = Document::new("empty".to_string(), "Empty Doc".to_string(), "".to_string());
-        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+        let chunks = chunk(&doc, ChunkLevel::Standard).expect("Failed to chunk empty document");
         assert_eq!(chunks.len(), 1);
         assert_eq!(chunks[0].content, "");
     }
@@ -783,7 +826,8 @@ mod tests {
             "No H2 Doc".to_string(),
             content.clone(),
         );
-        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+        let chunks = chunk(&doc, ChunkLevel::Standard)
+            .expect("Failed to chunk document with no H2 headings");
 
         assert!(!chunks.is_empty(), "Should create at least one chunk");
         assert!(chunks[0].content.contains("Title"), "Should include H1");
@@ -796,7 +840,8 @@ mod tests {
     fn test_chunk_very_short_document() {
         let content = "# Short\n\nJust a few words.".to_string();
         let doc = Document::new("short".to_string(), "Short Doc".to_string(), content);
-        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+        let chunks =
+            chunk(&doc, ChunkLevel::Standard).expect("Failed to chunk very short document");
 
         assert_eq!(chunks.len(), 1, "Short doc should be one chunk");
         assert!(chunks[0].token_count < 512, "Should be under target");
@@ -806,7 +851,8 @@ mod tests {
     fn test_chunk_only_h1_no_sections() {
         let content = "# Title\n\nContent here.\n\n# Another Title\n\nMore content.".to_string();
         let doc = Document::new("h1-only".to_string(), "H1 Only".to_string(), content);
-        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+        let chunks = chunk(&doc, ChunkLevel::Standard)
+            .expect("Failed to chunk document with only H1 headings");
 
         assert!(!chunks.is_empty());
         let all_content: String = chunks.iter().map(|c| c.content.as_str()).collect();
@@ -822,7 +868,7 @@ mod tests {
             "Long Doc".to_string(),
             long_content.clone(),
         );
-        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+        let chunks = chunk(&doc, ChunkLevel::Standard).expect("Failed to chunk very long document");
 
         assert!(
             chunks.len() > 1,
@@ -850,7 +896,8 @@ mod tests {
             "Unicode Doc".to_string(),
             full_content.clone(),
         );
-        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+        let chunks = chunk(&doc, ChunkLevel::Standard)
+            .expect("Failed to chunk document with unicode boundaries");
 
         for chunk in &chunks {
             assert!(chunk.content.is_char_boundary(0));
@@ -874,7 +921,8 @@ mod tests {
             "Empty Sections".to_string(),
             content,
         );
-        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+        let chunks = chunk(&doc, ChunkLevel::Standard)
+            .expect("Failed to chunk document with empty sections");
 
         assert!(!chunks.is_empty());
     }
@@ -894,7 +942,8 @@ More content."#
             .to_string();
 
         let doc = Document::new("table".to_string(), "Table Doc".to_string(), content);
-        let chunks = chunk(&doc, ChunkLevel::Standard).unwrap();
+        let chunks =
+            chunk(&doc, ChunkLevel::Standard).expect("Failed to chunk document with table");
 
         let has_table = chunks.iter().any(|c| c.content.contains("| Col1 |"));
         assert!(has_table, "Table should be preserved in chunks");

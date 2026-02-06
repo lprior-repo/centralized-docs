@@ -342,14 +342,48 @@ fn validate_limit_cli(s: &str) -> Result<usize, String> {
     validate::validate_limit(s).map_err(|e| e.to_string())
 }
 
-/// Validate regex pattern for URL filtering.
+/// Validate and compile regex pattern with ReDoS protection (BEAD-004).
 ///
-/// Attempts to compile the pattern as a regex to ensure it's valid.
-/// Returns the pattern unchanged if valid, or an error message if invalid.
+/// Implements safety measures against ReDoS attacks:
+/// - Maximum pattern length (500 characters)
+/// - Detection of known ReDoS patterns (nested quantifiers)
+/// - Compilation size limits via RegexBuilder
+///
+/// Returns Ok(()) if pattern is safe and compiles successfully.
 fn validate_filter_regex(pattern: &str) -> Result<(), String> {
-    regex::Regex::new(pattern)
+    // BEAD-004: Reject patterns that are too long
+    if pattern.len() > 500 {
+        return Err(format!(
+            "Regex pattern too long: {} chars (max 500)",
+            pattern.len()
+        ));
+    }
+
+    // BEAD-004: Check for known ReDoS patterns
+    let redos_patterns = [
+        (r"\(\.\*\)\*", "nested .* quantifiers: (.*)"),
+        (r"\(\.\+\)\+", "nested .+ quantifiers: (.+)+"),
+        (r"\([^)]+\+\)\+", "nested + quantifiers on groups"),
+        (r"\([^)]+\*\)\*", "nested * quantifiers on groups"),
+    ];
+
+    for (pattern_re, description) in &redos_patterns {
+        if let Ok(re) = regex::Regex::new(pattern_re) {
+            if re.is_match(pattern) {
+                return Err(format!(
+                    "Regex contains potentially slow pattern (ReDoS risk): {description}"
+                ));
+            }
+        }
+    }
+
+    // BEAD-004: Compile with size limits to prevent excessive memory usage
+    regex::RegexBuilder::new(pattern)
+        .size_limit(1024 * 1024) // 1MB compiled size limit
+        .dfa_size_limit(1024 * 1024) // 1MB DFA size limit
+        .build()
         .map(|_| ())
-        .map_err(|e| format!("Invalid regex pattern '{pattern}': {e}"))
+        .map_err(|e| format!("Invalid or too complex regex pattern '{pattern}': {e}"))
 }
 
 #[derive(Parser, Debug)]
@@ -2312,5 +2346,56 @@ mod tests {
         if let Err(msg) = err_msg {
             assert!(msg.contains("10.0"), "Error should mention the 10.0 limit");
         }
+    }
+
+    // BEAD-004: ReDoS protection tests
+
+    #[test]
+    fn test_filter_regex_rejects_nested_star_quantifiers() {
+        let result = validate_filter_regex("(.*)*");
+        assert!(result.is_err());
+        let err = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err {
+            assert!(msg.contains("ReDoS") || msg.contains("slow pattern"));
+        }
+    }
+
+    #[test]
+    fn test_filter_regex_rejects_nested_plus_quantifiers() {
+        let result = validate_filter_regex("(.+)+");
+        assert!(result.is_err());
+        let err = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err {
+            assert!(msg.contains("ReDoS") || msg.contains("slow pattern"));
+        }
+    }
+
+    #[test]
+    fn test_filter_regex_rejects_too_long_pattern() {
+        let long_pattern = "a".repeat(501);
+        let result = validate_filter_regex(&long_pattern);
+        assert!(result.is_err());
+        let err = result.as_ref().map_err(|e| e.to_string());
+        if let Err(msg) = err {
+            assert!(msg.contains("too long") || msg.contains("500"));
+        }
+    }
+
+    #[test]
+    fn test_filter_regex_accepts_safe_patterns() {
+        let safe_patterns = ["^/docs/", r"\d+", "^api/v[0-9]+", "[a-z]+"];
+        for pattern in &safe_patterns {
+            let result = validate_filter_regex(pattern);
+            assert!(
+                result.is_ok(),
+                "Safe pattern '{pattern}' should be accepted"
+            );
+        }
+    }
+
+    #[test]
+    fn test_filter_regex_rejects_invalid_syntax() {
+        let result = validate_filter_regex("[unclosed");
+        assert!(result.is_err());
     }
 }
