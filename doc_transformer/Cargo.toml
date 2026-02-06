@@ -2,9 +2,6 @@
 name = "doc_transformer"
 version = "0.5.0"
 edition = "2021"
-license = "MIT"
-description = "Transform documentation into AI-optimized, searchable knowledge structures"
-repository = "https://github.com/centralized-docs/centralized-docs"
 
 [[bin]]
 name = "doc_transformer"

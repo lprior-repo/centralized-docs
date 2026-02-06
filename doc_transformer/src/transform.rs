@@ -424,18 +424,23 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
 }
 
 /// Check if content already has a context blockquote (AST-based)
-///
-/// Scans blockquote contents for "Context" text, handling nested formatting
-/// like `> **Context**: text` where the text is inside Strong tags.
 fn content_has_blockquote_context(content: &str) -> bool {
     let events = parse_markdown(content);
-    let mut in_blockquote = false;
 
+    let mut in_blockquote = false;
     for event in events.iter() {
         match event {
-            Event::Start(Tag::BlockQuote(_)) => in_blockquote = true,
-            Event::End(TagEnd::BlockQuote(_)) => in_blockquote = false,
-            Event::Text(text) if in_blockquote && text.contains("Context") => return true,
+            Event::Start(Tag::BlockQuote(_)) => {
+                in_blockquote = true;
+            }
+            Event::End(TagEnd::BlockQuote(_)) => {
+                in_blockquote = false;
+            }
+            Event::Text(text) if in_blockquote => {
+                if text.contains("Context") {
+                    return true;
+                }
+            }
             _ => {}
         }
     }
