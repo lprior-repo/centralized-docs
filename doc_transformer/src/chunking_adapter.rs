@@ -1,8 +1,8 @@
-//! Adapter layer between doc_transformer and contextual-chunker
+//! Adapter layer between `doc_transformer` and `contextual-chunker`
 //!
-//! This module provides conversion functions between doc_transformer's types
-//! and contextual-chunker's types, enabling clean separation of concerns while
-//! maintaining all doc_transformer-specific functionality.
+//! This module provides conversion functions between `doc_transformer`'s types
+//! and `contextual-chunker`'s types, enabling clean separation of concerns while
+//! maintaining all `doc_transformer`-specific functionality.
 
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
@@ -36,9 +36,9 @@ fn create_dir_with_context(path: &Path, context: &str) -> Result<()> {
     })
 }
 
-/// Extended chunk type for doc_transformer with knowledge graph relationships
+/// Extended chunk type for `doc_transformer` with knowledge graph relationships
 ///
-/// This extends contextual_chunker::Chunk with doc_transformer-specific fields
+/// This extends `contextual_chunker::Chunk` with `doc_transformer`-specific fields
 /// like `related_chunk_ids` for the knowledge graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
@@ -60,7 +60,7 @@ pub struct Chunk {
     pub child_chunk_ids: Vec<String>,
 }
 
-/// Extended chunking result for doc_transformer
+/// Extended chunking result for `doc_transformer`
 #[derive(Debug)]
 pub struct ChunksResult {
     pub total_chunks: usize,
@@ -71,10 +71,10 @@ pub struct ChunksResult {
     pub detailed_chunks: usize,
 }
 
-/// Convert Analysis to contextual_chunker::Document
+/// Convert Analysis to `contextual_chunker::Document`
 ///
-/// Maps doc_transformer's Analysis type to the simpler Document type
-/// used by contextual-chunker. Uses link_map to get the assigned doc ID,
+/// Maps `doc_transformer`'s Analysis type to the simpler Document type
+/// used by `contextual-chunker`. Uses link_map to get the assigned doc ID,
 /// falling back to a deterministic slugified ID if missing.
 fn analysis_to_document(analysis: &Analysis, link_map: &HashMap<String, IdMapping>) -> Document {
     let doc_id = link_map
@@ -119,7 +119,7 @@ fn slugify(text: &str) -> String {
     Slug::from_text(&slug).into_string()
 }
 
-/// Convert contextual_chunker::Chunk to doc_transformer::Chunk
+/// Convert `contextual_chunker::Chunk` to `doc_transformer::Chunk`
 ///
 /// Creates extended chunk with empty related_chunk_ids (filled later by graph analysis)
 fn convert_chunk(chunk: contextual_chunker::Chunk) -> Chunk {
@@ -143,7 +143,7 @@ fn convert_chunk(chunk: contextual_chunker::Chunk) -> Chunk {
     }
 }
 
-/// Convert contextual_chunker::ChunkingResult to doc_transformer::ChunksResult
+/// Convert `contextual_chunker::ChunkingResult` to `doc_transformer::ChunksResult`
 fn convert_chunking_result(
     result: contextual_chunker::ChunkingResult,
     document_count: usize,
@@ -168,11 +168,11 @@ fn escape_frontmatter(s: &str) -> String {
     s.replace('\n', " ").replace('\"', "\\\"")
 }
 
-/// Chunk all analyses using contextual-chunker
+/// Chunk all analyses using `contextual-chunker`
 ///
-/// This is the main entry point for chunking in doc_transformer.
-/// It converts Analysis types to Documents, calls contextual-chunker,
-/// converts the results back to doc_transformer types, and writes
+/// This is the main entry point for chunking in `doc_transformer`.
+/// It converts Analysis types to Documents, calls `contextual-chunker`,
+/// converts the results back to `doc_transformer` types, and writes
 /// chunk files to disk.
 pub fn chunk_all(
     analyses: &[Analysis],
