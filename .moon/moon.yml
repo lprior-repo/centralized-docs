@@ -1,0 +1,35 @@
+# Moon workspace configuration for centralized-docs
+workspace:
+  # VCS configuration
+  vcs:
+    manager: git
+    ignoreUnknownFiles: false
+
+  # Project root
+  root: .
+
+projects:
+  # This project
+  docmgr:
+    root: doc_transformer
+    type: rust
+    language: rust
+
+# Task configuration defaults
+tasks:
+  # Output tracking for cache invalidation
+  outputs:
+    - target/
+    - bin/
+    - dist/
+
+  # Aggressive caching strategy
+  cacheStrategy: content
+
+  # Run independent tasks in parallel
+  runInParallel: true
+
+  # Inherit environment variables
+  env:
+    CARGO_TARGET_DIR: ./target
+    RUSTFLAGS: -D warnings

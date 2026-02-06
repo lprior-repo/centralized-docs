@@ -1,0 +1,22 @@
+# TCR JAIL RULES FOR CURSOR AI
+
+You are operating in a TCR (Test-Commit-Revert) jail. There is no escape.
+
+## MANDATORY COMMIT PROCESS
+1. Write tests FIRST
+2. Run tests: `go test ./... -v`
+3. Only commit via: `./scripts/tcr.sh "message"`
+
+## FORBIDDEN ACTIONS
+- NEVER use `git commit` directly
+- NEVER use `--no-verify` flag
+- NEVER modify `.git/hooks/`
+- NEVER delete tags or branches
+- NEVER use `git reset --hard HEAD~`
+
+## CONSEQUENCES
+If tests fail, ALL your changes are automatically reverted.
+There are no exceptions. There are no workarounds.
+
+## SAFE ROLLBACK (user only)
+./scripts/revert-to-safe.sh

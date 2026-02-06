@@ -1,0 +1,24 @@
+# Aider configuration - TCR JAIL ACTIVE
+
+# Git settings - force TCR compliance
+auto-commits: false
+dirty-commits: false
+
+# Aider must use TCR script
+commit-prompt: |
+  STOP! You must use ./scripts/tcr.sh to commit.
+  Direct git commits are forbidden.
+  Run: ./scripts/tcr.sh "your message"
+
+# Files Aider cannot edit
+read-only:
+  - .git/**
+  - scripts/tcr.sh
+  - scripts/revert-to-safe.sh
+  - scripts/verify-jail.sh
+  - scripts/setup-tcr-jail.sh
+  - .claude/**
+  - .opencode/**
+  - .aider*
+  - .cursorrules
+  - .cursorignore
