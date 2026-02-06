@@ -1,6 +1,27 @@
-// Library exports for doc_transformer
-//
-// This module re-exports all public modules for use in integration tests and as a library.
+//! doc_transformer - AI-Optimized Documentation Transformation Library
+//!
+//! A Rust library for transforming raw documentation into AI-friendly knowledge structures.
+//! This library implements a multi-phase pipeline that processes markdown files and produces
+//! indexed, searchable documentation with semantic chunking and relationship detection.
+//!
+//! # Pipeline Overview
+//!
+//! The transformation pipeline consists of phases:
+//!
+//! 1. **Discovery** ([`discover`]) - Scan source directories and identify markdown files
+//! 2. **Analysis** ([`analyze`]) - Extract metadata, headings, links, and content statistics
+//! 3. **Transformation** ([`transform`]) - Convert to canonical format with link rewriting
+//! 4. **Indexing** ([`index`]) - Build searchable index with knowledge graph
+//! 5. **Output** - Generate chunks, search index, and llms.txt entry point
+//!
+//! # Key Modules
+//!
+//! - [`analyze`] - Document analysis and metadata extraction
+//! - [`transform`] - Markdown transformation and normalization
+//! - [`chunk`] - Semantic document chunking with context
+//! - [`index`] - Search index construction
+//! - [`search`] - Full-text search over indexed documentation
+//! - [`scrape`] - Web scraping for documentation ingestion
 
 pub mod analyze;
 pub mod assign;

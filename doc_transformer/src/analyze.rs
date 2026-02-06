@@ -1,3 +1,24 @@
+//! Analysis phase of the documentation transformation pipeline.
+//!
+//! This module provides document analysis capabilities that extract structured
+//! metadata from markdown files. It forms the second phase of the pipeline,
+//! following [`crate::discover`] and preceding [`crate::transform`].
+//!
+//! # Analysis Capabilities
+//!
+//! - **Title extraction** - Derives document titles from H1 headings or filenames
+//! - **Frontmatter parsing** - Extracts YAML frontmatter metadata
+//! - **Heading extraction** - Identifies all headings with their levels and positions
+//! - **Link detection** - Finds internal and external links for relationship mapping
+//! - **Content statistics** - Word counts, code block detection, table detection
+//! - **Auto-categorization** - Intelligently categorizes documents
+//!
+//! # Core Types
+//!
+//! - [`Analysis`] - Complete analysis result for a single document
+//! - [`Heading`] - Extracted heading with level and position
+//! - [`Link`] - Discovered link with target and internal/external flag
+
 use crate::config::CategoryConfig;
 use crate::discover::DiscoveryFile;
 use anyhow::Result;
