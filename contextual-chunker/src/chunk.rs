@@ -117,7 +117,7 @@ pub struct Chunk {
     /// Helps users understand context when chunk is viewed in isolation
     pub heading: Option<String>,
 
-    /// Full heading path for this chunk (e.g. ["Guide", "Setup", "Install"])
+    /// Full heading path for this chunk (e.g. `["Guide", "Setup", "Install"]`)
     /// Includes H1/H2/H3 levels when available
     pub heading_path: Vec<String>,
 
@@ -412,6 +412,7 @@ fn assign_hierarchy(summary: &mut [Chunk], standard: &mut [Chunk], detailed: &mu
 }
 
 /// Internal: Create chunks at a specific level
+#[allow(clippy::too_many_lines)]
 fn create_chunks_at_level(
     doc_id: &str,
     doc_title: &str,
@@ -435,7 +436,7 @@ fn create_chunks_at_level(
 
     let lines: Vec<&str> = content.lines().collect();
 
-    for line in lines.iter() {
+    for line in &lines {
         let current_tokens = estimate_tokens(&current_chunk);
         if let Some((level, text)) = parse_heading(line) {
             update_heading_stack(&mut heading_stack, level, text);
@@ -929,7 +930,7 @@ mod tests {
 
     #[test]
     fn test_chunk_table_preservation() {
-        let content = r#"# Title
+        let content = r"# Title
 
 ## Table Section
 
@@ -938,7 +939,7 @@ mod tests {
 | A    | B    |
 | C    | D    |
 
-More content."#
+More content."
             .to_string();
 
         let doc = Document::new("table".to_string(), "Table Doc".to_string(), content);

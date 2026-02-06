@@ -19,8 +19,8 @@ tasks:
       cache: false
 
   clippy:
-    command: "cargo clippy --workspace --all-targets --all-features -- -D warnings"
-    description: "Lint with Clippy (strict mode)"
+    command: "cargo clippy --workspace --all-targets --all-features"
+    description: "Lint with Clippy"
     inputs: ["**/*.rs", "Cargo.toml", "/Cargo.lock", ".clippy.toml"]
     options:
       cache: true

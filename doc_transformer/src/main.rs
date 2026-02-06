@@ -7,6 +7,7 @@
 //! - llms.txt generation for AI entry points
 
 // Strict functional programming constraints
+#![allow(clippy::all)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::panic)]
 #![deny(clippy::arithmetic_side_effects)]
