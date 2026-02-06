@@ -3299,7 +3299,7 @@ mod enhanced_tests {
         let mut website = Website::new("https://example.com");
         let pattern = GlobPattern::new("/docs/*".to_string());
         assert!(pattern.is_ok());
-        let patterns = vec![pattern.unwrap()];
+        let patterns = vec![pattern.expect("GlobPattern should be Ok as verified on line 3301")];
         let filtering = FilteringConfig::new().with_allow(patterns);
 
         let result = apply_filtering_to_website(&mut website, &filtering);
