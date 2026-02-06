@@ -600,7 +600,6 @@ impl FeatureConfigBuilder {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::panic)]
-    #![expect(clippy::unwrap_used)]
     use super::*;
 
     #[test]
