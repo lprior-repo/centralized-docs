@@ -11,7 +11,7 @@ use std::ops::Deref;
 pub struct DocumentId(String);
 
 impl DocumentId {
-    /// Create a new DocumentId, validating that it's not empty.
+    /// Create a new `DocumentId`, validating that it's not empty.
     #[allow(dead_code)]
     pub fn new(id: impl Into<String>) -> Result<Self, DocumentIdError> {
         let s = id.into();
@@ -24,12 +24,14 @@ impl DocumentId {
 
     /// Get the underlying string value.
     #[allow(dead_code)]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Convert to owned String.
     #[allow(dead_code)]
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -65,7 +67,7 @@ impl Borrow<str> for DocumentId {
 pub struct ChunkId(String);
 
 impl ChunkId {
-    /// Create a new ChunkId, validating that it's not empty.
+    /// Create a new `ChunkId`, validating that it's not empty.
     #[allow(dead_code)]
     pub fn new(id: impl Into<String>) -> Result<Self, ChunkIdError> {
         let s = id.into();
@@ -78,12 +80,14 @@ impl ChunkId {
 
     /// Get the underlying string value.
     #[allow(dead_code)]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Convert to owned String.
     #[allow(dead_code)]
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -138,12 +142,14 @@ impl Tag {
 
     /// Get the underlying string value.
     #[allow(dead_code)]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Convert to owned String.
     #[allow(dead_code)]
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -202,12 +208,14 @@ impl Keyword {
 
     /// Get the underlying string value.
     #[allow(dead_code)]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Convert to owned String.
     #[allow(dead_code)]
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -240,7 +248,7 @@ impl Borrow<str> for Keyword {
 
 // Error types
 
-/// Errors that can occur when creating DocumentId.
+/// Errors that can occur when creating `DocumentId`.
 #[derive(Debug, Clone, thiserror::Error)]
 #[allow(dead_code)]
 pub enum DocumentIdError {
@@ -248,7 +256,7 @@ pub enum DocumentIdError {
     Empty,
 }
 
-/// Errors that can occur when creating ChunkId.
+/// Errors that can occur when creating `ChunkId`.
 #[derive(Debug, Clone, thiserror::Error)]
 #[allow(dead_code)]
 pub enum ChunkIdError {
@@ -278,12 +286,12 @@ pub enum KeywordError {
     TooLong(usize),
 }
 
-/// A validated wrapper for max_related_chunks configuration parameter (1-1000).
+/// A validated wrapper for `max_related_chunks` configuration parameter (1-1000).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MaxRelatedChunks(u16); // u16 is sufficient for max 1000
 
 impl MaxRelatedChunks {
-    /// Create a new MaxRelatedChunks, validating the range (1-1000).
+    /// Create a new `MaxRelatedChunks`, validating the range (1-1000).
     pub fn new(value: usize) -> Result<Self, ConfigError> {
         if value < 1 {
             return Err(ConfigError::MaxRelatedChunksTooSmall(value));
@@ -296,6 +304,7 @@ impl MaxRelatedChunks {
     }
 
     /// Get the underlying value.
+    #[must_use]
     pub fn get(&self) -> usize {
         self.0 as usize
     }
@@ -343,7 +352,7 @@ impl Default for MaxRelatedChunks {
 pub struct HnswM(u8); // u8 is sufficient for max 64
 
 impl HnswM {
-    /// Create a new HnswM, validating the range (4-64).
+    /// Create a new `HnswM`, validating the range (4-64).
     pub fn new(value: usize) -> Result<Self, ConfigError> {
         if value < 4 {
             return Err(ConfigError::HnswMTooSmall(value));
@@ -356,6 +365,7 @@ impl HnswM {
     }
 
     /// Get the underlying value.
+    #[must_use]
     pub fn get(&self) -> usize {
         self.0 as usize
     }
@@ -398,12 +408,12 @@ impl Default for HnswM {
     }
 }
 
-/// A validated wrapper for HNSW ef_construction parameter (50-1000).
+/// A validated wrapper for HNSW `ef_construction` parameter (50-1000).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct HnswEfConstruction(u16); // u16 is sufficient for max 1000
 
 impl HnswEfConstruction {
-    /// Create a new HnswEfConstruction, validating the range (50-1000).
+    /// Create a new `HnswEfConstruction`, validating the range (50-1000).
     pub fn new(value: usize) -> Result<Self, ConfigError> {
         if value < 50 {
             return Err(ConfigError::HnswEfConstructionTooSmall(value));
@@ -416,6 +426,7 @@ impl HnswEfConstruction {
     }
 
     /// Get the underlying value.
+    #[must_use]
     pub fn get(&self) -> usize {
         self.0 as usize
     }
@@ -482,7 +493,7 @@ pub struct ProjectName(String);
 
 #[allow(dead_code)]
 impl ProjectName {
-    /// Create a new ProjectName, validating format.
+    /// Create a new `ProjectName`, validating format.
     pub fn new(name: impl Into<String>) -> Result<Self, ProjectNameError> {
         let s = name.into();
         let trimmed = s.trim();
@@ -505,10 +516,12 @@ impl ProjectName {
         Ok(ProjectName(trimmed.to_string()))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -556,7 +569,7 @@ pub struct FilePath(String);
 
 #[allow(dead_code)]
 impl FilePath {
-    /// Create a new FilePath from a PathBuf or string.
+    /// Create a new `FilePath` from a `PathBuf` or string.
     pub fn new(path: impl Into<String>) -> Result<Self, FilePathError> {
         let s = path.into();
         let trimmed = s.trim();
@@ -572,20 +585,24 @@ impl FilePath {
         Ok(FilePath(trimmed.to_string()))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
 
+    #[must_use]
     pub fn extension(&self) -> Option<&str> {
         std::path::Path::new(&self.0)
             .extension()
             .and_then(|ext| ext.to_str())
     }
 
+    #[must_use]
     pub fn filename(&self) -> Option<&str> {
         std::path::Path::new(&self.0)
             .file_name()
@@ -662,10 +679,12 @@ impl Category {
         Ok(Category(trimmed))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -731,10 +750,12 @@ impl Title {
         Ok(Title(trimmed))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -798,6 +819,7 @@ impl Slug {
     }
 
     /// Create a Slug from a title or name.
+    #[must_use]
     pub fn from_text(text: &str) -> Self {
         let slug = text
             .trim()
@@ -825,10 +847,12 @@ impl Slug {
         Slug(slug)
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
@@ -879,6 +903,7 @@ pub const STOPWORDS: [&str; 10] = [
 /// Check if a word is a stopword (case-insensitive).
 ///
 /// Used in tag and keyword extraction to filter common words.
+#[must_use]
 pub fn is_stopword(word: &str) -> bool {
     STOPWORDS.contains(&word.to_lowercase().as_str())
 }

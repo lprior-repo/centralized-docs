@@ -6,7 +6,7 @@
 //! ## Design
 //!
 //! - **Index Location**: `{base_path}/.tantivy_index/`
-//! - **Schema**: title (boosted), summary, category, word_count
+//! - **Schema**: title (boosted), summary, category, `word_count`
 //! - **Query Support**: Simple queries, phrases, boolean operators
 //! - **Error Recovery**: Auto-rebuild on corruption
 //!
@@ -240,7 +240,7 @@ pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument
 ///
 /// ## Behavior
 ///
-/// - Parses query using Tantivy's default QueryParser
+/// - Parses query using Tantivy's default `QueryParser`
 /// - Executes against content field (searchable combination)
 /// - Returns top N results sorted by BM25 score (highest first)
 /// - Returns empty Vec if no matches
@@ -258,7 +258,7 @@ pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument
 ///
 /// # Returns
 ///
-/// Vector of SearchResult sorted by relevance (highest score first)
+/// Vector of `SearchResult` sorted by relevance (highest score first)
 #[allow(dead_code)] // Exported for library users - not used internally
 pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<SearchResult>> {
     let (_schema, fields) = create_schema();
@@ -293,25 +293,25 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
         let id = retrieved_doc
             .get_first(fields.id)
             .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_str().map(|s| s.to_string()))
+            .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
             .unwrap_or_else(|| "unknown".to_string());
 
         let title = retrieved_doc
             .get_first(fields.title)
             .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_str().map(|s| s.to_string()))
+            .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
             .unwrap_or_else(|| "Untitled".to_string());
 
         let summary = retrieved_doc
             .get_first(fields.summary)
             .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_str().map(|s| s.to_string()))
+            .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
             .unwrap_or_else(|| "No summary available".to_string());
 
         let category = retrieved_doc
             .get_first(fields.category)
             .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_str().map(|s| s.to_string()))
+            .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
             .unwrap_or_else(|| "uncategorized".to_string());
 
         let word_count = retrieved_doc
@@ -323,7 +323,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
         let path = retrieved_doc
             .get_first(fields.path)
             .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_str().map(|s| s.to_string()))
+            .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
             .unwrap_or_else(|| format!("docs/{}.md", id.replace('/', "-")));
 
         let title_with_path = if path.is_empty() {
@@ -391,6 +391,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
 ///
 /// See: Robertson & Zaragoza (2009) "The Probabilistic Relevance Framework: BM25 and Beyond"
 #[allow(dead_code)] // Exported for library users - not used internally
+#[must_use]
 pub fn score_document_simple(title: &str, summary: &str, query: &str, word_count: f32) -> f32 {
     let k1 = BM25_K1;
     let b = BM25_B;

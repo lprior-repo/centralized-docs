@@ -79,6 +79,7 @@ struct GraphEdgeData {
 
 impl KnowledgeDAG {
     /// Create a new empty DAG
+    #[must_use]
     pub fn new() -> Self {
         Self {
             graph: DiGraph::new(),
@@ -115,6 +116,7 @@ impl KnowledgeDAG {
     }
 
     /// Get all edges of a specific type
+    #[must_use]
     pub fn edges_by_type(&self, edge_type: &EdgeType) -> Vec<&GraphEdge> {
         self.edges_vec
             .iter()
@@ -123,6 +125,7 @@ impl KnowledgeDAG {
     }
 
     /// Get total edge weight for a node (sum of outgoing edge weights)
+    #[must_use]
     pub fn node_importance(&self, node_id: &str) -> f32 {
         if let Some(&idx) = self.node_map.get(node_id) {
             self.graph.edges(idx).map(|e| e.weight().weight).sum()
@@ -133,6 +136,7 @@ impl KnowledgeDAG {
 
     /// Find related chunks for a given chunk (via semantic links)
     /// Uses functional composition with itertools for sorted results
+    #[must_use]
     pub fn get_related_chunks(&self, chunk_id: &str) -> Vec<(String, f32)> {
         self.edges_vec
             .iter()
@@ -144,20 +148,21 @@ impl KnowledgeDAG {
 
     /// Get topologically sorted nodes (respects dependencies)
     /// Uses functional composition for cleaner flow
+    #[must_use]
     pub fn topological_order(&self) -> Vec<String> {
-        match toposort(&self.graph, None) {
-            Ok(sorted) => sorted
+        if let Ok(sorted) = toposort(&self.graph, None) {
+            sorted
                 .into_iter()
                 .filter_map(|idx| self.graph.node_weight(idx).map(|node| node.id.clone()))
-                .collect(),
-            Err(_) => {
-                eprintln!("Warning: Graph contains cycles, cannot compute topological order");
-                Vec::new()
-            }
+                .collect()
+        } else {
+            eprintln!("Warning: Graph contains cycles, cannot compute topological order");
+            Vec::new()
         }
     }
 
     /// Get all nodes reachable from a given node (transitive closure)
+    #[must_use]
     pub fn reachable_from(&self, node_id: &str) -> HashSet<String> {
         let mut visited = HashSet::new();
         if let Some(&start_idx) = self.node_map.get(node_id) {
@@ -180,6 +185,7 @@ impl KnowledgeDAG {
     }
 
     /// Calculate graph statistics using functional composition
+    #[must_use]
     pub fn statistics(&self) -> GraphStatistics {
         // Count nodes by type using partition
         let (documents, chunks): (Vec<_>, Vec<_>) = self
@@ -207,11 +213,13 @@ impl KnowledgeDAG {
     }
 
     /// Get nodes as vector for serialization
+    #[must_use]
     pub fn nodes(&self) -> &[GraphNode] {
         &self.nodes_vec
     }
 
     /// Get edges as vector for serialization
+    #[must_use]
     pub fn edges(&self) -> &[GraphEdge] {
         &self.edges_vec
     }
@@ -250,6 +258,7 @@ pub struct GraphStatistics {
 /// assert!((similarity - 0.333).abs() < 0.01); // 1 common / 3 total
 /// ```
 #[allow(dead_code)]
+#[must_use]
 pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
     if tags1.is_empty() && tags2.is_empty() {
         return 1.0;

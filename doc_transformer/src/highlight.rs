@@ -31,6 +31,7 @@ use std::collections::HashMap;
 /// assert!(result.contains("\x1b[1m"));  // Contains ANSI bold
 /// ```
 #[allow(dead_code)] // Exported for library users - not used internally
+#[must_use]
 pub fn highlight_terms(text: &str, query: &str, use_color: bool) -> String {
     if !use_color {
         return text.to_string();
@@ -61,14 +62,11 @@ pub fn highlight_terms(text: &str, query: &str, use_color: bool) -> String {
             .or_insert_with(|| compile_highlight_regex(term));
 
         // Check if regex compilation failed
-        match re {
-            Ok(regex) => {
-                // Use ANSI bold codes: \x1b[1m = bold on, \x1b[0m = reset
-                result = regex.replace_all(&result, "\x1b[1m$1\x1b[0m").to_string();
-            }
-            Err(_) => {
-                // Skip this term if regex fails (already logged by compile_highlight_regex)
-            }
+        if let Ok(regex) = re {
+            // Use ANSI bold codes: \x1b[1m = bold on, \x1b[0m = reset
+            result = regex.replace_all(&result, "\x1b[1m$1\x1b[0m").to_string();
+        } else {
+            // Skip this term if regex fails (already logged by compile_highlight_regex)
         }
     }
 

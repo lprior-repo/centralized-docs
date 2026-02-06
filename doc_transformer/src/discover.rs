@@ -37,7 +37,7 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     }
 
     // Directory case: walk the directory tree
-    for entry in WalkDir::new(&canonical_path).into_iter() {
+    for entry in WalkDir::new(&canonical_path) {
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
@@ -108,13 +108,13 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
 ///
 /// Design by Contract:
 /// - **Preconditions:**
-///   - file_path exists and is a file
+///   - `file_path` exists and is a file
 ///   - extensions is a non-empty slice of supported extensions
 /// - **Postconditions:**
 ///   - Returns Ok with (files, manifest)
-///   - If file has supported extension: files contains one DiscoveryFile
+///   - If file has supported extension: files contains one `DiscoveryFile`
 ///   - If file has unsupported extension: files is empty
-///   - manifest.source_dir is the parent directory
+///   - `manifest.source_dir` is the parent directory
 /// - **Errors:**
 ///   - Returns error if metadata cannot be read
 fn discover_single_file(
@@ -153,8 +153,7 @@ fn discover_single_file(
     // Use parent directory as source_dir for manifest
     let source_dir = file_path
         .parent()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|| ".".to_string());
+        .map_or_else(|| ".".to_string(), |p| p.to_string_lossy().to_string());
 
     let manifest = DiscoverManifest {
         source_dir,

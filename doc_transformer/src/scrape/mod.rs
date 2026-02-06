@@ -10,7 +10,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-/// Placeholder for ScrapedPage type used in main.rs
+/// Placeholder for `ScrapedPage` type used in main.rs
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScrapedPage {
     pub url: String,
@@ -18,7 +18,7 @@ pub struct ScrapedPage {
     pub title: Option<String>,
 }
 
-/// Placeholder for ScrapeConfig
+/// Placeholder for `ScrapeConfig`
 #[derive(Debug, Clone)]
 pub struct ScrapeConfig {
     pub url: String,
@@ -33,7 +33,7 @@ pub struct ScrapeConfig {
     pub concurrency: usize,
 }
 
-/// Placeholder for ScrapeResult
+/// Placeholder for `ScrapeResult`
 #[derive(Debug)]
 pub struct ScrapeResult {
     pub pages: Vec<ScrapedPage>,

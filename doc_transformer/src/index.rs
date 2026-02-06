@@ -460,7 +460,7 @@ fn extract_tags(analysis: &Analysis) -> Vec<String> {
                 .take(3)
                 .flat_map(|h| h.text.split_whitespace())
                 .filter(|word| word.len() > 4 && !is_stopword(&word.to_lowercase()))
-                .map(|word| word.to_lowercase()),
+                .map(str::to_lowercase),
         )
         .sorted()
         .dedup()

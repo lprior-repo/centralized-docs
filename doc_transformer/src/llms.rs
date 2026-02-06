@@ -3,7 +3,7 @@
 //! Generates llms.txt and llms-full.txt files following the llms.txt specification.
 //! These files provide AI-friendly entry points into the documentation.
 //!
-//! Specification: https://llmstxt.org/
+//! Specification: <https://llmstxt.org>/
 
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
@@ -254,6 +254,7 @@ pub fn generate_llms_full_txt(
 }
 
 /// Truncate summary to fit in a description
+#[must_use]
 pub fn truncate_summary(text: &str, max_len: usize) -> String {
     let cleaned = text.replace('\n', " ").trim().to_string();
     let char_count = cleaned.chars().count();
@@ -269,12 +270,32 @@ pub fn truncate_summary(text: &str, max_len: usize) -> String {
 
     if max_len <= 3 {
         // Can't fit "...", just return truncated without ellipsis
-        return cleaned.chars().take(max_len).collect();
+        return safe_truncate_chars(&cleaned, max_len);
     }
 
     // Normal case: truncate and add "..."
-    let truncated: String = cleaned.chars().take(max_len.saturating_sub(3)).collect();
+    let truncated = safe_truncate_chars(&cleaned, max_len.saturating_sub(3));
     format!("{truncated}...")
+}
+
+/// Safely truncate a string to a maximum number of characters, ensuring UTF-8 character boundaries
+fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
+    if max_chars == 0 {
+        return String::new();
+    }
+
+    let mut char_count = 0;
+    let mut last_valid_boundary = 0;
+
+    for (i, c) in text.char_indices() {
+        if char_count >= max_chars {
+            break;
+        }
+        char_count = char_count.saturating_add(1);
+        last_valid_boundary = i.saturating_add(c.len_utf8());
+    }
+
+    text[..last_valid_boundary].to_string()
 }
 
 /// Skip YAML frontmatter from document content using functional pattern
@@ -292,7 +313,7 @@ fn skip_frontmatter(content: &str) -> &str {
 /// Generate AGENTS.md - coding instructions for AI assistants
 ///
 /// This file provides project-specific instructions that AI coding assistants
-/// should follow when working with this codebase. Adopted by OpenAI Codex,
+/// should follow when working with this codebase. Adopted by `OpenAI` Codex,
 /// Google Jules, and Cursor.
 pub fn generate_agents_md(
     analyses: &[Analysis],

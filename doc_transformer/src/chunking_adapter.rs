@@ -74,13 +74,12 @@ pub struct ChunksResult {
 /// Convert Analysis to `contextual_chunker::Document`
 ///
 /// Maps `doc_transformer`'s Analysis type to the simpler Document type
-/// used by `contextual-chunker`. Uses link_map to get the assigned doc ID,
+/// used by `contextual-chunker`. Uses `link_map` to get the assigned doc ID,
 /// falling back to a deterministic slugified ID if missing.
 fn analysis_to_document(analysis: &Analysis, link_map: &HashMap<String, IdMapping>) -> Document {
     let doc_id = link_map
         .get(&analysis.source_path)
-        .map(|m| m.id.clone())
-        .unwrap_or_else(|| fallback_doc_id(analysis));
+        .map_or_else(|| fallback_doc_id(analysis), |m| m.id.clone());
 
     Document::new(doc_id, analysis.title.clone(), analysis.content.clone())
 }
@@ -89,13 +88,14 @@ fn fallback_doc_id(analysis: &Analysis) -> String {
     let parts: Vec<&str> = analysis.source_path.split('/').collect();
     let subcategory = parts
         .get(parts.len().saturating_sub(2))
-        .map(|s| s.to_lowercase())
-        .unwrap_or_else(|| "general".to_string());
+        .map_or_else(|| "general".to_string(), |s| s.to_lowercase());
     let filename_stem = Path::new(&analysis.source_path)
         .file_stem()
         .filter(|s| !s.is_empty())
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| "untitled".to_string());
+        .map_or_else(
+            || "untitled".to_string(),
+            |s| s.to_string_lossy().to_string(),
+        );
     let slug = slugify(&filename_stem);
 
     format!("{}/{}/{}", analysis.category, subcategory, slug)
@@ -121,7 +121,7 @@ fn slugify(text: &str) -> String {
 
 /// Convert `contextual_chunker::Chunk` to `doc_transformer::Chunk`
 ///
-/// Creates extended chunk with empty related_chunk_ids (filled later by graph analysis)
+/// Creates extended chunk with empty `related_chunk_ids` (filled later by graph analysis)
 fn convert_chunk(chunk: contextual_chunker::Chunk) -> Chunk {
     Chunk {
         chunk_id: chunk.chunk_id,

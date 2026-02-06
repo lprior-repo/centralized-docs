@@ -91,7 +91,7 @@ pub fn transform_all(
     for analysis in analyses {
         if let Some(mapping) = link_map.get(&analysis.source_path) {
             match transform_file(analysis, mapping, link_map, &docs_dir) {
-                Ok(_) => success_count = success_count.saturating_add(1),
+                Ok(()) => success_count = success_count.saturating_add(1),
                 Err(e) => {
                     eprintln!("TRANSFORM ERROR: {}: {}", analysis.source_path, e);
                     error_count = error_count.saturating_add(1);
@@ -141,27 +141,23 @@ fn transform_file(
     let content = ensure_h1_ast(&content, &analysis.title);
 
     // Step 4: Add context block if missing using AST
-    let content = if !content_has_blockquote_context(&content) {
+    let content = if content_has_blockquote_context(&content) {
+        content
+    } else {
         let context_text = if analysis.first_paragraph.is_empty() {
             analysis.title.clone()
         } else {
             let max_chars = std::cmp::min(150, analysis.first_paragraph.chars().count());
-            analysis
-                .first_paragraph
-                .chars()
-                .take(max_chars)
-                .collect::<String>()
+            safe_truncate_chars(&analysis.first_paragraph, max_chars)
         };
         inject_context_block_ast(&content, &context_text)
-    } else {
-        content
     };
 
     // Step 5: Add See Also section if missing using AST
-    let content = if !content_has_see_also(&content) {
-        format!("{content}\n## See Also\n\n- [Documentation Index](./COMPASS.md)\n")
-    } else {
+    let content = if content_has_see_also(&content) {
         content
+    } else {
+        format!("{content}\n## See Also\n\n- [Documentation Index](./COMPASS.md)\n")
     };
 
     // Generate frontmatter
@@ -260,7 +256,7 @@ fn fix_headings_ast(content: &str) -> String {
     events_to_markdown(fixed_events)
 }
 
-/// Convert heading level number to pulldown_cmark HeadingLevel
+/// Convert heading level number to `pulldown_cmark` `HeadingLevel`
 fn from_u32_level(level: u32) -> pulldown_cmark::HeadingLevel {
     match level {
         1 => pulldown_cmark::HeadingLevel::H1,
@@ -272,9 +268,9 @@ fn from_u32_level(level: u32) -> pulldown_cmark::HeadingLevel {
     }
 }
 
-/// Convert HeadingLevel to u32 safely
+/// Convert `HeadingLevel` to u32 safely
 ///
-/// This is safe because HeadingLevel is a C-like enum with discriminants 1-6.
+/// This is safe because `HeadingLevel` is a C-like enum with discriminants 1-6.
 /// No overflow or truncation is possible.
 fn heading_level_to_u32(level: pulldown_cmark::HeadingLevel) -> u32 {
     match level {
@@ -287,9 +283,9 @@ fn heading_level_to_u32(level: pulldown_cmark::HeadingLevel) -> u32 {
     }
 }
 
-/// Convert HeadingLevel to usize safely for string operations
+/// Convert `HeadingLevel` to usize safely for string operations
 ///
-/// This is safe because HeadingLevel values are 1-6.
+/// This is safe because `HeadingLevel` values are 1-6.
 fn heading_level_to_usize(level: pulldown_cmark::HeadingLevel) -> usize {
     heading_level_to_u32(level) as usize
 }
@@ -402,7 +398,9 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
         )
     });
 
-    if !has_h1 {
+    if has_h1 {
+        content.to_string()
+    } else {
         // Prepend H1 with title
         let mut new_events = vec![
             Event::Start(Tag::Heading {
@@ -418,8 +416,6 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
         ];
         new_events.extend(events);
         events_to_markdown(new_events)
-    } else {
-        content.to_string()
     }
 }
 
@@ -428,7 +424,7 @@ fn content_has_blockquote_context(content: &str) -> bool {
     let events = parse_markdown(content);
 
     let mut in_blockquote = false;
-    for event in events.iter() {
+    for event in &events {
         match event {
             Event::Start(Tag::BlockQuote(_)) => {
                 in_blockquote = true;
@@ -455,7 +451,7 @@ fn inject_context_block_ast(content: &str, context_text: &str) -> String {
     let mut new_events = Vec::new();
     let mut inserted = false;
 
-    for event in events.iter() {
+    for event in &events {
         new_events.push(event.clone());
 
         // After H1 closing tag, inject context blockquote
@@ -575,6 +571,27 @@ fn events_to_markdown(events: Vec<Event>) -> String {
     final_state.output
 }
 
+/// Safely truncate a string to a maximum number of Unicode characters
+/// This handles multi-byte UTF-8 characters correctly by using `char_indices`
+fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
+    if max_chars == 0 {
+        return String::new();
+    }
+
+    let mut char_count = 0;
+    let mut last_valid_boundary = 0;
+
+    for (i, c) in text.char_indices() {
+        if char_count >= max_chars {
+            break;
+        }
+        char_count = char_count.saturating_add(1);
+        last_valid_boundary = i.saturating_add(c.len_utf8());
+    }
+
+    text[..last_valid_boundary].to_string()
+}
+
 /// Generate tags using functional composition
 fn generate_tags(analysis: &Analysis) -> Vec<String> {
     std::iter::once(analysis.category.clone())
@@ -585,7 +602,7 @@ fn generate_tags(analysis: &Analysis) -> Vec<String> {
                 .take(3)
                 .flat_map(|h| h.text.split_whitespace())
                 .filter(|word| word.len() > 4 && !is_stopword(word))
-                .map(|word| word.to_lowercase()),
+                .map(str::to_lowercase),
         )
         .sorted()
         .dedup()

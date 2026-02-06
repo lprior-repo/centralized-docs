@@ -106,7 +106,7 @@ type ValidationEntry = (String, Vec<String>, Vec<String>);
 
 fn collect_validation_results(docs_dir: &Path) -> Result<Vec<ValidationEntry>> {
     fs::read_dir(docs_dir)?
-        .filter_map(|entry| entry.ok())
+        .filter_map(std::result::Result::ok)
         .map(|entry| entry.path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
         .map(validate_path)
@@ -210,8 +210,8 @@ fn validate_file(content: &str) -> (Vec<String>, Vec<String>) {
 /// - Validation happens before expensive operations
 ///
 /// **Postconditions:**
-/// - Queries < 1 char (trimmed) rejected with EmptyQuery
-/// - Queries > 1000 bytes rejected with QueryTooLong
+/// - Queries < 1 char (trimmed) rejected with `EmptyQuery`
+/// - Queries > 1000 bytes rejected with `QueryTooLong`
 /// - Valid queries (1-1000 bytes) return Ok with trimmed query
 ///
 /// **Invariants:**

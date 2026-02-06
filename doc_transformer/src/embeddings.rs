@@ -6,13 +6,13 @@
 //! Semantic embedding providers for document vectors.
 //!
 //! This module provides infrastructure for generating semantic embeddings from text
-//! using various providers (OpenAI, Cohere, etc.) and using them with the HNSW index.
+//! using various providers (`OpenAI`, Cohere, etc.) and using them with the HNSW index.
 //!
 //! # Architecture
 //!
 //! - [`EmbeddingProvider`]: Trait for embedding providers
 //! - [`Embedding`]: Wrapper around embedding vectors with metadata
-//! - [`OpenAIProvider`]: OpenAI text embedding API
+//! - [`OpenAIProvider`]: `OpenAI` text embedding API
 //! - [`CohereProvider`]: Cohere embedding API
 //!
 //! # Usage
@@ -93,6 +93,7 @@ pub struct Embedding {
 
 impl Embedding {
     /// Create a new embedding.
+    #[must_use]
     pub fn new(vector: Vec<f32>, text: Option<String>, model: String) -> Self {
         Self {
             vector,
@@ -103,12 +104,14 @@ impl Embedding {
 
     /// Get the dimension of the embedding.
     #[inline]
+    #[must_use]
     pub fn dimension(&self) -> usize {
         self.vector.len()
     }
 
     /// Check if the embedding is valid (non-empty, no NaN/Infinity).
     #[inline]
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         !self.vector.is_empty() && self.vector.iter().all(|v| !v.is_nan() && !v.is_infinite())
     }
@@ -176,7 +179,7 @@ impl Default for EmbeddingConfig {
     }
 }
 
-/// OpenAI text embedding provider.
+/// `OpenAI` text embedding provider.
 ///
 /// Supports text-embedding-3-small, text-embedding-3-large, and text-embedding-ada-002.
 #[derive(Debug, Clone)]
@@ -187,7 +190,7 @@ pub struct OpenAIProvider {
 }
 
 impl OpenAIProvider {
-    /// Create a new OpenAI provider.
+    /// Create a new `OpenAI` provider.
     pub fn new(api_key: impl Into<String>) -> Result<Self, EmbeddingProviderError> {
         let api_key = api_key.into();
         if api_key.is_empty() {
@@ -237,7 +240,7 @@ impl OpenAIProvider {
 
 #[async_trait]
 impl EmbeddingProvider for OpenAIProvider {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "openai"
     }
 
@@ -414,7 +417,7 @@ impl CohereProvider {
 
 #[async_trait]
 impl EmbeddingProvider for CohereProvider {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "cohere"
     }
 
@@ -505,7 +508,7 @@ impl EmbeddingProvider for CohereProvider {
                 });
             }
 
-            let text = texts.get(idx).map(|s| s.to_string());
+            let text = texts.get(idx).map(|s| (*s).to_string());
 
             embeddings.push(Embedding {
                 vector: embedding,
@@ -537,6 +540,7 @@ struct CohereUsage {
 }
 
 /// Convert embeddings to the format expected by HNSW index.
+#[must_use]
 pub fn embeddings_to_vectors(embeddings: &[Embedding]) -> Vec<Vec<f32>> {
     embeddings.iter().map(|e| e.vector.clone()).collect()
 }

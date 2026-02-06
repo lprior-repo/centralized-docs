@@ -17,7 +17,8 @@ pub struct GraphConfig {
 
 #[allow(dead_code)] // Public API - exported for library users, not used internally
 impl GraphConfig {
-    /// Create GraphConfig with default values
+    /// Create `GraphConfig` with default values
+    #[must_use]
     pub fn new() -> Self {
         Self {
             max_related_chunks: MaxRelatedChunks::default(),
@@ -58,17 +59,20 @@ impl GraphConfig {
         })
     }
 
-    /// Get max_related_chunks as usize
+    /// Get `max_related_chunks` as usize
+    #[must_use]
     pub fn get_max_related_chunks(&self) -> usize {
         self.max_related_chunks.get()
     }
 
-    /// Get hnsw_m as usize
+    /// Get `hnsw_m` as usize
+    #[must_use]
     pub fn get_hnsw_m(&self) -> usize {
         self.hnsw_m.get()
     }
 
-    /// Get hnsw_ef_construction as usize
+    /// Get `hnsw_ef_construction` as usize
+    #[must_use]
     pub fn get_hnsw_ef_construction(&self) -> usize {
         self.hnsw_ef_construction.get()
     }
@@ -174,6 +178,7 @@ impl CategoryConfig {
     }
 
     /// Detect category for a document using these rules
+    #[must_use]
     pub fn detect_category(&self, filename: &str, content: &str, path: &str) -> String {
         // Evaluate rules in order
         for rule in &self.rules {
@@ -196,10 +201,10 @@ impl CategoryConfig {
         // Check filename patterns (case-insensitive)
         if let Some(patterns) = &criteria.filename {
             let fname_lower = if let Some(stem) = Path::new(filename).file_stem() {
-                if !stem.is_empty() {
-                    stem.to_string_lossy().to_lowercase()
-                } else {
+                if stem.is_empty() {
                     String::new()
+                } else {
+                    stem.to_string_lossy().to_lowercase()
                 }
             } else {
                 String::new()

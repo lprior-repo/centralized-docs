@@ -103,10 +103,10 @@ pub struct FilterResult {
 ///
 /// **Preconditions:**
 /// - `html` is valid UTF-8 (guaranteed by &str)
-/// - `config` is valid FilterConfig
+/// - `config` is valid `FilterConfig`
 ///
 /// **Postconditions:**
-/// - Returns FilterResult with non-empty `html` field
+/// - Returns `FilterResult` with non-empty `html` field
 /// - `used_readability` indicates extraction method used
 /// - `density_score` is always between 0.0 and 1.0
 /// - `removed_count` may be 0 if Readability extraction succeeded
@@ -115,6 +115,7 @@ pub struct FilterResult {
 /// - Function never panics on any input HTML
 /// - Gracefully degrades to fallback if Readability fails
 /// - Always returns some content (never empty result)
+#[must_use]
 pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
     // Attempt Readability extraction first
     match try_readability_extraction(html) {
@@ -228,8 +229,10 @@ fn fallback_prune_html(html: &str, config: &FilterConfig) -> FilterResult {
                 Selector::parse("body")
                     .ok()
                     .and_then(|sel| document.select(&sel).next())
-                    .map(|body| body.text().collect::<Vec<_>>().join(" "))
-                    .unwrap_or_else(|| main_content.clone())
+                    .map_or_else(
+                        || main_content.clone(),
+                        |body| body.text().collect::<Vec<_>>().join(" "),
+                    )
             };
             (density, content)
         });
@@ -266,7 +269,8 @@ const CONTENT_SELECTORS: [&str; 11] = [
 /// 4. Common content class names
 /// 5. Falls back to <body>
 ///
-/// Filters out elements matching nav_patterns from the config.
+/// Filters out elements matching `nav_patterns` from the config.
+#[must_use]
 pub fn extract_main_content(document: &Html, config: &FilterConfig) -> String {
     // Build exclusion selectors from config using functional chain
     let _exclude_selectors: Vec<Selector> = config
@@ -309,9 +313,10 @@ pub fn extract_main_content(document: &Html, config: &FilterConfig) -> String {
 ///
 /// This is applied after HTML→Markdown conversion to clean up any
 /// remaining navigation or boilerplate that made it through.
-/// Uses config.nav_patterns to identify navigation headings to skip.
-/// Uses config.min_word_count to filter out sparse sections.
+/// Uses `config.nav_patterns` to identify navigation headings to skip.
+/// Uses `config.min_word_count` to filter out sparse sections.
 /// Uses functional composition with pipe and fold.
+#[must_use]
 pub fn filter_markdown(markdown: &str, config: &FilterConfig) -> String {
     /// State for markdown filtering fold operation
     struct FilterState<'a> {
@@ -438,7 +443,7 @@ fn is_footer_line(line: &str) -> bool {
 /// - `avg_doc_length` parameter is **IGNORED** (Tantivy computes internally)
 ///
 /// **Postconditions:**
-/// - Return value is always finite (never NaN, never Infinity)
+/// - Return value is always finite (never `NaN`, never Infinity)
 /// - Return value is always non-negative (BM25 scores ≥ 0.0)
 /// - Function never panics on any input (graceful error handling)
 ///
@@ -459,6 +464,7 @@ fn is_footer_line(line: &str) -> bool {
 /// Performance: Creates ephemeral index per call. For batch scoring,
 /// consider using the full `search` module with persistent indexes.
 #[allow(unused_variables)] // avg_doc_length ignored (Tantivy computes internally)
+#[must_use]
 pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
     use tantivy::collector::TopDocs;
     use tantivy::query::QueryParser;
@@ -616,7 +622,7 @@ pub fn discover_test_files(root: &std::path::Path) -> Result<Vec<String>, anyhow
     let extensions = [".md", ".mdx", ".rst", ".txt"];
     let exclude_dirs = ["node_modules", ".git", "_build", "dist", "vendor"];
 
-    for entry in WalkDir::new(root).into_iter() {
+    for entry in WalkDir::new(root) {
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {

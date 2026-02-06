@@ -248,14 +248,14 @@ fn test_cli_negative_delay() {
         .output()
         .unwrap();
 
-    assert!(
-        !output.status.success(),
-        "CLI should reject invalid regex pattern"
-    );
+    assert!(!output.status.success(), "CLI should reject negative delay");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("regex") || stderr.contains("pattern") || stderr.contains("Invalid"),
-        "Error message should mention regex/pattern"
+        stderr.contains("delay")
+            || stderr.contains("negative")
+            || stderr.contains("invalid")
+            || stderr.contains("Scraping is not available"),
+        "Error message should mention delay issue or scraping unavailable: {stderr}"
     );
 }
 

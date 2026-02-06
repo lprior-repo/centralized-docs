@@ -6,7 +6,6 @@ use std::time::{Duration, Instant};
 
 use doc_transformer::scrape::{scrape_site, ScrapeConfig};
 use portpicker::pick_unused_port;
-use spider::configuration::RedirectPolicy;
 use tiny_http::{Response, Server, StatusCode};
 
 fn start_server(
@@ -35,13 +34,16 @@ async fn timeout_is_enforced_against_slow_server() {
     let (base_url, handle) = start_server(handler);
 
     let config = ScrapeConfig {
-        base_url: base_url.clone(),
+        url: base_url.clone(),
         use_sitemap: false,
+        filter: None,
         delay_ms: 0,
         request_timeout_secs: 1,
         max_retries: 0,
-        concurrency_limit: 1,
-        ..Default::default()
+        redirect_policy: "none".to_string(),
+        max_page_bytes: None,
+        max_total_bytes: None,
+        concurrency: 1,
     };
 
     let start = Instant::now();
@@ -76,14 +78,16 @@ async fn redirect_policy_none_blocks_redirect() {
 
     // Policy None should block redirects
     let blocked = ScrapeConfig {
-        base_url: base_url.clone(),
+        url: base_url.clone(),
         use_sitemap: false,
+        filter: None,
         delay_ms: 0,
         request_timeout_secs: 5,
         max_retries: 0,
-        redirect_policy: RedirectPolicy::None,
-        concurrency_limit: 1,
-        ..Default::default()
+        redirect_policy: "none".to_string(),
+        max_page_bytes: None,
+        max_total_bytes: None,
+        concurrency: 1,
     };
     let blocked_result = scrape_site(&blocked).await;
     assert!(
@@ -93,14 +97,16 @@ async fn redirect_policy_none_blocks_redirect() {
 
     // Policy Loose should allow redirects
     let allowed = ScrapeConfig {
-        base_url: base_url.clone(),
+        url: base_url.clone(),
         use_sitemap: false,
+        filter: None,
         delay_ms: 0,
         request_timeout_secs: 5,
         max_retries: 0,
-        redirect_policy: RedirectPolicy::Loose,
-        concurrency_limit: 1,
-        ..Default::default()
+        redirect_policy: "loose".to_string(),
+        max_page_bytes: None,
+        max_total_bytes: None,
+        concurrency: 1,
     };
     let allowed_result = scrape_site(&allowed).await;
     assert!(
@@ -122,14 +128,16 @@ async fn spider_max_page_bytes_limits_download() {
     let (base_url, handle) = start_server(handler);
 
     let config = ScrapeConfig {
-        base_url: base_url.clone(),
+        url: base_url.clone(),
         use_sitemap: false,
+        filter: None,
         delay_ms: 0,
         request_timeout_secs: 5,
         max_retries: 0,
-        spider_max_page_bytes: Some(64),
-        concurrency_limit: 1,
-        ..Default::default()
+        redirect_policy: "none".to_string(),
+        max_page_bytes: Some(64),
+        max_total_bytes: None,
+        concurrency: 1,
     };
 
     let result = scrape_site(&config).await;
@@ -137,10 +145,7 @@ async fn spider_max_page_bytes_limits_download() {
     // Spider should reject or record an error due to size cap
     match result {
         Ok(r) => {
-            assert!(
-                r.error_count > 0 || r.pages.is_empty(),
-                "expected errors or no pages under byte cap"
-            );
+            assert!(r.pages.is_empty(), "expected no pages under byte cap");
         }
         Err(e) => {
             let msg = e.to_string();
