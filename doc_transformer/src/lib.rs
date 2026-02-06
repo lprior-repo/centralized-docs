@@ -1,4 +1,4 @@
-//! doc_transformer - AI-Optimized Documentation Transformation Library
+//! `doc_transformer` - AI-Optimized Documentation Transformation Library
 //!
 //! A Rust library for transforming raw documentation into AI-friendly knowledge structures.
 //! This library implements a 5-phase pipeline that processes markdown files and produces

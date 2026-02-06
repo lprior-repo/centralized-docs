@@ -238,7 +238,7 @@ mod tests {
             "discover_files should succeed even with unreadable files"
         );
 
-        let (files, _manifest) = match result {
+        let (discovered_files, _manifest) = match result {
             Ok(v) => v,
             Err(e) => panic!("discover_files failed: {e}"),
         };
@@ -248,13 +248,16 @@ mod tests {
         // The important thing is that discovery succeeds without panicking.
         // We should find at least the 2 readable files.
         assert!(
-            files.len() >= 2,
+            discovered_files.len() >= 2,
             "Expected at least 2 readable files to be discovered, got {}",
-            files.len()
+            discovered_files.len()
         );
 
         // Verify the readable files were found
-        let file_names: Vec<_> = files.iter().map(|f| f.source_path.clone()).collect();
+        let file_names: Vec<_> = discovered_files
+            .iter()
+            .map(|f| f.source_path.clone())
+            .collect();
 
         assert!(
             file_names.iter().any(|n| n.contains("readable1.md")),
@@ -279,7 +282,7 @@ mod tests {
         let md_file = dir_path.join("test.md");
         let txt_file = dir_path.join("test.txt");
         let rst_file = dir_path.join("test.rst");
-        let mdx_file = dir_path.join("test.mdx");
+        let mdx_file_test = dir_path.join("test.mdx");
         let other_file = dir_path.join("test.html");
 
         match File::create(&md_file) {
@@ -294,7 +297,7 @@ mod tests {
             Ok(_) => (),
             Err(e) => panic!("Failed to create rst file: {e}"),
         }
-        match File::create(&mdx_file) {
+        match File::create(&mdx_file_test) {
             Ok(_) => (),
             Err(e) => panic!("Failed to create mdx file: {e}"),
         }

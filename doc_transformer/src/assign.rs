@@ -12,26 +12,24 @@ pub struct IdMapping {
     pub slug: String,
 }
 
+#[must_use]
 pub fn assign_ids(analyses: Vec<Analysis>) -> (Vec<Analysis>, HashMap<String, IdMapping>) {
     let mut link_map = HashMap::new();
     let mut id_counts: HashMap<String, usize> = HashMap::new();
 
     for analysis in &analyses {
         let parts: Vec<&str> = analysis.source_path.split('/').collect();
-        let subcategory = if parts.len() > 1 {
-            parts
-                .get(parts.len().saturating_sub(2))
-                .map(|s| s.to_lowercase())
-                .unwrap_or_else(|| "general".to_string())
-        } else {
-            "general".to_string()
-        };
+        let subcategory = parts
+            .get(parts.len().saturating_sub(2))
+            .map_or_else(|| "general".to_string(), |s| s.to_lowercase());
 
         let filename_stem = Path::new(&analysis.source_path)
             .file_stem()
             .filter(|s| !s.is_empty())
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| "untitled".to_string());
+            .map_or_else(
+                || "untitled".to_string(),
+                |s| s.to_string_lossy().to_string(),
+            );
 
         let mut slug = slugify(&filename_stem);
 

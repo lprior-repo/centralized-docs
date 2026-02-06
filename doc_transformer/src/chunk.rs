@@ -1,7 +1,7 @@
-//! Chunking module - re-exports from chunking_adapter
+//! Chunking module - re-exports from `chunking_adapter`
 //!
 //! This module provides backwards compatibility by re-exporting types
-//! from the chunking_adapter module, which wraps the contextual-chunker crate.
+//! from the `chunking_adapter` module, which wraps the contextual-chunker crate.
 //!
 //! All chunking logic now lives in the contextual-chunker workspace crate,
 //! with doc_transformer-specific extensions in chunking_adapter.

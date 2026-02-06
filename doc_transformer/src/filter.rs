@@ -850,7 +850,7 @@ mod tests {
 
     #[test]
     fn test_prune_html() {
-        let html = r#"
+        let html = r"
             <html>
             <body>
                 <nav>Navigation content</nav>
@@ -861,7 +861,7 @@ mod tests {
                 <footer>Footer content</footer>
             </body>
             </html>
-        "#;
+        ";
 
         let config = FilterConfig::default();
         let result = prune_html(html, &config);
@@ -883,7 +883,7 @@ mod tests {
     #[test]
     fn test_prune_html_with_article_tag() {
         // Test that Readability can extract from article tags
-        let html = r#"
+        let html = r"
             <html>
             <body>
                 <nav>Navigation</nav>
@@ -894,7 +894,7 @@ mod tests {
                 <aside>Sidebar content</aside>
             </body>
             </html>
-        "#;
+        ";
 
         let config = FilterConfig::default();
         let result = prune_html(html, &config);
@@ -932,7 +932,7 @@ mod tests {
 
     #[test]
     fn test_extract_main_content() {
-        let html = r#"
+        let html = r"
             <html>
             <body>
                 <header>Header</header>
@@ -943,7 +943,7 @@ mod tests {
                 <aside>Sidebar</aside>
             </body>
             </html>
-        "#;
+        ";
 
         let document = scraper::Html::parse_document(html);
         let config = FilterConfig::default();

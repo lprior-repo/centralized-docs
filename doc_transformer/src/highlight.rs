@@ -68,7 +68,6 @@ pub fn highlight_terms(text: &str, query: &str, use_color: bool) -> String {
             }
             Err(_) => {
                 // Skip this term if regex fails (already logged by compile_highlight_regex)
-                continue;
             }
         }
     }

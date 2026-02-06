@@ -72,7 +72,9 @@ pub struct Analysis {
     pub content: String,
 }
 
-/// Analyze files using functional composition with filter_map
+/// Analyze files using functional composition with `filter_map`
+///
+/// # Errors
 ///
 /// Returns an error if files were discovered but none could be analyzed.
 /// This prevents silent failures where I/O errors or encoding issues
@@ -161,15 +163,29 @@ fn extract_title(content: &str, filename: &str) -> String {
         .ok()
         .and_then(|h1_regex| h1_regex.captures_iter(content).next())
         .and_then(|cap| cap.get(1))
-        .map(|title_match| title_match.as_str().trim().to_string())
+        .and_then(|title_match| {
+            let trimmed = title_match.as_str().trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
         .unwrap_or_else(|| {
             // Use filename - fallback to "untitled" if no valid stem
-            let stem = Path::new(filename)
+            Path::new(filename)
                 .file_stem()
                 .filter(|s| !s.is_empty())
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "untitled".to_string());
-            stem.replace(['-', '_'], " ").trim().to_string()
+                .map_or_else(
+                    || "untitled".to_string(),
+                    |s| {
+                        s.to_string_lossy()
+                            .to_string()
+                            .replace(['-', '_'], " ")
+                            .trim()
+                            .to_string()
+                    },
+                )
         });
 
     title
@@ -200,9 +216,8 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
         }
     }
 
-    let end_idx = match end_idx {
-        Some(idx) => idx,
-        None => return (None, content.to_string()),
+    let Some(end_idx) = end_idx else {
+        return (None, content.to_string());
     };
 
     let mut fm = HashMap::new();
@@ -230,9 +245,8 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
 
 /// Extract headings from content using functional composition
 fn extract_headings(content: &str) -> Vec<Heading> {
-    let regex = match Regex::new(r"^(#{1,6})\s+(.+)$") {
-        Ok(r) => r,
-        Err(_) => return Vec::new(),
+    let Ok(regex) = Regex::new(r"^(#{1,6})\s+(.+)$") else {
+        return Vec::new();
     };
 
     content
@@ -245,11 +259,7 @@ fn extract_headings(content: &str) -> Vec<Heading> {
                 let text_match = cap.get(2)?;
 
                 // Safe conversion: markdown headers are 1-6 hashes, so length always fits in u32
-                // Using try_from for explicit overflow protection
-                let level = match u32::try_from(level_match.as_str().len()) {
-                    Ok(l) => l,
-                    Err(_) => 1,
-                };
+                let level = u32::try_from(level_match.as_str().len()).unwrap_or(1);
 
                 Some(Heading {
                     level,
@@ -263,9 +273,8 @@ fn extract_headings(content: &str) -> Vec<Heading> {
 
 /// Extract links from content using functional composition
 fn extract_links(content: &str) -> Vec<Link> {
-    let regex = match Regex::new(r"\[([^\]]+)\]\(([^)]+)\)") {
-        Ok(r) => r,
-        Err(_) => return Vec::new(),
+    let Ok(regex) = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)") else {
+        return Vec::new();
     };
 
     regex
@@ -377,6 +386,7 @@ fn detect_category(filename: &str, content: &str) -> String {
 }
 
 /// Count categories using functional composition with counts
+#[must_use]
 pub fn count_categories(analyses: &[Analysis]) -> HashMap<String, usize> {
     analyses.iter().map(|a| a.category.clone()).counts()
 }

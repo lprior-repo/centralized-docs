@@ -575,11 +575,11 @@ mod graph_config_tests {
 
     #[test]
     fn test_graph_config_load_valid_yaml() -> anyhow::Result<()> {
-        let yaml_content = r#"
+        let yaml_content = r"
 max_related_chunks: 25
 hnsw_m: 20
 hnsw_ef_construction: 300
-"#;
+";
         let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
         fs::write(&config_path, yaml_content)?;
@@ -654,11 +654,11 @@ hnsw_ef_construction: 300
 
     #[test]
     fn test_load_yaml_max_related_chunks_zero() -> anyhow::Result<()> {
-        let yaml_content = r#"
+        let yaml_content = r"
 max_related_chunks: 0
 hnsw_m: 16
 hnsw_ef_construction: 200
-"#;
+";
         let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
         fs::write(&config_path, yaml_content)?;
@@ -718,11 +718,11 @@ hnsw_ef_construction: 200
 
     #[test]
     fn test_load_yaml_hnsw_m_too_small() -> anyhow::Result<()> {
-        let yaml_content = r#"
+        let yaml_content = r"
 max_related_chunks: 20
 hnsw_m: 2
 hnsw_ef_construction: 200
-"#;
+";
         let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
         fs::write(&config_path, yaml_content)?;
@@ -782,11 +782,11 @@ hnsw_ef_construction: 200
 
     #[test]
     fn test_load_yaml_hnsw_ef_construction_too_small() -> anyhow::Result<()> {
-        let yaml_content = r#"
+        let yaml_content = r"
 max_related_chunks: 20
 hnsw_m: 16
 hnsw_ef_construction: 25
-"#;
+";
         let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
         fs::write(&config_path, yaml_content)?;
@@ -815,11 +815,11 @@ hnsw_ef_construction: 25
 
     #[test]
     fn test_load_yaml_multiple_invalid_parameters() -> anyhow::Result<()> {
-        let yaml_content = r#"
+        let yaml_content = r"
 max_related_chunks: 2000
 hnsw_m: 100
 hnsw_ef_construction: 10000
-"#;
+";
         let temp = TempDir::new()?;
         let config_path = temp.path().join("graph_config.yaml");
         fs::write(&config_path, yaml_content)?;
