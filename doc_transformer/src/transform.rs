@@ -27,7 +27,7 @@ use crate::assign::IdMapping;
 use crate::types::is_stopword;
 use anyhow::Result;
 use itertools::Itertools;
-use pulldown_cmark::{CowStr, Event, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{Alignment, CowStr, Event, Options, Parser, Tag, TagEnd};
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -281,13 +281,6 @@ fn heading_level_to_u32(level: pulldown_cmark::HeadingLevel) -> u32 {
     }
 }
 
-/// Convert HeadingLevel to usize safely for string operations
-///
-/// This is safe because HeadingLevel values are 1-6.
-fn heading_level_to_usize(level: pulldown_cmark::HeadingLevel) -> usize {
-    heading_level_to_u32(level) as usize
-}
-
 /// Rewrite internal links to new filenames (AST-based).
 ///
 /// Returns the transformed content and a list of broken links.
@@ -484,15 +477,53 @@ fn content_has_see_also(content: &str) -> bool {
     content.contains("## See Also")
 }
 
-/// Stateful context for event-to-markdown conversion
+/// Stateful context for event-to-markdown conversion.
 #[derive(Debug, Default)]
 struct RenderState {
     output: String,
     link_url: Option<String>,
+    image_url: Option<String>,
+    list_stack: Vec<ListState>,
+    table_alignments: Vec<Alignment>,
 }
 
-/// Convert events to markdown using stateful fold-based reconstruction
-fn events_to_markdown(events: Vec<Event>) -> String {
+#[derive(Debug)]
+struct ListState {
+    next_number: Option<u64>,
+}
+
+impl ListState {
+    fn unordered() -> Self {
+        Self { next_number: None }
+    }
+
+    fn ordered(start: u64) -> Self {
+        Self {
+            next_number: Some(start),
+        }
+    }
+
+    fn prefix_and_advance(&mut self) -> String {
+        if let Some(current) = self.next_number {
+            self.next_number = Some(current.saturating_add(1));
+            format!("{current}. ")
+        } else {
+            "- ".to_string()
+        }
+    }
+}
+
+fn alignment_marker(alignment: Alignment) -> &'static str {
+    match alignment {
+        Alignment::None => "---",
+        Alignment::Left => ":---",
+        Alignment::Center => ":---:",
+        Alignment::Right => "---:",
+    }
+}
+
+/// Convert events to markdown using stateful fold-based reconstruction.
+fn events_to_markdown(events: Vec<Event<'_>>) -> String {
     let final_state = events
         .into_iter()
         .fold(RenderState::default(), |mut state, event| {
@@ -503,42 +534,40 @@ fn events_to_markdown(events: Vec<Event>) -> String {
                     state.output.push_str(&code);
                     state.output.push('`');
                 }
-                Event::SoftBreak | Event::HardBreak => state.output.push('\n'),
+                Event::SoftBreak => state.output.push('\n'),
+                Event::HardBreak => state.output.push_str("\\\n"),
+                Event::Rule => state.output.push_str("\n---\n"),
+                Event::Html(html) | Event::InlineHtml(html) => state.output.push_str(&html),
                 Event::Start(Tag::Heading { level, .. }) => {
-                    let hashes = "#".repeat(heading_level_to_usize(level));
+                    let hashes = "#".repeat(heading_level_to_u32(level) as usize);
                     state.output.push_str(&hashes);
                     state.output.push(' ');
                 }
-                Event::End(TagEnd::Heading(_)) => {
-                    state.output.push('\n');
-                }
-                Event::Start(Tag::Paragraph) => {
-                    // Paragraph starts - no output
-                }
-                Event::End(TagEnd::Paragraph) => {
-                    state.output.push('\n');
-                }
-                Event::Start(Tag::BlockQuote(_)) => {
-                    state.output.push_str("> ");
-                }
-                Event::End(TagEnd::BlockQuote(_)) => {
-                    state.output.push('\n');
-                }
-                Event::Start(Tag::CodeBlock(_)) => {
-                    state.output.push_str("```\n");
-                }
-                Event::End(TagEnd::CodeBlock) => {
-                    state.output.push_str("\n```\n");
-                }
+                Event::End(TagEnd::Heading(_)) => state.output.push('\n'),
+                Event::Start(Tag::Paragraph) => {}
+                Event::End(TagEnd::Paragraph) => state.output.push('\n'),
+                Event::Start(Tag::BlockQuote(_)) => state.output.push_str("> "),
+                Event::End(TagEnd::BlockQuote(_)) => state.output.push('\n'),
+                Event::Start(Tag::CodeBlock(_)) => state.output.push_str("```\n"),
+                Event::End(TagEnd::CodeBlock) => state.output.push_str("\n```\n"),
                 Event::Start(Tag::Link { dest_url, .. }) => {
                     state.output.push('[');
-                    // Capture URL for later (on End event)
                     state.link_url = Some(dest_url.to_string());
                 }
                 Event::End(TagEnd::Link) => {
-                    // Close link text and output URL
                     state.output.push_str("](");
                     if let Some(url) = state.link_url.take() {
+                        state.output.push_str(&url);
+                    }
+                    state.output.push(')');
+                }
+                Event::Start(Tag::Image { dest_url, .. }) => {
+                    state.output.push_str("![");
+                    state.image_url = Some(dest_url.to_string());
+                }
+                Event::End(TagEnd::Image) => {
+                    state.output.push_str("](");
+                    if let Some(url) = state.image_url.take() {
                         state.output.push_str(&url);
                     }
                     state.output.push(')');
@@ -547,21 +576,64 @@ fn events_to_markdown(events: Vec<Event>) -> String {
                 Event::End(TagEnd::Strong) => state.output.push_str("**"),
                 Event::Start(Tag::Emphasis) => state.output.push('*'),
                 Event::End(TagEnd::Emphasis) => state.output.push('*'),
-                Event::Start(Tag::List(_)) => {
-                    // List starts - no output
+                Event::Start(Tag::Strikethrough) => state.output.push_str("~~"),
+                Event::End(TagEnd::Strikethrough) => state.output.push_str("~~"),
+                Event::Start(Tag::List(Some(start))) => {
+                    state.list_stack.push(ListState::ordered(start))
                 }
+                Event::Start(Tag::List(None)) => state.list_stack.push(ListState::unordered()),
                 Event::End(TagEnd::List(_)) => {
+                    state.list_stack.pop();
                     state.output.push('\n');
                 }
                 Event::Start(Tag::Item) => {
-                    state.output.push_str("- ");
+                    let indent = "  ".repeat(state.list_stack.len().saturating_sub(1));
+                    state.output.push_str(&indent);
+                    if let Some(list) = state.list_stack.last_mut() {
+                        state.output.push_str(&list.prefix_and_advance());
+                    } else {
+                        state.output.push_str("- ");
+                    }
                 }
-                Event::End(TagEnd::Item) => {
+                Event::End(TagEnd::Item) => state.output.push('\n'),
+                Event::TaskListMarker(checked) => {
+                    if checked {
+                        state.output.push_str("[x] ");
+                    } else {
+                        state.output.push_str("[ ] ");
+                    }
+                }
+                Event::FootnoteReference(name) => state.output.push_str(&format!("[^{}]", name)),
+                Event::Start(Tag::FootnoteDefinition(name)) => {
+                    state.output.push_str(&format!("\n[^{}]: ", name));
+                }
+                Event::End(TagEnd::FootnoteDefinition) => state.output.push('\n'),
+                Event::Start(Tag::Table(alignments)) => {
+                    state.table_alignments = alignments;
                     state.output.push('\n');
                 }
-                _ => {
-                    // Pass through other events
+                Event::End(TagEnd::Table) => {
+                    state.table_alignments.clear();
+                    state.output.push('\n');
                 }
+                Event::Start(Tag::TableHead) => state.output.push('|'),
+                Event::End(TagEnd::TableHead) => {
+                    state.output.push('\n');
+                    if !state.table_alignments.is_empty() {
+                        state.output.push('|');
+                        for alignment in &state.table_alignments {
+                            state.output.push(' ');
+                            state.output.push_str(alignment_marker(*alignment));
+                            state.output.push_str(" |");
+                        }
+                        state.output.push('\n');
+                    }
+                }
+                Event::Start(Tag::TableRow) => state.output.push('|'),
+                Event::End(TagEnd::TableRow) => state.output.push('\n'),
+                Event::Start(Tag::TableCell) => state.output.push(' '),
+                Event::End(TagEnd::TableCell) => state.output.push_str(" |"),
+                _ => {}
             }
             state
         });
@@ -622,6 +694,28 @@ mod tests {
         let result = fix_headings_ast(content);
         // Code block content should be unchanged
         assert!(result.contains("## Not a heading"));
+    }
+
+    #[test]
+    fn test_events_to_markdown_preserves_tables_and_images() {
+        let content = "| A | B |
+|---|---|
+| 1 | 2 |
+
+![alt text](./img.png)";
+        let rendered = events_to_markdown(parse_markdown(content));
+        assert!(rendered.contains("| A | B |"));
+        assert!(rendered.contains("![alt text](./img.png)"));
+    }
+
+    #[test]
+    fn test_events_to_markdown_preserves_ordered_task_and_footnote() {
+        let content = "1. [x] done\n2. [ ] pending\n\nTerm[^1]\n\n[^1]: note";
+        let rendered = events_to_markdown(parse_markdown(content));
+        assert!(rendered.contains("1. [x] done"));
+        assert!(rendered.contains("2. [ ] pending"));
+        assert!(rendered.contains("[^1]"));
+        assert!(rendered.contains("[^1]: note"));
     }
 
     #[test]

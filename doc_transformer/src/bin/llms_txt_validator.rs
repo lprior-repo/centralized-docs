@@ -245,7 +245,7 @@ fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
             result.add_error(
                 "sections",
                 &format!("Missing required section: {section}"),
-                Severity::Warning,
+                Severity::Error,
             );
         }
     }
@@ -594,6 +594,25 @@ mod tests {
 
         let result = validate_llms_txt(file.path())?;
         assert!(result.valid);
+        Ok(())
+    }
+
+    #[test]
+    fn test_missing_required_sections_are_errors() -> anyhow::Result<()> {
+        let mut file = NamedTempFile::new()?;
+        writeln!(
+            file,
+            "# Project
+
+## Getting Started"
+        )?;
+
+        let result = validate_llms_txt(file.path())?;
+        assert!(!result.valid);
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.field == "sections" && e.severity == Severity::Error));
         Ok(())
     }
 

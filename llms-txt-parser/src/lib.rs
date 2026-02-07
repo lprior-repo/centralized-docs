@@ -24,6 +24,7 @@
 //! ```
 
 use anyhow::{Context, Result};
+use pulldown_cmark::{Event, Parser, Tag};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -242,22 +243,44 @@ fn extract_frontmatter(content: &str) -> Result<(Option<Frontmatter>, String)> {
 
 /// Parse a markdown link: [text](url) or [text](url): description
 fn parse_link(text: &str) -> Option<Link> {
-    // Match [text](url)
-    let start = text.find('[')?;
-    let middle = text.find("](")?;
-    let end = text[middle..].find(')')?;
+    let parser = Parser::new(text);
+    let mut in_link = false;
+    let mut link_text = String::new();
+    let mut url: Option<String> = None;
+    let mut seen_link = false;
+    let mut description = String::new();
 
-    let link_text = text[start + 1..middle].to_string();
-    let url = text[middle + 2..middle + end].to_string();
+    for event in parser {
+        match event {
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                in_link = true;
+                url = Some(dest_url.into_string());
+            }
+            Event::End(pulldown_cmark::TagEnd::Link) => {
+                in_link = false;
+                seen_link = true;
+            }
+            Event::Text(t) if in_link => link_text.push_str(&t),
+            Event::Text(t) if seen_link => description.push_str(&t),
+            Event::Code(t) if seen_link => {
+                description.push_str(&t);
+            }
+            Event::SoftBreak | Event::HardBreak if seen_link => description.push(' '),
+            _ => {}
+        }
+    }
 
-    // Check for description after the link
-    let rest = text[middle + end + 1..].trim();
-    let description = if let Some(stripped) = rest.strip_prefix(':') {
-        Some(stripped.trim().to_string())
-    } else if !rest.is_empty() {
-        Some(rest.to_string())
-    } else {
+    let url = url?;
+    if link_text.is_empty() {
+        return None;
+    }
+
+    let description = description.trim();
+    let description = description.strip_prefix(':').unwrap_or(description).trim();
+    let description = if description.is_empty() {
         None
+    } else {
+        Some(description.to_string())
     };
 
     Some(Link {
@@ -329,6 +352,36 @@ documents: 42
         assert_eq!(link.text, "Title");
         assert_eq!(link.url, "./path.md");
         assert_eq!(link.description, Some("Description".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_link_with_nested_brackets() -> anyhow::Result<()> {
+        let link = parse_link("[Title [v2]](./path.md): Details")
+            .ok_or_else(|| anyhow::anyhow!("parse_link returned None"))?;
+        assert_eq!(link.text, "Title [v2]");
+        assert_eq!(link.url, "./path.md");
+        assert_eq!(link.description, Some("Details".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_link_with_paren_in_url() -> anyhow::Result<()> {
+        let link = parse_link("[Spec](https://example.com/spec(v1).md)")
+            .ok_or_else(|| anyhow::anyhow!("parse_link returned None"))?;
+        assert_eq!(link.text, "Spec");
+        assert_eq!(link.url, "https://example.com/spec(v1).md");
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_link_with_inline_markdown_description() -> anyhow::Result<()> {
+        let link = parse_link("[CLI](./cli.md): use `--help` before **deploy**")
+            .ok_or_else(|| anyhow::anyhow!("parse_link returned None"))?;
+        assert_eq!(
+            link.description,
+            Some("use --help before deploy".to_string())
+        );
         Ok(())
     }
 
