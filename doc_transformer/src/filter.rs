@@ -163,6 +163,7 @@ fn try_readability_extraction(html: &str) -> Result<String, anyhow::Error> {
 /// Calculate text density score (ratio of non-whitespace to total characters)
 ///
 /// Used to assess content quality after extraction.
+#[allow(clippy::cast_precision_loss)]
 fn calculate_text_density(content: &str) -> f32 {
     let text_length = content.chars().filter(|c| !c.is_whitespace()).count();
     let total_length = content.len();
@@ -216,7 +217,9 @@ fn fallback_prune_html(html: &str, config: &FilterConfig) -> FilterResult {
             let total_length = main_content.len();
             if total_length > 0 {
                 // SAFETY: Content length typically < 1MB, well within f32 precision
-                text_length as f32 / total_length as f32
+                #[allow(clippy::cast_precision_loss)]
+                let ratio = text_length as f32 / total_length as f32;
+                ratio
             } else {
                 0.0
             }
@@ -539,6 +542,16 @@ pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
 ///
 /// Creates ONE index for ALL documents (O(1) memory, not O(n)), then scores.
 /// Replaces O(n) index creations with single reusable index.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The limit parameter is invalid (0 or negative)
+/// - Index writer creation fails
+/// - Document indexing fails
+/// - Index commit fails
+/// - Query parsing fails
+/// - Search execution fails
 #[allow(dead_code)] // Exported for library users - not used internally
 pub fn batch_score_documents_bm25<'a>(
     documents: &'a [serde_json::Value],
@@ -610,10 +623,15 @@ pub fn batch_score_documents_bm25<'a>(
 /// Test helper: Discover markdown files from a directory (for integration tests)
 ///
 /// This function is used in integration tests to simulate the discovery phase
-/// without depending on the full discover module. Returns a Vec of relative paths.
+/// without depending on full discover module. Returns a Vec of relative paths.
 ///
 /// Note: This function is primarily for testing purposes but is made public
 /// to be accessible from integration tests in the tests/ directory.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Path resolution fails (e.g., permission issues)
 #[allow(dead_code)] // Test helper function for integration tests
 pub fn discover_test_files(root: &std::path::Path) -> Result<Vec<String>, anyhow::Error> {
     use walkdir::WalkDir;

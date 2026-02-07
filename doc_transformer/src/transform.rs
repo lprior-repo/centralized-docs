@@ -85,20 +85,20 @@ pub fn transform_all(
     let docs_dir = output_dir.join("docs");
     create_dir_with_context(&docs_dir, "docs")?;
 
-    let mut success_count: usize = 0;
-    let mut error_count: usize = 0;
-
-    for analysis in analyses {
-        if let Some(mapping) = link_map.get(&analysis.source_path) {
-            match transform_file(analysis, mapping, link_map, &docs_dir) {
-                Ok(()) => success_count = success_count.saturating_add(1),
-                Err(e) => {
+    let results = analyses
+        .iter()
+        .filter_map(|analysis| {
+            link_map.get(&analysis.source_path).map(|mapping| {
+                transform_file(analysis, mapping, link_map, &docs_dir).map_err(|e| {
                     eprintln!("TRANSFORM ERROR: {}: {}", analysis.source_path, e);
-                    error_count = error_count.saturating_add(1);
-                }
-            }
-        }
-    }
+                    e
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let success_count = results.iter().filter(|r| r.is_ok()).count();
+    let error_count = results.len().saturating_sub(success_count);
 
     Ok(TransformResult {
         success_count,
@@ -194,7 +194,6 @@ fn parse_markdown(content: &str) -> Vec<Event<'_>> {
 fn fix_headings_ast(content: &str) -> String {
     let events = parse_markdown(content);
 
-    // Track heading levels as we walk the tree
     let mut fixed_events = Vec::new();
     let mut last_heading_level: Option<u32> = None;
     let mut in_code_block = false;
@@ -401,8 +400,7 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
     if has_h1 {
         content.to_string()
     } else {
-        // Prepend H1 with title
-        let mut new_events = vec![
+        let heading_events = vec![
             Event::Start(Tag::Heading {
                 level: pulldown_cmark::HeadingLevel::H1,
                 id: None,
@@ -414,7 +412,7 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
             Event::SoftBreak,
             Event::SoftBreak,
         ];
-        new_events.extend(events);
+        let new_events = heading_events.into_iter().chain(events).collect();
         events_to_markdown(new_events)
     }
 }
@@ -578,18 +576,14 @@ fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
         return String::new();
     }
 
-    let mut char_count = 0;
-    let mut last_valid_boundary = 0;
-
-    for (i, c) in text.char_indices() {
-        if char_count >= max_chars {
-            break;
-        }
-        char_count = char_count.saturating_add(1);
-        last_valid_boundary = i.saturating_add(c.len_utf8());
-    }
-
-    text[..last_valid_boundary].to_string()
+    text.char_indices()
+        .take(max_chars)
+        .last()
+        .map(|(idx, c)| {
+            let byte_end = idx.saturating_add(c.len_utf8());
+            text[..byte_end].to_string()
+        })
+        .unwrap_or_else(|| String::new())
 }
 
 /// Generate tags using functional composition

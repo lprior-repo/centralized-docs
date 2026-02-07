@@ -230,10 +230,8 @@ impl OpenAIProvider {
 
     fn embedding_dim(&self) -> usize {
         match self.model.as_str() {
-            "text-embedding-3-small" => 1536,
             "text-embedding-3-large" => 3072,
-            "text-embedding-ada-002" => 1536,
-            _ => 1536, // Default to 1536
+            _ => 1536,
         }
     }
 }
@@ -299,7 +297,7 @@ impl EmbeddingProvider for OpenAIProvider {
                 .unwrap_or(60);
 
             return Err(EmbeddingProviderError::RateLimited {
-                retry_after: retry_after as u64,
+                retry_after: u64::try_from(retry_after).unwrap_or(60),
             });
         }
 
@@ -406,10 +404,7 @@ impl CohereProvider {
 
     fn embedding_dim(&self) -> usize {
         match self.model.as_str() {
-            "embed-english-v3.0" => 1024,
-            "embed-english-v2.0" => 4096,
-            "embed-multilingual-v3.0" => 1024,
-            "embed-multilingual-v2.0" => 4096,
+            "embed-english-v2.0" | "embed-multilingual-v2.0" => 4096,
             _ => 1024,
         }
     }
@@ -476,7 +471,7 @@ impl EmbeddingProvider for CohereProvider {
                 .unwrap_or(60);
 
             return Err(EmbeddingProviderError::RateLimited {
-                retry_after: retry_after as u64,
+                retry_after: u64::try_from(retry_after).unwrap_or(60),
             });
         }
 

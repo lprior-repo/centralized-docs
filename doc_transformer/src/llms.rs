@@ -3,11 +3,12 @@
 //! Generates llms.txt and llms-full.txt files following the llms.txt specification.
 //! These files provide AI-friendly entry points into the documentation.
 //!
-//! Specification: <https://llmstxt.org>/
+//! Specification: <https://llmstxt.org/>
 
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
 use anyhow::Result;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -52,6 +53,12 @@ impl Default for LlmsConfig {
 /// - Blockquote: Brief description
 /// - H2 sections: Categorized document links
 /// - Optional section: Secondary content
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing output file fails
+#[allow(clippy::implicit_hasher, clippy::too_many_lines)]
 pub fn generate_llms_txt(
     analyses: &[Analysis],
     link_map: &HashMap<String, IdMapping>,
@@ -91,16 +98,15 @@ pub fn generate_llms_txt(
     content.push_str("- Chunking: Semantic chunks with context prefix (~170 tokens)\n");
     content.push_str("- Navigation: Knowledge DAG with Jaccard similarity\n\n");
 
-    // Group by category
-    let mut by_category: HashMap<&str, Vec<(&Analysis, &IdMapping)>> = HashMap::new();
-    for analysis in analyses {
-        if let Some(mapping) = link_map.get(&analysis.source_path) {
-            by_category
-                .entry(&analysis.category)
-                .or_default()
-                .push((analysis, mapping));
-        }
-    }
+    // Group by category using functional pattern
+    let by_category: HashMap<&str, Vec<(&Analysis, &IdMapping)>> = analyses
+        .iter()
+        .filter_map(|analysis| {
+            link_map
+                .get(&analysis.source_path)
+                .map(|mapping| (analysis.category.as_str(), (analysis, mapping)))
+        })
+        .into_group_map();
 
     // Smart section detection: only include sections with documents
     let has_tutorials = by_category.get("tutorial").is_some_and(|v| !v.is_empty());
@@ -212,16 +218,16 @@ pub fn generate_llms_full_txt(
     ));
     content.push_str("---\n\n");
 
-    // Sort by category then title for consistent ordering
-    let mut sorted: Vec<_> = analyses
+    // Sort by category then title for consistent ordering using functional pattern
+    let sorted: Vec<_> = analyses
         .iter()
         .filter_map(|a| link_map.get(&a.source_path).map(|m| (a, m)))
-        .collect();
-    sorted.sort_by(|a, b| {
-        a.0.category
-            .cmp(&b.0.category)
-            .then_with(|| a.0.title.cmp(&b.0.title))
-    });
+        .sorted_by(|a, b| {
+            a.0.category
+                .cmp(&b.0.category)
+                .then_with(|| a.0.title.cmp(&b.0.title))
+        })
+        .collect_vec();
 
     for (analysis, mapping) in sorted {
         // Document header
@@ -284,18 +290,14 @@ fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
         return String::new();
     }
 
-    let mut char_count = 0;
-    let mut last_valid_boundary = 0;
-
-    for (i, c) in text.char_indices() {
-        if char_count >= max_chars {
-            break;
-        }
-        char_count = char_count.saturating_add(1);
-        last_valid_boundary = i.saturating_add(c.len_utf8());
-    }
-
-    text[..last_valid_boundary].to_string()
+    text.char_indices()
+        .take(max_chars)
+        .last()
+        .map(|(idx, c)| {
+            let byte_end = idx.saturating_add(c.len_utf8());
+            text[..byte_end].to_string()
+        })
+        .unwrap_or_else(|| String::new())
 }
 
 /// Skip YAML frontmatter from document content using functional pattern
@@ -337,12 +339,14 @@ pub fn generate_agents_md(
         analyses.len()
     ));
 
-    // Count categories
-    let mut categories: HashMap<&str, usize> = HashMap::new();
-    for analysis in analyses {
-        let count = categories.entry(&analysis.category).or_insert(0);
-        *count = count.saturating_add(1);
-    }
+    // Count categories using functional pattern
+    let categories: Vec<_> = analyses
+        .iter()
+        .map(|a| (a.category.clone(), ()))
+        .into_group_map()
+        .into_iter()
+        .map(|(cat, items)| (cat, items.len()))
+        .collect();
 
     content.push_str("### Document Categories\n\n");
     for (cat, count) in &categories {

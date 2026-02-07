@@ -28,6 +28,13 @@ impl GraphConfig {
     }
 
     /// Load configuration from a YAML file with validation
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The file cannot be read
+    /// - The YAML is invalid
+    /// - Parameter validation fails (out of range)
     pub fn load_from_file(path: &Path) -> Result<Self> {
         #[derive(Debug, Clone, Serialize, Deserialize)]
         struct GraphConfigRaw {
@@ -47,6 +54,13 @@ impl GraphConfig {
     }
 
     /// Create config with custom values (validates them)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `max_related_chunks` is not in range [1, 1000]
+    /// - `hnsw_m` is not in range [4, 64]
+    /// - `hnsw_ef_construction` is not in range [50, 1000]
     pub fn with_params(
         max_related_chunks: usize,
         hnsw_m: usize,
@@ -116,6 +130,14 @@ pub struct MatchCriteria {
 
 impl CategoryConfig {
     /// Load configuration from a YAML file
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The file cannot be read
+    /// - The YAML is invalid
+    /// - Category names are not lowercase alphanumeric
+    /// - Rules have no valid criteria
     pub fn load_from_file(path: &Path) -> Result<Self> {
         let content = fs::read_to_string(path)?;
         let config: CategoryConfig = serde_yaml::from_str(&content)?;
@@ -191,6 +213,7 @@ impl CategoryConfig {
     }
 
     /// Check if a document matches a rule's criteria
+    #[allow(clippy::unused_self)]
     fn matches_rule(
         &self,
         filename: &str,

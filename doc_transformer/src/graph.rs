@@ -164,14 +164,17 @@ impl KnowledgeDAG {
     /// Get all nodes reachable from a given node (transitive closure)
     #[must_use]
     pub fn reachable_from(&self, node_id: &str) -> HashSet<String> {
-        let mut visited = HashSet::new();
-        if let Some(&start_idx) = self.node_map.get(node_id) {
-            self._dfs_reachable(start_idx, &mut visited);
-        }
-        visited
+        self.node_map
+            .get(node_id)
+            .map(|&start_idx| {
+                let mut visited = HashSet::new();
+                self.dfs_reachable(start_idx, &mut visited);
+                visited
+            })
+            .unwrap_or_default()
     }
 
-    fn _dfs_reachable(&self, idx: NodeIndex, visited: &mut HashSet<String>) {
+    fn dfs_reachable(&self, idx: NodeIndex, visited: &mut HashSet<String>) {
         if let Some(node) = self.graph.node_weight(idx) {
             if !visited.insert(node.id.clone()) {
                 return; // Already visited
@@ -179,7 +182,7 @@ impl KnowledgeDAG {
 
             for edge in self.graph.edges(idx) {
                 let target_idx = edge.target();
-                self._dfs_reachable(target_idx, visited);
+                self.dfs_reachable(target_idx, visited);
             }
         }
     }
@@ -246,7 +249,7 @@ pub struct GraphStatistics {
 /// Calculate Jaccard similarity between two tag sets using functional composition
 ///
 /// Returns 1.0 if both tag sets are empty (considered identical).
-/// Returns the Jaccard coefficient (intersection / union) otherwise.
+/// Returns Jaccard coefficient (intersection / union) otherwise.
 ///
 /// # Examples
 ///
@@ -258,6 +261,7 @@ pub struct GraphStatistics {
 /// assert!((similarity - 0.333).abs() < 0.01); // 1 common / 3 total
 /// ```
 #[allow(dead_code)]
+#[allow(clippy::cast_precision_loss)]
 #[must_use]
 pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
     if tags1.is_empty() && tags2.is_empty() {

@@ -83,7 +83,7 @@ pub fn build_and_write_index(
     max_chunk_keywords: Option<usize>,
 ) -> Result<()> {
     // Phase 1: Build document index and extract metadata
-    let doc_index = build_document_index(analyses, link_map, chunks_result);
+    let doc_index = build_document_index(analyses, link_map, chunks_result)?;
 
     // Phase 2: Build knowledge graph
     let dag = build_knowledge_dag(
@@ -398,7 +398,7 @@ fn assemble_index_json(ctx: &IndexAssemblyContext<'_>) -> serde_json::Value {
             "similarity_metric": "weighted_terms_on_tags_heading_summary",
             "min_similarity_threshold": 0.3
         }
-    })
+    }))
 }
 
 /// Write the index JSON to disk.
@@ -431,10 +431,13 @@ pub fn build_and_write_compass(
         .iter()
         .filter_map(|analysis| {
             link_map.get(&analysis.source_path).map(|mapping| {
-                let tags = extract_tags(analysis);
                 (
                     analysis.category.clone(),
-                    (analysis.title.clone(), mapping.filename.clone(), tags),
+                    (
+                        analysis.title.clone(),
+                        mapping.filename.clone(),
+                        extract_tags(analysis),
+                    ),
                 )
             })
         })
@@ -600,7 +603,7 @@ fn chunk_terms(chunk: &Chunk, max_chunk_keywords: usize) -> Vec<(String, f32)> {
         .fold(HashMap::new(), |mut acc, (term, weight)| {
             acc.entry(term)
                 .and_modify(|existing| {
-                    if weight > *existing {
+                    if *existing < weight {
                         *existing = weight;
                     }
                 })
@@ -626,7 +629,7 @@ fn merge_weighted_terms(terms: Vec<(String, f32)>) -> Vec<(String, f32)> {
         .fold(HashMap::new(), |mut acc, (term, weight)| {
             acc.entry(term)
                 .and_modify(|existing| {
-                    if weight > *existing {
+                    if *existing < weight {
                         *existing = weight;
                     }
                 })

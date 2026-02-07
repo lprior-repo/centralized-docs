@@ -17,6 +17,16 @@ pub struct DiscoverManifest {
     pub files: Vec<DiscoveryFile>,
 }
 
+/// Discover all markdown and text files in a directory tree
+///
+/// Walks the directory tree recursively, finding all supported file types
+/// and building a manifest with metadata.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The source directory does not exist
+/// - The canonical path cannot be resolved
 pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, DiscoverManifest)> {
     if !source_dir.exists() {
         anyhow::bail!("Source not found: {}", source_dir.display());
@@ -132,10 +142,7 @@ fn discover_single_file(
         extensions.contains(&ext_str.as_str())
     });
 
-    let mut files = Vec::new();
-
-    if has_supported_ext {
-        // Get file size using functional error handling
+    let files = if has_supported_ext {
         let size = file_path
             .metadata()
             .context(format!(
@@ -144,11 +151,13 @@ fn discover_single_file(
             ))?
             .len();
 
-        files.push(DiscoveryFile {
+        vec![DiscoveryFile {
             source_path: filename,
             size_bytes: size,
-        });
-    }
+        }]
+    } else {
+        Vec::new()
+    };
 
     // Use parent directory as source_dir for manifest
     let source_dir = file_path

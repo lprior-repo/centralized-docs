@@ -20,16 +20,6 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
-use std::sync::LazyLock;
-
-#[expect(clippy::expect_used)]
-static HEADER_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("hardcoded regex pattern is valid"));
-
-#[expect(clippy::expect_used)]
-static LINK_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("hardcoded regex pattern is valid")
-});
 
 /// Calculate exponential backoff delay with overflow protection
 pub fn calculate_backoff_delay(base_delay_ms: u64, attempt: u32) -> u64 {
@@ -44,8 +34,8 @@ pub fn url_to_slug(url: &str) -> Result<String> {
 
     let path = parsed.path().trim_matches('/');
 
-    let path = path.strip_suffix(".html").unwrap_or(path);
-    let path = path.strip_suffix(".htm").unwrap_or(path);
+    let path = path.strip_suffix(".html").map_or(path, |s| s);
+    let path = path.strip_suffix(".htm").map_or(path, |s| s);
 
     let raw_slug = path.replace(['/', '.'], "-");
 
@@ -57,9 +47,9 @@ pub fn url_to_slug(url: &str) -> Result<String> {
 
     let slug = slug
         .strip_suffix("-html")
-        .unwrap_or(&slug)
+        .map_or(&slug, |s| s)
         .strip_suffix("-htm")
-        .unwrap_or(&slug)
+        .map_or(&slug, |s| s)
         .to_string();
 
     let slug = if slug.len() > 200 {
@@ -97,19 +87,22 @@ pub fn detect_rate_limit_page(html: &str) -> bool {
 pub fn extract_headers(markdown: &str) -> Vec<super::validation::Header> {
     let mut headers = Vec::new();
 
+    let header_regex = match Regex::new(r"^(#{1,6})\s+(.+)$") {
+        Ok(regex) => regex,
+        Err(_) => return headers,
+    };
+
     markdown
         .lines()
-        .filter_map(|line| HEADER_REGEX.captures(line.trim()))
+        .filter_map(|line| header_regex.captures(line.trim()))
         .filter_map(|caps| {
             let level_match = caps.get(1)?;
             let text_match = caps.get(2)?;
-            let level = u8::try_from(level_match.as_str().len()).unwrap_or(1);
+            let level = u8::try_from(level_match.as_str().len()).map_or(1, |v| v);
             let text = text_match.as_str().to_string();
             Some(super::validation::Header { level, text })
         })
-        .for_each(|header| headers.push(header));
-
-    headers
+        .collect::<Vec<_>>()
 }
 
 /// Extract internal links from markdown
@@ -117,7 +110,12 @@ pub fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
     let base = url::Url::parse(base_url).ok();
     let mut links = Vec::new();
 
-    for caps in LINK_REGEX.captures_iter(markdown) {
+    let link_regex = match Regex::new(r"\[([^\]]+)\]\(([^)]+)\)") {
+        Ok(regex) => regex,
+        Err(_) => return links,
+    };
+
+    for caps in link_regex.captures_iter(markdown) {
         if let Some(href_match) = caps.get(2) {
             let href = href_match.as_str();
 

@@ -14,17 +14,12 @@
 use anyhow::{Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::sync::LazyLock;
-
-#[expect(clippy::expect_used)]
-static H1_TITLE_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("hardcoded regex pattern is valid"));
 
 /// Detects nested quantifier patterns that cause ReDoS (catastrophic backtracking).
 /// Matches any group `(...)` containing `+` or `*`, followed by `+` or `*`.
-#[expect(clippy::expect_used)]
-static REDOS_DETECTOR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\([^)]*[+*]\)[+*]").expect("hardcoded regex is valid"));
+fn get_redos_detector() -> Result<Regex> {
+    Regex::new(r"\([^)]*[+*]\)[+*]").context("hardcoded ReDoS detector regex is valid")
+}
 
 /// Safely compiles a user-provided regex pattern with ReDoS protection.
 ///
@@ -50,7 +45,9 @@ pub(crate) fn compile_safe_regex(pattern: &str) -> Result<Regex> {
 
     // Detect nested quantifiers: any group containing a quantifier, itself followed by a quantifier
     // Catches: (.*)*  (.+)+  ([a-z]+)+  (a+)+  (\w+)*  etc.
-    if REDOS_DETECTOR.is_match(pattern) {
+    let redos_detector =
+        Regex::new(r"\([^)]*[+*]\)[+*]").context("failed to compile ReDoS detector regex")?;
+    if redos_detector.is_match(pattern) {
         anyhow::bail!(
             "Regex contains potentially slow pattern (ReDoS risk): nested quantifiers detected. \
              This pattern can cause catastrophic backtracking and hang the application.",
@@ -196,11 +193,10 @@ pub fn check_markdown_size(markdown: &str, max_size: u64) -> Result<()> {
 #[must_use]
 pub fn limit_links_per_page(links: Vec<String>, max_links: usize) -> (Vec<String>, bool) {
     if links.len() <= max_links {
-        return (links, false);
+        (links, false)
+    } else {
+        (links.into_iter().take(max_links).collect(), true)
     }
-    let mut truncated = links;
-    truncated.truncate(max_links);
-    (truncated, true)
 }
 
 /// Validate that a slug is non-empty and filesystem-safe
@@ -228,8 +224,25 @@ pub fn validate_scrape_result(result: &ScrapeResult) -> Result<()> {
 
 /// Extract title from markdown content
 pub fn extract_title(markdown: &str, url: &str) -> String {
+    let h1_regex = match Regex::new(r"^#\s+(.+)$") {
+        Ok(regex) => regex,
+        Err(_) => {
+            // Fallback: simple string matching if regex compilation fails
+            return url::Url::parse(url).map_or_else(
+                |_| "Untitled".to_string(),
+                |u| {
+                    u.path()
+                        .trim_matches('/')
+                        .split('/')
+                        .next_back()
+                        .map_or_else(|| "Untitled".to_string(), |s| s.replace(['-', '_'], " "))
+                },
+            );
+        }
+    };
+
     for line in markdown.lines() {
-        if let Some(caps) = H1_TITLE_REGEX.captures(line.trim()) {
+        if let Some(caps) = h1_regex.captures(line.trim()) {
             if let Some(title_match) = caps.get(1) {
                 return title_match.as_str().to_string();
             }

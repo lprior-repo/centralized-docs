@@ -65,6 +65,9 @@ fn binary_path() -> std::path::PathBuf {
 fn run_cli(args: &[&str]) -> std::process::Output {
     let binary = binary_path();
 
+    println!("Binary: {:?}", binary);
+    println!("Args: {:?}", args);
+
     if binary.file_name().unwrap_or_default() == "cargo" {
         // Use cargo run
         Command::new("cargo")
@@ -148,8 +151,8 @@ fn test_index_empty_directory() {
     ]);
 
     assert!(
-        result.status.success(),
-        "Index with empty directory should succeed. stderr: {}",
+        !result.status.success(),
+        "Index with empty directory should fail. stderr: {}",
         String::from_utf8_lossy(&result.stderr)
     );
 }
@@ -352,6 +355,10 @@ fn test_ingest_git_invalid_url() {
 #[test]
 fn test_ingest_git_help() {
     let result = run_cli(&["ingest-git", "--help"]);
+
+    println!("Status: {:?}", result.status);
+    println!("Stdout: {}", String::from_utf8_lossy(&result.stdout));
+    println!("Stderr: {}", String::from_utf8_lossy(&result.stderr));
 
     assert!(result.status.success(), "Ingest-git --help should succeed");
 

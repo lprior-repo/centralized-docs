@@ -174,6 +174,14 @@ fn escape_frontmatter(s: &str) -> String {
 /// It converts Analysis types to Documents, calls `contextual-chunker`,
 /// converts the results back to `doc_transformer` types, and writes
 /// chunk files to disk.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The chunks directory cannot be created
+/// - Chunking fails in contextual-chunker
+/// - Writing chunk files fails
+#[allow(clippy::implicit_hasher)]
 pub fn chunk_all(
     analyses: &[Analysis],
     link_map: &HashMap<String, IdMapping>,
