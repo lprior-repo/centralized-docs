@@ -38,6 +38,9 @@ petgraph = { version = "0.8", features = ["serde-1"] }
 tap = "1.0"
 strum = { version = "0.26", features = ["derive"] }
 itertools = "0.13"
+derive_more = { version = "1.0", features = ["display", "deref", "as_ref"] }
+tiktoken-rs = "0.5"
+unicode-segmentation = "1.12"
 
 # Web scraping (spider-rs ecosystem)
 # Note: sync feature enables tokio synchronization primitives

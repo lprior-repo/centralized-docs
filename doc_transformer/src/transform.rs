@@ -49,6 +49,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::Path;
+use unicode_segmentation::UnicodeSegmentation;
 
 pub struct TransformResult {
     pub success_count: usize,
@@ -570,20 +571,17 @@ fn events_to_markdown(events: Vec<Event>) -> String {
 }
 
 /// Safely truncate a string to a maximum number of Unicode characters
-/// This handles multi-byte UTF-8 characters correctly by using `char_indices`
+/// Truncate to max grapheme clusters (handles emoji, combining marks, etc.)
 fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
     if max_chars == 0 {
         return String::new();
     }
 
-    text.char_indices()
-        .take(max_chars)
-        .last()
-        .map(|(idx, c)| {
-            let byte_end = idx.saturating_add(c.len_utf8());
-            text[..byte_end].to_string()
-        })
-        .unwrap_or_else(|| String::new())
+    // TEST: Deliberate unwrap violation to test pre-commit hook
+    let opt_val: Option<usize> = Some(max_chars);
+    let _test = opt_val.unwrap(); // ❌ VIOLATION: This should be caught by hook
+
+    text.graphemes(true).take(max_chars).collect::<String>()
 }
 
 /// Generate tags using functional composition

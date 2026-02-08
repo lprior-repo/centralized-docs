@@ -644,10 +644,14 @@ fn normalize_heading_path(stack: &[String]) -> Vec<String> {
     }
 }
 
-/// Estimate token count using character-based approximation
-/// Assumes ~4 characters per token (OpenAI standard)
+/// Estimate token count using tiktoken cl100k_base tokenizer
+/// Falls back to character approximation if tokenizer unavailable
 fn estimate_tokens(text: &str) -> usize {
-    (text.len() / 4).max(1)
+    tiktoken_rs::cl100k_base()
+        .ok()
+        .map_or_else(|| (text.len() / 4).max(1), |bpe| {
+            bpe.encode_with_special_tokens(text).len()
+        })
 }
 
 /// Create a summary from chunk content (extractive)
