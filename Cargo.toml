@@ -13,6 +13,8 @@ repository = "https://github.com/lewisreader/centralized-docs"
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "allow"
+dead_code = "deny"
+unused_must_use = "deny"
 
 [workspace.dependencies]
 # FP primitives (The Holy Trinity)
@@ -23,13 +25,12 @@ strum = { version = "0.26", features = ["derive"] }
 thiserror = "2"
 
 [workspace.lints.clippy]
-# Zero unwrap law - COMPILE ERRORS
-unwrap_used = "forbid"
-expect_used = "forbid"
-panic = "forbid"
-todo = "forbid"
-unimplemented = "forbid"
-unreachable = "forbid"
+# Zero unwrap law - COMPILE ERRORS (relaxed in tests)
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
 
 # Enforce immutability and purity (Haskell-like FP)
 mut_mut = "deny"                      # No deeply mutable references
@@ -57,7 +58,7 @@ nursery = { level = "warn", priority = -1 }
 correctness = { level = "deny", priority = -1 }
 suspicious = { level = "deny", priority = -1 }
 
-# Specific allows for pragmatic development
+# Specific allows
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 module_name_repetitions = "allow"
