@@ -445,7 +445,7 @@ mod tests {
         let query = "a".repeat(1000);
         let result = validate_query(&query);
         assert!(result.is_ok());
-        assert_eq!(result.map(|s| s.len()), Ok(1000));
+        assert_eq!(result.map(str::len), Ok(1000));
     }
 
     #[test]
@@ -515,7 +515,7 @@ mod tests {
         let result = validate_query("");
         assert!(result.is_err());
         // Convert error to string for message validation
-        let err_str = result.as_ref().map_err(|e| e.to_string());
+        let err_str = result.as_ref().map_err(ToString::to_string);
         assert!(matches!(err_str, Err(ref msg) if msg == "Query cannot be empty"));
     }
 
@@ -525,7 +525,7 @@ mod tests {
         let result = validate_query(&query);
         assert!(result.is_err());
         // Convert error to string for message validation
-        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        let err_msg = result.as_ref().map_err(ToString::to_string);
         if let Err(msg) = err_msg {
             assert!(msg.contains("1001"));
             assert!(msg.contains("1000"));
@@ -584,7 +584,7 @@ mod tests {
     fn test_validate_query_rejects_regex_error_message() {
         let result = validate_query("/((a+)+)b/");
         assert!(result.is_err());
-        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        let err_msg = result.as_ref().map_err(ToString::to_string);
         assert!(matches!(err_msg, Err(ref msg) if msg.contains("Regex")));
     }
 
@@ -596,7 +596,7 @@ mod tests {
     fn test_validate_limit_zero() {
         let result = validate_limit("0");
         assert!(result.is_err());
-        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        let err_msg = result.as_ref().map_err(ToString::to_string);
         assert!(matches!(err_msg, Err(ref msg) if msg.contains("at least 1")));
     }
 
@@ -616,7 +616,7 @@ mod tests {
     fn test_validate_limit_negative() {
         let result = validate_limit("-1");
         assert!(result.is_err());
-        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        let err_msg = result.as_ref().map_err(ToString::to_string);
         assert!(matches!(err_msg, Err(ref msg) if msg.contains("positive")));
     }
 
@@ -624,7 +624,7 @@ mod tests {
     fn test_validate_limit_too_large() {
         let result = validate_limit("1001");
         assert!(result.is_err());
-        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        let err_msg = result.as_ref().map_err(ToString::to_string);
         assert!(matches!(err_msg, Err(ref msg) if msg.contains("at most 1000")));
     }
 
@@ -632,7 +632,7 @@ mod tests {
     fn test_validate_limit_error_message() {
         let result = validate_limit("0");
         assert!(result.is_err());
-        let err_msg = result.as_ref().map_err(|e| e.to_string());
+        let err_msg = result.as_ref().map_err(ToString::to_string);
         assert!(matches!(err_msg, Err(ref msg) if msg.contains("at least 1")));
     }
 }

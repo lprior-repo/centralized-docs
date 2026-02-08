@@ -1,3 +1,8 @@
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![forbid(unsafe_code)]
+
 //! Transformation phase of the documentation transformation pipeline.
 //!
 //! This module transforms analyzed documents into the final output format.

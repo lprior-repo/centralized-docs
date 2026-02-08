@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::LazyLock;
 use tap::Pipe;
+use tiktoken::{bpe::CoreBpe, encoding::Dict, encoding::Encoding};
 
 /// Hierarchical chunk level for multi-granularity retrieval
 ///
@@ -647,11 +648,20 @@ fn normalize_heading_path(stack: &[String]) -> Vec<String> {
 /// Estimate token count using tiktoken cl100k_base tokenizer
 /// Falls back to character approximation if tokenizer unavailable
 fn estimate_tokens(text: &str) -> usize {
-    tiktoken_rs::cl100k_base()
+    Encoding::get_by_dict(&Dict::Cl100kBase)
         .ok()
-        .map_or_else(|| (text.len() / 4).max(1), |bpe| {
-            bpe.encode_with_special_tokens(text).len()
+        .map(|encoding| {
+            let bpe = CoreBpe::new(
+                encoding.merging_ranks,
+                encoding.special_tokens,
+                encoding.dict.get_regex_pattern(),
+            );
+            bpe.expect("failed to create bpe")
+                .encode_native(text)
+                .0
+                .len()
         })
+        .unwrap_or_else(|| (text.len() / 4).max(1))
 }
 
 /// Create a summary from chunk content (extractive)

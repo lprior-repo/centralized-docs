@@ -9,6 +9,8 @@
 //! while preserving main documentation content. Falls back to density-based pruning
 //! when Readability cannot extract content.
 
+#![allow(dead_code)] // Public API functions exported but not used in current project
+
 use anyhow::Result;
 use readability::extractor;
 use scraper::{Html, Selector};
