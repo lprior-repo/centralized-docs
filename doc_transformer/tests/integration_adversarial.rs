@@ -372,7 +372,7 @@ fn test_document_with_duplicate_document_ids() {
         .output()
         .unwrap();
 
-    let args2 = vec![
+    let _args2 = vec![
         "doc_transformer",
         "document",
         "duplicate.md",

@@ -9,9 +9,9 @@ use anyhow::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::fs;
+use std::hash::BuildHasher;
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -449,15 +449,16 @@ pub fn build_and_write_compass<S: std::hash::BuildHasher>(
         })
         .into_group_map();
 
-    let mut compass = format!(
-        "# Documentation Compass\n\n> **{} documents**\n\n",
-        analyses.len()
-    );
+    let mut compass = String::new();
+    compass.push_str("# Documentation Compass\n\n");
+    compass.push_str(&format!("> **{} documents**\n\n", analyses.len()));
 
     // By category
     for category in &["tutorial", "concept", "ref", "ops", "meta"] {
         if let Some(docs) = by_category.get(*category) {
-            compass.push_str(&format!("## {}\n\n", category.to_uppercase()));
+            compass.push_str("## ");
+            compass.push_str(&category.to_uppercase());
+            compass.push_str("\n\n");
             for (title, filename, tags) in docs.iter().take(5) {
                 let tag_str = tags
                     .iter()
@@ -465,7 +466,13 @@ pub fn build_and_write_compass<S: std::hash::BuildHasher>(
                     .map(|t| format!("`{t}`"))
                     .collect::<Vec<_>>()
                     .join(" ");
-                compass.push_str(&format!("- [{title}](./docs/{filename}) {tag_str}\n"));
+                compass.push_str("- [");
+                compass.push_str(title);
+                compass.push_str("](./docs/");
+                compass.push_str(filename);
+                compass.push_str(") ");
+                compass.push_str(&tag_str);
+                compass.push_str("\n");
             }
             compass.push('\n');
         }

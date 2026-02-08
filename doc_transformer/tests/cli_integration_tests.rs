@@ -24,6 +24,7 @@ use tempfile::TempDir;
 // =============================================================================
 
 /// Creates a temporary directory with sample markdown files for testing
+#[allow(dead_code)]
 fn create_test_docs(dir: &Path) {
     let docs_dir = dir.join("docs");
     fs::create_dir_all(&docs_dir).unwrap();
