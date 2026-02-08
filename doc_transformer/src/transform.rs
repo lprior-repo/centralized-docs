@@ -1,4 +1,5 @@
 #![deny(clippy::unwrap_used)]
+#![allow(clippy::match_same_arms)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
@@ -582,9 +583,8 @@ fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
         return String::new();
     }
 
-    // TEST: Deliberate unwrap violation to test pre-commit hook
     let opt_val: Option<usize> = Some(max_chars);
-    let _test = opt_val.unwrap(); // ❌ VIOLATION: This should be caught by hook
+    let _test = opt_val.unwrap_or(max_chars);
 
     text.graphemes(true).take(max_chars).collect::<String>()
 }

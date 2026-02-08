@@ -661,7 +661,7 @@ fn estimate_tokens(text: &str) -> usize {
                 .0
                 .len()
         })
-        .unwrap_or_else(|| (text.len() / 4).max(1))
+        .unwrap_or((text.len() / 4).max(1))
 }
 
 /// Create a summary from chunk content (extractive)

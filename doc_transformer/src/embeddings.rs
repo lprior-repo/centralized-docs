@@ -191,6 +191,11 @@ pub struct OpenAIProvider {
 
 impl OpenAIProvider {
     /// Create a new `OpenAI` provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns `EmbeddingProviderError::MissingApiKey` if the API key is empty.
+    /// Returns `EmbeddingProviderError::ApiError` if the HTTP client fails to build.
     pub fn new(api_key: impl Into<String>) -> Result<Self, EmbeddingProviderError> {
         let api_key = api_key.into();
         if api_key.is_empty() {
@@ -219,6 +224,11 @@ impl OpenAIProvider {
     }
 
     /// Create a provider with a specific model.
+    ///
+    /// # Errors
+    ///
+    /// Returns `EmbeddingProviderError` if the underlying provider fails to initialize
+    /// (e.g., missing API key, invalid client configuration).
     pub fn with_model(
         api_key: impl Into<String>,
         model: &str,
@@ -375,6 +385,11 @@ pub struct CohereProvider {
 
 impl CohereProvider {
     /// Create a new Cohere provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns `EmbeddingProviderError::MissingApiKey` if the API key is empty.
+    /// Returns `EmbeddingProviderError::ApiError` if the HTTP client fails to build.
     pub fn new(api_key: impl Into<String>) -> Result<Self, EmbeddingProviderError> {
         let api_key = api_key.into();
         if api_key.is_empty() {

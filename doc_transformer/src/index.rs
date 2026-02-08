@@ -70,7 +70,12 @@ struct DocumentIndexResult {
     document_tags: Vec<(String, Vec<String>, String)>,
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::implicit_hasher)]
+/// Build and write the search index to disk.
+///
+/// # Errors
+///
+/// Returns an error if the index cannot be built or written to the specified directory.
 pub fn build_and_write_index(
     analyses: &[Analysis],
     link_map: &HashMap<String, IdMapping>,
@@ -588,10 +593,10 @@ fn chunk_terms(chunk: &Chunk, max_chunk_keywords: usize) -> Vec<(String, f32)> {
         .map(|h| extract_keywords_weighted(h, HEADING_WEIGHT))
         .unwrap_or_default();
 
-    let summary_terms = if !chunk.summary.is_empty() {
-        extract_keywords_weighted(&chunk.summary, SUMMARY_WEIGHT)
-    } else {
+    let summary_terms = if chunk.summary.is_empty() {
         Vec::new()
+    } else {
+        extract_keywords_weighted(&chunk.summary, SUMMARY_WEIGHT)
     };
 
     let mut weighted: Vec<(String, f32)> = heading_terms
