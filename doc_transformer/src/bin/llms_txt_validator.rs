@@ -240,22 +240,28 @@ fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
 
     // Check for required sections
     let required_sections = vec!["Getting Started", "Core Concepts", "API Reference"];
+    let mut missing_required = Vec::new();
     for section in required_sections {
         if !content.contains(&format!("## {section}")) {
+            missing_required.push(section.to_string());
+        }
+    }
+    if !missing_required.is_empty() {
+        for section in missing_required {
             result.add_error(
                 "sections",
                 &format!("Missing required section: {section}"),
-                Severity::Warning,
+                Severity::Error,
             );
         }
     }
 
-    // Check for INDEX.json reference
+    // Check for INDEX.json reference (optional)
     if !content.contains("INDEX.json") {
         result.add_error(
             "index_reference",
             "No reference to INDEX.json found",
-            Severity::Warning,
+            Severity::Info,
         );
     }
 
