@@ -3,8 +3,6 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
-#![allow(clippy::format_push_string)]
-#![allow(clippy::must_use_candidate)]
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::missing_errors_doc)]
 

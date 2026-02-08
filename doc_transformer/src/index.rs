@@ -9,6 +9,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -70,15 +71,14 @@ struct DocumentIndexResult {
     document_tags: Vec<(String, Vec<String>, String)>,
 }
 
-#[allow(clippy::too_many_arguments, clippy::implicit_hasher)]
 /// Build and write the search index to disk.
 ///
 /// # Errors
 ///
 /// Returns an error if the index cannot be built or written to the specified directory.
-pub fn build_and_write_index(
+pub fn build_and_write_index<S: std::hash::BuildHasher>(
     analyses: &[Analysis],
-    link_map: &HashMap<String, IdMapping>,
+    link_map: &HashMap<String, IdMapping, S>,
     chunks_result: &ChunksResult,
     output_dir: &Path,
     project_name: &str,
@@ -88,7 +88,7 @@ pub fn build_and_write_index(
     max_chunk_keywords: Option<usize>,
 ) -> Result<()> {
     // Phase 1: Build document index and extract metadata
-    let doc_index = build_document_index(analyses, link_map, chunks_result);
+    let doc_index = build_document_index(analyses, &link_map, chunks_result);
 
     // Phase 2: Build knowledge graph
     let dag = build_knowledge_dag(
@@ -131,9 +131,9 @@ pub fn build_and_write_index(
 /// Extracts documents, keywords, and tags for downstream processing.
 /// This is a pure data transformation with no I/O.
 #[allow(clippy::implicit_hasher)]
-fn build_document_index(
+fn build_document_index<S: std::hash::BuildHasher>(
     analyses: &[Analysis],
-    link_map: &HashMap<String, IdMapping>,
+    link_map: &HashMap<String, IdMapping, S>,
     chunks_result: &ChunksResult,
 ) -> DocumentIndexResult {
     let analyses_with_mapping: Vec<_> = analyses
@@ -427,9 +427,13 @@ fn build_tantivy_index(output_dir: &Path, documents: &[IndexDocument]) -> Result
         })
 }
 
-pub fn build_and_write_compass(
+/// Writes documentation compass file with category-based navigation
+/// # Errors
+/// Returns error if file writing fails
+#[allow(clippy::implicit_hasher)]
+pub fn build_and_write_compass<S: std::hash::BuildHasher>(
     analyses: &[Analysis],
-    link_map: &HashMap<String, IdMapping>,
+    link_map: &HashMap<String, IdMapping, S>,
     output_dir: &Path,
 ) -> Result<()> {
     let by_category: HashMap<String, Vec<(String, String, Vec<String>)>> = analyses
@@ -446,14 +450,9 @@ pub fn build_and_write_compass(
         .into_group_map();
 
     let mut compass = format!(
-        "---\nid: meta/navigation/compass\ntitle: Documentation Compass\ngenerated: {}\n---\n\n",
-        chrono::Utc::now().to_rfc3339()
-    );
-
-    compass.push_str(&format!(
         "# Documentation Compass\n\n> **{} documents**\n\n",
         analyses.len()
-    ));
+    );
 
     // By category
     for category in &["tutorial", "concept", "ref", "ops", "meta"] {
@@ -661,7 +660,13 @@ fn extract_keywords_weighted(text: &str, weight: f32) -> Vec<(String, f32)> {
 
 /// Build a knowledge graph DAG from documents and chunks
 #[allow(clippy::too_many_arguments)]
-#[allow(unused_variables)]
+/// Build knowledge DAG from documents and chunks
+/// # Errors
+/// Returns error if HNSW indexing fails or vocabulary building fails
+/// Build knowledge DAG from documents and chunks
+/// # Errors
+/// Returns error if HNSW indexing fails or vocabulary building fails
+#[allow(clippy::too_many_lines)]
 pub fn build_knowledge_dag(
     documents: &[IndexDocument],
     chunks: &[Chunk],

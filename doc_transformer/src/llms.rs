@@ -11,6 +11,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::fs;
+use std::hash::BuildHasher;
 use std::path::Path;
 
 /// Configuration for llms.txt generation
@@ -58,10 +59,10 @@ impl Default for LlmsConfig {
 ///
 /// Returns an error if:
 /// - Writing output file fails
-#[allow(clippy::implicit_hasher, clippy::too_many_lines)]
-pub fn generate_llms_txt(
+#[allow(clippy::too_many_lines)]
+pub fn generate_llms_txt<S: BuildHasher>(
     analyses: &[Analysis],
-    link_map: &HashMap<String, IdMapping>,
+    link_map: &HashMap<String, IdMapping, S>,
     config: &LlmsConfig,
     output_dir: &Path,
 ) -> Result<()> {
@@ -203,9 +204,15 @@ pub fn generate_llms_txt(
 ///
 /// This file contains all document content for models with large context windows.
 /// Each document is separated by a header with metadata.
-pub fn generate_llms_full_txt(
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Reading document files fails
+/// - Writing output file fails
+pub fn generate_llms_full_txt<S: BuildHasher>(
     analyses: &[Analysis],
-    link_map: &HashMap<String, IdMapping>,
+    link_map: &HashMap<String, IdMapping, S>,
     output_dir: &Path,
 ) -> Result<()> {
     let docs_dir = output_dir.join("docs");
@@ -297,7 +304,7 @@ fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
             let byte_end = idx.saturating_add(c.len_utf8());
             text[..byte_end].to_string()
         })
-        .unwrap_or_else(|| String::new())
+        .unwrap_or_default()
 }
 
 /// Skip YAML frontmatter from document content using functional pattern
@@ -317,9 +324,18 @@ fn skip_frontmatter(content: &str) -> &str {
 /// This file provides project-specific instructions that AI coding assistants
 /// should follow when working with this codebase. Adopted by `OpenAI` Codex,
 /// Google Jules, and Cursor.
-pub fn generate_agents_md(
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing output file fails
+/// # Errors
+///
+/// Returns an error if:
+/// - Writing output file fails
+pub fn generate_agents_md<S: BuildHasher>(
     analyses: &[Analysis],
-    _link_map: &HashMap<String, IdMapping>,
+    _link_map: &HashMap<String, IdMapping, S>,
     config: &LlmsConfig,
     output_dir: &Path,
 ) -> Result<()> {

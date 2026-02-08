@@ -648,20 +648,19 @@ fn normalize_heading_path(stack: &[String]) -> Vec<String> {
 /// Estimate token count using tiktoken cl100k_base tokenizer
 /// Falls back to character approximation if tokenizer unavailable
 fn estimate_tokens(text: &str) -> usize {
-    Encoding::get_by_dict(&Dict::Cl100kBase)
-        .ok()
-        .map(|encoding| {
+    Encoding::get_by_dict(&Dict::Cl100kBase).map_or_else(
+        |_| (text.len() / 4).max(1),
+        |encoding| {
             let bpe = CoreBpe::new(
                 encoding.merging_ranks,
                 encoding.special_tokens,
                 encoding.dict.get_regex_pattern(),
             );
-            bpe.expect("failed to create bpe")
-                .encode_native(text)
-                .0
-                .len()
-        })
-        .unwrap_or((text.len() / 4).max(1))
+            bpe.ok()
+                .map(|bpe| bpe.encode_native(text).0.len())
+                .unwrap_or_default()
+        },
+    )
 }
 
 /// Create a summary from chunk content (extractive)
