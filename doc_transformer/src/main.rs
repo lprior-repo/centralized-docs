@@ -1,10 +1,50 @@
-//! doc_transformer v5.0 - AI-Optimized Documentation Indexer
+//! `doc_transformer` v5.0 — AI-Optimized Documentation Indexer
 //!
-//! Transform raw documentation into AI-friendly knowledge structures with:
-//! - Web scraping via spider-rs
-//! - Semantic chunking with context prefixes
-//! - Knowledge DAG with relationship detection
-//! - llms.txt generation for AI entry points
+//! CLI entry point for the `doc_transformer` pipeline. Exposes four sub-commands
+//! that can be composed to go from a raw documentation source (local files **or**
+//! a live website) to a fully indexed, AI-queryable knowledge base.
+//!
+//! # Commands
+//!
+//! | Command | Input | Output |
+//! |---------|-------|--------|
+//! | `scrape <URL>` | Live website | `.scrape/` directory of markdown pages |
+//! | `index  <DIR>` | Markdown directory | `.index/` search + chunk files + llms.txt |
+//! | `ingest <URL>` | Live website | Scrape + index in one step |
+//! | `search <QUERY>` | `.index/` directory | Ranked results to stdout |
+//!
+//! # Typical Workflow
+//!
+//! ```text
+//! # Option A — local docs
+//! doc_transformer index ./my-docs --output ./output
+//!
+//! # Option B — remote docs
+//! doc_transformer scrape https://docs.example.com --output ./scraped
+//! doc_transformer index ./scraped --output ./output
+//!
+//! # Option C — one-shot ingest
+//! doc_transformer ingest https://docs.example.com --output ./output
+//!
+//! # Search
+//! doc_transformer search "how does authentication work" --index ./output
+//! ```
+//!
+//! # Configuration
+//!
+//! All numeric parameters are validated at the CLI boundary and converted into
+//! typed domain values before reaching library code — see [`types`] for the
+//! validated newtype wrappers (`HnswM`, `MaxRelatedChunks`, etc.).
+//!
+//! Scraping behaviour is controlled by enum flags rather than raw booleans:
+//! [`scrape::SitemapStrategy`], [`scrape::RobotsPolicy`],
+//! [`scrape::FilteringMode`], [`scrape::RetryStrategy`], [`scrape::StealthMode`].
+//!
+//! # Exit Codes
+//!
+//! - `0` — success
+//! - `1` — user error (bad arguments, missing files, invalid URL)
+//! - `2` — pipeline error (transform failed, index corrupt, network error)
 
 // Strict functional programming constraints
 #![allow(clippy::all)]

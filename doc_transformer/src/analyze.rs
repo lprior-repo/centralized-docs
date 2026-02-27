@@ -17,7 +17,9 @@
 //!
 //! - [`Analysis`] - Complete analysis result for a single document
 //! - [`Heading`] - Extracted heading with level and position
-//! - [`Link`] - Discovered link with target and internal/external flag
+//! - [`Link`] - Discovered link with target URL and [`LinkKind`] classification
+//! - [`LinkKind`] - Whether a link is [`LinkKind::Internal`] (relative path) or
+//!   [`LinkKind::External`] (absolute URL / mailto)
 //!
 //! # Example
 //!

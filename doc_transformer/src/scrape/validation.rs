@@ -7,9 +7,20 @@
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::must_use_candidate)]
 
-//! URL validation and size checking
+//! Scrape configuration, domain types, and validation utilities.
 //!
-//! Provides validation for URLs, size limits, and scrape result verification.
+//! Contains all types shared across the scraping sub-system:
+//!
+//! - **Behaviour enums** — [`SitemapStrategy`], [`RobotsPolicy`], [`FilteringMode`],
+//!   [`RetryStrategy`], [`StealthMode`]: replace `bool` flags with explicit intent.
+//! - **[`ScrapeConfig`]** — Complete configuration for a single scrape run.
+//! - **[`ScrapedPage`]** — One successfully scraped and converted page.
+//! - **[`PageFilterStatus`]** — Whether content-density filtering was applied.
+//! - **[`ScrapeResult`]** — Aggregate result with success/error counts.
+//!
+//! Validation utilities ([`compile_safe_regex`], [`validate_url`],
+//! [`check_html_size`], [`validate_scrape_result`]) guard the I/O boundary so that
+//! domain functions downstream receive only trusted, well-formed inputs.
 
 use anyhow::{Context, Result};
 use regex::Regex;
@@ -70,10 +81,12 @@ pub enum SitemapStrategy {
     CrawlOnly,
 }
 
-/// Whether to honour robots.txt exclusion rules.
+/// Whether to honour `robots.txt` exclusion rules.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RobotsPolicy {
+    /// Obey `Disallow` directives in `robots.txt`
     Respect,
+    /// Fetch all pages regardless of `robots.txt` (use with permission)
     Ignore,
 }
 

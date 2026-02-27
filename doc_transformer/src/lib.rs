@@ -1,42 +1,73 @@
-//! `doc_transformer` - AI-Optimized Documentation Transformation Library
+//! `doc_transformer` — AI-Optimized Documentation Transformation Library
 //!
-//! A Rust library for transforming raw documentation into AI-friendly knowledge structures.
-//! This library implements a 5-phase pipeline that processes markdown files and produces
-//! indexed, searchable documentation with semantic chunking and relationship detection.
+//! Transforms raw documentation (local markdown files or live websites) into
+//! AI-friendly knowledge structures: semantic chunks, a searchable Tantivy index,
+//! a knowledge DAG for related-content discovery, and a `llms.txt` entry point.
 //!
-//! # Pipeline Overview
+//! # Five-Phase Pipeline
 //!
-//! The transformation pipeline consists of five phases:
+//! ```text
+//! ┌─────────────┐    ┌──────────┐    ┌─────────────┐    ┌───────────┐    ┌────────┐
+//! │  1. discover │───▶│ 2. analyze│───▶│ 3. transform │───▶│ 4. chunk  │───▶│5. index│
+//! └─────────────┘    └──────────┘    └─────────────┘    └───────────┘    └────────┘
+//! ```
 //!
-//! 1. **Discovery** ([`discover`]) - Scan source directories and identify markdown files
-//! 2. **Analysis** ([`analyze`]) - Extract metadata, headings, links, and content statistics
-//! 3. **Transformation** ([`transform`]) - Convert to canonical format with link rewriting
-//! 4. **Indexing** ([`index`]) - Build searchable index with knowledge graph
-//! 5. **Output** - Generate chunks, search index, and llms.txt entry point
+//! 1. **[`discover`]** — Walk source directories; return [`discover::DiscoveryFile`] list
+//! 2. **[`analyze`]** — Extract titles, headings, [`analyze::Link`]s, categories,
+//!    word counts from each file
+//! 3. **[`transform`]** — Rewrite links, enforce heading structure, inject frontmatter
+//! 4. **[`chunking_adapter`]** — Delegate to `contextual-chunker` for hierarchical
+//!    `Summary / Standard / Detailed` chunks
+//! 5. **[`index`]** — Build Tantivy full-text index + HNSW similarity graph;
+//!    emit `llms.txt` via [`llms`]
+//!
+//! # Domain Types
+//!
+//! Validated newtypes live in [`types`] — pass through the CLI boundary to guarantee
+//! constraints are checked exactly once:
+//!
+//! - [`types::Slug`], [`types::Title`], [`types::Category`], [`types::FilePath`]
+//! - [`types::MaxRelatedChunks`], [`types::HnswM`], [`types::HnswEfConstruction`]
+//!
+//! Scrape-phase behaviour is expressed as explicit enums rather than `bool` flags:
+//!
+//! - [`scrape::SitemapStrategy`] — sitemap vs. crawl-only
+//! - [`scrape::RobotsPolicy`] — respect or ignore robots.txt
+//! - [`scrape::FilteringMode`] — apply content-density filtering or store raw markdown
+//! - [`scrape::RetryStrategy`] — exponential backoff vs. fixed delay
+//! - [`scrape::StealthMode`] — randomised browser headers vs. plain user-agent
 //!
 //! # Key Modules
 //!
-//! - [`analyze`] - Document analysis and metadata extraction
-//! - [`transform`] - Markdown transformation and normalization
-//! - [`chunk`] - Semantic document chunking with context
-//! - [`index`] - Search index construction with BM25 and HNSW
-//! - [`search`] - Full-text search over indexed documentation
-//! - [`scrape`] - Web scraping for documentation ingestion
+//! | Module | Role |
+//! |--------|------|
+//! | [`analyze`] | Metadata extraction and auto-categorisation |
+//! | [`transform`] | AST-level markdown normalisation |
+//! | [`chunk`] | Re-export of `contextual-chunker` public API |
+//! | [`chunking_adapter`] | Bridge between pipeline types and chunker types |
+//! | [`index`] | Tantivy + HNSW index construction |
+//! | [`search`] | Full-text query execution |
+//! | [`scrape`] | Spider-based web scraping with retry/backoff |
+//! | [`filter`] | HTML pruning and BM25 relevance filtering |
+//! | [`graph`] | Knowledge DAG for related-document edges |
+//! | [`llms`] | `llms.txt` generation |
+//! | [`types`] | Validated domain newtypes |
+//! | [`errors`] | Structured error taxonomy |
 //!
-//! # Example Usage
+//! # Quick Start
 //!
 //! ```rust,ignore
-//! use doc_transformer::{discover, analyze, index};
+//! use doc_transformer::{discover, analyze, transform, index};
 //! use std::path::Path;
 //!
-//! // Phase 1: Discover
-//! let (files, _manifest) = discover::discover_files(Path::new("./docs"))?;
+//! let src = Path::new("./docs");
+//! let out = Path::new("./output");
 //!
-//! // Phase 2: Analyze
-//! let analyses = analyze::analyze_files(&files, Path::new("./docs"), None)?;
-//!
-//! // Phases 3-5: Transform, chunk, and index
-//! // ... see individual module documentation
+//! let (files, _manifest) = discover::discover_files(src)?;
+//! let analyses = analyze::analyze_files(&files, src, None)?;
+//! let (analyses, link_map) = doc_transformer::assign::assign_ids(analyses);
+//! transform::transform_all(&analyses, &link_map, out)?;
+//! index::index_documents(out, out, None)?;
 //! ```
 
 #![deny(clippy::unwrap_used)]

@@ -1,9 +1,3 @@
-#![deny(clippy::unwrap_used)]
-#![allow(clippy::match_same_arms)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
-#![forbid(unsafe_code)]
-
 //! Transformation phase of the documentation transformation pipeline.
 //!
 //! This module transforms analyzed documents into the final output format.
@@ -12,26 +6,36 @@
 //!
 //! # Transformation Pipeline
 //!
-//! Each document undergoes several AST-based transformations:
+//! Each document undergoes six sequential AST-level transformations:
 //!
-//! 1. **Heading Structure Fix** - Ensures no skipped heading levels, limits depth to H4
-//! 2. **Link Rewriting** - Converts internal links to new canonical filenames
-//! 3. **H1 Enforcement** - Ensures exactly one H1 heading per document
-//! 4. **Context Injection** - Adds context blockquote if missing
-//! 5. **See Also Addition** - Appends navigation section
-//! 6. **Frontmatter Generation** - Creates YAML frontmatter with metadata and tags
+//! 1. **Heading Structure Fix** — Ensures no skipped heading levels (e.g. H1→H3),
+//!    flattens anything deeper than H4 to avoid over-nested structures.
+//! 2. **Link Rewriting** — Converts internal relative links to the canonical
+//!    output filenames assigned during the [`assign`] phase.
+//! 3. **H1 Enforcement** — Guarantees exactly one H1 per document; promotes the
+//!    first heading if absent, demotes extras to H2.
+//! 4. **Context Injection** — Inserts a blockquote summary near the top when the
+//!    document has no existing context block.
+//! 5. **See Also Addition** — Appends a `## See Also` navigation section linking
+//!    to related documents discovered via the knowledge graph.
+//! 6. **Frontmatter Generation** — Wraps the output in YAML frontmatter containing
+//!    the title, category, tags, word count, and summary.
 //!
 //! # AST-Based Processing
 //!
-//! This module uses `pulldown-cmark` for parsing markdown into an AST,
-//! performing transformations on the event stream, then serializing back
-//! to markdown. This approach preserves document structure while enabling
-//! precise modifications.
+//! All transformations operate on the `pulldown-cmark` event stream — parse once,
+//! transform in a single pass, re-serialise with `pulldown_cmark_to_cmark`. This
+//! preserves tables, task lists, footnotes and other elements that a hand-rolled
+//! serialiser would silently drop.
+//!
+//! # Core Types
+//!
+//! - [`TransformResult`] — Counts of successful and failed document transformations
 //!
 //! # Key Functions
 //!
-//! - [`transform_all`] - Transform all analyzed documents to output directory
-//! - [`TransformResult`] - Statistics about the transformation process
+//! - [`transform_all`] — Transform every analyzed document into the output directory
+//! - [`transform_file`] — Transform a single document (useful for testing)
 //!
 //! # Example
 //!
@@ -44,6 +48,11 @@
 //!     result.success_count, result.total_count);
 //! ```
 
+#![deny(clippy::unwrap_used)]
+#![allow(clippy::match_same_arms)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![forbid(unsafe_code)]
 #![allow(clippy::wildcard_enum_match_arm)]
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
