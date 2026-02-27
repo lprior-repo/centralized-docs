@@ -26,13 +26,13 @@ pub mod markdown;
 pub mod transformers;
 pub mod validation;
 
-// Re-export public API for backward compatibility
-pub use filtering::filter_pages_by_relevance;
+// Re-export public API
 pub use http::{build_website_base, execute_scrape_with_website, extract_pages_from_website};
 pub use transformers::{calculate_backoff_delay, write_scraped_pages};
 pub use validation::{validate_scrape_result, validate_url};
 
-// Re-export types
+// Re-export types — public API for library consumers; binary may not use all variants
+#[allow(unused_imports)]
 pub use validation::{
     FilteringMode, PageFilterStatus, RetryStrategy, RobotsPolicy, ScrapeConfig, ScrapeResult,
     ScrapedPage, SitemapStrategy, StealthMode,

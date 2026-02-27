@@ -26,12 +26,6 @@ use anyhow::{Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-/// Detects nested quantifier patterns that cause ReDoS (catastrophic backtracking).
-/// Matches any group `(...)` containing `+` or `*`, followed by `+` or `*`.
-fn get_redos_detector() -> Result<Regex> {
-    Regex::new(r"\([^)]*[+*]\)[+*]").context("hardcoded ReDoS detector regex is valid")
-}
-
 /// Safely compiles a user-provided regex pattern with ReDoS protection.
 ///
 /// This function validates that the user's regex pattern:

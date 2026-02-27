@@ -75,7 +75,7 @@ mod validate;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use scrape::{FilteringMode, RetryStrategy, RobotsPolicy, SitemapStrategy, StealthMode};
+use scrape::SitemapStrategy;
 use spider::configuration::RedirectPolicy;
 use std::path::{Path, PathBuf};
 
