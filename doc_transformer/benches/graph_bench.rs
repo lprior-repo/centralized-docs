@@ -1,3 +1,4 @@
+use contextual_chunker::ChunkType;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use doc_transformer::chunk::{Chunk, ChunkLevel};
 use doc_transformer::graph::KnowledgeDAG;
@@ -44,7 +45,7 @@ fn generate_test_chunks(n: usize) -> Vec<Chunk> {
                 token_count: 256 + (chunk_idx % 256),
                 heading: Some(format!("Section {chunk_idx}")),
                 heading_path: vec!["Document".to_string(), format!("Section {chunk_idx}")],
-                chunk_type: "standard".to_string(),
+                chunk_type: contextual_chunker::ChunkType::Prose,
                 previous_chunk_id,
                 next_chunk_id,
                 related_chunk_ids: Vec::new(),

@@ -408,8 +408,10 @@ Content here
         );
 
         let nested_link =
-            parse_link("[Primary](./primary.md): See [Secondary](./secondary.md) for details")
-                .unwrap();
+            parse_link("[Primary](./primary.md): See [Secondary](./secondary.md) for details");
+        let Some(nested_link) = nested_link else {
+            panic!("parse_link should not fail for valid input");
+        };
         assert_eq!(nested_link.text, "Primary");
         assert_eq!(nested_link.url, "./primary.md");
         assert_eq!(

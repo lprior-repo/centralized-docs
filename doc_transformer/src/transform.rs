@@ -499,8 +499,9 @@ where
     I: IntoIterator<Item = Event<'a>>,
 {
     let mut buf = String::new();
-    pulldown_cmark_to_cmark::cmark(events.into_iter(), &mut buf)
-        .expect("Failed to render markdown");
+    if pulldown_cmark_to_cmark::cmark(events.into_iter(), &mut buf).is_err() {
+        buf.clear();
+    }
     buf
 }
 
