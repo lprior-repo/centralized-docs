@@ -1,8 +1,8 @@
 use crate::analyze::Analysis;
+use crate::types::Slug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use tap::Pipe;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdMapping {
@@ -58,20 +58,7 @@ pub fn assign_ids(analyses: Vec<Analysis>) -> (Vec<Analysis>, HashMap<String, Id
     (analyses, link_map)
 }
 
-/// Generate a URL-safe slug using functional composition
+/// Generate a URL-safe slug via the canonical `Slug` newtype
 fn slugify(text: &str) -> String {
-    text.to_lowercase()
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '-' || c == ' ' {
-                c
-            } else {
-                ' '
-            }
-        })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join("-")
-        .pipe(|s| s.chars().take(40).collect())
+    Slug::from_text(text).into_string()
 }

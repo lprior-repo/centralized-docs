@@ -61,25 +61,66 @@ pub(crate) fn compile_safe_regex(pattern: &str) -> Result<Regex> {
         .context("Invalid or too complex regex pattern")
 }
 
+/// Whether to discover pages via the site's XML sitemap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SitemapStrategy {
+    /// Follow sitemap.xml/sitemap_index.xml entries
+    UseSitemap,
+    /// Crawl by following HTML links only
+    CrawlOnly,
+}
+
+/// Whether to honour robots.txt exclusion rules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RobotsPolicy {
+    Respect,
+    Ignore,
+}
+
+/// Whether to apply content-density filtering to scraped pages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FilteringMode {
+    /// Apply readability / BM25 density filtering
+    Enabled,
+    /// Store raw extracted markdown unchanged
+    Disabled,
+}
+
+/// Retry back-off algorithm for transient HTTP failures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RetryStrategy {
+    /// Delay doubles on each attempt: 1 s, 2 s, 4 s, …
+    ExponentialBackoff,
+    /// Fixed inter-request delay regardless of attempt number
+    Fixed,
+}
+
+/// Whether to present browser-like headers to evade bot-detection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum StealthMode {
+    /// Inject randomised User-Agent and header variations
+    Enabled,
+    /// Use the configured `user_agent` as-is
+    Disabled,
+}
+
 /// Configuration for scraping a documentation site
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(clippy::struct_excessive_bools)]
 pub struct ScrapeConfig {
     pub base_url: String,
-    pub use_sitemap: bool,
+    pub sitemap_strategy: SitemapStrategy,
     pub path_filter: Option<String>,
     pub delay_ms: u64,
     pub user_agent: String,
-    pub respect_robots: bool,
-    pub enable_filtering: bool,
-    #[allow(dead_code)]
-    pub use_exponential_backoff: bool,
+    pub robots_policy: RobotsPolicy,
+    pub filtering_mode: FilteringMode,
+    pub retry_strategy: RetryStrategy,
     pub max_page_size_bytes: u64,
     pub max_total_size_bytes: u64,
     pub max_markdown_size_bytes: u64,
     pub max_pages: usize,
     pub max_links_per_page: usize,
-    pub stealth_mode: bool,
+    pub stealth_mode: StealthMode,
     pub concurrency_limit: usize,
     pub request_timeout_secs: u64,
     pub max_retries: u32,
@@ -92,19 +133,19 @@ impl Default for ScrapeConfig {
     fn default() -> Self {
         Self {
             base_url: String::new(),
-            use_sitemap: true,
+            sitemap_strategy: SitemapStrategy::UseSitemap,
             path_filter: None,
             delay_ms: 1000,
             user_agent: "DocTransformer/5.0 (AI Documentation Indexer)".to_string(),
-            respect_robots: true,
-            enable_filtering: true,
-            use_exponential_backoff: true,
+            robots_policy: RobotsPolicy::Respect,
+            filtering_mode: FilteringMode::Enabled,
+            retry_strategy: RetryStrategy::ExponentialBackoff,
             max_page_size_bytes: 10 * 1024 * 1024,
             max_total_size_bytes: 500 * 1024 * 1024,
             max_markdown_size_bytes: 5 * 1024 * 1024,
             max_pages: 10_000,
             max_links_per_page: 1_000,
-            stealth_mode: true,
+            stealth_mode: StealthMode::Enabled,
             concurrency_limit: 1,
             request_timeout_secs: 30,
             max_retries: 3,
@@ -113,6 +154,15 @@ impl Default for ScrapeConfig {
             spider_max_total_bytes: None,
         }
     }
+}
+
+/// Whether content-density filtering was applied to a scraped page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PageFilterStatus {
+    /// Filtering ran and may have removed low-density elements
+    Filtered,
+    /// Raw markdown stored, no filtering applied
+    Unfiltered,
 }
 
 /// A scraped page with extracted content
@@ -125,7 +175,7 @@ pub struct ScrapedPage {
     pub headers: Vec<Header>,
     pub word_count: usize,
     pub slug: String,
-    pub filtered: bool,
+    pub filter_status: PageFilterStatus,
     pub elements_removed: usize,
     pub density_score: f32,
 }

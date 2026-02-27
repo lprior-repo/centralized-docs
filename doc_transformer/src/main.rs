@@ -35,6 +35,7 @@ mod validate;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use scrape::{FilteringMode, RetryStrategy, RobotsPolicy, SitemapStrategy, StealthMode};
 use spider::configuration::RedirectPolicy;
 use std::path::{Path, PathBuf};
 
@@ -69,7 +70,7 @@ impl Default for IndexConfig {
 /// Configuration for the scrape command
 #[derive(Debug, Clone)]
 struct ScrapeCommandConfig {
-    use_sitemap: bool,
+    sitemap_strategy: SitemapStrategy,
     filter: Option<String>,
     delay: u64,
     query: Option<String>,
@@ -85,7 +86,7 @@ struct ScrapeCommandConfig {
 impl Default for ScrapeCommandConfig {
     fn default() -> Self {
         Self {
-            use_sitemap: true,
+            sitemap_strategy: SitemapStrategy::UseSitemap,
             filter: None,
             delay: 250,
             query: None,
@@ -143,8 +144,8 @@ fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
     if value < 1 {
         return Err("max_related_chunks must be at least 1".to_string());
     }
-    if value > 100 {
-        return Err("max_related_chunks must be at most 100".to_string());
+    if value > 1000 {
+        return Err("max_related_chunks must be at most 1000".to_string());
     }
 
     Ok(value)
@@ -189,9 +190,9 @@ fn validate_hnsw_ef_construction(s: &str) -> Result<usize, String> {
             "hnsw_ef_construction must be at least 50 for acceptable build quality".to_string(),
         );
     }
-    if value > 800 {
+    if value > 1000 {
         return Err(
-            "hnsw_ef_construction must be at most 800 for reasonable build times".to_string(),
+            "hnsw_ef_construction must be at most 1000 for reasonable build times".to_string(),
         );
     }
 
@@ -652,7 +653,11 @@ async fn main() -> Result<()> {
             concurrency,
         }) => {
             let config = ScrapeCommandConfig {
-                use_sitemap: !no_sitemap,
+                sitemap_strategy: if no_sitemap {
+                    SitemapStrategy::CrawlOnly
+                } else {
+                    SitemapStrategy::UseSitemap
+                },
                 filter,
                 delay,
                 query,
@@ -906,8 +911,8 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
 
     println!("[SCRAPE] Target: {url}");
     println!(
-        "  Options: sitemap={}, delay={}ms, timeout={}s, retries={}, concurrency={}",
-        config.use_sitemap,
+        "  Options: sitemap={:?}, delay={}ms, timeout={}s, retries={}, concurrency={}",
+        config.sitemap_strategy,
         config.delay,
         config.request_timeout_secs,
         config.max_retries,
@@ -922,23 +927,18 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
     }
     println!();
 
-    let redirect_policy_str = match config.redirect_policy {
-        spider::configuration::RedirectPolicy::None => "none",
-        spider::configuration::RedirectPolicy::Loose => "loose",
-        spider::configuration::RedirectPolicy::Strict => "strict",
-    };
-
     let scrape_config = scrape::ScrapeConfig {
-        url: url.to_string(),
-        use_sitemap: config.use_sitemap,
-        filter: config.filter.clone(),
+        base_url: url.to_string(),
+        sitemap_strategy: config.sitemap_strategy,
+        path_filter: config.filter.clone(),
         delay_ms: config.delay,
-        max_page_bytes: config.max_page_bytes,
-        max_total_bytes: config.max_total_bytes,
+        spider_max_page_bytes: config.max_page_bytes,
+        spider_max_total_bytes: config.max_total_bytes,
         request_timeout_secs: config.request_timeout_secs,
         max_retries: config.max_retries,
-        redirect_policy: redirect_policy_str.to_string(),
-        concurrency: config.concurrency_limit,
+        redirect_policy: config.redirect_policy.clone(),
+        concurrency_limit: config.concurrency_limit,
+        ..Default::default()
     };
 
     println!("[SCRAPE] Starting crawl...");
@@ -1206,23 +1206,18 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
     // Phase 1: Scrape
     println!("[PHASE 1] SCRAPE\n");
 
-    let redirect_policy_str = match config.redirect_policy {
-        spider::configuration::RedirectPolicy::None => "none",
-        spider::configuration::RedirectPolicy::Loose => "loose",
-        spider::configuration::RedirectPolicy::Strict => "strict",
-    };
-
     let scrape_config = scrape::ScrapeConfig {
-        url: url.to_string(),
-        use_sitemap: true,
-        filter,
+        base_url: url.to_string(),
+        sitemap_strategy: SitemapStrategy::UseSitemap,
+        path_filter: filter,
         delay_ms: delay,
-        max_page_bytes,
-        max_total_bytes,
+        spider_max_page_bytes: max_page_bytes,
+        spider_max_total_bytes: max_total_bytes,
         request_timeout_secs: config.request_timeout_secs,
         max_retries: config.max_retries,
-        redirect_policy: redirect_policy_str.to_string(),
-        concurrency: config.concurrency_limit,
+        redirect_policy: config.redirect_policy.clone(),
+        concurrency_limit: config.concurrency_limit,
+        ..Default::default()
     };
 
     let mut scrape_result = scrape::scrape_site(&scrape_config).await?;

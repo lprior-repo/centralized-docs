@@ -146,7 +146,7 @@ pub mod chunk;
 pub mod document;
 
 // Re-export public API
-pub use chunk::{chunk, chunk_all, Chunk, ChunkLevel, ChunkingResult};
+pub use chunk::{chunk, chunk_all, Chunk, ChunkLevel, ChunkType, ChunkingResult};
 pub use document::Document;
 
 /// Trait for document chunking strategies

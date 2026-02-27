@@ -289,13 +289,6 @@ fn heading_level_to_u32(level: pulldown_cmark::HeadingLevel) -> u32 {
     }
 }
 
-/// Convert `HeadingLevel` to usize safely for string operations
-///
-/// This is safe because `HeadingLevel` values are 1-6.
-fn heading_level_to_usize(level: pulldown_cmark::HeadingLevel) -> usize {
-    heading_level_to_u32(level) as usize
-}
-
 /// Rewrite internal links to new filenames (AST-based).
 ///
 /// Returns the transformed content and a list of broken links.
@@ -419,7 +412,7 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
             Event::SoftBreak,
             Event::SoftBreak,
         ];
-        let new_events = heading_events.into_iter().chain(events).collect();
+        let new_events: Vec<_> = heading_events.into_iter().chain(events).collect();
         events_to_markdown(new_events)
     }
 }
@@ -491,89 +484,15 @@ fn content_has_see_also(content: &str) -> bool {
     content.contains("## See Also")
 }
 
-/// Stateful context for event-to-markdown conversion
-#[derive(Debug, Default)]
-struct RenderState {
-    output: String,
-    link_url: Option<String>,
-}
-
-/// Convert events to markdown using stateful fold-based reconstruction
-fn events_to_markdown(events: Vec<Event>) -> String {
-    let final_state = events
-        .into_iter()
-        .fold(RenderState::default(), |mut state, event| {
-            match event {
-                Event::Text(text) => state.output.push_str(&text),
-                Event::Code(code) => {
-                    state.output.push('`');
-                    state.output.push_str(&code);
-                    state.output.push('`');
-                }
-                Event::SoftBreak | Event::HardBreak => state.output.push('\n'),
-                Event::Start(Tag::Heading { level, .. }) => {
-                    let hashes = "#".repeat(heading_level_to_usize(level));
-                    state.output.push_str(&hashes);
-                    state.output.push(' ');
-                }
-                Event::End(TagEnd::Heading(_)) => {
-                    state.output.push('\n');
-                }
-                Event::Start(Tag::Paragraph) => {
-                    // Paragraph starts - no output
-                }
-                Event::End(TagEnd::Paragraph) => {
-                    state.output.push('\n');
-                }
-                Event::Start(Tag::BlockQuote(_)) => {
-                    state.output.push_str("> ");
-                }
-                Event::End(TagEnd::BlockQuote(_)) => {
-                    state.output.push('\n');
-                }
-                Event::Start(Tag::CodeBlock(_)) => {
-                    state.output.push_str("```\n");
-                }
-                Event::End(TagEnd::CodeBlock) => {
-                    state.output.push_str("\n```\n");
-                }
-                Event::Start(Tag::Link { dest_url, .. }) => {
-                    state.output.push('[');
-                    // Capture URL for later (on End event)
-                    state.link_url = Some(dest_url.to_string());
-                }
-                Event::End(TagEnd::Link) => {
-                    // Close link text and output URL
-                    state.output.push_str("](");
-                    if let Some(url) = state.link_url.take() {
-                        state.output.push_str(&url);
-                    }
-                    state.output.push(')');
-                }
-                Event::Start(Tag::Strong) => state.output.push_str("**"),
-                Event::End(TagEnd::Strong) => state.output.push_str("**"),
-                Event::Start(Tag::Emphasis) => state.output.push('*'),
-                Event::End(TagEnd::Emphasis) => state.output.push('*'),
-                Event::Start(Tag::List(_)) => {
-                    // List starts - no output
-                }
-                Event::End(TagEnd::List(_)) => {
-                    state.output.push('\n');
-                }
-                Event::Start(Tag::Item) => {
-                    state.output.push_str("- ");
-                }
-                Event::End(TagEnd::Item) => {
-                    state.output.push('\n');
-                }
-                _ => {
-                    // Pass through other events
-                }
-            }
-            state
-        });
-
-    final_state.output
+/// Convert events to markdown using pulldown-cmark-to-cmark
+fn events_to_markdown<'a, I>(events: I) -> String
+where
+    I: IntoIterator<Item = Event<'a>>,
+{
+    let mut buf = String::new();
+    pulldown_cmark_to_cmark::cmark(events.into_iter(), &mut buf)
+        .expect("Failed to render markdown");
+    buf
 }
 
 /// Safely truncate a string to a maximum number of Unicode characters

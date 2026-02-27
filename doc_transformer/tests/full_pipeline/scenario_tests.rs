@@ -683,7 +683,10 @@ fn scenario_error_messages_are_helpful() -> anyhow::Result<()> {
             let msg = e.to_string();
             println!("  Error: '{msg}'");
             if matches!(e, ValidationError::InvalidLimitZero) {
-                assert!(msg.contains("0"), "Error should show the invalid value");
+                assert!(
+                    msg.contains("at least 1"),
+                    "Error should explain requirement"
+                );
             }
             println!("  ✓ Explains the requirement clearly");
         }

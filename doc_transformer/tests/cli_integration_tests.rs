@@ -152,8 +152,8 @@ fn test_index_empty_directory() {
     ]);
 
     assert!(
-        !result.status.success(),
-        "Index with empty directory should fail. stderr: {}",
+        result.status.success(),
+        "Index with empty directory should succeed with 0 files. stderr: {}",
         String::from_utf8_lossy(&result.stderr)
     );
 }
