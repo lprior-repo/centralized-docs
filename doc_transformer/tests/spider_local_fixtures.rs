@@ -4,8 +4,9 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use doc_transformer::scrape::{scrape_site, ScrapeConfig};
+use doc_transformer::scrape::{scrape_site, ScrapeConfig, SitemapStrategy};
 use portpicker::pick_unused_port;
+use spider::configuration::RedirectPolicy;
 use tiny_http::{Response, Server, StatusCode};
 
 fn start_server(
@@ -34,16 +35,13 @@ async fn timeout_is_enforced_against_slow_server() {
     let (base_url, handle) = start_server(handler);
 
     let config = ScrapeConfig {
-        url: base_url.clone(),
-        use_sitemap: false,
-        filter: None,
+        base_url: base_url.clone(),
+        sitemap_strategy: SitemapStrategy::CrawlOnly,
+        path_filter: None,
         delay_ms: 0,
         request_timeout_secs: 1,
         max_retries: 0,
-        redirect_policy: "none".to_string(),
-        max_page_bytes: None,
-        max_total_bytes: None,
-        concurrency: 1,
+        ..Default::default()
     };
 
     let start = Instant::now();
@@ -78,16 +76,14 @@ async fn redirect_policy_none_blocks_redirect() {
 
     // Policy None should block redirects
     let blocked = ScrapeConfig {
-        url: base_url.clone(),
-        use_sitemap: false,
-        filter: None,
+        base_url: base_url.clone(),
+        sitemap_strategy: SitemapStrategy::CrawlOnly,
+        path_filter: None,
         delay_ms: 0,
         request_timeout_secs: 5,
         max_retries: 0,
-        redirect_policy: "none".to_string(),
-        max_page_bytes: None,
-        max_total_bytes: None,
-        concurrency: 1,
+        redirect_policy: RedirectPolicy::None,
+        ..Default::default()
     };
     let blocked_result = scrape_site(&blocked).await;
     assert!(
@@ -97,16 +93,14 @@ async fn redirect_policy_none_blocks_redirect() {
 
     // Policy Loose should allow redirects
     let allowed = ScrapeConfig {
-        url: base_url.clone(),
-        use_sitemap: false,
-        filter: None,
+        base_url: base_url.clone(),
+        sitemap_strategy: SitemapStrategy::CrawlOnly,
+        path_filter: None,
         delay_ms: 0,
         request_timeout_secs: 5,
         max_retries: 0,
-        redirect_policy: "loose".to_string(),
-        max_page_bytes: None,
-        max_total_bytes: None,
-        concurrency: 1,
+        redirect_policy: RedirectPolicy::Loose,
+        ..Default::default()
     };
     let allowed_result = scrape_site(&allowed).await;
     assert!(
@@ -128,16 +122,15 @@ async fn spider_max_page_bytes_limits_download() {
     let (base_url, handle) = start_server(handler);
 
     let config = ScrapeConfig {
-        url: base_url.clone(),
-        use_sitemap: false,
-        filter: None,
+        base_url: base_url.clone(),
+        sitemap_strategy: SitemapStrategy::CrawlOnly,
+        path_filter: None,
         delay_ms: 0,
         request_timeout_secs: 5,
         max_retries: 0,
-        redirect_policy: "none".to_string(),
-        max_page_bytes: Some(64),
-        max_total_bytes: None,
-        concurrency: 1,
+        spider_max_page_bytes: Some(64),
+        spider_max_total_bytes: None,
+        ..Default::default()
     };
 
     let result = scrape_site(&config).await;

@@ -110,8 +110,8 @@ fn test_scrape_config_validation() {
         "ScrapeConfig needs delay_ms"
     );
     assert!(
-        validation_src.contains("use_sitemap"),
-        "ScrapeConfig needs use_sitemap"
+        validation_src.contains("sitemap_strategy"),
+        "ScrapeConfig needs sitemap_strategy"
     );
 
     println!("✅ All required data structures exist");

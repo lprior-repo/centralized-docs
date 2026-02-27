@@ -11,7 +11,7 @@
 //!
 //! Provides spider-rs website building and HTTP request configuration.
 
-use super::validation::ScrapeConfig;
+use super::validation::{RobotsPolicy, ScrapeConfig, SitemapStrategy, StealthMode};
 use std::time::Duration;
 
 /// Build a spider `Website` with shared base configuration
@@ -21,13 +21,13 @@ pub fn build_website_base(url: &str, config: &ScrapeConfig) -> spider::website::
     let mut website = spider::website::Website::new(url);
 
     website.configuration.delay = config.delay_ms;
-    website.configuration.respect_robots_txt = config.respect_robots;
+    website.configuration.respect_robots_txt = config.robots_policy == RobotsPolicy::Respect;
     website.configuration.user_agent = Some(Box::new(config.user_agent.clone().into()));
 
     let capped_concurrency = config.concurrency_limit.clamp(1, 2);
     website.configuration.concurrency_limit = Some(capped_concurrency);
 
-    website.configuration.modify_headers = config.stealth_mode;
+    website.configuration.modify_headers = config.stealth_mode == StealthMode::Enabled;
 
     website.configuration.retry =
         u8::try_from(config.max_retries.min(u32::from(u8::MAX))).unwrap_or(u8::MAX);
@@ -56,7 +56,7 @@ pub async fn execute_scrape_with_website(
     website: &mut spider::website::Website,
     config: &ScrapeConfig,
 ) -> anyhow::Result<()> {
-    if config.use_sitemap {
+    if config.sitemap_strategy == SitemapStrategy::UseSitemap {
         website.scrape_sitemap().await;
     } else {
         website.scrape().await;
@@ -108,7 +108,7 @@ pub fn extract_pages_from_website(
             }
 
             if let Ok(scraped) =
-                super::transformers::transform_page(page, &config.base_url, config.enable_filtering)
+                super::transformers::transform_page(page, &config.base_url, config.filtering_mode)
             {
                 let page_size = scraped.markdown.len() as u64;
                 total_content_size = if let Some(size) = total_content_size.checked_add(page_size) {

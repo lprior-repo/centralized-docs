@@ -8,7 +8,7 @@ use crate::analyze::Analysis;
 use crate::assign::IdMapping;
 use crate::types::Slug;
 use anyhow::Result;
-use contextual_chunker::{self, Document};
+use contextual_chunker::{self, ChunkType, Document};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -50,7 +50,7 @@ pub struct Chunk {
     pub token_count: usize,
     pub heading: Option<String>,
     pub heading_path: Vec<String>,
-    pub chunk_type: String,
+    pub chunk_type: ChunkType,
     pub previous_chunk_id: Option<String>,
     pub next_chunk_id: Option<String>,
     pub related_chunk_ids: Vec<String>,
@@ -312,7 +312,7 @@ mod tests {
             token_count: 10,
             heading: Some("Section".to_string()),
             heading_path: vec!["Test".to_string(), "Section".to_string()],
-            chunk_type: "prose".to_string(),
+            chunk_type: contextual_chunker::ChunkType::Prose,
             previous_chunk_id: None,
             next_chunk_id: None,
             summary: "Summary".to_string(),

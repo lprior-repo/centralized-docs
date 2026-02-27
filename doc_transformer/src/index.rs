@@ -6,12 +6,12 @@ use crate::search;
 use crate::similarity::{build_index_with_params, query_neighbors};
 use crate::types::is_stopword;
 use anyhow::Result;
+use contextual_chunker::ChunkType;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
-use std::hash::BuildHasher;
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,7 +37,7 @@ pub struct ChunkMetadata {
     pub heading_path: Vec<String>,
     #[serde(default)]
     pub heading_anchor: Option<String>,
-    pub chunk_type: String,
+    pub chunk_type: ChunkType,
     pub token_count: usize,
     pub summary: String,
     pub previous_chunk_id: Option<String>,
@@ -48,7 +48,7 @@ pub struct ChunkMetadata {
     /// Related chunks with similarity scores (populated from knowledge DAG)
     pub related_chunks: Vec<RelatedChunk>,
     /// Hierarchical chunk level (summary/standard/detailed)
-    pub chunk_level: String,
+    pub chunk_level: contextual_chunker::ChunkLevel,
     /// Parent chunk ID (for hierarchical navigation)
     pub parent_chunk_id: Option<String>,
     /// Child chunk IDs (for hierarchical navigation)
@@ -283,7 +283,7 @@ fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Result<Vec<Chun
                     chunk.chunk_level.as_str()
                 ),
                 related_chunks,
-                chunk_level: chunk.chunk_level.as_str().to_string(),
+                chunk_level: chunk.chunk_level,
                 parent_chunk_id: chunk.parent_chunk_id.clone(),
                 child_chunk_ids: chunk.child_chunk_ids.clone(),
                 sibling_chunk_ids,
@@ -890,7 +890,7 @@ mod tests {
                     token_count: 256_usize.saturating_add(chunk_idx % 256),
                     heading: Some(format!("Section {chunk_idx}")),
                     heading_path: vec!["Document".to_string(), format!("Section {chunk_idx}")],
-                    chunk_type: "standard".to_string(),
+                    chunk_type: contextual_chunker::ChunkType::Prose,
                     previous_chunk_id,
                     next_chunk_id,
                     related_chunk_ids: Vec::new(),
@@ -1059,7 +1059,7 @@ mod tests {
                 token_count: 100,
                 heading: Some(format!("Heading {i}")),
                 heading_path: vec!["Document".to_string(), format!("Heading {i}")],
-                chunk_type: "standard".to_string(),
+                chunk_type: contextual_chunker::ChunkType::Prose,
                 previous_chunk_id: if i > 0 {
                     Some(format!("chunk_{}", i - 1))
                 } else {
@@ -1164,7 +1164,7 @@ mod tests {
             token_count: 10,
             heading: Some("Ownership Basics".to_string()),
             heading_path: vec!["Doc 1".to_string(), "Ownership Basics".to_string()],
-            chunk_type: "prose".to_string(),
+            chunk_type: contextual_chunker::ChunkType::Prose,
             previous_chunk_id: None,
             next_chunk_id: None,
             related_chunk_ids: vec![],
@@ -1207,7 +1207,7 @@ mod tests {
                 token_count: 100,
                 heading: Some("Section 1".to_string()),
                 heading_path: vec!["Doc 1".to_string()],
-                chunk_type: "standard".to_string(),
+                chunk_type: contextual_chunker::ChunkType::Prose,
                 previous_chunk_id: None,
                 next_chunk_id: Some("doc1#1-standard".to_string()),
                 related_chunk_ids: vec![],
@@ -1225,7 +1225,7 @@ mod tests {
                 token_count: 100,
                 heading: Some("Section 2".to_string()),
                 heading_path: vec!["Doc 1".to_string()],
-                chunk_type: "standard".to_string(),
+                chunk_type: contextual_chunker::ChunkType::Prose,
                 previous_chunk_id: Some("doc1#0-standard".to_string()),
                 next_chunk_id: None,
                 related_chunk_ids: vec![],
@@ -1244,7 +1244,7 @@ mod tests {
                 token_count: 100,
                 heading: Some("Section 1".to_string()),
                 heading_path: vec!["Doc 1".to_string()],
-                chunk_type: "standard".to_string(),
+                chunk_type: contextual_chunker::ChunkType::Prose,
                 previous_chunk_id: None,
                 next_chunk_id: Some("doc1#1-standard".to_string()),
                 related_chunk_ids: vec![],

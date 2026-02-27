@@ -61,6 +61,39 @@ impl ChunkLevel {
     }
 }
 
+/// Content type classification for a chunk.
+///
+/// Makes illegal states unrepresentable: the domain has exactly three
+/// valid content types, no string parsing needed after construction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChunkType {
+    /// Chunk dominated by fenced code blocks (≥5 pairs)
+    Code,
+    /// Chunk containing a markdown table
+    Table,
+    /// General prose content
+    Prose,
+}
+
+impl ChunkType {
+    /// Canonical string form for display / serialization compatibility.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ChunkType::Code => "code",
+            ChunkType::Table => "table",
+            ChunkType::Prose => "prose",
+        }
+    }
+}
+
+impl std::fmt::Display for ChunkType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// Generate a chunk ID with hierarchical level suffix
 ///
 /// # Format
@@ -122,9 +155,9 @@ pub struct Chunk {
     /// Includes H1/H2/H3 levels when available
     pub heading_path: Vec<String>,
 
-    /// Content type classification: "code", "table", or "prose"
+    /// Content type classification — code-heavy, table-based, or prose
     /// Enables specialized handling in retrieval systems
-    pub chunk_type: String,
+    pub chunk_type: ChunkType,
 
     /// ID of previous chunk at same level and in same document (sequential)
     /// None for first chunk
@@ -705,7 +738,7 @@ fn get_context_tail(content: &str, max_tokens: usize) -> String {
 }
 
 /// Detect chunk content type
-fn detect_chunk_type(content: &str) -> String {
+fn detect_chunk_type(content: &str) -> ChunkType {
     let code_block_count = content.matches("```").count() / 2;
     let has_table = content.contains('|')
         && table_regex()
@@ -713,11 +746,11 @@ fn detect_chunk_type(content: &str) -> String {
             .unwrap_or(false);
 
     if code_block_count > 5 {
-        "code".to_string()
+        ChunkType::Code
     } else if has_table {
-        "table".to_string()
+        ChunkType::Table
     } else {
-        "prose".to_string()
+        ChunkType::Prose
     }
 }
 
@@ -800,13 +833,13 @@ mod tests {
     #[test]
     fn test_chunk_type_detection() {
         let code = "```\ncode\n```\n```\ncode\n```\n```\ncode\n```\n```\ncode\n```\n```\ncode\n```\n```\ncode\n```";
-        assert_eq!(detect_chunk_type(code), "code");
+        assert_eq!(detect_chunk_type(code), ChunkType::Code);
 
         let table = "| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |";
-        assert_eq!(detect_chunk_type(table), "table");
+        assert_eq!(detect_chunk_type(table), ChunkType::Table);
 
         let prose = "This is just regular prose content with no tables or code blocks.";
-        assert_eq!(detect_chunk_type(prose), "prose");
+        assert_eq!(detect_chunk_type(prose), ChunkType::Prose);
     }
 
     #[test]

@@ -71,6 +71,7 @@ thiserror = "1.0"
 # Embedding providers (OpenAI, Cohere)
 async-trait = "0.1"
 reqwest = { version = "0.11", features = ["json"] }
+pulldown-cmark-to-cmark = "22.0.0"
 
 [dev-dependencies]
 tempfile = "3.8"

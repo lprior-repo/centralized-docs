@@ -24,6 +24,7 @@
 //! ```
 
 use anyhow::{Context, Result};
+use pulldown_cmark::{Event, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -240,29 +241,63 @@ fn extract_frontmatter(content: &str) -> Result<(Option<Frontmatter>, String)> {
     Ok((Some(frontmatter), body))
 }
 
+#[derive(Default)]
+struct LinkParseState {
+    link_text: String,
+    url: Option<String>,
+    description: String,
+    in_primary_link: bool,
+    seen_primary_link: bool,
+}
+
 /// Parse a markdown link: [text](url) or [text](url): description
 fn parse_link(text: &str) -> Option<Link> {
-    // Match [text](url)
-    let start = text.find('[')?;
-    let middle = text.find("](")?;
-    let end = text[middle..].find(')')?;
+    let parser = Parser::new(text);
 
-    let link_text = text[start + 1..middle].to_string();
-    let url = text[middle + 2..middle + end].to_string();
+    let final_state = parser.fold(LinkParseState::default(), |mut state, event| {
+        match event {
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                if !state.seen_primary_link {
+                    state.in_primary_link = true;
+                    state.url = Some(dest_url.into_string());
+                }
+            }
+            Event::End(TagEnd::Link) => {
+                if state.in_primary_link {
+                    state.in_primary_link = false;
+                    state.seen_primary_link = true;
+                }
+            }
+            Event::Text(t) | Event::Code(t) => {
+                if state.in_primary_link {
+                    state.link_text.push_str(&t);
+                } else if state.seen_primary_link {
+                    state.description.push_str(&t);
+                }
+            }
+            Event::SoftBreak | Event::HardBreak => {
+                if state.in_primary_link {
+                    state.link_text.push(' ');
+                } else if state.seen_primary_link {
+                    state.description.push(' ');
+                }
+            }
+            _ => {}
+        }
+        state
+    });
 
-    // Check for description after the link
-    let rest = text[middle + end + 1..].trim();
-    let description = if let Some(stripped) = rest.strip_prefix(':') {
-        Some(stripped.trim().to_string())
-    } else if !rest.is_empty() {
-        Some(rest.to_string())
-    } else {
+    let description = final_state.description.trim();
+    let description = description.strip_prefix(':').unwrap_or(description).trim();
+    let description = if description.is_empty() {
         None
+    } else {
+        Some(description.to_string())
     };
 
     Some(Link {
-        text: link_text,
-        url,
+        text: final_state.link_text,
+        url: final_state.url?,
         description,
     })
 }
@@ -358,6 +393,30 @@ Content here
 
         let llms_txt = parse_content(content)?;
         assert!(llms_txt.has_required_sections());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_link_inline_markdown() -> anyhow::Result<()> {
+        let link = parse_link("[Title](./path.md): Description with `code` and **bold**")
+            .ok_or_else(|| anyhow::anyhow!("parse_link returned None"))?;
+        assert_eq!(link.text, "Title");
+        assert_eq!(link.url, "./path.md");
+        assert_eq!(
+            link.description,
+            Some("Description with code and bold".to_string())
+        );
+
+        let nested_link =
+            parse_link("[Primary](./primary.md): See [Secondary](./secondary.md) for details")
+                .unwrap();
+        assert_eq!(nested_link.text, "Primary");
+        assert_eq!(nested_link.url, "./primary.md");
+        assert_eq!(
+            nested_link.description,
+            Some("See Secondary for details".to_string())
+        );
+
         Ok(())
     }
 }

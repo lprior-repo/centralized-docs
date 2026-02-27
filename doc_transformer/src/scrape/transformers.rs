@@ -19,6 +19,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
+use super::validation::{FilteringMode, PageFilterStatus};
+
 /// Calculate exponential backoff delay with overflow protection
 pub fn calculate_backoff_delay(base_delay_ms: u64, attempt: u32) -> u64 {
     let exponent = attempt.saturating_sub(1).min(62);
@@ -45,9 +47,9 @@ pub fn url_to_slug(url: &str) -> Result<String> {
 
     let slug = slug
         .strip_suffix("-html")
-        .map_or(&slug, |s| s)
+        .map_or(slug.as_str(), |s| s)
         .strip_suffix("-htm")
-        .map_or(&slug, |s| s)
+        .map_or(slug.as_str(), |s| s)
         .to_string();
 
     let slug = if slug.len() > 200 {
@@ -83,11 +85,9 @@ pub fn detect_rate_limit_page(html: &str) -> bool {
 
 /// Extract headers from markdown
 pub fn extract_headers(markdown: &str) -> Vec<super::validation::Header> {
-    let mut headers = Vec::new();
-
     let header_regex = match Regex::new(r"^(#{1,6})\s+(.+)$") {
         Ok(regex) => regex,
-        Err(_) => return headers,
+        Err(_) => return Vec::new(),
     };
 
     markdown
@@ -184,7 +184,7 @@ pub fn find_related_pages<'a>(
 pub fn transform_page(
     page: &spider::page::Page,
     base_url: &str,
-    enable_filtering: bool,
+    filtering_mode: FilteringMode,
 ) -> Result<super::validation::ScrapedPage> {
     let url = page.get_url().to_string();
     let filter_config = FilterConfig::default();
@@ -198,7 +198,9 @@ pub fn transform_page(
     let config = super::validation::ScrapeConfig::default();
     super::validation::check_html_size(&raw_html, config.max_page_size_bytes)?;
 
-    let prune_result: FilterResult = if enable_filtering {
+    let filtering_enabled = filtering_mode == FilteringMode::Enabled;
+
+    let prune_result: FilterResult = if filtering_enabled {
         prune_html(&raw_html, &filter_config)
     } else {
         FilterResult {
@@ -214,7 +216,7 @@ pub fn transform_page(
         ..Default::default()
     };
 
-    let selector_config = if enable_filtering {
+    let selector_config = if filtering_enabled {
         let mut exclude_tags: Vec<String> = filter_config.remove_tags.clone();
         for pattern in &filter_config.nav_patterns {
             exclude_tags.push(format!(".{pattern}"));
@@ -238,10 +240,13 @@ pub fn transform_page(
         &None,
     );
 
-    let (markdown, filtered) = if enable_filtering {
-        (filter_markdown(&markdown, &filter_config), true)
+    let (markdown, filter_status) = if filtering_enabled {
+        (
+            filter_markdown(&markdown, &filter_config),
+            PageFilterStatus::Filtered,
+        )
     } else {
-        (markdown, false)
+        (markdown, PageFilterStatus::Unfiltered)
     };
 
     super::validation::check_markdown_size(&markdown, config.max_markdown_size_bytes)?;
@@ -274,7 +279,7 @@ pub fn transform_page(
         headers,
         word_count,
         slug,
-        filtered,
+        filter_status,
         elements_removed: prune_result.removed_count,
         density_score: prune_result.density_score,
     })
@@ -311,9 +316,13 @@ pub fn write_scraped_pages(
             section
         };
 
+        let filter_status_str = match page.filter_status {
+            PageFilterStatus::Filtered => "true",
+            PageFilterStatus::Unfiltered => "false",
+        };
         let content = format!(
             "---\nurl: {}\ntitle: {}\nword_count: {}\nfiltered: {}\nelements_removed: {}\ndensity_score: {:.2}\n---\n\n{}{}{}",
-            page.url, page.title, page.word_count, page.filtered, page.elements_removed, page.density_score,
+            page.url, page.title, page.word_count, filter_status_str, page.elements_removed, page.density_score,
             toc, page.markdown, related_section
         );
 

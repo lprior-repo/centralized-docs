@@ -119,7 +119,7 @@ mod tests {
             headers: vec![],
             word_count: 4,
             slug: "test".to_string(),
-            filtered: false,
+            filter_status: crate::scrape::validation::PageFilterStatus::Unfiltered,
             elements_removed: 0,
             density_score: 1.0,
         }];

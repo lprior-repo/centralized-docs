@@ -21,10 +21,11 @@ mod tests {
     #[test]
     fn test_module_exists() {
         // Verify that the transform_page function is accessible
+        use crate::scrape::validation::FilteringMode;
         let _: fn(
             &spider::page::Page,
             &str,
-            bool,
+            FilteringMode,
         ) -> Result<super::super::validation::ScrapedPage, anyhow::Error> = transform_page;
     }
 }

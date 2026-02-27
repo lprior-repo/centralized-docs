@@ -50,11 +50,23 @@ pub struct Heading {
     pub line: usize,
 }
 
+/// Whether a link points within the documentation set or to an external resource.
+///
+/// Replaces `is_internal: bool` — makes the two cases explicit and
+/// impossible to confuse at call sites.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LinkKind {
+    /// Target is a relative path within the docs (not http/https/mailto)
+    Internal,
+    /// Target is an absolute URL or mailto address
+    External,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Link {
     pub text: String,
     pub target: String,
-    pub is_internal: bool,
+    pub kind: LinkKind,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -286,15 +298,16 @@ fn extract_links(content: &str) -> Vec<Link> {
 
             let text = text_match.as_str().to_string();
             let target = target_match.as_str().to_string();
-            let is_internal = !target.starts_with("http://")
-                && !target.starts_with("https://")
-                && !target.starts_with("mailto:");
+            let kind = if target.starts_with("http://")
+                || target.starts_with("https://")
+                || target.starts_with("mailto:")
+            {
+                LinkKind::External
+            } else {
+                LinkKind::Internal
+            };
 
-            Some(Link {
-                text,
-                target,
-                is_internal,
-            })
+            Some(Link { text, target, kind })
         })
         .collect()
 }
