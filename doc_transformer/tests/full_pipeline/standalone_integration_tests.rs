@@ -46,7 +46,8 @@ impl TestFixture {
     fn discover_markdown(&self) -> Vec<String> {
         use walkdir::WalkDir;
 
-        let extensions = [".md", ".mdx", ".rst", ".txt"];
+        // Markdown extensions: .md, .mdx, and unusual variants (.markdown, .mdown, .mkd)
+        let extensions = [".md", ".mdx", ".markdown", ".mdown", ".mkd", ".rst", ".txt"];
 
         WalkDir::new(self.root())
             .into_iter()

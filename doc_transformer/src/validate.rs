@@ -41,6 +41,9 @@ pub enum ValidationError {
     #[error("Regex queries not allowed (potential ReDoS attack)")]
     RegexNotAllowed,
 
+    #[error("Query contains null bytes which are not allowed")]
+    NullBytesNotAllowed,
+
     #[error("Limit must be positive (cannot return negative results), got {0}")]
     InvalidLimitNegative(i64),
 
@@ -243,6 +246,12 @@ fn validate_file(content: &str) -> (Vec<String>, Vec<String>) {
 /// ```
 pub fn validate_query(query: &str) -> Result<&str, ValidationError> {
     const MAX_QUERY_LENGTH: usize = 1000;
+
+    // Check for null bytes before trimming - these should be rejected
+    // as they may cause unexpected behavior in search backends
+    if query.contains('\0') {
+        return Err(ValidationError::NullBytesNotAllowed);
+    }
 
     let trimmed = query.trim();
 
@@ -586,6 +595,30 @@ mod tests {
         assert!(result.is_err());
         let err_msg = result.as_ref().map_err(ToString::to_string);
         assert!(matches!(err_msg, Err(ref msg) if msg.contains("Regex")));
+    }
+
+    #[test]
+    fn test_validate_query_rejects_null_byte() {
+        let result = validate_query("test\0query");
+        assert!(matches!(result, Err(ValidationError::NullBytesNotAllowed)));
+    }
+
+    #[test]
+    fn test_validate_query_rejects_null_byte_at_start() {
+        let result = validate_query("\0test");
+        assert!(matches!(result, Err(ValidationError::NullBytesNotAllowed)));
+    }
+
+    #[test]
+    fn test_validate_query_rejects_null_byte_at_end() {
+        let result = validate_query("test\0");
+        assert!(matches!(result, Err(ValidationError::NullBytesNotAllowed)));
+    }
+
+    #[test]
+    fn test_validate_query_rejects_multiple_null_bytes() {
+        let result = validate_query("test\0\0query");
+        assert!(matches!(result, Err(ValidationError::NullBytesNotAllowed)));
     }
 
     // ============================================================================

@@ -639,7 +639,8 @@ pub fn discover_test_files(root: &std::path::Path) -> Result<Vec<String>, anyhow
     use walkdir::WalkDir;
 
     let mut files = Vec::new();
-    let extensions = [".md", ".mdx", ".rst", ".txt"];
+    // Markdown extensions: .md, .mdx, and unusual variants (.markdown, .mdown, .mkd)
+    let extensions = [".md", ".mdx", ".markdown", ".mdown", ".mkd", ".rst", ".txt"];
     let exclude_dirs = ["node_modules", ".git", "_build", "dist", "vendor"];
 
     for entry in WalkDir::new(root) {

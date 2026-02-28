@@ -1308,6 +1308,8 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
 /// 1. Try to use Tantivy index if available (faster, better features)
 /// 2. Fall back to INDEX.json + manual BM25 scoring if index missing
 /// 3. Display results with scores and metadata
+///
+/// Note: Returns non-zero exit code if advanced search fails, even if fallback succeeds
 fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> Result<()> {
     const MAX_QUERY_WORDS: usize = 100;
 
@@ -1329,6 +1331,9 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
     println!("DOC_TRANSFORMER SEARCH - Tantivy + BM25");
     println!("{}\n", "=".repeat(70));
     println!("Query: \"{query}\"");
+
+    // Track whether advanced search failed (for exit code purposes)
+    let mut advanced_search_failed = false;
 
     // Try Tantivy index first (only if it already exists)
     if let Some(index) = doc_transformer::search::open_existing_index(index_dir)? {
@@ -1372,6 +1377,8 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
                 return Ok(());
             }
             Err(e) => {
+                // Mark that advanced search failed - we will return error later if fallback succeeds
+                advanced_search_failed = true;
                 // Fall through to JSON-based search with informative message
                 println!("Note: Query contains special characters unsupported by advanced search.");
                 println!("  Reason: {e}");
@@ -1466,6 +1473,13 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
             results.len()
         );
         println!("{}\n", "=".repeat(70));
+    }
+
+    // If advanced search failed but fallback succeeded, return error to signal partial failure
+    if advanced_search_failed {
+        anyhow::bail!(
+            "Advanced search failed but basic search succeeded - query may need simplification"
+        );
     }
 
     Ok(())

@@ -212,6 +212,24 @@ pub fn validate_url(url: &str) -> Result<url::Url> {
         anyhow::bail!("URL cannot be empty");
     }
 
+    // Check the original input string for invalid characters BEFORE parsing
+    // The URL parser auto-encodes some things, so we need to catch issues in the input
+    if trimmed.contains(' ') {
+        anyhow::bail!(
+            "URL contains spaces: '{}'. Use '%20' instead of spaces or remove them.",
+            trimmed
+        );
+    }
+
+    // Check for common unencoded special characters in the original input
+    let unencoded_chars = ['[', ']', '{', '}', '|', '\\', '^', '`', '<', '>'];
+    if let Some(found) = unencoded_chars.iter().find(|c| trimmed.contains(**c)) {
+        anyhow::bail!(
+            "URL contains unencoded special character '{found}'. \
+            Characters like [ ] {{ }} | \\ ^ ` < > must be percent-encoded.",
+        );
+    }
+
     let parsed = url::Url::parse(trimmed).context("Invalid URL format")?;
 
     match parsed.scheme() {
@@ -223,6 +241,15 @@ pub fn validate_url(url: &str) -> Result<url::Url> {
         Some(host) if !host.is_empty() => {}
         Some(_) => anyhow::bail!("URL host cannot be empty"),
         None => anyhow::bail!("URL must have a valid host"),
+    }
+
+    // Validate URL can be serialized without information loss
+    let serialized = parsed.to_string();
+    let reparsed = url::Url::parse(&serialized);
+    if reparsed.is_err() {
+        anyhow::bail!(
+            "URL contains invalid encoding. Please ensure special characters are percent-encoded."
+        );
     }
 
     Ok(parsed)
@@ -462,5 +489,51 @@ mod tests {
     fn test_validate_url_valid_hosts() {
         assert!(validate_url("https://example.com").is_ok());
         assert!(validate_url("https://localhost:3000").is_ok());
+    }
+
+    #[test]
+    fn test_validate_url_rejects_spaces() {
+        let result = validate_url("https://example.com/foo bar");
+        assert!(result.is_err(), "URL with spaces should be rejected");
+
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("space"),
+            "Error should mention spaces: {error_msg}"
+        );
+    }
+
+    #[test]
+    fn test_validate_url_rejects_unencoded_special_chars() {
+        // Test various special characters that should be percent-encoded
+        let special_urls = [
+            "https://example.com/foo[bar]",
+            "https://example.com/foo{bar}",
+            "https://example.com/foo|bar",
+            "https://example.com/foo^bar",
+            "https://example.com/foo`bar",
+            "https://example.com/foo<bar>",
+        ];
+
+        for url in special_urls {
+            let result = validate_url(url);
+            assert!(
+                result.is_err(),
+                "URL with special chars should be rejected: {url}"
+            );
+
+            let error_msg = result.unwrap_err().to_string();
+            assert!(
+                error_msg.contains("unencoded") || error_msg.contains("percent-encoded"),
+                "Error should mention encoding: {error_msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_url_accepts_percent_encoded() {
+        // Percent-encoded URLs should be accepted
+        assert!(validate_url("https://example.com/foo%20bar").is_ok());
+        assert!(validate_url("https://example.com/foo%5Bbar%5D").is_ok());
     }
 }
