@@ -9,6 +9,12 @@ workspace:
   root: .
 
 projects:
+  # Release gate tool
+  release-gate:
+    root: release-gate
+    type: rust
+    language: rust
+
   # This project
   docmgr:
     root: doc_transformer

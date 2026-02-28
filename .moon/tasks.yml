@@ -55,7 +55,7 @@ tasks:
       CARGO_BUILD_JOBS: "24"
 
   install:
-    command: "sh -c 'cargo build --release --workspace && for bin in doc_transformer llms_txt_validator; do [ -f target/release/$bin ] && cp target/release/$bin ~/.local/bin/$bin; done && chmod +x ~/.local/bin/doc_transformer ~/.local/bin/llms_txt_validator 2>/dev/null || true'"
+    command: "sh -c 'cargo build --release --workspace && for bin in doc_transformer llms_txt_validator release-gate; do [ -f target/release/$bin ] && cp target/release/$bin ~/.local/bin/$bin; done && chmod +x ~/.local/bin/doc_transformer ~/.local/bin/llms_txt_validator ~/.local/bin/release-gate 2>/dev/null || true'"
     description: "Install binaries to ~/.local/bin"
     options:
       cache: false
@@ -91,5 +91,12 @@ tasks:
     command: "true"
     description: "Run all quality gates (fmt + clippy + test)"
     deps: ["fmt", "clippy", "test"]
+    options:
+      cache: false
+
+  release-gate:
+    command: "sh -c 'cd . && cargo run --release -p release-gate'"
+    description: "Run release go-no-go gate"
+    inputs: [".beads/issues.jsonl", "release-gate/**"]
     options:
       cache: false
