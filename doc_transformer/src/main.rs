@@ -188,10 +188,12 @@ pub(crate) fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
         .map_err(|_| format!("max_related_chunks must be an integer, got '{s}'"))?;
 
     if value < 1 {
-        return Err("max_related_chunks must be at least 1".to_string());
+        return Err(format!("max_related_chunks must be at least 1, got '{s}'"));
     }
     if value > 1000 {
-        return Err("max_related_chunks must be at most 1000".to_string());
+        return Err(format!(
+            "max_related_chunks must be at most 1000, got '{s}'"
+        ));
     }
 
     value
@@ -205,10 +207,10 @@ pub(crate) fn validate_max_chunk_keywords(s: &str) -> Result<usize, String> {
         .map_err(|_| format!("max_chunk_keywords must be an integer, got '{s}'"))?;
 
     if value < 0 {
-        return Err("max_chunk_keywords must be at least 0".to_string());
+        return Err(format!("max_chunk_keywords must be at least 0, got '{s}'"));
     }
     if value > 50 {
-        return Err("max_chunk_keywords must be at most 50".to_string());
+        return Err(format!("max_chunk_keywords must be at most 50, got '{s}'"));
     }
 
     value
@@ -222,10 +224,14 @@ pub(crate) fn validate_hnsw_m(s: &str) -> Result<usize, String> {
         .map_err(|_| format!("hnsw_m must be an integer, got '{s}'"))?;
 
     if value < 4 {
-        return Err("hnsw_m must be at least 4 for proper connectivity".to_string());
+        return Err(format!(
+            "hnsw_m must be at least 4 for proper connectivity, got '{s}'"
+        ));
     }
     if value > 64 {
-        return Err("hnsw_m must be at most 64 for reasonable performance".to_string());
+        return Err(format!(
+            "hnsw_m must be at most 64 for reasonable performance, got '{s}'"
+        ));
     }
 
     value
@@ -239,14 +245,14 @@ pub(crate) fn validate_hnsw_ef_construction(s: &str) -> Result<usize, String> {
         .map_err(|_| format!("hnsw_ef_construction must be an integer, got '{s}'"))?;
 
     if value < 50 {
-        return Err(
-            "hnsw_ef_construction must be at least 50 for acceptable build quality".to_string(),
-        );
+        return Err(format!(
+            "hnsw_ef_construction must be at least 50 for acceptable build quality, got '{s}'"
+        ));
     }
     if value > 1000 {
-        return Err(
-            "hnsw_ef_construction must be at most 1000 for reasonable build times".to_string(),
-        );
+        return Err(format!(
+            "hnsw_ef_construction must be at most 1000 for reasonable build times, got '{s}'"
+        ));
     }
 
     value
