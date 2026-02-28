@@ -273,13 +273,13 @@ fn find_unencoded_special_char(url: &str) -> Option<char> {
 }
 
 fn parse_authority_bounds(url: &str) -> Option<(usize, usize)> {
-    url.find("://").map(|scheme_separator_index| {
-        let authority_start = scheme_separator_index + 3;
-        let after_scheme = &url[authority_start..];
+    url.find("://").and_then(|scheme_separator_index| {
+        let authority_start = scheme_separator_index.checked_add(3)?;
+        let after_scheme = url.get(authority_start..)?;
         let authority_end = after_scheme
             .find(|ch| ['/', '?', '#'].contains(&ch))
-            .map_or_else(|| url.len(), |offset| authority_start + offset);
-        (authority_start, authority_end)
+            .map_or(url.len(), |offset| authority_start.saturating_add(offset));
+        Some((authority_start, authority_end))
     })
 }
 
@@ -382,6 +382,8 @@ pub fn extract_title(markdown: &str, url: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+
     use super::*;
 
     #[test]

@@ -6,6 +6,8 @@
 //! 3. Unicode search
 //! 4. Large limit handling
 
+#![allow(clippy::unwrap_used)]
+
 use std::path::Path;
 use tempfile::TempDir;
 

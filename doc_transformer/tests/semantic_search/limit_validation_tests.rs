@@ -5,6 +5,8 @@
 //! - limit < 0 is rejected (negative values)
 //! - Valid limits work correctly
 
+#![allow(clippy::unwrap_used)]
+
 use tempfile::TempDir;
 
 /// Helper to create a test index with sample documents

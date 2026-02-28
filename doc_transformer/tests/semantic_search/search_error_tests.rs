@@ -4,6 +4,8 @@
 //! error messages when queries contain special characters that break Tantivy
 //! query syntax.
 
+#![allow(clippy::unwrap_used)]
+
 use std::io::Read;
 use std::path::Path;
 use std::process::{Command, Stdio};
