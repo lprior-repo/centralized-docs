@@ -11,7 +11,7 @@
 //!
 //! Provides spider-rs website building and HTTP request configuration.
 
-use super::validation::{RobotsPolicy, ScrapeConfig, SitemapStrategy, StealthMode};
+use super::validation::{RobotsPolicy, ScrapeConfig, StealthMode};
 use std::time::Duration;
 
 /// Build a spider `Website` with shared base configuration
@@ -54,7 +54,7 @@ pub fn build_website_base(url: &str, config: &ScrapeConfig) -> spider::website::
 /// Returns an error if the scrape operation fails.
 pub async fn execute_scrape_with_website(
     website: &mut spider::website::Website,
-    config: &ScrapeConfig,
+    _config: &ScrapeConfig,
     use_sitemap: bool,
 ) -> anyhow::Result<()> {
     if use_sitemap {
@@ -108,32 +108,49 @@ pub fn extract_pages_from_website(
                 break;
             }
 
-            if let Ok(scraped) =
-                super::transformers::transform_page(page, &config.base_url, config.filtering_mode)
-            {
-                let page_size = scraped.markdown.len() as u64;
-                total_content_size = if let Some(size) = total_content_size.checked_add(page_size) {
-                    size
-                } else {
-                    let error_msg =
-                        "Integer overflow: total content size would exceed u64::MAX".to_string();
-                    errors.push((url.to_string(), error_msg));
-                    break;
-                };
+            let transformed_page = super::transformers::transform_page(
+                page,
+                &config.base_url,
+                config,
+                config.filtering_mode,
+            );
 
-                if total_content_size > config.max_total_size_bytes {
-                    let error_msg = format!(
-                        "Total content size ({} bytes) exceeds limit ({} bytes), stopping scrape",
-                        total_content_size, config.max_total_size_bytes
-                    );
-                    errors.push((url.to_string(), error_msg));
-                    break;
+            match transformed_page {
+                Ok(scraped) => {
+                    if scraped.markdown.trim().is_empty() {
+                        errors.push((
+                            url.to_string(),
+                            "Skipped page with empty markdown content".to_string(),
+                        ));
+                        continue;
+                    }
+
+                    let page_size = scraped.markdown.len() as u64;
+                    total_content_size =
+                        if let Some(size) = total_content_size.checked_add(page_size) {
+                            size
+                        } else {
+                            let error_msg =
+                                "Integer overflow: total content size would exceed u64::MAX"
+                                    .to_string();
+                            errors.push((url.to_string(), error_msg));
+                            break;
+                        };
+
+                    if total_content_size > config.max_total_size_bytes {
+                        let error_msg = format!(
+                            "Total content size ({} bytes) exceeds limit ({} bytes), stopping scrape",
+                            total_content_size, config.max_total_size_bytes
+                        );
+                        errors.push((url.to_string(), error_msg));
+                        break;
+                    }
+
+                    pages.push(scraped);
                 }
-
-                pages.push(scraped);
-            } else {
-                let error_msg = "Failed to transform page".to_string();
-                errors.push((url.to_string(), error_msg));
+                Err(error) => {
+                    errors.push((url.to_string(), error.to_string()));
+                }
             }
         }
     }

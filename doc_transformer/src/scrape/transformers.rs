@@ -15,7 +15,7 @@ use crate::filter::filter_markdown;
 use crate::filter::{prune_html, FilterConfig, FilterResult};
 use anyhow::{Context, Result};
 use regex::Regex;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::fs;
 use std::path::Path;
@@ -189,6 +189,7 @@ pub fn find_related_pages<'a>(
 pub fn transform_page(
     page: &spider::page::Page,
     base_url: &str,
+    config: &super::validation::ScrapeConfig,
     filtering_mode: FilteringMode,
 ) -> Result<super::validation::ScrapedPage> {
     let url = page.get_url().to_string();
@@ -200,7 +201,6 @@ pub fn transform_page(
         anyhow::bail!("Rate limit page detected for {url} - skipping");
     }
 
-    let config = super::validation::ScrapeConfig::default();
     super::validation::check_html_size(&raw_html, config.max_page_size_bytes)?;
 
     let filtering_enabled = filtering_mode == FilteringMode::Enabled;
@@ -299,10 +299,38 @@ pub fn write_scraped_pages(
     fs::create_dir_all(&scrape_dir)?;
 
     let all_pages = &result.pages;
+    let mut slug_counts: HashMap<String, usize> = HashMap::new();
+    let filenames: Vec<String> = all_pages
+        .iter()
+        .map(|page| {
+            let current_count = slug_counts
+                .entry(page.slug.clone())
+                .and_modify(|count| *count = count.saturating_add(1))
+                .or_insert(1);
 
-    for page in all_pages {
-        let filename = format!("{}.md", page.slug);
-        let filepath = scrape_dir.join(&filename);
+            if *current_count == 1 {
+                format!("{}.md", page.slug)
+            } else {
+                format!("{}-{}.md", page.slug, *current_count)
+            }
+        })
+        .collect();
+
+    let url_to_filename: HashMap<String, String> = all_pages
+        .iter()
+        .zip(filenames.iter())
+        .map(|(page, filename)| (page.url.clone(), filename.clone()))
+        .collect();
+
+    let collision_count = slug_counts.values().filter(|count| **count > 1).count();
+    if collision_count > 0 {
+        eprintln!(
+            "[WARN] Detected {collision_count} slug collision groups; applied numeric filename suffixes"
+        );
+    }
+
+    for (page, filename) in all_pages.iter().zip(filenames.iter()) {
+        let filepath = scrape_dir.join(filename);
 
         let toc = generate_toc(&page.headers);
 
@@ -314,7 +342,10 @@ pub fn write_scraped_pages(
             let mut section = String::from("\n## Related Pages\n\n");
             for related_page in related {
                 use std::fmt::Write;
-                let _ = writeln!(section, "- [{}]({})", related_page.title, related_page.slug);
+                let related_link = url_to_filename
+                    .get(&related_page.url)
+                    .map_or_else(|| format!("{}.md", related_page.slug), Clone::clone);
+                let _ = writeln!(section, "- [{}]({related_link})", related_page.title);
             }
             section
         };
@@ -341,6 +372,16 @@ pub fn write_scraped_pages(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scrape::validation;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        std::env::temp_dir().join(format!("{prefix}-{nanos}"))
+    }
 
     #[test]
     fn test_calculate_backoff_delay() {
@@ -373,5 +414,114 @@ mod tests {
         assert!(detect_rate_limit_page("Too many requests"));
         assert!(detect_rate_limit_page("Error 429"));
         assert!(!detect_rate_limit_page("Normal content"));
+    }
+
+    #[test]
+    fn test_write_scraped_pages_handles_slug_collisions() {
+        let output_dir = unique_temp_dir("doc-transformer-slug-collision");
+
+        let page_a = validation::ScrapedPage {
+            url: "https://example.com/a.html".to_string(),
+            markdown: "# A".to_string(),
+            title: "A".to_string(),
+            links: Vec::new(),
+            headers: Vec::new(),
+            word_count: 1,
+            slug: "a".to_string(),
+            filter_status: PageFilterStatus::Unfiltered,
+            elements_removed: 0,
+            density_score: 1.0,
+        };
+
+        let page_b = validation::ScrapedPage {
+            url: "https://example.com/a.htm".to_string(),
+            markdown: "# B".to_string(),
+            title: "B".to_string(),
+            links: Vec::new(),
+            headers: Vec::new(),
+            word_count: 1,
+            slug: "a".to_string(),
+            filter_status: PageFilterStatus::Unfiltered,
+            elements_removed: 0,
+            density_score: 1.0,
+        };
+
+        let scrape_result = validation::ScrapeResult {
+            pages: vec![page_a, page_b],
+            total_urls: 2,
+            success_count: 2,
+            error_count: 0,
+            errors: Vec::new(),
+            base_url: "https://example.com".to_string(),
+        };
+
+        let write_result = write_scraped_pages(&scrape_result, &output_dir);
+        assert!(write_result.is_ok());
+
+        let scrape_dir = output_dir.join(".scrape");
+        assert!(scrape_dir.join("a.md").exists());
+        assert!(scrape_dir.join("a-2.md").exists());
+
+        let _ = fs::remove_dir_all(output_dir);
+    }
+
+    #[test]
+    fn test_write_scraped_pages_related_links_use_disambiguated_filenames() {
+        let output_dir = unique_temp_dir("doc-transformer-related-collision");
+
+        let page_a = validation::ScrapedPage {
+            url: "https://example.com/a.html".to_string(),
+            markdown: "# A\n\ncontent".to_string(),
+            title: "A".to_string(),
+            links: vec!["https://example.com/shared".to_string()],
+            headers: Vec::new(),
+            word_count: 2,
+            slug: "a".to_string(),
+            filter_status: PageFilterStatus::Unfiltered,
+            elements_removed: 0,
+            density_score: 1.0,
+        };
+
+        let page_b = validation::ScrapedPage {
+            url: "https://example.com/a.htm".to_string(),
+            markdown: "# B\n\ncontent".to_string(),
+            title: "B".to_string(),
+            links: vec!["https://example.com/shared".to_string()],
+            headers: Vec::new(),
+            word_count: 2,
+            slug: "a".to_string(),
+            filter_status: PageFilterStatus::Unfiltered,
+            elements_removed: 0,
+            density_score: 1.0,
+        };
+
+        let scrape_result = validation::ScrapeResult {
+            pages: vec![page_a, page_b],
+            total_urls: 2,
+            success_count: 2,
+            error_count: 0,
+            errors: Vec::new(),
+            base_url: "https://example.com".to_string(),
+        };
+
+        let write_result = write_scraped_pages(&scrape_result, &output_dir);
+        assert!(write_result.is_ok());
+
+        let scrape_dir = output_dir.join(".scrape");
+        let content_a = fs::read_to_string(scrape_dir.join("a.md"));
+        let content_b = fs::read_to_string(scrape_dir.join("a-2.md"));
+
+        assert!(content_a.is_ok());
+        assert!(content_b.is_ok());
+
+        if let Ok(text) = content_a {
+            assert!(text.contains("[B](a-2.md)"));
+        }
+
+        if let Ok(text) = content_b {
+            assert!(text.contains("[A](a.md)"));
+        }
+
+        let _ = fs::remove_dir_all(output_dir);
     }
 }

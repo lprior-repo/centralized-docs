@@ -25,6 +25,7 @@ mod tests {
         let _: fn(
             &spider::page::Page,
             &str,
+            &super::super::validation::ScrapeConfig,
             FilteringMode,
         ) -> Result<super::super::validation::ScrapedPage, anyhow::Error> = transform_page;
     }

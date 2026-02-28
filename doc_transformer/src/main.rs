@@ -76,10 +76,12 @@ mod validate;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use scrape::SitemapStrategy;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use spider::configuration::RedirectPolicy;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
+use std::process;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Configuration for the index command
 #[derive(Debug, Clone)]
@@ -177,6 +179,10 @@ impl Default for IngestConfig {
     }
 }
 
+const DEFAULT_MAX_PAGE_SIZE_BYTES: u64 = 10 * 1024 * 1024;
+const DEFAULT_MAX_TOTAL_SIZE_BYTES: u64 = 500 * 1024 * 1024;
+const SEARCH_JSON_ALREADY_EMITTED_PREFIX: &str = "__SEARCH_JSON_ALREADY_EMITTED__";
+
 // Validation functions for HNSW graph parameters
 //
 // Parse as i64 first to properly detect and report negative numbers,
@@ -269,6 +275,12 @@ pub fn validate_threshold(s: &str) -> Result<f32, String> {
     let value = s
         .parse::<f32>()
         .map_err(|_| format!("threshold must be a number, got '{s}'"))?;
+
+    if !value.is_finite() {
+        return Err(format!(
+            "threshold must be a finite number between 0.0 and 10.0, got {value}"
+        ));
+    }
 
     if value < 0.0 {
         return Err(format!(
@@ -693,6 +705,7 @@ enum Commands {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+    let mut search_context: Option<(bool, String)> = None;
 
     let result = match cli.command {
         Some(Commands::Search {
@@ -701,7 +714,10 @@ async fn main() -> Result<()> {
             limit,
             no_color,
             json,
-        }) => run_search(&query, &index_dir, limit, !no_color, json),
+        }) => {
+            search_context = Some((json, query.clone()));
+            run_search(&query, &index_dir, limit, !no_color, json)
+        }
 
         Some(Commands::Scrape {
             url,
@@ -889,7 +905,30 @@ async fn main() -> Result<()> {
         }
     };
 
-    result
+    match result {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            if let Some((json_mode, search_query)) = search_context {
+                if json_mode {
+                    let error_message = err.to_string();
+
+                    if error_message.starts_with(SEARCH_JSON_ALREADY_EMITTED_PREFIX) {
+                        process::exit(1);
+                    }
+
+                    let json_error = serde_json::json!({
+                        "status": "error",
+                        "query": search_query,
+                        "error": error_message,
+                    });
+                    println!("{}", serde_json::to_string_pretty(&json_error)?);
+                    process::exit(1);
+                }
+            }
+
+            Err(err)
+        }
+    }
 }
 
 /// Validate query length to prevent DoS attacks and resource exhaustion
@@ -934,34 +973,52 @@ fn apply_query_filter(
     query: Option<&str>,
     threshold: f32,
 ) -> Result<Vec<scrape::ScrapedPage>> {
-    if let Some(q) = query {
-        // Filter pages by relevance manually since filter_pages_by_relevance is not available
-        let mut kept_pages = Vec::new();
+    let Some(raw_query) = query else {
+        return Ok(pages);
+    };
 
-        for page in pages {
-            // For now, we'll do a simple check - in a real implementation we'd use BM25 scoring
-            // Since we're avoiding the filter_pages_by_relevance function, we'll keep all pages
-            // for now to avoid breaking the build - this should be replaced with proper BM25 filtering
-            kept_pages.push(page);
-        }
-
-        if kept_pages.is_empty() {
-            println!("\n  WARNING: All pages filtered out by query.");
-            println!("  Consider lowering the --threshold value.");
-            anyhow::bail!("All pages filtered out by query '{q}' (threshold: {threshold})");
-        }
-
-        println!("  Kept: {} pages matching \"{}\"", kept_pages.len(), q);
-
-        Ok(kept_pages)
-    } else {
-        // No query provided - return all pages unchanged
-        Ok(pages)
+    let query = raw_query.trim();
+    if query.is_empty() || threshold <= 0.0 {
+        return Ok(pages);
     }
+
+    let avg_doc_length = if pages.is_empty() {
+        0.0
+    } else {
+        let total_words: usize = pages.iter().map(|page| page.word_count).sum();
+        total_words as f32 / pages.len() as f32
+    };
+
+    let original_len = pages.len();
+    let kept_pages: Vec<scrape::ScrapedPage> = pages
+        .into_iter()
+        .filter(|page| {
+            let score = filter::bm25_score(&page.markdown, query, avg_doc_length);
+            score.is_finite() && score >= threshold
+        })
+        .collect();
+
+    let removed_count = original_len.saturating_sub(kept_pages.len());
+    println!(
+        "  Kept: {} pages matching \"{}\" (removed: {})",
+        kept_pages.len(),
+        query,
+        removed_count
+    );
+
+    if kept_pages.is_empty() {
+        println!("\n  WARNING: All pages filtered out by query.");
+        println!("  Consider lowering the --threshold value.");
+        anyhow::bail!("All pages filtered out by query '{query}' (threshold: {threshold})");
+    }
+
+    Ok(kept_pages)
 }
 
 /// Run the scrape command
 async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> Result<()> {
+    let _validated_url = scrape::validate_url(url)?;
+
     // Validate query length before processing (prevents DoS)
     let query_ref = config.query.as_deref();
     validate_query_length(&query_ref)?;
@@ -998,6 +1055,10 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
         sitemap_strategy: config.sitemap_strategy,
         path_filter: config.filter.clone(),
         delay_ms: config.delay,
+        max_page_size_bytes: config.max_page_bytes.unwrap_or(DEFAULT_MAX_PAGE_SIZE_BYTES),
+        max_total_size_bytes: config
+            .max_total_bytes
+            .unwrap_or(DEFAULT_MAX_TOTAL_SIZE_BYTES),
         spider_max_page_bytes: config.max_page_bytes,
         spider_max_total_bytes: config.max_total_bytes,
         request_timeout_secs: config.request_timeout_secs,
@@ -1112,6 +1173,14 @@ struct OutputLock {
     lock_path: PathBuf,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct OutputLockMetadata {
+    pid: u32,
+    created_at_unix_secs: u64,
+}
+
+const OUTPUT_LOCK_STALE_AFTER_SECS: u64 = 60 * 30;
+
 impl Drop for OutputLock {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.lock_path);
@@ -1122,12 +1191,30 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
     std::fs::create_dir_all(output)?;
     let lock_path = output.join(".doc_transformer.lock");
 
+    if lock_path.exists() && should_reclaim_stale_lock(&lock_path) {
+        eprintln!("[WARN] Reclaiming stale lock at {}", lock_path.display());
+        std::fs::remove_file(&lock_path)?;
+    }
+
     OpenOptions::new()
         .create_new(true)
         .write(true)
         .open(&lock_path)
-        .map(|_| OutputLock {
-            lock_path: lock_path.clone(),
+        .and_then(|mut file| {
+            let metadata = OutputLockMetadata {
+                pid: process::id(),
+                created_at_unix_secs: now_unix_secs(),
+            };
+
+            match serde_json::to_writer(&mut file, &metadata).map_err(std::io::Error::other) {
+                Ok(()) => Ok(OutputLock {
+                    lock_path: lock_path.clone(),
+                }),
+                Err(error) => {
+                    let _ = std::fs::remove_file(&lock_path);
+                    Err(error)
+                }
+            }
         })
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::AlreadyExists {
@@ -1143,6 +1230,43 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
                 )
             }
         })
+}
+
+fn now_unix_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_secs())
+}
+
+fn process_is_alive(pid: u32) -> bool {
+    if pid == process::id() {
+        return true;
+    }
+
+    PathBuf::from("/proc").join(pid.to_string()).exists()
+}
+
+fn lock_age_secs(lock_path: &Path) -> Option<u64> {
+    std::fs::metadata(lock_path)
+        .ok()
+        .and_then(|metadata| metadata.modified().ok())
+        .and_then(|modified| modified.elapsed().ok())
+        .map(|duration| duration.as_secs())
+}
+
+fn read_lock_metadata(lock_path: &Path) -> Option<OutputLockMetadata> {
+    std::fs::File::open(lock_path)
+        .ok()
+        .and_then(|file| serde_json::from_reader(file).ok())
+}
+
+fn should_reclaim_stale_lock(lock_path: &Path) -> bool {
+    if let Some(metadata) = read_lock_metadata(lock_path) {
+        let age_secs = now_unix_secs().saturating_sub(metadata.created_at_unix_secs);
+        return !process_is_alive(metadata.pid) || age_secs > OUTPUT_LOCK_STALE_AFTER_SECS;
+    }
+
+    lock_age_secs(lock_path).is_some_and(|age| age > OUTPUT_LOCK_STALE_AFTER_SECS)
 }
 
 /// Run the index command (main pipeline)
@@ -1268,6 +1392,14 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
         validation_result.total_warnings
     );
 
+    if validation_result.total_errors > 0 {
+        anyhow::bail!(
+            "Validation failed: {} errors found across {} files",
+            validation_result.total_errors,
+            validation_result.files_checked
+        );
+    }
+
     // FINAL SUMMARY
     println!("{}", "=".repeat(70));
     println!("COMPLETE");
@@ -1290,6 +1422,8 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
 
 /// Run the ingest command (scrape + index)
 async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<()> {
+    let _validated_url = scrape::validate_url(url)?;
+
     // Extract fields from config
     let filter = config.filter.clone();
     let delay = config.delay;
@@ -1320,6 +1454,8 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
         sitemap_strategy: SitemapStrategy::UseSitemap,
         path_filter: filter,
         delay_ms: delay,
+        max_page_size_bytes: max_page_bytes.unwrap_or(DEFAULT_MAX_PAGE_SIZE_BYTES),
+        max_total_size_bytes: max_total_bytes.unwrap_or(DEFAULT_MAX_TOTAL_SIZE_BYTES),
         spider_max_page_bytes: max_page_bytes,
         spider_max_total_bytes: max_total_bytes,
         request_timeout_secs: config.request_timeout_secs,
@@ -1405,12 +1541,15 @@ fn emit_search_output(
     results: &[CliSearchResult],
     limit: usize,
     json_output: bool,
+    status: &str,
+    advanced_search_failed: bool,
 ) -> Result<()> {
     if json_output {
         let output = serde_json::json!({
-            "status": if results.is_empty() { "no_results" } else { "ok" },
+            "status": status,
             "query": query,
             "backend": backend,
+            "advanced_search_failed": advanced_search_failed,
             "requested_limit": limit,
             "result_count": results.len(),
             "results": results,
@@ -1446,10 +1585,6 @@ fn emit_search_output(
         }
     }
 
-    if results.is_empty() {
-        anyhow::bail!("No results found for '{query}'");
-    }
-
     Ok(())
 }
 
@@ -1480,8 +1615,8 @@ fn run_search(
     let mut advanced_search_failed = false;
 
     // Try Tantivy index first (only if it already exists)
-    if let Some(index) = doc_transformer::search::open_existing_index(index_dir)? {
-        match doc_transformer::search::search_index(&index, query, limit) {
+    match doc_transformer::search::open_existing_index(index_dir) {
+        Ok(Some(index)) => match doc_transformer::search::search_index(&index, query, limit) {
             Ok(results) => {
                 let cli_results: Vec<CliSearchResult> = results
                     .iter()
@@ -1506,7 +1641,29 @@ fn run_search(
                     })
                     .collect();
 
-                emit_search_output(query, "tantivy", &cli_results, limit, json_output)?;
+                let status = if cli_results.is_empty() {
+                    "no_results"
+                } else {
+                    "ok"
+                };
+                emit_search_output(
+                    query,
+                    "tantivy",
+                    &cli_results,
+                    limit,
+                    json_output,
+                    status,
+                    false,
+                )?;
+
+                if cli_results.is_empty() && json_output {
+                    anyhow::bail!("{SEARCH_JSON_ALREADY_EMITTED_PREFIX}:no_results");
+                }
+
+                if cli_results.is_empty() {
+                    anyhow::bail!("No results found for '{query}'");
+                }
+
                 return Ok(());
             }
             Err(e) => {
@@ -1521,6 +1678,15 @@ fn run_search(
                     println!("  Tip: Try simpler terms or remove special characters.");
                     println!("  Falling back to basic search...\n");
                 }
+            }
+        },
+        Ok(None) => {}
+        Err(e) => {
+            advanced_search_failed = true;
+            if !json_output {
+                println!("Note: Advanced index unavailable or corrupted.");
+                println!("  Reason: {e}");
+                println!("  Falling back to basic search...\n");
             }
         }
     }
@@ -1599,9 +1765,36 @@ fn run_search(
         })
         .collect();
 
-    emit_search_output(query, "bm25-fallback", &cli_results, limit, json_output)?;
+    let status = if cli_results.is_empty() {
+        "no_results"
+    } else if advanced_search_failed {
+        "partial"
+    } else {
+        "ok"
+    };
+    emit_search_output(
+        query,
+        "bm25-fallback",
+        &cli_results,
+        limit,
+        json_output,
+        status,
+        advanced_search_failed,
+    )?;
+
+    if cli_results.is_empty() && json_output {
+        anyhow::bail!("{SEARCH_JSON_ALREADY_EMITTED_PREFIX}:no_results");
+    }
+
+    if cli_results.is_empty() {
+        anyhow::bail!("No results found for '{query}'");
+    }
 
     // If advanced search failed but fallback succeeded, return error to signal partial failure
+    if advanced_search_failed && json_output {
+        anyhow::bail!("{SEARCH_JSON_ALREADY_EMITTED_PREFIX}:partial");
+    }
+
     if advanced_search_failed {
         anyhow::bail!(
             "Advanced search failed but basic search succeeded - query may need simplification"
@@ -1614,6 +1807,80 @@ fn run_search(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn unique_temp_dir(prefix: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |duration| duration.as_nanos());
+        std::env::temp_dir().join(format!("{prefix}-{nanos}"))
+    }
+
+    fn write_lock_metadata(lock_path: &Path, metadata: &OutputLockMetadata) {
+        let file_result = std::fs::File::create(lock_path);
+        assert!(file_result.is_ok());
+
+        if let Ok(file) = file_result {
+            let write_result = serde_json::to_writer(file, metadata);
+            assert!(write_result.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_should_reclaim_stale_lock_when_pid_not_alive() {
+        let temp_dir = unique_temp_dir("lock-reclaim-dead-pid");
+        let create_dir_result = std::fs::create_dir_all(&temp_dir);
+        assert!(create_dir_result.is_ok());
+
+        let lock_path = temp_dir.join(".doc_transformer.lock");
+        let metadata = OutputLockMetadata {
+            pid: u32::MAX,
+            created_at_unix_secs: now_unix_secs(),
+        };
+
+        write_lock_metadata(&lock_path, &metadata);
+
+        assert!(should_reclaim_stale_lock(&lock_path));
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_should_reclaim_stale_lock_when_too_old() {
+        let temp_dir = unique_temp_dir("lock-reclaim-old");
+        let create_dir_result = std::fs::create_dir_all(&temp_dir);
+        assert!(create_dir_result.is_ok());
+
+        let lock_path = temp_dir.join(".doc_transformer.lock");
+        let metadata = OutputLockMetadata {
+            pid: process::id(),
+            created_at_unix_secs: now_unix_secs().saturating_sub(OUTPUT_LOCK_STALE_AFTER_SECS + 5),
+        };
+
+        write_lock_metadata(&lock_path, &metadata);
+
+        assert!(should_reclaim_stale_lock(&lock_path));
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_should_not_reclaim_fresh_live_lock() {
+        let temp_dir = unique_temp_dir("lock-reclaim-live");
+        let create_dir_result = std::fs::create_dir_all(&temp_dir);
+        assert!(create_dir_result.is_ok());
+
+        let lock_path = temp_dir.join(".doc_transformer.lock");
+        let metadata = OutputLockMetadata {
+            pid: process::id(),
+            created_at_unix_secs: now_unix_secs(),
+        };
+
+        write_lock_metadata(&lock_path, &metadata);
+
+        assert!(!should_reclaim_stale_lock(&lock_path));
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
 
     #[test]
     fn test_validate_query_none() {
@@ -2291,21 +2558,7 @@ mod tests {
     #[test]
     fn test_threshold_nan_handled() {
         let result = validate_threshold("NaN");
-        // Note: NaN parses successfully and passes validation because
-        // NaN < 0.0 is false AND NaN > 10.0 is also false
-        // This is a known floating-point edge case - the validation
-        // uses comparisons that are always false for NaN
-        // The test documents this behavior rather than fixing it
-        // since NaN in practice would never be typed by a user
-        match result {
-            Ok(value) => {
-                // If accepted, verify it's NaN (documenting the edge case)
-                assert!(value.is_nan(), "Only NaN should pass this edge case");
-            }
-            Err(_) => {
-                // Also acceptable if rejected by the parser
-            }
-        }
+        assert!(result.is_err(), "threshold=NaN should be rejected");
     }
 
     #[test]
@@ -2525,6 +2778,59 @@ mod tests {
         if let Err(msg) = err_msg {
             assert!(msg.contains("10.0"), "Error should mention the 10.0 limit");
         }
+    }
+
+    fn make_scraped_page(url: &str, markdown: &str, word_count: usize) -> scrape::ScrapedPage {
+        scrape::ScrapedPage {
+            url: url.to_string(),
+            markdown: markdown.to_string(),
+            title: "Title".to_string(),
+            links: Vec::new(),
+            headers: Vec::new(),
+            word_count,
+            slug: "slug".to_string(),
+            filter_status: scrape::PageFilterStatus::Unfiltered,
+            elements_removed: 0,
+            density_score: 1.0,
+        }
+    }
+
+    #[test]
+    fn test_apply_query_filter_no_query_keeps_all_pages() {
+        let pages = vec![
+            make_scraped_page("https://example.com/a", "alpha beta", 2),
+            make_scraped_page("https://example.com/b", "gamma delta", 2),
+        ];
+
+        let result = apply_query_filter(pages.clone(), None, 0.1);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap_or_default().len(), pages.len());
+    }
+
+    #[test]
+    fn test_apply_query_filter_filters_non_matching_pages() {
+        let pages = vec![
+            make_scraped_page("https://example.com/a", "rust async runtime", 3),
+            make_scraped_page("https://example.com/b", "python data science", 3),
+        ];
+
+        let result = apply_query_filter(pages, Some("rust"), 0.1);
+        assert!(result.is_ok());
+
+        let kept = result.unwrap_or_default();
+        assert_eq!(kept.len(), 1);
+        assert!(kept[0].markdown.contains("rust"));
+    }
+
+    #[test]
+    fn test_apply_query_filter_errors_when_all_filtered() {
+        let pages = vec![
+            make_scraped_page("https://example.com/a", "alpha beta", 2),
+            make_scraped_page("https://example.com/b", "gamma delta", 2),
+        ];
+
+        let result = apply_query_filter(pages, Some("zzzzzz_no_match"), 0.1);
+        assert!(result.is_err());
     }
 
     // BEAD-004: ReDoS protection tests

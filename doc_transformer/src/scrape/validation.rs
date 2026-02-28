@@ -220,6 +220,12 @@ pub fn validate_url(url: &str) -> Result<url::Url> {
         );
     }
 
+    if trimmed.chars().any(char::is_control) {
+        anyhow::bail!(
+            "URL contains control characters (for example tab/newline), which are not allowed"
+        );
+    }
+
     // Check for common unencoded special characters in the original input.
     // '[' and ']' are allowed only inside authority for IPv6 host literals.
     if let Some(found) = find_unencoded_special_char(trimmed) {
@@ -664,6 +670,15 @@ mod tests {
             error_msg.contains("space"),
             "Error should mention spaces: {error_msg}"
         );
+    }
+
+    #[test]
+    fn test_validate_url_rejects_control_characters() {
+        let tab = validate_url("https://example.com/foo\tbar");
+        assert!(tab.is_err(), "URL with tab should be rejected");
+
+        let newline = validate_url("https://example.com/foo\nbar");
+        assert!(newline.is_err(), "URL with newline should be rejected");
     }
 
     #[test]

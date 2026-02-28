@@ -71,7 +71,7 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                 // Cap at 100 pages for fallback crawl to avoid infinite crawls on SPA sites
                 let capped = config.max_pages.min(100);
                 if config.max_pages > 100 {
-                    println!("[SCRAPE] Limiting to {capped} pages (use --max-pages to override)");
+                    println!("[SCRAPE] Limiting to {capped} pages for sitemap fallback crawl");
                 }
                 (false, capped)
             }
