@@ -38,12 +38,24 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     ))?;
 
     let mut files = Vec::new();
-    let extensions = [".md", ".mdx", ".rst", ".txt"];
+    // Markdown extensions (primary)
+    let markdown_exts = [".md", ".mdx", ".markdown", ".mdown", ".mkd"];
+    // Text extensions (processed but may not be actual markdown - warn)
+    let text_exts = [".txt"];
+    // RestructuredText
+    let rst_exts = [".rst"];
+    // All supported extensions combined
+    let all_exts: Vec<&str> = markdown_exts
+        .iter()
+        .copied()
+        .chain(text_exts.iter().copied())
+        .chain(rst_exts.iter().copied())
+        .collect();
     let exclude_dirs = ["node_modules", ".git", "_build", "dist", "vendor"];
 
     // Handle single file case directly
     if canonical_path.is_file() {
-        return discover_single_file(&canonical_path, &extensions);
+        return discover_single_file(&canonical_path, &all_exts);
     }
 
     // Directory case: walk the directory tree
@@ -70,7 +82,19 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
         if path.is_file() {
             if let Some(ext) = path.extension() {
                 let ext_str = format!(".{}", ext.to_string_lossy());
-                if extensions.contains(&ext_str.as_str()) {
+                if all_exts.contains(&ext_str.as_str()) {
+                    // Warn for non-markdown text files being processed as markdown
+                    if text_exts.contains(&ext_str.as_str()) {
+                        let filename = path.file_name().map_or_else(
+                            || "unknown".to_string(),
+                            |n| n.to_string_lossy().to_string(),
+                        );
+                        eprintln!(
+                            "Warning: Processing non-markdown file '{}' with extension '{}'. \
+                            This file may not be valid markdown.",
+                            filename, ext_str
+                        );
+                    }
                     // Get relative path, skip if it fails (e.g., prefix mismatch)
                     let rel_path = match path.strip_prefix(&canonical_path) {
                         Ok(p) => p.to_string_lossy().to_string(),
@@ -142,7 +166,24 @@ fn discover_single_file(
         extensions.contains(&ext_str.as_str())
     });
 
+    // Text extensions that should trigger a warning (not true markdown)
+    let text_extensions = [".txt"];
+
     let files = if has_supported_ext {
+        let ext_str = file_path
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+
+        // Warn for non-markdown text files being processed as markdown
+        if text_extensions.contains(&ext_str.as_str()) {
+            eprintln!(
+                "Warning: Processing non-markdown file '{}' with extension '{}'. \
+                This file may not be valid markdown.",
+                filename, ext_str
+            );
+        }
+
         let size = file_path
             .metadata()
             .context(format!(

@@ -681,19 +681,31 @@ fn normalize_heading_path(stack: &[String]) -> Vec<String> {
 /// Estimate token count using tiktoken cl100k_base tokenizer
 /// Falls back to character approximation if tokenizer unavailable
 fn estimate_tokens(text: &str) -> usize {
-    Encoding::get_by_dict(&Dict::Cl100kBase).map_or_else(
-        |_| (text.len() / 4).max(1),
-        |encoding| {
-            let bpe = CoreBpe::new(
-                encoding.merging_ranks,
-                encoding.special_tokens,
-                encoding.dict.get_regex_pattern(),
-            );
-            bpe.ok()
-                .map(|bpe| bpe.encode_native(text).0.len())
-                .unwrap_or_default()
-        },
-    )
+    // Use cached encoding and encoder for efficiency - avoids creating new tokenizer per call
+    static ENCODING: std::sync::OnceLock<Option<Encoding>> = std::sync::OnceLock::new();
+    static ENCODER: std::sync::OnceLock<Option<CoreBpe>> = std::sync::OnceLock::new();
+
+    // Get or create the encoding
+    let encoding = ENCODING.get_or_init(|| Encoding::get_by_dict(&Dict::Cl100kBase).ok());
+
+    // If we have an encoding, try to get or create the encoder
+    if let Some(ref enc) = encoding {
+        let encoder = ENCODER.get_or_init(|| {
+            CoreBpe::new(
+                enc.merging_ranks.clone(),
+                enc.special_tokens.clone(),
+                enc.dict.get_regex_pattern(),
+            )
+            .ok()
+        });
+
+        if let Some(ref bpe) = encoder {
+            return bpe.encode_native(text).0.len();
+        }
+    }
+
+    // Fallback: simple character approximation
+    (text.len() / 4).max(1)
 }
 
 /// Create a summary from chunk content (extractive)
