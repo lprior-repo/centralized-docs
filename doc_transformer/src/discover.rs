@@ -67,7 +67,7 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
-                eprintln!("Warning: Skipping path due to I/O error: {e}");
+                eprintln!("Error: Skipping path due to I/O error: {e}");
                 continue;
             }
         };
@@ -124,7 +124,7 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
 
                     if size == 0 {
                         skipped_empty = skipped_empty.saturating_add(1);
-                        eprintln!("Warning: Skipping empty file {}", path.display());
+                        eprintln!("Error: Skipping empty file {}", path.display());
                         continue;
                     }
 

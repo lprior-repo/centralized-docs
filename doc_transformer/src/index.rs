@@ -427,7 +427,7 @@ fn build_tantivy_index(output_dir: &Path, documents: &[IndexDocument]) -> Result
     search::open_or_create_index(output_dir)
         .and_then(|index| search::index_documents(&index, documents.to_vec()))
         .map_err(|e| {
-            eprintln!("Warning: Failed to build Tantivy index: {e}");
+            eprintln!("Error: Failed to build Tantivy index: {e}");
             eprintln!("Search will fall back to INDEX.json, but will be slower");
             anyhow::anyhow!("Tantivy index build failed (non-fatal): {e}")
         })
@@ -828,7 +828,7 @@ pub fn build_knowledge_dag(
             Err(e) => {
                 // HNSW index build failed - skip related edges
                 // This can happen with empty embeddings or invalid vectors
-                eprintln!("Warning: HNSW index build failed ({e}), skipping related chunk edges");
+                eprintln!("Error: HNSW index build failed ({e}), skipping related chunk edges");
                 // Continue without adding related edges - document structure (parent/sequential) is preserved
             }
         }

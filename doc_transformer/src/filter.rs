@@ -647,7 +647,7 @@ pub fn discover_test_files(root: &std::path::Path) -> Result<Vec<String>, anyhow
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
-                eprintln!("Warning: Skipping path due to I/O error: {e}");
+                eprintln!("Error: Skipping path due to I/O error: {e}");
                 continue;
             }
         };
