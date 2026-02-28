@@ -216,8 +216,7 @@ pub fn validate_url(url: &str) -> Result<url::Url> {
     // The URL parser auto-encodes some things, so we need to catch issues in the input
     if trimmed.contains(' ') {
         anyhow::bail!(
-            "URL contains spaces: '{}'. Use '%20' instead of spaces or remove them.",
-            trimmed
+            "URL contains spaces: '{trimmed}'. Use '%20' instead of spaces or remove them."
         );
     }
 
@@ -343,21 +342,18 @@ pub fn validate_scrape_result(result: &ScrapeResult) -> Result<()> {
 
 /// Extract title from markdown content
 pub fn extract_title(markdown: &str, url: &str) -> String {
-    let h1_regex = match Regex::new(r"^#\s+(.+)$") {
-        Ok(regex) => regex,
-        Err(_) => {
-            // Fallback: simple string matching if regex compilation fails
-            return url::Url::parse(url).map_or_else(
-                |_| "Untitled".to_string(),
-                |u| {
-                    u.path()
-                        .trim_matches('/')
-                        .split('/')
-                        .next_back()
-                        .map_or_else(|| "Untitled".to_string(), |s| s.replace(['-', '_'], " "))
-                },
-            );
-        }
+    let Ok(h1_regex) = Regex::new(r"^#\s+(.+)$") else {
+        // Fallback: simple string matching if regex compilation fails
+        return url::Url::parse(url).map_or_else(
+            |_| "Untitled".to_string(),
+            |u| {
+                u.path()
+                    .trim_matches('/')
+                    .split('/')
+                    .next_back()
+                    .map_or_else(|| "Untitled".to_string(), |s| s.replace(['-', '_'], " "))
+            },
+        );
     };
 
     for line in markdown.lines() {

@@ -241,7 +241,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_analysis_to_document_with_link_map() -> anyhow::Result<()> {
+    fn test_analysis_to_document_with_link_map() {
         let analysis = Analysis {
             source_path: "concept/general/test.md".to_string(),
             title: "Test Document".to_string(),
@@ -273,8 +273,6 @@ mod tests {
         assert_eq!(doc.id, "concept/general/test");
         assert_eq!(doc.title, "Test Document");
         assert_eq!(doc.content, "## Section\nContent here");
-
-        Ok(())
     }
 
     #[test]
@@ -301,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn test_chunk_conversion() -> anyhow::Result<()> {
+    fn test_chunk_conversion() {
         let cc_chunk = contextual_chunker::Chunk {
             chunk_id: "test#0".to_string(),
             doc_id: "test".to_string(),
@@ -326,7 +324,5 @@ mod tests {
         assert_eq!(chunk.chunk_id, "test#0");
         assert_eq!(chunk.chunk_level, contextual_chunker::ChunkLevel::Standard);
         assert!(chunk.related_chunk_ids.is_empty()); // Populated later by graph
-
-        Ok(())
     }
 }

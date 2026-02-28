@@ -299,7 +299,8 @@ impl MaxRelatedChunks {
         if value > 1000 {
             return Err(ConfigError::MaxRelatedChunksTooLarge(value));
         }
-        // Convert to u16 since we validated the range
+        // Safe: value is guaranteed to be <= 1000 by the validation above
+        #[allow(clippy::cast_possible_truncation)]
         Ok(MaxRelatedChunks(value as u16))
     }
 

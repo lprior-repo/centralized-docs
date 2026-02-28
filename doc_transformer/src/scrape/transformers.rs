@@ -16,12 +16,14 @@ use crate::filter::{prune_html, FilterConfig, FilterResult};
 use anyhow::{Context, Result};
 use regex::Regex;
 use std::collections::HashSet;
+use std::fmt::Write;
 use std::fs;
 use std::path::Path;
 
 use super::validation::{FilteringMode, PageFilterStatus};
 
 /// Calculate exponential backoff delay with overflow protection
+#[must_use]
 pub fn calculate_backoff_delay(base_delay_ms: u64, attempt: u32) -> u64 {
     let exponent = attempt.saturating_sub(1).min(62);
     let multiplier = 2_u64.pow(exponent);
@@ -76,6 +78,7 @@ pub fn url_to_slug(url: &str) -> Result<String> {
 }
 
 /// Detect if a page is a rate limit response
+#[must_use]
 pub fn detect_rate_limit_page(html: &str) -> bool {
     let html_lower = html.to_lowercase();
     html_lower.contains("rate limit exceeded")
@@ -84,10 +87,10 @@ pub fn detect_rate_limit_page(html: &str) -> bool {
 }
 
 /// Extract headers from markdown
+#[must_use]
 pub fn extract_headers(markdown: &str) -> Vec<super::validation::Header> {
-    let header_regex = match Regex::new(r"^(#{1,6})\s+(.+)$") {
-        Ok(regex) => regex,
-        Err(_) => return Vec::new(),
+    let Ok(header_regex) = Regex::new(r"^(#{1,6})\s+(.+)$") else {
+        return Vec::new();
     };
 
     markdown
@@ -104,13 +107,13 @@ pub fn extract_headers(markdown: &str) -> Vec<super::validation::Header> {
 }
 
 /// Extract internal links from markdown
+#[must_use]
 pub fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
     let base = url::Url::parse(base_url).ok();
     let mut links = Vec::new();
 
-    let link_regex = match Regex::new(r"\[([^\]]+)\]\(([^)]+)\)") {
-        Ok(regex) => regex,
-        Err(_) => return links,
+    let Ok(link_regex) = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)") else {
+        return links;
     };
 
     for caps in link_regex.captures_iter(markdown) {
@@ -137,6 +140,7 @@ pub fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
 }
 
 /// Generate table of contents from headers
+#[must_use]
 pub fn generate_toc(headers: &[super::validation::Header]) -> String {
     if headers.is_empty() {
         return String::new();
@@ -152,13 +156,14 @@ pub fn generate_toc(headers: &[super::validation::Header]) -> String {
             .chars()
             .filter(|c| c.is_alphanumeric() || *c == '-')
             .collect::<String>();
-        toc.push_str(&format!("{}- [{}](#{})\n", indent, header.text, anchor));
+        let _ = writeln!(toc, "{}- [{}](#{})", indent, header.text, anchor);
     }
     toc.push_str("\n---\n\n");
     toc
 }
 
 /// Find related pages based on shared links
+#[must_use]
 pub fn find_related_pages<'a>(
     current_page: &super::validation::ScrapedPage,
     all_pages: &'a [super::validation::ScrapedPage],
@@ -308,10 +313,8 @@ pub fn write_scraped_pages(
         } else {
             let mut section = String::from("\n## Related Pages\n\n");
             for related_page in related {
-                section.push_str(&format!(
-                    "- [{}]({})\n",
-                    related_page.title, related_page.slug
-                ));
+                use std::fmt::Write;
+                let _ = writeln!(section, "- [{}]({})", related_page.title, related_page.slug);
             }
             section
         };

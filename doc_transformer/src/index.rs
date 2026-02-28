@@ -76,6 +76,7 @@ struct DocumentIndexResult {
 /// # Errors
 ///
 /// Returns an error if the index cannot be built or written to the specified directory.
+#[allow(clippy::too_many_arguments)]
 pub fn build_and_write_index<S: std::hash::BuildHasher>(
     analyses: &[Analysis],
     link_map: &HashMap<String, IdMapping, S>,
@@ -88,7 +89,7 @@ pub fn build_and_write_index<S: std::hash::BuildHasher>(
     max_chunk_keywords: Option<usize>,
 ) -> Result<()> {
     // Phase 1: Build document index and extract metadata
-    let doc_index = build_document_index(analyses, &link_map, chunks_result);
+    let doc_index = build_document_index(analyses, link_map, chunks_result);
 
     // Phase 2: Build knowledge graph
     let dag = build_knowledge_dag(
@@ -271,7 +272,7 @@ fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Result<Vec<Chun
                 heading: chunk.heading.clone(),
                 heading_path,
                 heading_anchor,
-                chunk_type: chunk.chunk_type.clone(),
+                chunk_type: chunk.chunk_type,
                 token_count: chunk.token_count,
                 summary: chunk.summary.clone(),
                 previous_chunk_id: chunk.previous_chunk_id.clone(),
@@ -472,7 +473,7 @@ pub fn build_and_write_compass<S: std::hash::BuildHasher>(
                 compass.push_str(filename);
                 compass.push_str(") ");
                 compass.push_str(&tag_str);
-                compass.push_str("\n");
+                compass.push('\n');
             }
             compass.push('\n');
         }

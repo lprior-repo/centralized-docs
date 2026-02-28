@@ -90,9 +90,8 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
                             |n| n.to_string_lossy().to_string(),
                         );
                         eprintln!(
-                            "Warning: Processing non-markdown file '{}' with extension '{}'. \
-                            This file may not be valid markdown.",
-                            filename, ext_str
+                            "Warning: Processing non-markdown file '{filename}' with extension '{ext_str}'. \
+                            This file may not be valid markdown."
                         );
                     }
                     // Get relative path, skip if it fails (e.g., prefix mismatch)
@@ -178,9 +177,8 @@ fn discover_single_file(
         // Warn for non-markdown text files being processed as markdown
         if text_extensions.contains(&ext_str.as_str()) {
             eprintln!(
-                "Warning: Processing non-markdown file '{}' with extension '{}'. \
-                This file may not be valid markdown.",
-                filename, ext_str
+                "Warning: Processing non-markdown file '{filename}' with extension '{ext_str}'. \
+                This file may not be valid markdown."
             );
         }
 

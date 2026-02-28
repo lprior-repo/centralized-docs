@@ -340,6 +340,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
         // Recalculate score for this document using simplified BM25
         // (Tantivy's internal score can't be easily extracted)
         // SAFETY: word_count from u64 field, typical values < 100k, well within f32 precision
+        #[allow(clippy::cast_precision_loss)]
         let score = score_document_simple(&title_with_path, &summary, query_str, word_count as f32);
 
         // Only include results with positive scores (filter out non-matches and negative zeros)

@@ -35,6 +35,7 @@ use tiktoken::{bpe::CoreBpe, encoding::Dict, encoding::Encoding};
 /// assert_eq!(level.as_str(), "standard");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ChunkLevel {
     Summary,
     Standard,

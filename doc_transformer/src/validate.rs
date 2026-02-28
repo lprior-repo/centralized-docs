@@ -108,26 +108,27 @@ pub fn validate_all(output_dir: &Path) -> Result<ValidationResult> {
 type ValidationEntry = (String, Vec<String>, Vec<String>);
 
 fn collect_validation_results(docs_dir: &Path) -> Result<Vec<ValidationEntry>> {
-    fs::read_dir(docs_dir)?
+    let results = fs::read_dir(docs_dir)?
         .filter_map(std::result::Result::ok)
         .map(|entry| entry.path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
-        .map(validate_path)
-        .collect()
+        .map(|path| validate_path(&path))
+        .collect();
+    Ok(results)
 }
 
-fn validate_path(path: std::path::PathBuf) -> Result<ValidationEntry> {
+fn validate_path(path: &std::path::Path) -> ValidationEntry {
     let path_str = path.display().to_string();
-    match fs::read_to_string(&path) {
+    match fs::read_to_string(path) {
         Ok(content) => {
             let (errors, warnings) = validate_file(&content);
-            Ok((path_str, errors, warnings))
+            (path_str, errors, warnings)
         }
-        Err(err) => Ok((
+        Err(err) => (
             path_str,
             vec![format!("Failed to read file: {err}")],
             Vec::new(),
-        )),
+        ),
     }
 }
 
