@@ -88,10 +88,10 @@ struct IndexConfig {
     project_name: String,
     project_desc: String,
     category_config: Option<PathBuf>,
-    max_related_chunks: Option<usize>,
-    max_chunk_keywords: Option<usize>,
-    hnsw_m: Option<usize>,
-    hnsw_ef_construction: Option<usize>,
+    max_related_chunks: usize,
+    max_chunk_keywords: usize,
+    hnsw_m: usize,
+    hnsw_ef_construction: usize,
 }
 
 impl Default for IndexConfig {
@@ -101,10 +101,10 @@ impl Default for IndexConfig {
             project_name: "Documentation".to_string(),
             project_desc: "AI-optimized documentation index".to_string(),
             category_config: None,
-            max_related_chunks: None,
-            max_chunk_keywords: None,
-            hnsw_m: None,
-            hnsw_ef_construction: None,
+            max_related_chunks: 20,
+            max_chunk_keywords: 12,
+            hnsw_m: 16,
+            hnsw_ef_construction: 200,
         }
     }
 }
@@ -178,10 +178,14 @@ impl Default for IngestConfig {
 }
 
 // Validation functions for HNSW graph parameters
-fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
+//
+// Parse as i64 first to properly detect and report negative numbers,
+// then validate range before converting to usize.
+
+pub(crate) fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
     let value = s
-        .parse::<usize>()
-        .map_err(|_| format!("max_related_chunks must be a positive integer, got '{s}'"))?;
+        .parse::<i64>()
+        .map_err(|_| format!("max_related_chunks must be an integer, got '{s}'"))?;
 
     if value < 1 {
         return Err("max_related_chunks must be at least 1".to_string());
@@ -190,42 +194,49 @@ fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
         return Err("max_related_chunks must be at most 1000".to_string());
     }
 
-    Ok(value)
+    value
+        .try_into()
+        .map_err(|_| format!("max_related_chunks value too large: {value}"))
 }
 
-fn validate_max_chunk_keywords(s: &str) -> Result<usize, String> {
+pub(crate) fn validate_max_chunk_keywords(s: &str) -> Result<usize, String> {
     let value = s
-        .parse::<usize>()
-        .map_err(|_| format!("max_chunk_keywords must be a non-negative integer, got '{s}'"))?;
+        .parse::<i64>()
+        .map_err(|_| format!("max_chunk_keywords must be an integer, got '{s}'"))?;
 
+    if value < 0 {
+        return Err("max_chunk_keywords must be at least 0".to_string());
+    }
     if value > 50 {
         return Err("max_chunk_keywords must be at most 50".to_string());
     }
 
-    Ok(value)
+    value
+        .try_into()
+        .map_err(|_| format!("max_chunk_keywords value too large: {value}"))
 }
 
-fn validate_hnsw_m(s: &str) -> Result<usize, String> {
+pub(crate) fn validate_hnsw_m(s: &str) -> Result<usize, String> {
     let value = s
-        .parse::<usize>()
-        .map_err(|_| format!("hnsw_m must be a positive integer, got '{s}'"))?;
+        .parse::<i64>()
+        .map_err(|_| format!("hnsw_m must be an integer, got '{s}'"))?;
 
     if value < 4 {
-        return Err(
-            "hnsw_m must be at least 4 for proper connectivity (too sparse otherwise)".to_string(),
-        );
+        return Err("hnsw_m must be at least 4 for proper connectivity".to_string());
     }
     if value > 64 {
         return Err("hnsw_m must be at most 64 for reasonable performance".to_string());
     }
 
-    Ok(value)
+    value
+        .try_into()
+        .map_err(|_| format!("hnsw_m value too large: {value}"))
 }
 
-fn validate_hnsw_ef_construction(s: &str) -> Result<usize, String> {
+pub(crate) fn validate_hnsw_ef_construction(s: &str) -> Result<usize, String> {
     let value = s
-        .parse::<usize>()
-        .map_err(|_| format!("hnsw_ef_construction must be a positive integer, got '{s}'"))?;
+        .parse::<i64>()
+        .map_err(|_| format!("hnsw_ef_construction must be an integer, got '{s}'"))?;
 
     if value < 50 {
         return Err(
@@ -238,7 +249,9 @@ fn validate_hnsw_ef_construction(s: &str) -> Result<usize, String> {
         );
     }
 
-    Ok(value)
+    value
+        .try_into()
+        .map_err(|_| format!("hnsw_ef_construction value too large: {value}"))
 }
 
 /// Validate threshold value for BM25 filtering
@@ -599,20 +612,20 @@ enum Commands {
         category_config: Option<PathBuf>,
 
         /// Maximum number of related chunks per document (1-100, default: 20)
-        #[arg(long, value_name = "N", value_parser = validate_max_related_chunks)]
-        max_related_chunks: Option<usize>,
+        #[arg(long, value_name = "N", default_value = "20", value_parser = validate_max_related_chunks, allow_hyphen_values = true)]
+        max_related_chunks: usize,
 
         /// Maximum number of chunk keywords to include in similarity (0-50, default: 12)
-        #[arg(long, value_name = "N", value_parser = validate_max_chunk_keywords)]
-        max_chunk_keywords: Option<usize>,
+        #[arg(long, value_name = "N", default_value = "12", value_parser = validate_max_chunk_keywords, allow_hyphen_values = true)]
+        max_chunk_keywords: usize,
 
         /// HNSW graph connectivity parameter (4-64, default: 16)
-        #[arg(long, value_name = "M", value_parser = validate_hnsw_m)]
-        hnsw_m: Option<usize>,
+        #[arg(long, value_name = "M", default_value = "16", value_parser = validate_hnsw_m, allow_hyphen_values = true)]
+        hnsw_m: usize,
 
         /// HNSW graph construction effort (50-800, default: 200)
-        #[arg(long, value_name = "EF", value_parser = validate_hnsw_ef_construction)]
-        hnsw_ef_construction: Option<usize>,
+        #[arg(long, value_name = "EF", default_value = "200", value_parser = validate_hnsw_ef_construction, allow_hyphen_values = true)]
+        hnsw_ef_construction: usize,
     },
 
     /// Scrape and index in one step
@@ -1135,27 +1148,22 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     println!("DOC_TRANSFORMER v5.0 (Knowledge DAG + llms.txt)");
     println!("{}\n", "=".repeat(70));
 
-    // Log graph configuration parameters if provided
-    if config.max_related_chunks.is_some()
-        || config.hnsw_m.is_some()
-        || config.hnsw_ef_construction.is_some()
-        || config.max_chunk_keywords.is_some()
-    {
-        println!("[CONFIG] Graph Parameters:");
-        if let Some(n) = config.max_related_chunks {
-            println!("  max_related_chunks: {n} (default: 20)");
-        }
-        if let Some(n) = config.max_chunk_keywords {
-            println!("  max_chunk_keywords: {n} (default: 12)");
-        }
-        if let Some(m) = config.hnsw_m {
-            println!("  hnsw_m: {m} (default: 16)");
-        }
-        if let Some(ef) = config.hnsw_ef_construction {
-            println!("  hnsw_ef_construction: {ef} (default: 200)");
-        }
-        println!();
-    }
+    // Log graph configuration parameters
+    println!("[CONFIG] Graph Parameters:");
+    println!(
+        "  max_related_chunks: {} (default: 20)",
+        config.max_related_chunks
+    );
+    println!(
+        "  max_chunk_keywords: {} (default: 12)",
+        config.max_chunk_keywords
+    );
+    println!("  hnsw_m: {} (default: 16)", config.hnsw_m);
+    println!(
+        "  hnsw_ef_construction: {} (default: 200)",
+        config.hnsw_ef_construction
+    );
+    println!();
 
     // STEP 1: DISCOVER
     println!("[STEP 1] DISCOVER");
@@ -1216,10 +1224,10 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
         &chunks_result,
         output,
         &config.project_name,
-        config.max_related_chunks,
-        config.hnsw_m,
-        config.hnsw_ef_construction,
-        config.max_chunk_keywords,
+        Some(config.max_related_chunks),
+        Some(config.hnsw_m),
+        Some(config.hnsw_ef_construction),
+        Some(config.max_chunk_keywords),
     )?;
     index::build_and_write_compass(&analyses, &link_map, output)?;
     println!("  Created INDEX.json and COMPASS.md\n");
