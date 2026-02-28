@@ -239,6 +239,57 @@ After implementation, ensure these scenarios are tested:
 
 ---
 
+## SPECIFIC VIOLATIONS FOR doc-3o2b: Warning: Used for Error Conditions
+
+This section documents the 5 specific locations where "Warning:" prefix is incorrectly used for actual error conditions.
+
+### P1-1: discover.rs:70 - I/O Error Misclassified as Warning
+
+- **Location**: `doc_transformer/src/discover.rs:70`
+- **Current code**: `eprintln!("Warning: Skipping path due to I/O error: {e}");`
+- **Problem**: Uses "Warning:" for I/O error that prevents file processing
+- **Should be**: `eprintln!("Error: Skipping path due to I/O error: {e}");`
+- **Reason**: I/O error (permission denied, disk full, etc.) prevents the file from being processed - this is an error condition
+- **Postcondition violated**: Q1 (error messages must start with "Error:")
+
+### P1-2: discover.rs:127 - Empty File Misclassified as Warning
+
+- **Location**: `doc_transformer/src/discover.rs:127`
+- **Current code**: `eprintln!("Warning: Skipping empty file {}", path.display());`
+- **Problem**: Uses "Warning:" for empty file that cannot be indexed
+- **Should be**: `eprintln!("Error: Skipping empty file {}", path.display());`
+- **Reason**: Empty file has no content to process - this is an error condition
+- **Postcondition violated**: Q1 (error messages must start with "Error:")
+
+### P1-3: index.rs:430 - Tantivy Index Build Failure Misclassified
+
+- **Location**: `doc_transformer/src/index.rs:430`
+- **Current code**: `eprintln!("Warning: Failed to build Tantivy index: {e}");`
+- **Problem**: Uses "Warning:" for index build failure
+- **Should be**: `eprintln!("Error: Failed to build Tantivy index: {e}");`
+- **Reason**: Failure to build search index is a critical error - search functionality will be impaired
+- **Postcondition violated**: Q1 (error messages must start with "Error:")
+
+### P1-4: index.rs:831 - HNSW Index Build Failure Misclassified
+
+- **Location**: `doc_transformer/src/index.rs:831`
+- **Current code**: `eprintln!("Warning: HNSW index build failed ({e}), skipping related chunk edges");`
+- **Problem**: Uses "Warning:" for HNSW index failure
+- **Should be**: `eprintln!("Error: HNSW index build failed ({e}), skipping related chunk edges");`
+- **Reason**: Failure to build semantic search index is an error - advanced search capability is missing
+- **Postcondition violated**: Q1 (error messages must start with "Error:")
+
+### P1-5: filter.rs:650 - I/O Error Misclassified as Warning
+
+- **Location**: `doc_transformer/src/filter.rs:650`
+- **Current code**: `eprintln!("Warning: Skipping path due to I/O error: {e}");`
+- **Problem**: Uses "Warning:" for I/O error that prevents file filtering
+- **Should be**: `eprintln!("Error: Skipping path due to I/O error: {e}");`
+- **Reason**: I/O error prevents the path from being processed - this is an error condition
+- **Postcondition violated**: Q1 (error messages must start with "Error:")
+
+---
+
 ## Exit Criteria
 
 - [ ] Every error message output to stderr starts with `Error: ` (or `Warning: ` for warnings)

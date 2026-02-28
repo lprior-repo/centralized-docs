@@ -142,6 +142,38 @@
   - Then: stderr shows `Error: analysis failed: <path>: <msg>`
   - Not: `ANALYZE ERROR: <path>: <msg>`
 
+### Violation of Q4: Warning: Used for Error Conditions (doc-3o2b)
+
+- **test_discover_io_error_uses_error_prefix_not_warning**
+  - Given: source directory with a path that triggers I/O error (permission denied)
+  - When: `doc_transformer index <source> --output <out>` is executed
+  - Then: stderr shows `Error: Skipping path due to I/O error: <details>`
+  - Not: `Warning: Skipping path due to I/O error: <details>`
+
+- **test_discover_empty_file_uses_error_prefix_not_warning**
+  - Given: source directory containing an empty markdown file
+  - When: `doc_transformer index <source> --output <out>` is executed
+  - Then: stderr shows `Error: Skipping empty file <path>`
+  - Not: `Warning: Skipping empty file <path>`
+
+- **test_index_tantivy_failure_uses_error_prefix_not_warning**
+  - Given: valid source but Tantivy index build fails (e.g., disk full)
+  - When: `doc_transformer index <source> --output <out>` is executed
+  - Then: stderr shows `Error: Failed to build Tantivy index: <details>`
+  - Not: `Warning: Failed to build Tantivy index: <details>`
+
+- **test_index_hnsw_failure_uses_error_prefix_not_warning**
+  - Given: valid source but HNSW index build fails (e.g., empty embeddings)
+  - When: `doc_transformer index <source> --output <out>` is executed
+  - Then: stderr shows `Error: HNSW index build failed (<details>), skipping related chunk edges`
+  - Not: `Warning: HNSW index build failed (<details>), skipping related chunk edges`
+
+- **test_filter_io_error_uses_error_prefix_not_warning**
+  - Given: source directory with a path that triggers I/O error during filtering
+  - When: `doc_transformer index <source> --output <out>` is executed
+  - Then: stderr shows `Error: Skipping path due to I/O error: <details>`
+  - Not: `Warning: Skipping path due to I/O error: <details>`
+
 ### Violation of Q2: Embedded newlines in errors
 
 - **test_error_message_no_embedded_newlines**
