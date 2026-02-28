@@ -18,7 +18,6 @@ path = "src/lib.rs"
 [dependencies]
 # Workspace crates
 contextual-chunker = { path = "../contextual-chunker" }
-llms-txt-parser = { path = "../llms-txt-parser" }
 
 # Core utilities
 regex = "1.10"
