@@ -373,6 +373,11 @@ fn assemble_index_json(ctx: &IndexAssemblyContext<'_>) -> serde_json::Value {
         "version": "5.0",
         "project": ctx.project_name,
         "updated": timestamp,
+        "metadata": {
+            "generated_at": timestamp,
+            "generator": "doc_transformer",
+            "schema": "index-v5"
+        },
         "stats": {
             "doc_count": ctx.documents.len(),
             "chunk_count": ctx.total_chunks,
@@ -684,6 +689,8 @@ pub fn build_knowledge_dag(
     hnsw_ef_construction: Option<usize>,
     max_chunk_keywords: Option<usize>,
 ) -> Result<KnowledgeDAG> {
+    const MAX_CHUNKS_FOR_SEMANTIC_GRAPH: usize = 5000;
+
     let mut dag = KnowledgeDAG::new();
 
     // Add document nodes
@@ -741,7 +748,7 @@ pub fn build_knowledge_dag(
     let max_chunk_keywords = max_chunk_keywords.unwrap_or(DEFAULT_MAX_CHUNK_KEYWORDS);
     const SIMILARITY_THRESHOLD: f32 = 0.3;
 
-    if !chunks.is_empty() {
+    if !chunks.is_empty() && chunks.len() <= MAX_CHUNKS_FOR_SEMANTIC_GRAPH {
         // Build vocabulary from tags, categories, and chunk keywords
         let vocabulary = build_vocabulary(document_tags, chunks, max_chunk_keywords)?;
         let embedding_dim = vocabulary.len().max(1); // At least 1 dimension
@@ -825,6 +832,12 @@ pub fn build_knowledge_dag(
                 // Continue without adding related edges - document structure (parent/sequential) is preserved
             }
         }
+    } else if chunks.len() > MAX_CHUNKS_FOR_SEMANTIC_GRAPH {
+        eprintln!(
+            "Warning: {} chunks exceeds semantic graph limit ({}), skipping related chunk edge construction",
+            chunks.len(),
+            MAX_CHUNKS_FOR_SEMANTIC_GRAPH
+        );
     }
 
     Ok(dag)
@@ -1024,6 +1037,26 @@ mod tests {
                 n
             );
         }
+    }
+
+    #[test]
+    fn test_large_chunk_sets_skip_related_edges() {
+        const N: usize = 6000;
+
+        let chunks = generate_test_chunks(N);
+        let docs = generate_test_docs(&chunks);
+        let tags = generate_test_tags(&chunks);
+
+        let dag = match build_knowledge_dag(&docs, &chunks, &tags, None, None, None, None) {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to build DAG for large chunk set: {e}"),
+        };
+
+        let related_edges = dag.edges_by_type(&EdgeType::Related).len();
+        assert_eq!(
+            related_edges, 0,
+            "Expected related edges to be skipped for very large chunk sets"
+        );
     }
 
     /// Test that edge count is O(n log n), not O(n²)

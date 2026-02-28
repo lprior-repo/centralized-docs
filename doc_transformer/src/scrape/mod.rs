@@ -29,7 +29,7 @@ pub mod validation;
 // Re-export public API
 pub use http::{build_website_base, execute_scrape_with_website, extract_pages_from_website};
 pub use transformers::{calculate_backoff_delay, write_scraped_pages};
-pub use validation::{validate_scrape_result, validate_url};
+pub use validation::{detect_potential_spa, validate_scrape_result, validate_url};
 
 // Re-export types — public API for library consumers; binary may not use all variants
 #[allow(unused_imports)]
@@ -48,28 +48,47 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     let max_retries = config.max_retries.min(10);
     let mut attempt: u32 = 0;
 
-    // Check sitemap ONCE before retries - fall back to crawling if no URLs found
-    let use_sitemap = if config.sitemap_strategy == SitemapStrategy::UseSitemap {
-        let test_result = scrape_single_attempt(config, true).await;
-        let pages_found = test_result
-            .as_ref()
-            .map(|r| r.success_count > 0)
-            .unwrap_or(false);
+    // Quick sitemap check - try sitemap first with a small page limit (5 pages max)
+    // This quickly determines if sitemap exists before doing a full crawl
+    let (use_sitemap, effective_max_pages) =
+        if config.sitemap_strategy == SitemapStrategy::UseSitemap {
+            let quick_config = validation::ScrapeConfig {
+                max_pages: 5,
+                ..config.clone()
+            };
 
-        if !pages_found {
-            eprintln!("[SCRAPE] No URLs found in sitemap, falling back to crawling...");
-            false
+            let test_result = scrape_single_attempt(&quick_config, true).await;
+            let pages_found = test_result
+                .as_ref()
+                .map(|r| r.success_count > 0)
+                .unwrap_or(false);
+
+            if pages_found {
+                eprintln!("[SCRAPE] Sitemap found, using sitemap strategy...");
+                (true, config.max_pages)
+            } else {
+                eprintln!("[SCRAPE] No URLs found in sitemap, falling back to crawling...");
+                // Cap at 100 pages for fallback crawl to avoid infinite crawls on SPA sites
+                let capped = config.max_pages.min(100);
+                if config.max_pages > 100 {
+                    eprintln!("[SCRAPE] Limiting to {capped} pages (use --max-pages to override)");
+                }
+                (false, capped)
+            }
         } else {
-            true
-        }
-    } else {
-        false
+            (false, config.max_pages)
+        };
+
+    // Create config with effective page limit for the actual scrape
+    let effective_config = validation::ScrapeConfig {
+        max_pages: effective_max_pages,
+        ..config.clone()
     };
 
     loop {
         attempt = attempt.saturating_add(1);
 
-        match scrape_single_attempt(config, use_sitemap).await {
+        match scrape_single_attempt(&effective_config, use_sitemap).await {
             Ok(result) => {
                 if config.retry_strategy == RetryStrategy::Fixed {
                     return Ok(result);

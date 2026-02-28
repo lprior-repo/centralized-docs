@@ -340,6 +340,135 @@ pub fn validate_scrape_result(result: &ScrapeResult) -> Result<()> {
     Ok(())
 }
 
+/// Minimum page count threshold for SPA detection
+const SPA_DETECTION_PAGE_THRESHOLD: usize = 5;
+
+/// Potential SPA detection result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpaDetectionResult {
+    pub is_potential_spa: bool,
+    pub pages_scraped: usize,
+    pub total_urls_discovered: usize,
+    pub warning_message: Option<String>,
+}
+
+/// Detect if a site may be a Single-Page Application (SPA) requiring JavaScript rendering.
+///
+/// Analyzes the scrape result to identify patterns suggesting the site uses client-side
+/// rendering that static HTML scraping cannot fully capture.
+///
+/// Returns a warning if:
+/// - Fewer than 5 pages were scraped AND
+/// - More than 5 URLs were discovered (indicating the site has more content)
+/// - The site likely requires JavaScript to render content
+pub fn detect_potential_spa(result: &ScrapeResult) -> SpaDetectionResult {
+    let pages_scraped = result.success_count;
+    let total_urls = result.total_urls;
+
+    // Calculate ratio of scraped to discovered URLs
+    let scrape_ratio = if total_urls > 0 {
+        pages_scraped as f64 / total_urls as f64
+    } else {
+        0.0
+    };
+
+    // Detect SPA pattern: few pages scraped but many URLs discovered
+    let is_potential_spa = pages_scraped < SPA_DETECTION_PAGE_THRESHOLD
+        && total_urls > SPA_DETECTION_PAGE_THRESHOLD
+        && scrape_ratio < 0.5;
+
+    let warning_message = if is_potential_spa {
+        Some(format!(
+            "⚠️  POTENTIAL SPA DETECTED\n\
+            Only {pages_scraped} pages scraped from {total_urls} discovered URLs.\n\
+            This site may require JavaScript rendering to capture all content.\n\
+            \n\
+            Suggestions:\n\
+            - Use a headless browser (Playwright, Puppeteer) for JavaScript rendering\n\
+            - Check if the site provides a sitemap.xml with all content URLs\n\
+            - Verify the site doesn't use client-side routing (React, Vue, Angular)\n\
+            - Consider using --no-sitemap flag if sitemap URLs are empty"
+        ))
+    } else {
+        None
+    };
+
+    SpaDetectionResult {
+        is_potential_spa,
+        pages_scraped,
+        total_urls_discovered: total_urls,
+        warning_message,
+    }
+}
+
+#[cfg(test)]
+mod spa_detection_tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_potential_spa_low_pages_high_urls() {
+        let result = ScrapeResult {
+            pages: vec![],
+            total_urls: 100,
+            success_count: 3,
+            error_count: 0,
+            errors: vec![],
+            base_url: "https://example.com".to_string(),
+        };
+
+        let spa_result = detect_potential_spa(&result);
+        assert!(spa_result.is_potential_spa);
+        assert!(spa_result.warning_message.is_some());
+    }
+
+    #[test]
+    fn test_detect_potential_spa_not_enough_pages() {
+        let result = ScrapeResult {
+            pages: vec![],
+            total_urls: 3,
+            success_count: 2,
+            error_count: 0,
+            errors: vec![],
+            base_url: "https://example.com".to_string(),
+        };
+
+        let spa_result = detect_potential_spa(&result);
+        assert!(!spa_result.is_potential_spa);
+        assert!(spa_result.warning_message.is_none());
+    }
+
+    #[test]
+    fn test_detect_potential_spa_healthy_scrape() {
+        let result = ScrapeResult {
+            pages: vec![],
+            total_urls: 50,
+            success_count: 45,
+            error_count: 5,
+            errors: vec![],
+            base_url: "https://example.com".to_string(),
+        };
+
+        let spa_result = detect_potential_spa(&result);
+        assert!(!spa_result.is_potential_spa);
+        assert!(spa_result.warning_message.is_none());
+    }
+
+    #[test]
+    fn test_detect_potential_spa_zero_total_urls() {
+        let result = ScrapeResult {
+            pages: vec![],
+            total_urls: 0,
+            success_count: 0,
+            error_count: 0,
+            errors: vec![],
+            base_url: "https://example.com".to_string(),
+        };
+
+        let spa_result = detect_potential_spa(&result);
+        assert!(!spa_result.is_potential_spa);
+    }
+}
+
 /// Extract title from markdown content
 pub fn extract_title(markdown: &str, url: &str) -> String {
     let Ok(h1_regex) = Regex::new(r"^#\s+(.+)$") else {

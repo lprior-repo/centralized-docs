@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use walkdir::WalkDir;
 
+const MAX_SOURCE_FILE_BYTES: u64 = 50 * 1024 * 1024;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveryFile {
     pub source_path: String,
@@ -38,6 +40,8 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     ))?;
 
     let mut files = Vec::new();
+    let mut skipped_large = 0usize;
+    let mut skipped_empty = 0usize;
     // Markdown extensions (primary)
     let markdown_exts = [".md", ".mdx", ".markdown", ".mdown", ".mkd"];
     // Text extensions (processed but may not be actual markdown - warn)
@@ -118,6 +122,23 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
                         }
                     };
 
+                    if size == 0 {
+                        skipped_empty = skipped_empty.saturating_add(1);
+                        eprintln!("Warning: Skipping empty file {}", path.display());
+                        continue;
+                    }
+
+                    if size > MAX_SOURCE_FILE_BYTES {
+                        skipped_large = skipped_large.saturating_add(1);
+                        eprintln!(
+                            "Warning: Skipping oversized file {} ({} bytes exceeds {} byte limit)",
+                            path.display(),
+                            size,
+                            MAX_SOURCE_FILE_BYTES
+                        );
+                        continue;
+                    }
+
                     files.push(DiscoveryFile {
                         source_path: rel_path,
                         size_bytes: size,
@@ -125,6 +146,16 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
                 }
             }
         }
+    }
+
+    if files.is_empty() && skipped_large > 0 {
+        anyhow::bail!(
+            "No indexable files found after filtering (skipped {} oversized and {} empty files). \
+             Maximum supported file size is {} bytes.",
+            skipped_large,
+            skipped_empty,
+            MAX_SOURCE_FILE_BYTES
+        );
     }
 
     let manifest = DiscoverManifest {
@@ -189,6 +220,19 @@ fn discover_single_file(
                 file_path.display()
             ))?
             .len();
+
+        if size == 0 {
+            anyhow::bail!("Cannot index empty file: {}", file_path.display());
+        }
+
+        if size > MAX_SOURCE_FILE_BYTES {
+            anyhow::bail!(
+                "File too large to index safely: {} ({} bytes exceeds {} byte limit)",
+                file_path.display(),
+                size,
+                MAX_SOURCE_FILE_BYTES
+            );
+        }
 
         vec![DiscoveryFile {
             source_path: filename,
@@ -332,19 +376,19 @@ mod tests {
         let mdx_file_test = dir_path.join("test.mdx");
         let other_file = dir_path.join("test.html");
 
-        match File::create(&md_file) {
+        match fs::write(&md_file, "# Markdown\n\ncontent\n") {
             Ok(_) => (),
             Err(e) => panic!("Failed to create md file: {e}"),
         }
-        match File::create(&txt_file) {
+        match fs::write(&txt_file, "plain text") {
             Ok(_) => (),
             Err(e) => panic!("Failed to create txt file: {e}"),
         }
-        match File::create(&rst_file) {
+        match fs::write(&rst_file, "Heading\n=======\n") {
             Ok(_) => (),
             Err(e) => panic!("Failed to create rst file: {e}"),
         }
-        match File::create(&mdx_file_test) {
+        match fs::write(&mdx_file_test, "# MDX\n\n<Component />") {
             Ok(_) => (),
             Err(e) => panic!("Failed to create mdx file: {e}"),
         }
@@ -402,11 +446,11 @@ mod tests {
         let root_file = dir_path.join("root.md");
         let sub_file = subdir.join("sub.md");
 
-        match File::create(&root_file) {
+        match fs::write(&root_file, "# Root\n") {
             Ok(_) => (),
             Err(e) => panic!("Failed to create root file: {e}"),
         }
-        match File::create(&sub_file) {
+        match fs::write(&sub_file, "# Sub\n") {
             Ok(_) => (),
             Err(e) => panic!("Failed to create sub file: {e}"),
         }
@@ -592,7 +636,7 @@ mod tests {
 
         // Create a file in root that should be found
         let root_file = dir_path.join("root.md");
-        match File::create(&root_file) {
+        match fs::write(&root_file, "# Root\n") {
             Ok(_) => (),
             Err(e) => panic!("Failed to create root file: {e}"),
         }
@@ -613,5 +657,42 @@ mod tests {
             files[0].source_path.contains("root.md"),
             "Found file should be root.md"
         );
+    }
+
+    #[test]
+    fn test_discover_single_file_rejects_empty_file() {
+        let temp_dir = match TempDir::new() {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
+        let file = temp_dir.path().join("empty.md");
+        match File::create(&file) {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to create empty file: {e}"),
+        }
+
+        let result = discover_files(&file);
+        assert!(result.is_err(), "Empty single file should be rejected");
+    }
+
+    #[test]
+    fn test_discover_single_file_rejects_oversized_file() {
+        let temp_dir = match TempDir::new() {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
+        let file = temp_dir.path().join("huge.md");
+        let f = match File::create(&file) {
+            Ok(f) => f,
+            Err(e) => panic!("Failed to create huge file: {e}"),
+        };
+        let new_len = super::MAX_SOURCE_FILE_BYTES.saturating_add(1);
+        match f.set_len(new_len) {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to set file length: {e}"),
+        }
+
+        let result = discover_files(&file);
+        assert!(result.is_err(), "Oversized single file should be rejected");
     }
 }

@@ -156,8 +156,14 @@ impl KnowledgeDAG {
                 .filter_map(|idx| self.graph.node_weight(idx).map(|node| node.id.clone()))
                 .collect()
         } else {
-            eprintln!("Warning: Graph contains cycles, cannot compute topological order");
-            Vec::new()
+            eprintln!(
+                "Warning: Graph contains cycles, using deterministic fallback order by node id"
+            );
+            self.nodes_vec
+                .iter()
+                .map(|node| node.id.clone())
+                .sorted()
+                .collect()
         }
     }
 

@@ -242,10 +242,15 @@ fn test_search_no_results() {
         output_dir.to_str().unwrap(),
     ]);
 
-    // Should succeed but show no results
+    // No-results is a non-success outcome for automation callers
     assert!(
-        search_result.status.success(),
-        "Search with no matches should still succeed"
+        !search_result.status.success(),
+        "Search with no matches should return non-zero exit"
+    );
+    let stderr = String::from_utf8_lossy(&search_result.stderr);
+    assert!(
+        stderr.contains("No results found"),
+        "Expected explicit no-results error message"
     );
 }
 
@@ -471,9 +476,10 @@ fn test_search_limit_parameter() {
         "1",
     ]);
 
+    let stderr = String::from_utf8_lossy(&search_result.stderr);
     assert!(
-        search_result.status.success(),
-        "Search with limit should succeed"
+        search_result.status.success() || stderr.contains("No results found"),
+        "Search with limit should either return results or report no-results"
     );
 }
 

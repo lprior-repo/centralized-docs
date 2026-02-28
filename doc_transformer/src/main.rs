@@ -76,7 +76,9 @@ mod validate;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use scrape::SitemapStrategy;
+use serde::Serialize;
 use spider::configuration::RedirectPolicy;
+use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 
 /// Configuration for the index command
@@ -486,6 +488,10 @@ enum Commands {
         /// Disable colored output
         #[arg(long)]
         no_color: bool,
+
+        /// Output structured JSON for machine parsing
+        #[arg(long)]
+        json: bool,
     },
 
     /// Scrape a documentation website to local markdown files
@@ -675,7 +681,8 @@ async fn main() -> Result<()> {
             index_dir,
             limit,
             no_color,
-        }) => run_search(&query, &index_dir, limit, !no_color),
+            json,
+        }) => run_search(&query, &index_dir, limit, !no_color, json),
 
         Some(Commands::Scrape {
             url,
@@ -990,6 +997,16 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
     result.pages = apply_query_filter(result.pages, query_ref, config.threshold)?;
     result.success_count = result.pages.len();
 
+    // Detect potential SPA (JavaScript-rendered site) BEFORE validation
+    // This ensures we show helpful message even when scraping fails
+    let spa_detection = scrape::detect_potential_spa(&result);
+    if let Some(ref warning) = spa_detection.warning_message {
+        println!();
+        println!("{}", "=".repeat(70));
+        println!("{}", warning);
+        println!("{}\n", "=".repeat(70));
+    }
+
     // Validate that at least one page was scraped (fail fast on invalid URLs)
     scrape::validate_scrape_result(&result)?;
 
@@ -1072,9 +1089,47 @@ fn check_write_permission(dir: &Path) -> Result<()> {
     }
 }
 
+struct OutputLock {
+    lock_path: PathBuf,
+}
+
+impl Drop for OutputLock {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.lock_path);
+    }
+}
+
+fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
+    std::fs::create_dir_all(output)?;
+    let lock_path = output.join(".doc_transformer.lock");
+
+    OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&lock_path)
+        .map(|_| OutputLock {
+            lock_path: lock_path.clone(),
+        })
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                anyhow::anyhow!(
+                    "Another index operation appears to be running for '{}'. Remove '{}' if stale.",
+                    output.display(),
+                    lock_path.display()
+                )
+            } else {
+                anyhow::anyhow!(
+                    "Failed to acquire output lock '{}': {e}",
+                    lock_path.display()
+                )
+            }
+        })
+}
+
 /// Run the index command (main pipeline)
 fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     validate_output_path(output)?;
+    let _output_lock = acquire_output_lock(output)?;
 
     println!("\n{}", "=".repeat(70));
     println!("DOC_TRANSFORMER v5.0 (Knowledge DAG + llms.txt)");
@@ -1273,6 +1328,15 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
     // Validate that at least one page was scraped (fail fast on invalid URLs)
     scrape::validate_scrape_result(&scrape_result)?;
 
+    // Detect potential SPA (JavaScript-rendered site) and warn user
+    let spa_detection = scrape::detect_potential_spa(&scrape_result);
+    if let Some(ref warning) = spa_detection.warning_message {
+        println!();
+        println!("{}", "=".repeat(70));
+        println!("{}", warning);
+        println!("{}", "=".repeat(70));
+    }
+
     println!();
 
     // Write scraped content to temp location within output
@@ -1310,7 +1374,78 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
 /// 3. Display results with scores and metadata
 ///
 /// Note: Returns non-zero exit code if advanced search fails, even if fallback succeeds
-fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> Result<()> {
+#[derive(Debug, Serialize)]
+struct CliSearchResult {
+    rank: usize,
+    category: String,
+    title: String,
+    path: String,
+    summary: String,
+    score: f32,
+    backend: String,
+}
+
+fn emit_search_output(
+    query: &str,
+    backend: &str,
+    results: &[CliSearchResult],
+    limit: usize,
+    json_output: bool,
+) -> Result<()> {
+    if json_output {
+        let output = serde_json::json!({
+            "status": if results.is_empty() { "no_results" } else { "ok" },
+            "query": query,
+            "backend": backend,
+            "requested_limit": limit,
+            "result_count": results.len(),
+            "results": results,
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!("\n{}", "=".repeat(70));
+        println!("DOC_TRANSFORMER SEARCH - Tantivy + BM25");
+        println!("{}\n", "=".repeat(70));
+        println!("Query: \"{query}\"");
+        println!("Using {backend}\n");
+
+        if results.is_empty() {
+            println!("No results found for \"{query}\"");
+        } else {
+            println!("Results:\n");
+            for result in results {
+                println!(
+                    "{}. [{}] {} (score: {:.2})",
+                    result.rank, result.category, result.title, result.score
+                );
+                println!("   Path: {}", result.path);
+                println!("   {}\n", result.summary);
+            }
+
+            println!("{}", "=".repeat(70));
+            println!(
+                "Showing {} of {} results",
+                results.len().min(limit),
+                results.len()
+            );
+            println!("{}\n", "=".repeat(70));
+        }
+    }
+
+    if results.is_empty() {
+        anyhow::bail!("No results found for '{query}'");
+    }
+
+    Ok(())
+}
+
+fn run_search(
+    query: &str,
+    index_dir: &Path,
+    limit: usize,
+    _use_color: bool,
+    json_output: bool,
+) -> Result<()> {
     const MAX_QUERY_WORDS: usize = 100;
 
     // Validate query using centralized validation
@@ -1327,11 +1462,6 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
         anyhow::bail!("INDEX.json not found in {}", index_dir.display());
     }
 
-    println!("\n{}", "=".repeat(70));
-    println!("DOC_TRANSFORMER SEARCH - Tantivy + BM25");
-    println!("{}\n", "=".repeat(70));
-    println!("Query: \"{query}\"");
-
     // Track whether advanced search failed (for exit code purposes)
     let mut advanced_search_failed = false;
 
@@ -1339,14 +1469,10 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
     if let Some(index) = doc_transformer::search::open_existing_index(index_dir)? {
         match doc_transformer::search::search_index(&index, query, limit) {
             Ok(results) => {
-                println!("Using Tantivy index\n");
-
-                if results.is_empty() {
-                    println!("No results found for \"{query}\"");
-                } else {
-                    println!("Results:\n");
-                    for (i, result) in results.iter().enumerate() {
-                        // Truncate summary
+                let cli_results: Vec<CliSearchResult> = results
+                    .iter()
+                    .enumerate()
+                    .map(|(i, result)| {
                         let summary_short = if result.summary.chars().count() > 80 {
                             let truncated: String = result.summary.chars().take(77).collect();
                             format!("{truncated}...")
@@ -1354,36 +1480,33 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
                             result.summary.clone()
                         };
 
-                        println!(
-                            "{}. [{}] {} (score: {:.2})",
-                            i.saturating_add(1),
-                            result.category,
-                            result.title,
-                            result.score
-                        );
-                        println!("   Path: {}", result.path);
-                        println!("   {summary_short}\n");
-                    }
+                        CliSearchResult {
+                            rank: i.saturating_add(1),
+                            category: result.category.clone(),
+                            title: result.title.clone(),
+                            path: result.path.clone(),
+                            summary: summary_short,
+                            score: result.score,
+                            backend: "tantivy".to_string(),
+                        }
+                    })
+                    .collect();
 
-                    println!("{}", "=".repeat(70));
-                    println!(
-                        "Showing {} of {} results",
-                        results.len().min(limit),
-                        results.len()
-                    );
-                    println!("{}\n", "=".repeat(70));
-                }
-
+                emit_search_output(query, "tantivy", &cli_results, limit, json_output)?;
                 return Ok(());
             }
             Err(e) => {
                 // Mark that advanced search failed - we will return error later if fallback succeeds
                 advanced_search_failed = true;
                 // Fall through to JSON-based search with informative message
-                println!("Note: Query contains special characters unsupported by advanced search.");
-                println!("  Reason: {e}");
-                println!("  Tip: Try simpler terms or remove special characters.");
-                println!("  Falling back to basic search...\n");
+                if !json_output {
+                    println!(
+                        "Note: Query contains special characters unsupported by advanced search."
+                    );
+                    println!("  Reason: {e}");
+                    println!("  Tip: Try simpler terms or remove special characters.");
+                    println!("  Falling back to basic search...\n");
+                }
             }
         }
     }
@@ -1402,8 +1525,6 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
     let _chunks = index["chunks"]
         .as_array()
         .ok_or_else(|| anyhow::anyhow!("Invalid INDEX.json: missing chunks array"))?;
-
-    println!("Searching {} documents\n", documents.len());
 
     let avg_doc_length = if !documents.is_empty() {
         let total_words: usize = documents
@@ -1436,18 +1557,15 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
     // Sort by score descending
     results.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
-    // Display results
-    if results.is_empty() {
-        println!("No results found for \"{query}\"");
-    } else {
-        println!("Results:\n");
-        for (i, (score, doc)) in results.iter().take(limit).enumerate() {
-            let title = doc["title"].as_str().unwrap_or("Untitled");
-            let path = doc["path"].as_str().unwrap_or("");
-            let category = doc["category"].as_str().unwrap_or("");
+    let cli_results: Vec<CliSearchResult> = results
+        .iter()
+        .take(limit)
+        .enumerate()
+        .map(|(i, (score, doc))| {
+            let title = doc["title"].as_str().unwrap_or("Untitled").to_string();
+            let path = doc["path"].as_str().unwrap_or("").to_string();
+            let category = doc["category"].as_str().unwrap_or("").to_string();
             let summary = doc["summary"].as_str().unwrap_or("");
-
-            // Truncate summary
             let summary_short = if summary.chars().count() > 80 {
                 let truncated: String = summary.chars().take(77).collect();
                 format!("{truncated}...")
@@ -1455,25 +1573,19 @@ fn run_search(query: &str, index_dir: &Path, limit: usize, _use_color: bool) -> 
                 summary.to_string()
             };
 
-            println!(
-                "{}. [{}] {} (score: {:.2})",
-                i.saturating_add(1),
+            CliSearchResult {
+                rank: i.saturating_add(1),
                 category,
                 title,
-                score
-            );
-            println!("   Path: {path}");
-            println!("   {summary_short}\n");
-        }
+                path,
+                summary: summary_short,
+                score: *score,
+                backend: "bm25-fallback".to_string(),
+            }
+        })
+        .collect();
 
-        println!("{}", "=".repeat(70));
-        println!(
-            "Showing {} of {} results",
-            results.len().min(limit),
-            results.len()
-        );
-        println!("{}\n", "=".repeat(70));
-    }
+    emit_search_output(query, "bm25-fallback", &cli_results, limit, json_output)?;
 
     // If advanced search failed but fallback succeeded, return error to signal partial failure
     if advanced_search_failed {
