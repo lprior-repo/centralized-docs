@@ -623,7 +623,7 @@ enum Commands {
         #[arg(long, value_name = "M", default_value = "16", value_parser = validate_hnsw_m, allow_hyphen_values = true)]
         hnsw_m: usize,
 
-        /// HNSW graph construction effort (50-800, default: 200)
+        /// HNSW graph construction effort (50-1000, default: 200)
         #[arg(long, value_name = "EF", default_value = "200", value_parser = validate_hnsw_ef_construction, allow_hyphen_values = true)]
         hnsw_ef_construction: usize,
     },

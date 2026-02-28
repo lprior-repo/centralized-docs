@@ -117,7 +117,7 @@ pub fn build_index(embeddings: &[Vec<f32>]) -> Result<HnswIndex, SimilarityError
 ///
 /// * `embeddings` - Collection of embeddings to index
 /// * `hnsw_m` - Optional number of neighbors (4-64). If None, defaults to 16.
-/// * `hnsw_ef_construction` - Optional construction effort (50-800). If None, defaults to 200.
+/// * `hnsw_ef_construction` - Optional construction effort (50-1000). If None, defaults to 200.
 ///
 /// # Examples
 ///
