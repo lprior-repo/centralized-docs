@@ -1,6 +1,6 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking, **zjj** for workspace isolation, and **Moon** for ALL build operations.
+This project uses **bd** (beads) for issue tracking and **Moon** for ALL build operations.
 
 ## Quick Reference
 
@@ -26,25 +26,6 @@ bd doctor             # Check for issues
 ```
 
 **Priority Levels:** 0-4 or P0-P4 (0=critical, 2=medium, 4=backlog). NOT "high"/"medium"/"low".
-
-### Workspace Isolation (zjj)
-```bash
-zjj init <bead-id>    # Create isolated workspace for a bead
-zjj list              # List all workspaces
-zjj status            # Show workspace status
-zjj focus <name>      # Attach to workspace
-zjj sync <name>       # Sync workspace changes
-zjj diff <name>       # Show workspace diff
-zjj done <name>       # Complete and land workspace
-zjj remove <name>     # Remove workspace
-
-# Advanced
-zjj spawn <bead-id>   # Create with full dev environment
-zjj dashboard         # Interactive workspace view
-zjj clean             # Clean up completed workspaces
-zjj doctor            # Diagnose workspace issues
-zjj query             # Query workspaces with filters
-```
 
 ### Development (Moon - ALWAYS)
 ```bash

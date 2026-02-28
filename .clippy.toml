@@ -28,7 +28,6 @@ doc-valid-idents = [
     "Moon",
     "CUE",
     "RUST",
-    "ZJJ",
     "Windmill",
 ]
 

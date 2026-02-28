@@ -6,6 +6,9 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::domain::{Bead, BeadStatus, GateResult, P0CheckResult};
+use crate::warning_budget::{
+    check_budget, read_baseline, run_clippy_count, BudgetCheckResult, WarningCount,
+};
 
 /// Error types for bead operations
 #[derive(Debug, thiserror::Error)]
@@ -22,6 +25,9 @@ pub enum BeadError {
 
     #[error("CI failed: {message}")]
     CiFailed { message: String },
+
+    #[error("Budget check failed: {message}")]
+    BudgetFailed { message: String },
 }
 
 pub struct ReleaseGate {
@@ -47,15 +53,23 @@ impl ReleaseGate {
             return Ok(GateResult {
                 p0_check: p0_result,
                 ci_passed: false,
+                budget_check: BudgetCheckResult::Passed {
+                    current: WarningCount::default(),
+                    baseline: WarningCount::default(),
+                },
             });
         }
 
         // Check 2: Moon CI must pass
         let ci_passed = run_moon_ci()?;
 
+        // Check 3: Warning budget must not be exceeded
+        let budget_check = run_budget_check()?;
+
         Ok(GateResult {
             p0_check: p0_result,
             ci_passed,
+            budget_check,
         })
     }
 
@@ -138,6 +152,52 @@ fn run_moon_ci() -> Result<bool, BeadError> {
     }
 
     Ok(success)
+}
+
+/// Run the warning budget check
+fn run_budget_check() -> Result<BudgetCheckResult, BeadError> {
+    println!("Running warning budget check...");
+    println!();
+
+    // Read baseline
+    let baseline_path = PathBuf::from(".clippy-baseline");
+    let baseline = read_baseline(&baseline_path).map_err(|e| BeadError::BudgetFailed {
+        message: e.to_string(),
+    })?;
+
+    // Run clippy and count warnings
+    let current = run_clippy_count().map_err(|e| BeadError::BudgetFailed {
+        message: e.to_string(),
+    })?;
+
+    // Compare against baseline
+    let result = check_budget(current, baseline);
+
+    match &result {
+        BudgetCheckResult::Passed { current, baseline } => {
+            println!();
+            println!(
+                "✅ Warning budget check PASSED - {} warnings (baseline: {})",
+                current.get(),
+                baseline.get()
+            );
+        }
+        BudgetCheckResult::Exceeded {
+            current,
+            baseline,
+            delta,
+        } => {
+            println!();
+            eprintln!(
+                "❌ Warning budget EXCEEDED - {} warnings (baseline: {}, +{})",
+                current.get(),
+                baseline.get(),
+                delta
+            );
+        }
+    }
+
+    Ok(result)
 }
 
 /// Parse a single line from the beads issues JSONL file

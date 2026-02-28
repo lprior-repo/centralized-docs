@@ -1,5 +1,7 @@
 //! Domain types for the release gate
 
+use crate::warning_budget::BudgetCheckResult;
+
 /// A bead issue from the beads system
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bead {
@@ -58,4 +60,6 @@ pub struct GateResult {
     pub p0_check: P0CheckResult,
     /// Whether CI passed
     pub ci_passed: bool,
+    /// Result of the warning budget check
+    pub budget_check: BudgetCheckResult,
 }
