@@ -112,7 +112,7 @@ pub fn analyze_files(
         .filter_map(|file| {
             let file_path = source_dir.join(&file.source_path);
             analyze_single_file(&file.source_path, &file_path, config.as_ref())
-                .map_err(|e| eprintln!("ANALYZE ERROR: {}: {}", file.source_path, e))
+                .map_err(|e| eprintln!("Error: analysis failed: {}: {}", file.source_path, e))
                 .ok()
         })
         .collect();

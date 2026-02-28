@@ -106,7 +106,7 @@ pub fn transform_all(
         .filter_map(|analysis| {
             link_map.get(&analysis.source_path).map(|mapping| {
                 transform_file(analysis, mapping, link_map, &docs_dir).map_err(|e| {
-                    eprintln!("TRANSFORM ERROR: {}: {}", analysis.source_path, e);
+                    eprintln!("Error: transform failed: {}: {}", analysis.source_path, e);
                     e
                 })
             })
@@ -141,7 +141,7 @@ fn transform_file(
     // Log any broken links found
     if !broken_links.is_empty() {
         eprintln!(
-            "WARN: {} broken link(s) in {}:",
+            "Warning: {} broken link(s) in {}:",
             broken_links.len(),
             analysis.source_path
         );

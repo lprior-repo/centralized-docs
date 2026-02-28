@@ -64,14 +64,14 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                 .unwrap_or(false);
 
             if pages_found {
-                eprintln!("[SCRAPE] Sitemap found, using sitemap strategy...");
+                println!("[SCRAPE] Sitemap found, using sitemap strategy...");
                 (true, config.max_pages)
             } else {
-                eprintln!("[SCRAPE] No URLs found in sitemap, falling back to crawling...");
+                println!("[SCRAPE] No URLs found in sitemap, falling back to crawling...");
                 // Cap at 100 pages for fallback crawl to avoid infinite crawls on SPA sites
                 let capped = config.max_pages.min(100);
                 if config.max_pages > 100 {
-                    eprintln!("[SCRAPE] Limiting to {capped} pages (use --max-pages to override)");
+                    println!("[SCRAPE] Limiting to {capped} pages (use --max-pages to override)");
                 }
                 (false, capped)
             }
@@ -101,18 +101,18 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                     && attempt <= max_retries
                 {
                     let delay_ms = calculate_backoff_delay(BASE_DELAY_MS, attempt);
-                    eprintln!(
+                    println!(
                         "[RATE LIMIT] High error rate detected ({} errors / {} total)",
                         result.error_count, total_requests
                     );
-                    eprintln!("[RETRY] Waiting {delay_ms}ms before retry {attempt}...");
+                    println!("[RETRY] Waiting {delay_ms}ms before retry {attempt}...");
 
                     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                     continue;
                 }
 
                 if attempt > 1 {
-                    eprintln!("[SUCCESS] Scrape completed after {attempt} attempts");
+                    println!("[SUCCESS] Scrape completed after {attempt} attempts");
                 }
 
                 return Ok(result);
@@ -130,7 +130,7 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                     && attempt <= max_retries
                 {
                     let delay_ms = calculate_backoff_delay(BASE_DELAY_MS, attempt);
-                    eprintln!("[RETRY] Transient error: {error_msg}. Retrying in {delay_ms}ms (attempt {attempt}/{max_retries})");
+                    println!("[RETRY] Transient error: {error_msg}. Retrying in {delay_ms}ms (attempt {attempt}/{max_retries})");
                     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                     continue;
                 }
