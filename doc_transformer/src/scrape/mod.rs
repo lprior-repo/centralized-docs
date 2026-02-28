@@ -48,10 +48,28 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     let max_retries = config.max_retries.min(10);
     let mut attempt: u32 = 0;
 
+    // Check sitemap ONCE before retries - fall back to crawling if no URLs found
+    let use_sitemap = if config.sitemap_strategy == SitemapStrategy::UseSitemap {
+        let test_result = scrape_single_attempt(config, true).await;
+        let pages_found = test_result
+            .as_ref()
+            .map(|r| r.success_count > 0)
+            .unwrap_or(false);
+
+        if !pages_found {
+            eprintln!("[SCRAPE] No URLs found in sitemap, falling back to crawling...");
+            false
+        } else {
+            true
+        }
+    } else {
+        false
+    };
+
     loop {
         attempt = attempt.saturating_add(1);
 
-        match scrape_site_internal(config).await {
+        match scrape_single_attempt(config, use_sitemap).await {
             Ok(result) => {
                 if config.retry_strategy == RetryStrategy::Fixed {
                     return Ok(result);
@@ -104,9 +122,10 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     }
 }
 
-/// Internal scrape implementation without retry logic
-async fn scrape_site_internal(
+/// Execute a single scrape attempt with explicit sitemap strategy
+async fn scrape_single_attempt(
     config: &validation::ScrapeConfig,
+    use_sitemap: bool,
 ) -> Result<validation::ScrapeResult> {
     let validated_url = validate_url(&config.base_url)?;
 
@@ -130,7 +149,7 @@ async fn scrape_site_internal(
         website.configuration.configure_allowlist();
     }
 
-    execute_scrape_with_website(&mut website, config).await?;
+    execute_scrape_with_website(&mut website, config, use_sitemap).await?;
 
     Ok(extract_pages_from_website(&website, config))
 }

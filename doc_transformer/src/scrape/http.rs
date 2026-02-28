@@ -48,30 +48,17 @@ pub fn build_website_base(url: &str, config: &ScrapeConfig) -> spider::website::
     website
 }
 
-/// Execute scrape operation with retry logic
+/// Execute scrape operation with configurable strategy
 ///
 /// # Errors
 /// Returns an error if the scrape operation fails.
 pub async fn execute_scrape_with_website(
     website: &mut spider::website::Website,
     config: &ScrapeConfig,
+    use_sitemap: bool,
 ) -> anyhow::Result<()> {
-    // Try sitemap first, but fall back to crawling if no URLs are discovered
-    if config.sitemap_strategy == SitemapStrategy::UseSitemap {
+    if use_sitemap {
         website.scrape_sitemap().await;
-
-        // Check if any URLs were discovered from sitemap
-        let sitemap_has_urls = website
-            .get_pages()
-            .as_ref()
-            .is_some_and(|pages| !pages.is_empty());
-
-        if !sitemap_has_urls {
-            // Sitemap returned no URLs - fall back to regular crawling
-            // This handles cases where sitemap.xml doesn't exist or returns 404
-            eprintln!("[SCRAPE] No URLs found in sitemap, falling back to crawling...");
-            website.scrape().await;
-        }
     } else {
         website.scrape().await;
     }
