@@ -221,9 +221,9 @@ pub fn validate_url(url: &str) -> Result<url::Url> {
         );
     }
 
-    // Check for common unencoded special characters in the original input
-    let unencoded_chars = ['[', ']', '{', '}', '|', '\\', '^', '`', '<', '>'];
-    if let Some(found) = unencoded_chars.iter().find(|c| trimmed.contains(**c)) {
+    // Check for common unencoded special characters in the original input.
+    // '[' and ']' are allowed only inside authority for IPv6 host literals.
+    if let Some(found) = find_unencoded_special_char(trimmed) {
         anyhow::bail!(
             "URL contains unencoded special character '{found}'. \
             Characters like [ ] {{ }} | \\ ^ ` < > must be percent-encoded.",
@@ -253,6 +253,41 @@ pub fn validate_url(url: &str) -> Result<url::Url> {
     }
 
     Ok(parsed)
+}
+
+fn find_unencoded_special_char(url: &str) -> Option<char> {
+    let authority_bounds = parse_authority_bounds(url);
+
+    url.char_indices().find_map(|(index, ch)| {
+        let is_unencoded_special = matches!(
+            ch,
+            '[' | ']' | '{' | '}' | '|' | '\\' | '^' | '`' | '<' | '>'
+        );
+
+        if is_unencoded_special && !is_ipv6_host_bracket(index, ch, authority_bounds) {
+            Some(ch)
+        } else {
+            None
+        }
+    })
+}
+
+fn parse_authority_bounds(url: &str) -> Option<(usize, usize)> {
+    url.find("://").map(|scheme_separator_index| {
+        let authority_start = scheme_separator_index + 3;
+        let after_scheme = &url[authority_start..];
+        let authority_end = after_scheme
+            .find(|ch| ['/', '?', '#'].contains(&ch))
+            .map_or_else(|| url.len(), |offset| authority_start + offset);
+        (authority_start, authority_end)
+    })
+}
+
+fn is_ipv6_host_bracket(index: usize, ch: char, authority_bounds: Option<(usize, usize)>) -> bool {
+    matches!(ch, '[' | ']')
+        && authority_bounds.is_some_and(|(authority_start, authority_end)| {
+            index >= authority_start && index < authority_end
+        })
 }
 
 /// Check if HTML content exceeds size limit
@@ -489,6 +524,7 @@ mod tests {
     fn test_validate_url_valid_hosts() {
         assert!(validate_url("https://example.com").is_ok());
         assert!(validate_url("https://localhost:3000").is_ok());
+        assert!(validate_url("https://[::1]:3000/docs").is_ok());
     }
 
     #[test]
