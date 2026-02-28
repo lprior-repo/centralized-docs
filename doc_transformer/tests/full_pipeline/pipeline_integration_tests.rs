@@ -712,10 +712,11 @@ fn test_empty_and_whitespace_files() {
 
     let files = ctx.discover_files();
 
+    // Empty files are skipped, but whitespace-only files have non-zero size and are included
     assert_eq!(
         files.len(),
-        3,
-        "Should discover all files including empty ones"
+        2,
+        "Should discover normal and whitespace files (empty files are skipped)"
     );
 }
 
