@@ -564,19 +564,20 @@ fn main() -> Result<()> {
         (false, PathBuf::from(&args[1]))
     };
 
-    // Check file existence early and return exit code 5 if not found
+    // Check file existence early and return exit code 1 (user error) if not found
     if !path.exists() {
         eprintln!("Error: file not found: {}", path.display());
-        std::process::exit(5);
+        std::process::exit(1);
     }
 
     let result = if is_index {
-        // Try to parse and track if it's a parse error (exit 4) vs validation error
+        // Try to parse and validate INDEX.json
         let content = match fs::read_to_string(&path) {
             Ok(c) => c,
             Err(e) => {
+                // File read error - user error (file exists but can't be read)
                 eprintln!("Error: failed to read file: {}", e);
-                std::process::exit(5);
+                std::process::exit(1);
             }
         };
 
@@ -584,9 +585,9 @@ fn main() -> Result<()> {
         match parse_result {
             Ok(_) => validate_index_json(&path)?,
             Err(e) => {
-                // Invalid JSON is a parse error - exit code 4
+                // Invalid JSON is a user input error - exit code 1
                 eprintln!("Error: Parse error (invalid JSON): {}", e);
-                std::process::exit(4);
+                std::process::exit(1);
             }
         }
     } else {
@@ -595,18 +596,10 @@ fn main() -> Result<()> {
 
     let error_count = print_results(&result, &path);
 
-    // Exit with severity-based error code
-    // 0 = success
-    // 1 = 1-10 errors (minor corruption)
-    // 2 = 11-100 errors (major corruption)
-    // 3 = >100 errors (critical corruption)
+    // Exit with code 1 for validation errors (user input error)
+    // Consistent with doc_transformer: exit 1 for user errors
     if error_count > 0 {
-        let exit_code = match error_count {
-            1..=10 => 1,
-            11..=100 => 2,
-            _ => 3,
-        };
-        std::process::exit(exit_code);
+        std::process::exit(1);
     }
 
     Ok(())
