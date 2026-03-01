@@ -1019,6 +1019,8 @@ fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "invalid or too complex regex",
         "regex parse error",
         "permission denied",
+        "no markdown files found",
+        "cannot index empty",
     ];
 
     let is_user_input = user_input_patterns
@@ -1492,7 +1494,10 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
 
     // Warn if no files were found
     if files.is_empty() {
-        eprintln!("  Warning: No files found in source directory. Nothing to index.");
+        anyhow::bail!(
+            "No markdown files found in source directory. Cannot index empty source.\n\
+             Hint: Ensure the source directory contains files with .md, .mdx, .markdown, .txt, or .rst extensions."
+        );
     }
 
     // STEP 2: ANALYZE

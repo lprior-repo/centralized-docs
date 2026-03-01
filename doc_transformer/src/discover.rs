@@ -40,6 +40,14 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
         source_dir.display()
     ))?;
 
+    // Ensure source is a file or directory (not device, socket, pipe, etc.)
+    if !canonical_path.is_file() && !canonical_path.is_dir() {
+        anyhow::bail!(
+            "Source must be a file or directory, not a special file: {}",
+            source_dir.display()
+        );
+    }
+
     let mut files = Vec::new();
     let mut skipped_large = 0usize;
     let mut skipped_empty = 0usize;
