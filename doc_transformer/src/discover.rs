@@ -232,16 +232,28 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
         );
     }
 
-    // FAIL if permission denied files were encountered - even if some readable files exist
-    // This ensures we don't silently skip unreadable files - user must fix permissions
+    // Handle permission denied files:
+    // - If ALL files are unreadable (files is empty): fail with error
+    // - If SOME files are unreadable but readable files exist: warn but continue
     if !permission_denied_files.is_empty() {
         let file_list = permission_denied_files.join(", ");
-        anyhow::bail!(
-            "Error: Cannot read {} file(s) due to permission denied: {}. \
-             Please check file permissions with 'chmod +r' or remove unreadable files.",
+        if files.is_empty() {
+            // All files are unreadable - hard fail
+            anyhow::bail!(
+                "Error: Cannot read {} file(s) due to permission denied: {}. \
+                 Please check file permissions with 'chmod +r' or remove unreadable files.",
+                permission_denied_files.len(),
+                file_list
+            );
+        }
+        // Some files are readable, some are not - warn but continue
+        eprintln!(
+            "Warning: Cannot read {} file(s) due to permission denied: {}. \
+             These files will be skipped. To include them, run 'chmod +r' on these files.",
             permission_denied_files.len(),
             file_list
         );
+        }
     }
 
     let manifest = DiscoverManifest {
