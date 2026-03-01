@@ -242,11 +242,11 @@ fn test_search_no_results() {
         output_dir.to_str().unwrap(),
     ]);
 
-    // No-results is an error condition - scripts need to know search failed
-    // Both JSON and text modes return exit code 1 for no results (bead doc-3f31)
+    // No-results is a valid result - exit code 0 means success (even with empty results)
+    // Exit code 1 is for actual errors (doc-2y1p: search exit code should be 0 for no results)
     assert!(
-        !search_result.status.success(),
-        "Search with no matches should return exit 1 (error condition)"
+        search_result.status.success(),
+        "Search with no matches should return exit 0 (valid result, not error)"
     );
     let stderr = String::from_utf8_lossy(&search_result.stderr);
     assert!(

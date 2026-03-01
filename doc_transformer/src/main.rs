@@ -1021,11 +1021,12 @@ fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         return 1;
     }
 
-    // "no results found" is a search error condition - scripts need to know search failed
-    // Both JSON and text modes should return exit code 1 for no results
+    // "no results found" is NOT an error - it's a valid result state
+    // Exit code 0 means success (even with empty results)
+    // Exit code 1 is for actual errors (invalid index, missing args, etc.)
     if error_string_lower.contains("no results found") {
-        // No results is an error condition -> exit 1
-        return 1;
+        // No results is a valid result -> exit 0 (success)
+        return 0;
     }
 
     // Pipeline error -> exit 2
