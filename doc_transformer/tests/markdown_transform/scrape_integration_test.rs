@@ -39,10 +39,11 @@ fn test_scrape_pipeline_simulation() {
 
     assert!(output.is_ok(), "scrape command should be available");
     let output_result = output.unwrap();
-    let stdout = String::from_utf8_lossy(&output_result.stdout);
-    assert!(stdout.contains("URL"), "scrape help should mention URL");
+    // Clap prints help to stderr, not stdout
+    let stderr = String::from_utf8_lossy(&output_result.stderr);
+    assert!(stderr.contains("<URL>"), "scrape help should mention <URL>");
     assert!(
-        stdout.contains("output"),
+        stderr.contains("output"),
         "scrape help should mention output"
     );
 

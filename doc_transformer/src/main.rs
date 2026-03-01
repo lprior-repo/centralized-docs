@@ -1380,7 +1380,7 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
                 // Lock file exists - check if we should retry (stale lock was reclaimed)
-                retries += 1;
+                retries = retries.saturating_add(1);
                 if retries < MAX_RETRIES {
                     // Brief sleep to allow other process to release lock
                     std::thread::sleep(std::time::Duration::from_millis(10));
@@ -1505,27 +1505,21 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
         config.category_config.as_deref(),
     )?;
 
-    // Report failed files if any
+    // Report failed files if any - this is an error condition
     if !analyze_result.failed_files.is_empty() {
-        eprintln!(
-            "  Warning: {} of {} files failed to analyze",
-            analyze_result.failed_files.len(),
-            analyze_result.total_discovered
-        );
-        for failed in &analyze_result.failed_files {
-            eprintln!("    - {}: {}", failed.source_path, failed.error);
-        }
+        // Collect error messages for comprehensive error reporting
+        let error_summary = analyze_result
+            .failed_files
+            .iter()
+            .map(|f| format!("{}: {}", f.source_path, f.error))
+            .collect::<Vec<_>>()
+            .join("; ");
+        anyhow::bail!("analysis failed: {}", error_summary);
     }
 
     let analyses = analyze_result.analyses;
     let categories = analyze::count_categories(&analyses);
-    println!("  Processed {} files", analyses.len());
-    if !analyze_result.failed_files.is_empty() {
-        println!(
-            "  {} files failed analysis",
-            analyze_result.failed_files.len()
-        );
-    }
+    println!("  Processed {} files\n", analyses.len());
     println!(
         "  Categories: ref={} concept={} tutorial={} ops={} meta={}\n",
         categories.get("ref").unwrap_or(&0),
