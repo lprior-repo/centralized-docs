@@ -1044,6 +1044,7 @@ fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "permission denied",
         "no markdown files found",
         "cannot index empty",
+        "parent path is not a directory",
     ];
 
     let is_user_input = user_input_patterns
