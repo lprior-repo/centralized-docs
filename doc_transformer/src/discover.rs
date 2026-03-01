@@ -53,6 +53,9 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     let mut skipped_empty = 0usize;
     let mut skipped_broken_symlink = 0usize;
     let mut skipped_io_error = 0usize;
+    // Track files skipped specifically due to permission denied (chmod 000, etc.)
+    // These must cause a non-zero exit so the user knows indexing is incomplete.
+    let mut permission_denied_files: Vec<String> = Vec::new();
     // Markdown extensions (primary)
     let markdown_exts = [".md", ".mdx", ".markdown", ".mdown", ".mkd"];
     // Text extensions (processed but may not be actual markdown - warn)
@@ -78,8 +81,22 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
-                skipped_io_error = skipped_io_error.saturating_add(1);
-                eprintln!("Warning: Skipping path due to I/O error: {e}");
+                // Check if the underlying IO error is a permission denied
+                let is_permission_denied = e
+                    .io_error()
+                    .map(|io_err| io_err.kind() == std::io::ErrorKind::PermissionDenied)
+                    .unwrap_or(false);
+                if is_permission_denied {
+                    let path_str = e
+                        .path()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_else(|| "<unknown>".to_string());
+                    eprintln!("Error: Cannot read file '{path_str}': permission denied");
+                    permission_denied_files.push(path_str);
+                } else {
+                    skipped_io_error = skipped_io_error.saturating_add(1);
+                    eprintln!("Warning: Skipping path due to I/O error: {e}");
+                }
                 continue;
             }
         };
@@ -144,7 +161,14 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
                     // Get file size, skip if metadata fails (e.g., permission denied)
                     let size = match path.metadata() {
                         Ok(meta) => meta.len(),
+                        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                            let path_str = path.display().to_string();
+                            eprintln!("Error: Cannot read file '{path_str}': permission denied");
+                            permission_denied_files.push(path_str);
+                            continue;
+                        }
                         Err(e) => {
+                            skipped_io_error = skipped_io_error.saturating_add(1);
                             eprintln!(
                                 "Warning: Failed to read metadata for {}: {e}, skipping file",
                                 path.display()
@@ -179,6 +203,15 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
         }
     }
 
+    // Error if no files found but there were I/O errors (e.g., all files have permission issues)
+    // This ensures we don't silently skip unreadable files without user feedback
+    if files.is_empty() && skipped_io_error > 0 {
+        anyhow::bail!(
+            "No indexable files found after filtering (skipped {skipped_io_error} file(s) due to I/O errors). \
+             Check file permissions: ensure source files are readable."
+        );
+    }
+
     if files.is_empty() && skipped_large > 0 {
         anyhow::bail!(
             "No indexable files found after filtering (skipped {skipped_large} oversized, {skipped_empty} empty, and {skipped_broken_symlink} broken symlink files). \
@@ -196,6 +229,18 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
         eprintln!(
             "Warning: Skipped {skipped_io_error} path(s) due to I/O errors (e.g., permission denied). \
             Some files may not have been processed."
+        );
+    }
+
+    // FAIL if permission denied files were encountered - even if some readable files exist
+    // This ensures we don't silently skip unreadable files - user must fix permissions
+    if !permission_denied_files.is_empty() {
+        let file_list = permission_denied_files.join(", ");
+        anyhow::bail!(
+            "Error: Cannot read {} file(s) due to permission denied: {}. \
+             Please check file permissions with 'chmod +r' or remove unreadable files.",
+            permission_denied_files.len(),
+            file_list
         );
     }
 
@@ -308,22 +353,70 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::TempDir;
 
-    /// Test that files with permission errors are skipped gracefully
-    /// and other files are still discovered. This was a P0 bug where
-    /// a single unreadable file would cause the entire discovery to fail.
+    /// Test that an unreadable directory causes discovery to FAIL with exit code 1.
+    /// This is the P0 bug fix: unreadable files should not be silently skipped.
     #[test]
-    fn test_discover_files_skips_unreadable_files() {
-        // Create temp directory with multiple markdown files
+    fn test_unreadable_directory_returns_nonzero_exit() {
+        // Create temp directory with ONLY an unreadable subdirectory (no readable files)
         let temp_dir = match TempDir::new() {
             Ok(d) => d,
             Err(e) => panic!("Failed to create temp dir: {e}"),
         };
         let dir_path = temp_dir.path();
 
-        // Create three markdown files
+        // Create a subdirectory with a file inside - but NO readable files at root
+        let unreadable_dir = dir_path.join("restricted");
+        match fs::create_dir(&unreadable_dir) {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to create restricted dir: {e}"),
+        };
+
+        let file_in_dir = unreadable_dir.join("inside.md");
+        match fs::write(&file_in_dir, "# Inside Restricted\nContent") {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to create file in restricted dir: {e}"),
+        };
+
+        // Remove read+execute permissions from subdirectory (making it unreadable)
+        // This prevents WalkDir from even entering the directory
+        match fs::set_permissions(&unreadable_dir, PermissionsExt::from_mode(0o000)) {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to set permissions: {e}"),
+        };
+
+        // Discover files - should FAIL because no readable files exist
+        let result = discover_files(dir_path);
+
+        // Clean up: restore permissions so temp dir can be removed
+        let _ = fs::set_permissions(&unreadable_dir, PermissionsExt::from_mode(0o755));
+
+        // Result should be Err (permission denied causes failure when no readable files)
+        assert!(
+            result.is_err(),
+            "discover_files should FAIL when no readable files exist due to permission errors"
+        );
+
+        // Check error message mentions permission denied
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("permission denied"),
+            "Error should mention 'permission denied', got: {}",
+            err_msg
+        );
+    }
+
+    /// Test that readable files work normally (happy path)
+    #[test]
+    fn test_discover_files_with_readable_files() {
+        let temp_dir = match TempDir::new() {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
+        let dir_path = temp_dir.path();
+
+        // Create readable markdown files
         let file1 = dir_path.join("readable1.md");
-        let file2 = dir_path.join("unreadable.md");
-        let file3 = dir_path.join("readable2.md");
+        let file2 = dir_path.join("readable2.md");
 
         let mut f1 = match File::create(&file1) {
             Ok(f) => f,
@@ -338,54 +431,28 @@ mod tests {
             Ok(f) => f,
             Err(e) => panic!("Failed to create file2: {e}"),
         };
-        match f2.write_all(b"# Unreadable Document\nThis will have no read permissions") {
+        match f2.write_all(b"# Readable Document 2\nMore content") {
             Ok(_) => (),
             Err(e) => panic!("Failed to write file2: {e}"),
         }
 
-        let mut f3 = match File::create(&file3) {
-            Ok(f) => f,
-            Err(e) => panic!("Failed to create file3: {e}"),
-        };
-        match f3.write_all(b"# Readable Document 2\nMore content") {
-            Ok(_) => (),
-            Err(e) => panic!("Failed to write file3: {e}"),
-        }
-
-        // Remove read permissions from file2 (making it unreadable)
-        match fs::set_permissions(&file2, PermissionsExt::from_mode(0o000)) {
-            Ok(_) => (),
-            Err(e) => panic!("Failed to set permissions: {e}"),
-        }
-
-        // Discover files - should skip unreadable file but find the other two
+        // Discover files - should succeed with readable files
         let result = discover_files(dir_path);
 
-        // Clean up: restore permissions so temp dir can be removed
-        let _ = fs::set_permissions(&file2, PermissionsExt::from_mode(0o644));
-
-        // Result should be Ok (not an error)
         assert!(
             result.is_ok(),
-            "discover_files should succeed even with unreadable files"
+            "discover_files should succeed with readable files"
         );
 
-        let (discovered_files, _manifest) = match result {
-            Ok(v) => v,
-            Err(e) => panic!("discover_files failed: {e}"),
-        };
+        let (discovered_files, _manifest) = result.unwrap();
 
-        // On Linux, files with 0o000 permissions can still have metadata read.
-        // The file may be discovered but will fail when actually read.
-        // The important thing is that discovery succeeds without panicking.
-        // We should find at least the 2 readable files.
-        assert!(
-            discovered_files.len() >= 2,
-            "Expected at least 2 readable files to be discovered, got {}",
+        assert_eq!(
+            discovered_files.len(),
+            2,
+            "Expected 2 readable files to be discovered, got {}",
             discovered_files.len()
         );
 
-        // Verify the readable files were found
         let file_names: Vec<_> = discovered_files
             .iter()
             .map(|f| f.source_path.clone())

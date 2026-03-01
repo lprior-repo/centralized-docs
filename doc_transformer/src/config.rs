@@ -140,17 +140,27 @@ impl CategoryConfig {
     /// - Rules have no valid criteria
     pub fn load_from_file(path: &Path) -> Result<Self> {
         let content = fs::read_to_string(path)?;
-        let config: CategoryConfig = serde_yaml::from_str(&content)?;
+
+        // Parse YAML with error sanitization to prevent content leak
+        // serde_yaml's error message may include the problematic content,
+        // so we catch and re-wrap with a generic message
+        let config: CategoryConfig = serde_yaml::from_str(&content).map_err(|_e| {
+            // Return a generic error without exposing file contents
+            anyhow::anyhow!(
+                "invalid config: failed to parse YAML at '{}'",
+                path.display()
+            )
+        })?;
 
         // Validate that default_category is set
         if config.default_category.is_empty() {
-            anyhow::bail!("Config error: default_category is required and must not be empty");
+            anyhow::bail!("invalid config: default_category is required and must not be empty");
         }
 
         // Validate that all categories are lowercase alphanumeric
         if !is_valid_category_name(&config.default_category) {
             anyhow::bail!(
-                "Config error: default_category '{}' is not lowercase alphanumeric",
+                "invalid config: default_category '{}' is not lowercase alphanumeric",
                 config.default_category
             );
         }
@@ -158,7 +168,7 @@ impl CategoryConfig {
         for rule in &config.rules {
             if !is_valid_category_name(&rule.category) {
                 anyhow::bail!(
-                    "Config error: category '{}' is not lowercase alphanumeric",
+                    "invalid config: category '{}' is not lowercase alphanumeric",
                     rule.category
                 );
             }
@@ -166,7 +176,7 @@ impl CategoryConfig {
             // Validate that rule has at least one non-empty criterion
             if !Self::has_valid_criteria(&rule.criteria) {
                 anyhow::bail!(
-                    "Config error: rule for category '{}' has no criteria (all are None or empty)",
+                    "invalid config: rule for category '{}' has no criteria (all are None or empty)",
                     rule.category
                 );
             }

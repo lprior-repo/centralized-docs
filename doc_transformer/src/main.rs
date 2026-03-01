@@ -200,10 +200,8 @@ pub(crate) fn validate_max_related_chunks(s: &str) -> Result<usize, String> {
     if value < 1 {
         return Err(format!("max_related_chunks must be at least 1, got '{s}'"));
     }
-    if value > 1000 {
-        return Err(format!(
-            "max_related_chunks must be at most 1000, got '{s}'"
-        ));
+    if value > 100 {
+        return Err(format!("max_related_chunks must be at most 100, got '{s}'"));
     }
 
     value
@@ -721,7 +719,8 @@ async fn main() -> Result<()> {
     // instead of clap's default exit code 2
     let cmd = Cli::command();
 
-    // Try to parse, handling validation errors with exit code 1
+    // Try to parse, handling validation errors with exit code 2
+    // (per contract: invalid argument values like --max-related-chunks outside 1-100 exit with code 2)
     let cli = match cmd.try_get_matches() {
         Ok(matches) => matches,
         Err(e) => {
@@ -733,9 +732,17 @@ async fn main() -> Result<()> {
                 eprintln!("{}", e);
                 process::exit(0);
             }
-            // For all other errors (validation errors), print and exit with code 1
+            // Validation errors (ValueValidation, InvalidValue) exit with code 2 per contract
+            // Other errors exit with code 1
+            let exit_code = if e.kind() == clap::error::ErrorKind::ValueValidation
+                || e.kind() == clap::error::ErrorKind::InvalidValue
+            {
+                2
+            } else {
+                1
+            };
             eprintln!("{}", e);
-            process::exit(1);
+            process::exit(exit_code);
         }
     };
 
@@ -743,8 +750,16 @@ async fn main() -> Result<()> {
     let cli = match Cli::from_arg_matches(&cli) {
         Ok(cli) => cli,
         Err(e) => {
+            // Validation errors exit with code 2 per contract
+            let exit_code = if e.kind() == clap::error::ErrorKind::ValueValidation
+                || e.kind() == clap::error::ErrorKind::InvalidValue
+            {
+                2
+            } else {
+                1
+            };
             eprintln!("{}", e);
-            process::exit(1);
+            process::exit(exit_code);
         }
     };
 
@@ -1016,6 +1031,7 @@ fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "limit must be",
         "another index operation appears to be running",
         "invalid url",
+        "invalid config",
         "invalid or too complex regex",
         "regex parse error",
         "permission denied",
@@ -1492,7 +1508,7 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     let (files, discover_manifest) = discover::discover_files(source)?;
     println!("  Found {} files\n", files.len());
 
-    // Warn if no files were found
+    // Exit with error if no markdown files found (user error - exit code 1)
     if files.is_empty() {
         anyhow::bail!(
             "No markdown files found in source directory. Cannot index empty source.\n\

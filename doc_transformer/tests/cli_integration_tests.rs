@@ -162,10 +162,77 @@ fn test_index_empty_directory() {
         output_dir.to_str().unwrap(),
     ]);
 
+    // Empty directory should fail with exit code 1 (user error)
+    // per contract doc-3qj9: empty source returns exit code 1
     assert!(
-        result.status.success(),
-        "Index with empty directory should succeed with 0 files. stderr: {}",
+        !result.status.success(),
+        "Index with empty directory should fail with exit code 1. stderr: {}",
         String::from_utf8_lossy(&result.stderr)
+    );
+    assert_eq!(
+        result.status.code(),
+        Some(1),
+        "Exit code should be 1 for empty directory"
+    );
+}
+
+#[test]
+fn test_index_non_directory_file() {
+    // Test indexing a non-markdown file (like /etc/passwd)
+    // Should fail with exit code 1 per contract doc-3qj9
+    let temp = TempDir::new().unwrap();
+    let output_dir = temp.path().join("output");
+
+    // Use /etc/passwd as a representative non-markdown file
+    // (it exists on most systems and is not a directory)
+    let result = run_cli(&[
+        "index",
+        "/etc/passwd",
+        "--output",
+        output_dir.to_str().unwrap(),
+    ]);
+
+    // Non-markdown file should fail with exit code 1 (user error)
+    assert!(
+        !result.status.success(),
+        "Index with non-markdown file should fail with exit code 1. stderr: {}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert_eq!(
+        result.status.code(),
+        Some(1),
+        "Exit code should be 1 for non-markdown file"
+    );
+}
+
+#[test]
+fn test_index_directory_with_no_markdown_files() {
+    let temp = TempDir::new().unwrap();
+    let source = temp.path().join("no_md");
+    let output_dir = temp.path().join("output");
+
+    fs::create_dir_all(&source).unwrap();
+    // Create only non-markdown files
+    fs::write(source.join("file.json"), "{}").unwrap();
+    fs::write(source.join("file.html"), "<html></html>").unwrap();
+
+    let result = run_cli(&[
+        "index",
+        source.to_str().unwrap(),
+        "--output",
+        output_dir.to_str().unwrap(),
+    ]);
+
+    // Directory with no markdown files should fail with exit code 1
+    assert!(
+        !result.status.success(),
+        "Index with no markdown files should fail with exit code 1. stderr: {}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert_eq!(
+        result.status.code(),
+        Some(1),
+        "Exit code should be 1 for directory with no markdown files"
     );
 }
 

@@ -455,9 +455,7 @@ fn create_chunks_at_level(
     level: ChunkLevel,
 ) -> Vec<Chunk> {
     let target_tokens = level.target_tokens();
-    let has_h2 = h2_regex()
-        .map(|regex| content.lines().any(|line| regex.is_match(line)))
-        .unwrap_or(false);
+    let has_h2 = h2_regex().is_ok_and(|regex| content.lines().any(|line| regex.is_match(line)));
     let use_fallback_headings = !has_h2;
 
     let mut chunks = Vec::new();
@@ -753,10 +751,8 @@ fn get_context_tail(content: &str, max_tokens: usize) -> String {
 /// Detect chunk content type
 fn detect_chunk_type(content: &str) -> ChunkType {
     let code_block_count = content.matches("```").count() / 2;
-    let has_table = content.contains('|')
-        && table_regex()
-            .map(|regex| regex.is_match(content))
-            .unwrap_or(false);
+    let has_table =
+        content.contains('|') && table_regex().is_ok_and(|regex| regex.is_match(content));
 
     if code_block_count > 5 {
         ChunkType::Code

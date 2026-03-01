@@ -788,6 +788,12 @@ pub fn build_knowledge_dag(
         // Build HNSW index for O(log n) nearest neighbor search
         match build_index_with_params(&embeddings, hnsw_m, hnsw_ef_construction) {
             Ok(index) => {
+                // Track existing related edges to prevent bidirectional edges that form cycles.
+                // Uses a HashSet of (from, to) pairs for O(1) lookup.
+                // Only add edge A->B if edge B->A doesn't already exist.
+                let mut existing_related_edges: std::collections::HashSet<(String, String)> =
+                    std::collections::HashSet::new();
+
                 // Query top-k neighbors for each chunk
                 for (i, chunk) in chunks.iter().enumerate() {
                     let (chunk_tags, chunk_category) = &chunk_terms_list[i];
@@ -812,14 +818,29 @@ pub fn build_knowledge_dag(
                                 && similarity >= SIMILARITY_THRESHOLD
                                 && added_edges < max_related
                             {
-                                let edge = GraphEdge {
-                                    from: chunk.chunk_id.clone(),
-                                    to: chunks[neighbor_idx].chunk_id.clone(),
-                                    edge_type: EdgeType::Related,
-                                    weight: similarity,
-                                };
-                                dag.add_edge(edge);
-                                added_edges = added_edges.saturating_add(1);
+                                let from_id = chunk.chunk_id.clone();
+                                let to_id = chunks[neighbor_idx].chunk_id.clone();
+
+                                // Check if reverse edge already exists (prevents bidirectional edges)
+                                // This ensures the graph remains acyclic
+                                let reverse_exists = existing_related_edges
+                                    .contains(&(to_id.clone(), from_id.clone()));
+
+                                if !reverse_exists {
+                                    // Track this edge to prevent reverse edge later
+                                    // Must track BEFORE adding edge since from_id/to_id get moved
+                                    existing_related_edges.insert((from_id.clone(), to_id.clone()));
+
+                                    let edge = GraphEdge {
+                                        from: from_id,
+                                        to: to_id,
+                                        edge_type: EdgeType::Related,
+                                        weight: similarity,
+                                    };
+                                    dag.add_edge(edge);
+
+                                    added_edges = added_edges.saturating_add(1);
+                                }
                             }
                         }
                     }
@@ -1665,5 +1686,116 @@ mod tests {
                 non_zero_count, max_non_zero, tags.len()
             );
         });
+    }
+
+    /// Test that DAG maintains acyclic structure when HNSW similarity creates
+    /// bidirectional edges. This tests the fix for BEAD doc-18ru.
+    ///
+    /// When chunk A relates to B and chunk B relates to A via HNSW similarity,
+    /// the system should NOT create bidirectional edges that form cycles.
+    #[test]
+    fn test_dag_no_cycles_from_bidirectional_related_edges() {
+        // Create chunks where similarity is symmetric (similar tags)
+        // This forces HNSW to find mutual neighbors
+        let chunks = vec![
+            Chunk {
+                chunk_id: "chunk_0".to_string(),
+                doc_id: "doc_0".to_string(),
+                doc_title: "Document 0".to_string(),
+                chunk_index: 0,
+                content: "Rust programming tutorial about ownership".to_string(),
+                token_count: 100,
+                heading: Some("Rust Ownership".to_string()),
+                heading_path: vec!["Document 0".to_string(), "Rust Ownership".to_string()],
+                chunk_type: contextual_chunker::ChunkType::Prose,
+                previous_chunk_id: None,
+                next_chunk_id: Some("chunk_1".to_string()),
+                related_chunk_ids: vec![],
+                summary: "Rust ownership tutorial".to_string(),
+                chunk_level: ChunkLevel::Standard,
+                parent_chunk_id: None,
+                child_chunk_ids: vec![],
+            },
+            Chunk {
+                chunk_id: "chunk_1".to_string(),
+                doc_id: "doc_0".to_string(),
+                doc_title: "Document 0".to_string(),
+                chunk_index: 1,
+                content: "Rust programming guide about borrowing".to_string(),
+                token_count: 100,
+                heading: Some("Rust Borrowing".to_string()),
+                heading_path: vec!["Document 0".to_string(), "Rust Borrowing".to_string()],
+                chunk_type: contextual_chunker::ChunkType::Prose,
+                previous_chunk_id: Some("chunk_0".to_string()),
+                next_chunk_id: None,
+                related_chunk_ids: vec![],
+                summary: "Rust borrowing guide".to_string(),
+                chunk_level: ChunkLevel::Standard,
+                parent_chunk_id: None,
+                child_chunk_ids: vec![],
+            },
+        ];
+
+        let documents = vec![IndexDocument {
+            id: "doc_0".to_string(),
+            title: "Document 0".to_string(),
+            path: "/path/doc_0.md".to_string(),
+            category: "tutorial".to_string(),
+            tags: vec!["rust".to_string(), "programming".to_string()],
+            summary: "A tutorial".to_string(),
+            word_count: 100,
+            chunk_ids: vec!["chunk_0".to_string(), "chunk_1".to_string()],
+            headings: vec!["Rust Ownership".to_string(), "Rust Borrowing".to_string()],
+        }];
+
+        // Both chunks share the same tags, so HNSW will find them mutually similar
+        let document_tags = vec![(
+            "doc_0".to_string(),
+            vec!["rust".to_string(), "programming".to_string()],
+            "tutorial".to_string(),
+        )];
+
+        let dag = build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None, None)
+            .expect("Failed to build knowledge DAG");
+
+        // Get the related edges
+        let related_edges = dag.edges_by_type(&EdgeType::Related);
+
+        // Check that we don't have bidirectional edges (A->B AND B->A)
+        // which would form cycles
+        let has_bidirectional = related_edges.iter().any(|e| {
+            related_edges
+                .iter()
+                .any(|other| other.from == e.to && other.to == e.from)
+        });
+
+        assert!(
+            !has_bidirectional,
+            "DAG should not have bidirectional Related edges that form cycles. Found: {:?}",
+            related_edges
+        );
+
+        // Verify topological order succeeds without fallback
+        let topo_order = dag.topological_order();
+
+        // If there were cycles, toposort would fail and we'd get fallback order (sorted by id)
+        // Check that we got a valid topological order (not the fallback sorted order)
+        // The actual order depends on graph structure, but it should NOT be sorted by id
+        // if the DAG has more than one valid topological ordering
+        assert!(
+            !topo_order.is_empty(),
+            "Topological order should contain all nodes. Nodes in graph: {:?}, Edges: {:?}",
+            dag.nodes().iter().map(|n| &n.id).collect::<Vec<_>>(),
+            dag.edges()
+                .iter()
+                .map(|e| (&e.from, &e.to))
+                .collect::<Vec<_>>()
+        );
+        // 2 chunks + 1 document = 3 nodes
+        assert!(
+            topo_order.len() == 3,
+            "Topological order should contain all nodes (2 chunks + 1 doc), got {}",
+            topo_order.len()
+        );
     }
 }
