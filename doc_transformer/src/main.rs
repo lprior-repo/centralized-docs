@@ -732,11 +732,14 @@ async fn main() -> Result<()> {
                 eprintln!("{}", e);
                 process::exit(0);
             }
-            // Validation errors (ValueValidation, InvalidValue) exit with code 1 per contract (doc-12d8)
-            // Pipeline errors exit with code 2
-            let exit_code = if e.kind() == clap::error::ErrorKind::ValueValidation
-                || e.kind() == clap::error::ErrorKind::InvalidValue
-            {
+            // User input errors: validation errors and missing required args (exit code 1)
+            // Pipeline errors: everything else (exit code 2)
+            let user_input_errors = [
+                clap::error::ErrorKind::ValueValidation,
+                clap::error::ErrorKind::InvalidValue,
+                clap::error::ErrorKind::MissingRequiredArgument,
+            ];
+            let exit_code = if user_input_errors.contains(&e.kind()) {
                 1
             } else {
                 2
@@ -750,11 +753,14 @@ async fn main() -> Result<()> {
     let cli = match Cli::from_arg_matches(&cli) {
         Ok(cli) => cli,
         Err(e) => {
-            // Validation errors exit with code 1 per contract (doc-12d8)
-            // Pipeline errors exit with code 2
-            let exit_code = if e.kind() == clap::error::ErrorKind::ValueValidation
-                || e.kind() == clap::error::ErrorKind::InvalidValue
-            {
+            // User input errors: validation errors and missing required args (exit code 1)
+            // Pipeline errors: everything else (exit code 2)
+            let user_input_errors = [
+                clap::error::ErrorKind::ValueValidation,
+                clap::error::ErrorKind::InvalidValue,
+                clap::error::ErrorKind::MissingRequiredArgument,
+            ];
+            let exit_code = if user_input_errors.contains(&e.kind()) {
                 1
             } else {
                 2
@@ -1578,8 +1584,28 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     );
     println!("  ~512 tokens/chunk with contextual prefixes\n");
 
-    // STEP 6: INDEX + GRAPH
-    println!("[STEP 6] INDEX + GRAPH");
+    // STEP 6: VALIDATE (before artifact writing - ensures atomic failure)
+    println!("[STEP 6] VALIDATE");
+    let validation_result = validate::validate_all(output)?;
+    println!(
+        "  {}/{} files passed ({} errors, {} warnings)\n",
+        validation_result.files_passed,
+        validation_result.files_checked,
+        validation_result.total_errors,
+        validation_result.total_warnings
+    );
+
+    // Bail early if validation fails - no artifacts written yet
+    if validation_result.total_errors > 0 {
+        anyhow::bail!(
+            "Validation failed: {} errors found across {} files",
+            validation_result.total_errors,
+            validation_result.files_checked
+        );
+    }
+
+    // STEP 7: INDEX + GRAPH
+    println!("[STEP 7] INDEX + GRAPH");
     index::build_and_write_index(
         &analyses,
         &link_map,
@@ -1594,9 +1620,9 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     index::build_and_write_compass(&analyses, &link_map, output)?;
     println!("  Created INDEX.json and COMPASS.md\n");
 
-    // STEP 7: LLMS.TXT + AGENTS.MD
+    // STEP 8: LLMS.TXT + AGENTS.MD
     if config.generate_llms {
-        println!("[STEP 7] LLMS.TXT + AGENTS.MD");
+        println!("[STEP 8] LLMS.TXT + AGENTS.MD");
         let llms_config = llms::LlmsConfig {
             project_name: config.project_name.clone(),
             project_description: config.project_desc.clone(),
@@ -1611,25 +1637,6 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
         } else {
             println!("  Created llms.txt and AGENTS.md\n");
         }
-    }
-
-    // STEP 8: VALIDATE
-    println!("[STEP 8] VALIDATE");
-    let validation_result = validate::validate_all(output)?;
-    println!(
-        "  {}/{} files passed ({} errors, {} warnings)\n",
-        validation_result.files_passed,
-        validation_result.files_checked,
-        validation_result.total_errors,
-        validation_result.total_warnings
-    );
-
-    if validation_result.total_errors > 0 {
-        anyhow::bail!(
-            "Validation failed: {} errors found across {} files",
-            validation_result.total_errors,
-            validation_result.files_checked
-        );
     }
 
     // FINAL SUMMARY
