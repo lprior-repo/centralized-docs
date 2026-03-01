@@ -728,7 +728,7 @@ fn test_index_invalid_max_related_chunks_too_large() {
 
     let stderr = String::from_utf8_lossy(&result.stderr);
     assert!(
-        stderr.contains("at most 1000"),
+        stderr.contains("at most 100"),
         "Error should mention maximum value. Got: {stderr}"
     );
 }

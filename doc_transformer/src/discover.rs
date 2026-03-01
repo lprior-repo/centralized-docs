@@ -253,7 +253,6 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
             permission_denied_files.len(),
             file_list
         );
-        }
     }
 
     let manifest = DiscoverManifest {

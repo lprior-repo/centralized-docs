@@ -34,7 +34,7 @@ pub struct GraphEdge {
 }
 
 /// Types of edges in the graph
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, EnumDiscriminants)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, EnumDiscriminants)]
 #[strum_discriminants(name(EdgeTypeKind))]
 #[serde(rename_all = "snake_case")]
 pub enum EdgeType {
@@ -189,6 +189,65 @@ impl KnowledgeDAG {
             for edge in self.graph.edges(idx) {
                 let target_idx = edge.target();
                 self.dfs_reachable(target_idx, visited);
+            }
+        }
+    }
+
+    /// Check if adding an edge from source to target would create a cycle,
+    /// considering only specific edge types for the path check.
+    /// Returns true if adding the edge would create a cycle.
+    #[must_use]
+    pub fn would_create_cycle_with_edge_types(
+        &self,
+        source: &str,
+        target: &str,
+        edge_types: &[EdgeType],
+    ) -> bool {
+        // If there's already a path from target to source via the specified edge types,
+        // adding source->target would create a cycle
+        self.reachable_from_via_edge_types(target, edge_types)
+            .contains(source)
+    }
+
+    /// Get all nodes reachable from a given node using only specific edge types.
+    #[must_use]
+    pub fn reachable_from_via_edge_types(
+        &self,
+        node_id: &str,
+        edge_types: &[EdgeType],
+    ) -> HashSet<String> {
+        let edge_type_set: HashSet<EdgeType> = edge_types.iter().cloned().collect();
+
+        self.node_map
+            .get(node_id)
+            .map(|&start_idx| {
+                let mut visited = HashSet::new();
+                self.dfs_reachable_with_edge_types(start_idx, &edge_type_set, &mut visited);
+                visited
+            })
+            .unwrap_or_default()
+    }
+
+    fn dfs_reachable_with_edge_types(
+        &self,
+        idx: NodeIndex,
+        edge_types: &HashSet<EdgeType>,
+        visited: &mut HashSet<String>,
+    ) {
+        if let Some(node) = self.graph.node_weight(idx) {
+            if !visited.insert(node.id.clone()) {
+                return; // Already visited
+            }
+
+            // Find edges from this node that match the allowed edge types
+            for edge in self
+                .edges_vec
+                .iter()
+                .filter(|e| e.from == node.id && edge_types.contains(&e.edge_type))
+            {
+                if let Some(&target_idx) = self.node_map.get(&edge.to) {
+                    self.dfs_reachable_with_edge_types(target_idx, edge_types, visited);
+                }
             }
         }
     }
@@ -495,5 +554,149 @@ mod tests {
 
         let no_importance = dag.node_importance("nonexistent");
         assert_eq!(no_importance, 0.0);
+    }
+
+    #[test]
+    fn test_cycle_detection_sequential_chain() {
+        let mut dag = KnowledgeDAG::new();
+
+        dag.add_node(GraphNode {
+            id: "c0".to_string(),
+            node_type: NodeType::Chunk,
+            title: "Chunk 0".to_string(),
+            category: None,
+        });
+        dag.add_node(GraphNode {
+            id: "c1".to_string(),
+            node_type: NodeType::Chunk,
+            title: "Chunk 1".to_string(),
+            category: None,
+        });
+        dag.add_node(GraphNode {
+            id: "c2".to_string(),
+            node_type: NodeType::Chunk,
+            title: "Chunk 2".to_string(),
+            category: None,
+        });
+
+        // Sequential chain: c0 -> c1 -> c2
+        dag.add_edge(GraphEdge {
+            from: "c0".to_string(),
+            to: "c1".to_string(),
+            edge_type: EdgeType::Sequential,
+            weight: 1.0,
+        });
+        dag.add_edge(GraphEdge {
+            from: "c1".to_string(),
+            to: "c2".to_string(),
+            edge_type: EdgeType::Sequential,
+            weight: 1.0,
+        });
+
+        // Check: adding c2 -> c0 would create cycle
+        let would_cycle = dag.would_create_cycle_with_edge_types(
+            "c2",
+            "c0",
+            &[EdgeType::Sequential, EdgeType::Parent],
+        );
+        assert!(
+            would_cycle,
+            "c2->c0 should create cycle via sequential chain"
+        );
+
+        // Check: adding c0 -> c2 is fine (no cycle)
+        let would_cycle = dag.would_create_cycle_with_edge_types(
+            "c0",
+            "c2",
+            &[EdgeType::Sequential, EdgeType::Parent],
+        );
+        assert!(!would_cycle, "c0->c2 should not create cycle");
+    }
+
+    #[test]
+    fn test_cycle_detection_parent_edges() {
+        let mut dag = KnowledgeDAG::new();
+
+        // Document -> chunks
+        dag.add_node(GraphNode {
+            id: "doc".to_string(),
+            node_type: NodeType::Document,
+            title: "Doc".to_string(),
+            category: None,
+        });
+        dag.add_node(GraphNode {
+            id: "chunk1".to_string(),
+            node_type: NodeType::Chunk,
+            title: "Chunk 1".to_string(),
+            category: None,
+        });
+        dag.add_node(GraphNode {
+            id: "chunk2".to_string(),
+            node_type: NodeType::Chunk,
+            title: "Chunk 2".to_string(),
+            category: None,
+        });
+
+        // doc -> chunk1 -> chunk2 (parent chain)
+        dag.add_edge(GraphEdge {
+            from: "doc".to_string(),
+            to: "chunk1".to_string(),
+            edge_type: EdgeType::Parent,
+            weight: 1.0,
+        });
+        dag.add_edge(GraphEdge {
+            from: "chunk1".to_string(),
+            to: "chunk2".to_string(),
+            edge_type: EdgeType::Sequential,
+            weight: 1.0,
+        });
+
+        // Adding chunk2 -> doc would create cycle via parent edges
+        let would_cycle = dag.would_create_cycle_with_edge_types(
+            "chunk2",
+            "doc",
+            &[EdgeType::Sequential, EdgeType::Parent],
+        );
+        assert!(would_cycle, "chunk2->doc should create cycle via parent");
+    }
+
+    #[test]
+    fn test_related_edges_no_cycle() {
+        let mut dag = KnowledgeDAG::new();
+
+        dag.add_node(GraphNode {
+            id: "a".to_string(),
+            node_type: NodeType::Chunk,
+            title: "A".to_string(),
+            category: None,
+        });
+        dag.add_node(GraphNode {
+            id: "b".to_string(),
+            node_type: NodeType::Chunk,
+            title: "B".to_string(),
+            category: None,
+        });
+        dag.add_node(GraphNode {
+            id: "c".to_string(),
+            node_type: NodeType::Chunk,
+            title: "C".to_string(),
+            category: None,
+        });
+
+        // a -> b (sequential)
+        dag.add_edge(GraphEdge {
+            from: "a".to_string(),
+            to: "b".to_string(),
+            edge_type: EdgeType::Sequential,
+            weight: 1.0,
+        });
+
+        // Adding b -> c (related) should be fine
+        let would_cycle = dag.would_create_cycle_with_edge_types(
+            "b",
+            "c",
+            &[EdgeType::Sequential, EdgeType::Parent],
+        );
+        assert!(!would_cycle, "b->c should not create cycle");
     }
 }

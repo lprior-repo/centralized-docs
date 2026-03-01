@@ -827,6 +827,18 @@ pub fn build_knowledge_dag(
                                     .contains(&(to_id.clone(), from_id.clone()));
 
                                 if !reverse_exists {
+                                    // Check if adding this edge would create a cycle via sequential/parent edges
+                                    let would_cycle = dag.would_create_cycle_with_edge_types(
+                                        &from_id,
+                                        &to_id,
+                                        &[EdgeType::Sequential, EdgeType::Parent],
+                                    );
+
+                                    if would_cycle {
+                                        // Skip this edge to prevent cycle
+                                        continue;
+                                    }
+
                                     // Track this edge to prevent reverse edge later
                                     // Must track BEFORE adding edge since from_id/to_id get moved
                                     existing_related_edges.insert((from_id.clone(), to_id.clone()));

@@ -732,14 +732,14 @@ async fn main() -> Result<()> {
                 eprintln!("{}", e);
                 process::exit(0);
             }
-            // Validation errors (ValueValidation, InvalidValue) exit with code 2 per contract
-            // Other errors exit with code 1
+            // Validation errors (ValueValidation, InvalidValue) exit with code 1 per contract (doc-12d8)
+            // Pipeline errors exit with code 2
             let exit_code = if e.kind() == clap::error::ErrorKind::ValueValidation
                 || e.kind() == clap::error::ErrorKind::InvalidValue
             {
-                2
-            } else {
                 1
+            } else {
+                2
             };
             eprintln!("{}", e);
             process::exit(exit_code);
@@ -750,13 +750,14 @@ async fn main() -> Result<()> {
     let cli = match Cli::from_arg_matches(&cli) {
         Ok(cli) => cli,
         Err(e) => {
-            // Validation errors exit with code 2 per contract
+            // Validation errors exit with code 1 per contract (doc-12d8)
+            // Pipeline errors exit with code 2
             let exit_code = if e.kind() == clap::error::ErrorKind::ValueValidation
                 || e.kind() == clap::error::ErrorKind::InvalidValue
             {
-                2
-            } else {
                 1
+            } else {
+                2
             };
             eprintln!("{}", e);
             process::exit(exit_code);
