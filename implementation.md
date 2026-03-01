@@ -1,3 +1,52 @@
+# Implementation: Regex pattern too long returns exit code 0 instead of 1 (bead: doc-29o8)
+
+## Problem
+When a regex filter pattern is too long (>500 chars) or contains potentially slow patterns (ReDoS risk), the CLI returns exit code 2 (pipeline error) instead of exit code 1 (user error).
+
+## Root Cause
+The `map_error_to_exit_code` function in `doc_transformer/src/main.rs` didn't include patterns to match:
+- "Regex pattern too long" - already had "too long" pattern (working)
+- "Regex contains potentially slow pattern (ReDoS risk)" - missing from user input patterns
+
+## Solution
+Added "slow pattern" and "redos risk" to the user input error patterns in `map_error_to_exit_code()`.
+
+## Implementation Details
+
+### Changes to main.rs
+File: `doc_transformer/src/main.rs`
+
+Added two new patterns to the `user_input_patterns` array in `map_error_to_exit_code()`:
+```rust
+let user_input_patterns = [
+    // ... existing patterns ...
+    "slow pattern",    // Added: catches ReDoS pattern errors
+    "redos risk",      // Added: catches ReDoS risk errors
+    // ... rest of patterns ...
+];
+```
+
+### Testing
+```bash
+# Test ReDoS pattern - should return exit code 1 (user error)
+$ doc_transformer scrape https://example.com --output /tmp/out --filter "(.*)*"
+Error: Regex contains potentially slow pattern (ReDoS risk): nested .* quantifiers: (.*)
+Exit code: 1
+
+# Test too long pattern - should return exit code 1 (user error)
+$ doc_transformer scrape https://example.com --output /tmp/out --filter "aaaaa... (501+ chars)"
+Error: Regex pattern too long: N chars (max 500)
+Exit code: 1
+
+# Test valid pattern - should proceed normally
+$ doc_transformer scrape https://example.com --output /tmp/out --filter "^/docs/"
+Exit code: 0
+```
+
+All tests pass with correct exit codes.
+
+---
+
 # Implementation: release-gate --help flag fix (bead: doc-3nzf)
 
 ## Problem
