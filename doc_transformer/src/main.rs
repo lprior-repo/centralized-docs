@@ -913,6 +913,7 @@ async fn main() -> Result<()> {
         }
     };
 
+    // Handle result with proper exit code mapping
     match result {
         Ok(()) => Ok(()),
         Err(err) => {
@@ -934,9 +935,68 @@ async fn main() -> Result<()> {
                 }
             }
 
-            Err(err)
+            // Map error to exit code for consistent error handling
+            // Exit 1: user input errors, Exit 2: pipeline errors
+            let exit_code = map_error_to_exit_code(&err);
+            eprintln!("Error: {err}");
+            process::exit(exit_code);
         }
     }
+}
+
+/// Map errors to exit codes per contract requirements:
+///
+/// - Exit 0: Success
+/// - Exit 1: User input errors (invalid arguments, bad format, missing files)
+/// - Exit 2: Pipeline/internal errors (transform failures, corrupt data, network errors)
+///
+/// This ensures consistent exit codes across all validation layers:
+/// - Parser-level validation (via clap value_parser) already exits with 2
+/// - Runtime validation now also exits with 1 for user input errors
+fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
+    // Check for validation errors (user input) - these should exit with 1
+    let error_string = err.to_string();
+    let error_string_lower = error_string.to_lowercase();
+
+    // User input error patterns (explicit matches - high precision)
+    // These are errors where the user provided invalid input
+    let user_input_patterns = [
+        "must be",
+        "cannot be",
+        "missing",
+        "required",
+        "not found",
+        "must be at least",
+        "must be at most",
+        "must be positive",
+        "too long",
+        "too short",
+        "out of range",
+        "query cannot be empty",
+        "query too long",
+        "limit must be",
+    ];
+
+    let is_user_input = user_input_patterns
+        .iter()
+        .any(|pattern| error_string_lower.contains(pattern));
+
+    if is_user_input {
+        // User input error -> exit 1
+        return 1;
+    }
+
+    // Special case: "no results found" is not an error, it's a valid outcome
+    // This is a search-specific behavior where the query was valid but matched nothing
+    if error_string_lower.contains("no results found") {
+        // Successful search with no results -> exit 0
+        return 0;
+    }
+
+    // Pipeline error -> exit 2
+    // These include: IO errors, transform failures, network errors, corrupt data
+    // Anything that isn't a user input error is a pipeline error
+    2
 }
 
 /// Validate query length to prevent DoS attacks and resource exhaustion
