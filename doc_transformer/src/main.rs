@@ -1855,6 +1855,7 @@ mod tests {
         let lock_path = temp_dir.join(".doc_transformer.lock");
         let metadata = OutputLockMetadata {
             pid: u32::MAX,
+            start_time: 0,
             created_at_unix_secs: now_unix_secs(),
         };
 
@@ -1872,8 +1873,10 @@ mod tests {
         assert!(create_dir_result.is_ok());
 
         let lock_path = temp_dir.join(".doc_transformer.lock");
+        let current_start_time = get_process_start_time(process::id()).unwrap_or(0);
         let metadata = OutputLockMetadata {
             pid: process::id(),
+            start_time: current_start_time,
             created_at_unix_secs: now_unix_secs().saturating_sub(OUTPUT_LOCK_STALE_AFTER_SECS + 5),
         };
 
@@ -1891,14 +1894,40 @@ mod tests {
         assert!(create_dir_result.is_ok());
 
         let lock_path = temp_dir.join(".doc_transformer.lock");
+        let current_start_time = get_process_start_time(process::id()).unwrap_or(0);
         let metadata = OutputLockMetadata {
             pid: process::id(),
+            start_time: current_start_time,
             created_at_unix_secs: now_unix_secs(),
         };
 
         write_lock_metadata(&lock_path, &metadata);
 
         assert!(!should_reclaim_stale_lock(&lock_path));
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_should_reclaim_stale_lock_when_pid_recycled() {
+        let temp_dir = unique_temp_dir("lock-reclaim-recycled");
+        let create_dir_result = std::fs::create_dir_all(&temp_dir);
+        assert!(create_dir_result.is_ok());
+
+        let lock_path = temp_dir.join(".doc_transformer.lock");
+
+        let current_start_time = get_process_start_time(process::id()).unwrap_or(0);
+        let wrong_start_time = current_start_time.wrapping_add(1000);
+
+        let metadata = OutputLockMetadata {
+            pid: process::id(),
+            start_time: wrong_start_time,
+            created_at_unix_secs: now_unix_secs(),
+        };
+
+        write_lock_metadata(&lock_path, &metadata);
+
+        assert!(should_reclaim_stale_lock(&lock_path));
 
         let _ = std::fs::remove_dir_all(temp_dir);
     }

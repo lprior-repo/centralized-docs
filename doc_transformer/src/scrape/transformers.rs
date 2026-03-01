@@ -39,7 +39,29 @@ pub fn url_to_slug(url: &str) -> Result<String> {
     let path = path.strip_suffix(".html").map_or(path, |s| s);
     let path = path.strip_suffix(".htm").map_or(path, |s| s);
 
-    let raw_slug = path.replace(['/', '.'], "-");
+    let mut raw_slug = path.replace(['/', '.'], "-");
+
+    if let Some(query) = parsed.query() {
+        let query_slug = query
+            .replace('=', "-")
+            .replace('&', "-")
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '-')
+            .collect::<String>();
+        if !query_slug.is_empty() {
+            raw_slug = format!("{raw_slug}--q-{query_slug}");
+        }
+    }
+
+    if let Some(fragment) = parsed.fragment() {
+        let frag_slug = fragment
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '-')
+            .collect::<String>();
+        if !frag_slug.is_empty() {
+            raw_slug = format!("{raw_slug}--f-{frag_slug}");
+        }
+    }
 
     let slug = raw_slug
         .chars()
