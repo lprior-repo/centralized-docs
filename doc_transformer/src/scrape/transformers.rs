@@ -524,4 +524,187 @@ mod tests {
 
         let _ = fs::remove_dir_all(output_dir);
     }
+
+    /// Test that demonstrates slug collision bug: multiple pages with same slug
+    /// should NOT overwrite each other - all pages must be preserved.
+    ///
+    /// This test covers:
+    /// - 3+ pages producing identical slugs
+    /// - Query parameters that create slug collisions
+    /// - Verifies ALL pages are preserved (not overwritten)
+    #[test]
+    fn test_slug_collision_prevents_data_loss() {
+        let output_dir = unique_temp_dir("doc-transformer-collision-test");
+
+        // Create 3 pages that will all produce the same slug "page"
+        // Different URLs with same path produce same slug
+        let page1 = validation::ScrapedPage {
+            url: "https://example.com/docs/page".to_string(),
+            markdown: "# Page 1\n\nFirst page content".to_string(),
+            title: "Page 1".to_string(),
+            links: Vec::new(),
+            headers: vec![validation::Header {
+                level: 1,
+                text: "Page 1".to_string(),
+            }],
+            word_count: 4,
+            slug: "docs-page".to_string(),
+            filter_status: PageFilterStatus::Unfiltered,
+            elements_removed: 0,
+            density_score: 1.0,
+        };
+
+        let page2 = validation::ScrapedPage {
+            url: "https://example.com/docs/page.html".to_string(),
+            markdown: "# Page 2\n\nSecond page content".to_string(),
+            title: "Page 2".to_string(),
+            links: Vec::new(),
+            headers: vec![validation::Header {
+                level: 1,
+                text: "Page 2".to_string(),
+            }],
+            word_count: 4,
+            slug: "docs-page".to_string(),
+            filter_status: PageFilterStatus::Unfiltered,
+            elements_removed: 0,
+            density_score: 1.0,
+        };
+
+        let page3 = validation::ScrapedPage {
+            url: "https://example.com/docs/page.htm".to_string(),
+            markdown: "# Page 3\n\nThird page content".to_string(),
+            title: "Page 3".to_string(),
+            links: Vec::new(),
+            headers: vec![validation::Header {
+                level: 1,
+                text: "Page 3".to_string(),
+            }],
+            word_count: 4,
+            slug: "docs-page".to_string(),
+            filter_status: PageFilterStatus::Unfiltered,
+            elements_removed: 0,
+            density_score: 1.0,
+        };
+
+        let scrape_result = validation::ScrapeResult {
+            pages: vec![page1, page2, page3],
+            total_urls: 3,
+            success_count: 3,
+            error_count: 0,
+            errors: Vec::new(),
+            base_url: "https://example.com".to_string(),
+        };
+
+        // The bug: without proper collision handling, later pages overwrite earlier ones
+        // Expected behavior: all 3 pages should be preserved with unique filenames
+        let write_result = write_scraped_pages(&scrape_result, &output_dir);
+
+        // Should succeed - no error should be raised for collisions
+        assert!(
+            write_result.is_ok(),
+            "Should handle slug collisions without error"
+        );
+
+        let scrape_dir = output_dir.join(".scrape");
+
+        // Critical assertion: ALL pages must be preserved, not overwritten
+        // If the bug exists, only one file would exist (last one wins)
+        assert!(
+            scrape_dir.join("docs-page.md").exists(),
+            "First page should be preserved as docs-page.md"
+        );
+        assert!(
+            scrape_dir.join("docs-page-2.md").exists(),
+            "Second page should be preserved as docs-page-2.md"
+        );
+        assert!(
+            scrape_dir.join("docs-page-3.md").exists(),
+            "Third page should be preserved as docs-page-3.md"
+        );
+
+        // Verify content is NOT overwritten - each file should have unique content
+        let content1 = fs::read_to_string(scrape_dir.join("docs-page.md"));
+        let content2 = fs::read_to_string(scrape_dir.join("docs-page-2.md"));
+        let content3 = fs::read_to_string(scrape_dir.join("docs-page-3.md"));
+
+        assert!(content1.is_ok());
+        assert!(content2.is_ok());
+        assert!(content3.is_ok());
+
+        // Each file must have its original content, not overwritten by later pages
+        assert!(
+            content1.as_ref().is_ok_and(|c| c.contains("Page 1")),
+            "First page content must be preserved"
+        );
+        assert!(
+            content2.as_ref().is_ok_and(|c| c.contains("Page 2")),
+            "Second page content must be preserved"
+        );
+        assert!(
+            content3.as_ref().is_ok_and(|c| c.contains("Page 3")),
+            "Third page content must be preserved"
+        );
+
+        let _ = fs::remove_dir_all(output_dir);
+    }
+
+    /// Test that URLs with query parameters produce collisions and are handled
+    #[test]
+    fn test_query_param_collision_handling() {
+        let output_dir = unique_temp_dir("doc-transformer-query-collision");
+
+        // These URLs all have the same path but different query parameters
+        // They should all produce the same slug and NOT overwrite each other
+        let page1 = validation::ScrapedPage {
+            url: "https://example.com/api/users?id=1".to_string(),
+            markdown: "# User 1\n\nFirst user".to_string(),
+            title: "User 1".to_string(),
+            links: Vec::new(),
+            headers: Vec::new(),
+            word_count: 3,
+            slug: "api-users".to_string(),
+            filter_status: PageFilterStatus::Unfiltered,
+            elements_removed: 0,
+            density_score: 1.0,
+        };
+
+        let page2 = validation::ScrapedPage {
+            url: "https://example.com/api/users?id=2".to_string(),
+            markdown: "# User 2\n\nSecond user".to_string(),
+            title: "User 2".to_string(),
+            links: Vec::new(),
+            headers: Vec::new(),
+            word_count: 3,
+            slug: "api-users".to_string(),
+            filter_status: PageFilterStatus::Unfiltered,
+            elements_removed: 0,
+            density_score: 1.0,
+        };
+
+        let scrape_result = validation::ScrapeResult {
+            pages: vec![page1, page2],
+            total_urls: 2,
+            success_count: 2,
+            error_count: 0,
+            errors: Vec::new(),
+            base_url: "https://example.com".to_string(),
+        };
+
+        let write_result = write_scraped_pages(&scrape_result, &output_dir);
+        assert!(write_result.is_ok());
+
+        let scrape_dir = output_dir.join(".scrape");
+
+        // Both pages should be preserved
+        assert!(
+            scrape_dir.join("api-users.md").exists(),
+            "First query-param page should exist"
+        );
+        assert!(
+            scrape_dir.join("api-users-2.md").exists(),
+            "Second query-param page should exist"
+        );
+
+        let _ = fs::remove_dir_all(output_dir);
+    }
 }

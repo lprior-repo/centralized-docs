@@ -6,10 +6,10 @@ projects:
     - "doc_transformer"
     - "contextual-chunker"
     - "llms-txt-parser"
+    - "release-gate"
 
 # VCS configuration
 vcs:
-  manager: "git"
   defaultBranch: "main"
 
 # Version constraint

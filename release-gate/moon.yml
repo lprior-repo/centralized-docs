@@ -1,0 +1,7 @@
+tasks:
+  test:
+    command: "cargo test"
+    description: "Run tests for release-gate"
+    inputs:
+      - "src/**/*.rs"
+      - "Cargo.toml"
