@@ -1,0 +1,16 @@
+[
+  {
+    "id": "doc-2p8d",
+    "title": "cli: unreadable source files are silently ignored",
+    "description": "# Bug: Unreadable Source Files Silently Ignored\n\n## Severity\nP1 - MAJOR\n\n## Description\nWhen source files are not readable (permission denied), the index command silently skips them with no warning. The user may not realize that files were not processed.\n\n## Reproduction Steps\n1. mkdir /tmp/perm-test\n2. echo \"# Test\" > /tmp/perm-test/test.md\n3. chmod 000 /tmp/perm-test/test.md\n4. ./doc_transformer index /tmp/perm-test --output /tmp/out\n5. Returns \"Found 0 files\" with no indication of permission issues\n6. chmod 755 /tmp/perm-test/test.md (cleanup)\n\n## Expected Behavior\nWarn the user that some files could not be read due to permissions.\n\n## Fix Required\nAdd warning message when files cannot be read due to permissions.",
+    "status": "open",
+    "priority": 0,
+    "issue_type": "bug",
+    "created_at": "2026-02-28T22:04:54.977902449Z",
+    "created_by": "lewis",
+    "updated_at": "2026-02-28T22:04:54.977902449Z",
+    "source_repo": ".",
+    "compaction_level": 0,
+    "original_size": 0
+  }
+]

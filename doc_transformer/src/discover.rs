@@ -42,6 +42,8 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     let mut files = Vec::new();
     let mut skipped_large = 0usize;
     let mut skipped_empty = 0usize;
+    let mut skipped_broken_symlink = 0usize;
+    let mut skipped_io_error = 0usize;
     // Markdown extensions (primary)
     let markdown_exts = [".md", ".mdx", ".markdown", ".mdown", ".mkd"];
     // Text extensions (processed but may not be actual markdown - warn)
@@ -67,7 +69,8 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
-                eprintln!("Error: Skipping path due to I/O error: {e}");
+                skipped_io_error = skipped_io_error.saturating_add(1);
+                eprintln!("Warning: Skipping path due to I/O error: {e}");
                 continue;
             }
         };
@@ -81,6 +84,26 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
                 .any(|excl| c.as_os_str().to_string_lossy() == *excl)
         }) {
             continue;
+        }
+
+        // Check for broken symlinks before file type check
+        // Symlinks with no valid target should be warned about and skipped
+        if entry.file_type().is_symlink() {
+            // Try to read the metadata following the symlink
+            // If this fails, the symlink target doesn't exist (broken symlink)
+            if std::fs::metadata(path).is_err() {
+                // Symlink is broken (target does not exist)
+                skipped_broken_symlink = skipped_broken_symlink.saturating_add(1);
+                let symlink_name = path.file_name().map_or_else(
+                    || "unknown".to_string(),
+                    |n| n.to_string_lossy().to_string(),
+                );
+                eprintln!(
+                    "Warning: Skipping broken symlink '{}' (target does not exist)",
+                    symlink_name
+                );
+                continue;
+            }
         }
 
         if path.is_file() {
@@ -150,8 +173,21 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
 
     if files.is_empty() && skipped_large > 0 {
         anyhow::bail!(
-            "No indexable files found after filtering (skipped {skipped_large} oversized and {skipped_empty} empty files). \
+            "No indexable files found after filtering (skipped {skipped_large} oversized, {skipped_empty} empty, and {skipped_broken_symlink} broken symlink files). \
              Maximum supported file size is {MAX_SOURCE_FILE_BYTES} bytes."
+        );
+    }
+
+    // Emit warning summary for broken symlinks if any were found
+    if skipped_broken_symlink > 0 {
+        eprintln!("Warning: Found {skipped_broken_symlink} broken symlink(s) in source directory",);
+    }
+
+    // Emit warning summary for I/O errors (permission denied, etc.) if any were found
+    if skipped_io_error > 0 {
+        eprintln!(
+            "Warning: Skipped {skipped_io_error} path(s) due to I/O errors (e.g., permission denied). \
+            Some files may not have been processed."
         );
     }
 
@@ -691,5 +727,56 @@ mod tests {
 
         let result = discover_files(&file);
         assert!(result.is_err(), "Oversized single file should be rejected");
+    }
+
+    /// Test that broken symlinks are detected and warned about
+    #[test]
+    fn test_discover_files_warns_about_broken_symlinks() {
+        let temp_dir = match TempDir::new() {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
+        let dir_path = temp_dir.path();
+
+        // Create a valid markdown file
+        let valid_file = dir_path.join("valid.md");
+        match fs::write(&valid_file, "# Valid Document\nContent here") {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to create valid file: {e}"),
+        }
+
+        // Create a broken symlink (points to non-existent file)
+        let broken_link = dir_path.join("broken-link.md");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            if let Err(e) = symlink("/nonexistent/target/file.md", &broken_link) {
+                panic!("Failed to create broken symlink: {e}");
+            }
+        }
+
+        // Discover files - should find the valid file and warn about broken symlink
+        let result = discover_files(dir_path);
+        assert!(
+            result.is_ok(),
+            "discover_files should succeed with broken symlinks"
+        );
+
+        let (discovered_files, _manifest) = match result {
+            Ok(v) => v,
+            Err(e) => panic!("discover_files failed: {e}"),
+        };
+
+        // Should find the one valid file
+        assert_eq!(
+            discovered_files.len(),
+            1,
+            "Should discover 1 valid file, got {}",
+            discovered_files.len()
+        );
+        assert!(
+            discovered_files[0].source_path.contains("valid.md"),
+            "Should find valid.md"
+        );
     }
 }

@@ -1436,6 +1436,11 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     let (files, discover_manifest) = discover::discover_files(source)?;
     println!("  Found {} files\n", files.len());
 
+    // Warn if no files were found
+    if files.is_empty() {
+        eprintln!("  Warning: No files found in source directory. Nothing to index.");
+    }
+
     // STEP 2: ANALYZE
     // Use manifest.source_dir for analysis (handles both directory and single file cases)
     let analysis_base_path = PathBuf::from(&discover_manifest.source_dir);
