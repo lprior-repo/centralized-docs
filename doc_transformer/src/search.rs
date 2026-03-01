@@ -217,8 +217,7 @@ pub fn open_or_create_index(index_path: &Path) -> Result<Index> {
                             }
                             Err(rebuild_err) => {
                                 eprintln!(
-                                    "Warning: Failed to rebuild index from INDEX.json: {}",
-                                    rebuild_err
+                                    "Warning: Failed to rebuild index from INDEX.json: {rebuild_err}"
                                 );
                             }
                         }
@@ -259,14 +258,13 @@ pub fn open_existing_index(index_path: &Path) -> Result<Option<Index>> {
     }
 
     // Try to open existing index
-    match Index::open_in_dir(&index_dir) {
-        Ok(index) => Ok(Some(index)),
-        Err(_) => {
-            // Index is corrupted, remove it and return None to trigger fallback
-            // This allows search to use INDEX.json instead
-            fs::remove_dir_all(&index_dir).ok();
-            Ok(None)
-        }
+    if let Ok(index) = Index::open_in_dir(&index_dir) {
+        Ok(Some(index))
+    } else {
+        // Index is corrupted, remove it and return None to trigger fallback
+        // This allows search to use INDEX.json instead
+        fs::remove_dir_all(&index_dir).ok();
+        Ok(None)
     }
 }
 

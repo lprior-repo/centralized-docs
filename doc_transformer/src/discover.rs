@@ -150,11 +150,8 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
 
     if files.is_empty() && skipped_large > 0 {
         anyhow::bail!(
-            "No indexable files found after filtering (skipped {} oversized and {} empty files). \
-             Maximum supported file size is {} bytes.",
-            skipped_large,
-            skipped_empty,
-            MAX_SOURCE_FILE_BYTES
+            "No indexable files found after filtering (skipped {skipped_large} oversized and {skipped_empty} empty files). \
+             Maximum supported file size is {MAX_SOURCE_FILE_BYTES} bytes."
         );
     }
 
