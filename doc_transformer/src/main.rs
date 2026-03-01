@@ -75,10 +75,12 @@ mod validate;
 
 use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
+use fs2::FileExt;
 use scrape::SitemapStrategy;
 use serde::{Deserialize, Serialize};
 use spider::configuration::RedirectPolicy;
 use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -957,7 +959,9 @@ async fn main() -> Result<()> {
                     let error_message = err.to_string();
 
                     if error_message.starts_with(SEARCH_JSON_ALREADY_EMITTED_PREFIX) {
-                        process::exit(1);
+                        // JSON was already successfully emitted with status "no_results" or "partial"
+                        // Exit code 0 indicates successful completion (consistent with JSON status)
+                        process::exit(0);
                     }
 
                     let json_error = serde_json::json!({
@@ -1010,6 +1014,11 @@ fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "query cannot be empty",
         "query too long",
         "limit must be",
+        "another index operation appears to be running",
+        "invalid url",
+        "invalid or too complex regex",
+        "regex parse error",
+        "permission denied",
     ];
 
     let is_user_input = user_input_patterns
@@ -1293,6 +1302,7 @@ fn check_write_permission(dir: &Path) -> Result<()> {
 
 struct OutputLock {
     lock_path: PathBuf,
+    file: std::fs::File,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1306,6 +1316,9 @@ const OUTPUT_LOCK_STALE_AFTER_SECS: u64 = 60 * 30;
 
 impl Drop for OutputLock {
     fn drop(&mut self) {
+        // Unlock the file first (release lock)
+        let _ = self.file.unlock();
+        // Then remove the lock file
         let _ = std::fs::remove_file(&self.lock_path);
     }
 }
@@ -1314,46 +1327,86 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
     std::fs::create_dir_all(output)?;
     let lock_path = output.join(".doc_transformer.lock");
 
-    if lock_path.exists() && should_reclaim_stale_lock(&lock_path) {
-        eprintln!("[WARN] Reclaiming stale lock at {}", lock_path.display());
-        std::fs::remove_file(&lock_path)?;
-    }
+    // Attempt to create lock file - this is atomic at the OS level
+    // Use a loop to handle stale lock reclamation race condition
+    let mut retries = 0;
+    const MAX_RETRIES: usize = 3;
 
-    OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(&lock_path)
-        .and_then(|mut file| {
-            let metadata = OutputLockMetadata {
-                pid: process::id(),
-                start_time: get_process_start_time(process::id()).unwrap_or(0),
-                created_at_unix_secs: now_unix_secs(),
-            };
+    while retries < MAX_RETRIES {
+        // Check and reclaim stale lock if needed BEFORE trying to create
+        if lock_path.exists() && should_reclaim_stale_lock(&lock_path) {
+            eprintln!("[WARN] Reclaiming stale lock at {}", lock_path.display());
+            // Try to remove stale lock - ignore error as another process may have taken it
+            let _ = std::fs::remove_file(&lock_path);
+        }
 
-            match serde_json::to_writer(&mut file, &metadata).map_err(std::io::Error::other) {
-                Ok(()) => Ok(OutputLock {
-                    lock_path: lock_path.clone(),
-                }),
-                Err(error) => {
+        // Try to create the lock file atomically
+        match OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .read(true)
+            .open(&lock_path)
+        {
+            Ok(mut file) => {
+                // Write lock metadata
+                let metadata = OutputLockMetadata {
+                    pid: process::id(),
+                    start_time: get_process_start_time(process::id()).unwrap_or(0),
+                    created_at_unix_secs: now_unix_secs(),
+                };
+
+                if let Err(error) = serde_json::to_writer(&mut file, &metadata) {
                     let _ = std::fs::remove_file(&lock_path);
-                    Err(error)
+                    return Err(anyhow::anyhow!("Failed to write lock metadata: {error}"));
                 }
+
+                // Flush to ensure metadata is written before acquiring lock
+                if let Err(error) = file.flush() {
+                    let _ = std::fs::remove_file(&lock_path);
+                    return Err(anyhow::anyhow!("Failed to flush lock file: {error}"));
+                }
+
+                // Acquire exclusive file lock - this is the key to preventing race conditions
+                // The lock is automatically released when the file is closed (in Drop)
+                if let Err(error) = file.lock_exclusive() {
+                    let _ = std::fs::remove_file(&lock_path);
+                    return Err(anyhow::anyhow!("Failed to acquire file lock: {error}"));
+                }
+
+                return Ok(OutputLock {
+                    lock_path: lock_path.clone(),
+                    file,
+                });
             }
-        })
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::AlreadyExists {
-                anyhow::anyhow!(
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                // Lock file exists - check if we should retry (stale lock was reclaimed)
+                retries += 1;
+                if retries < MAX_RETRIES {
+                    // Brief sleep to allow other process to release lock
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                    continue;
+                }
+                // Max retries exceeded - report lock conflict
+                return Err(anyhow::anyhow!(
                     "Another index operation appears to be running for '{}'. Remove '{}' if stale.",
                     output.display(),
                     lock_path.display()
-                )
-            } else {
-                anyhow::anyhow!(
+                ));
+            }
+            Err(e) => {
+                return Err(anyhow::anyhow!(
                     "Failed to acquire output lock '{}': {e}",
                     lock_path.display()
-                )
+                ));
             }
-        })
+        }
+    }
+
+    // Should not reach here, but just in case
+    Err(anyhow::anyhow!(
+        "Failed to acquire output lock after {} retries",
+        MAX_RETRIES
+    ))
 }
 
 fn now_unix_secs() -> u64 {

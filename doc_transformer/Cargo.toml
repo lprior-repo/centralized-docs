@@ -72,6 +72,9 @@ async-trait = "0.1"
 reqwest = { version = "0.11", features = ["json"] }
 pulldown-cmark-to-cmark = "22.0.0"
 
+# File locking for concurrent access control
+fs2 = "0.4"
+
 [dev-dependencies]
 tempfile = "3.8"
 criterion = { version = "0.5", features = ["html_reports"] }
