@@ -108,6 +108,20 @@ pub fn extract_pages_from_website(
                 break;
             }
 
+            // Check spider_max_page_bytes limit BEFORE transformation
+            // This ensures the limit is enforced for both sitemap and crawl paths
+            if let Some(limit) = config.spider_max_page_bytes {
+                let html = page.get_html();
+                let html_size = html.len() as u64;
+                if html_size > limit {
+                    let error_msg = format!(
+                        "Page exceeds max-page-bytes limit ({html_size} bytes > {limit} bytes)"
+                    );
+                    errors.push((url.to_string(), error_msg));
+                    continue;
+                }
+            }
+
             let transformed_page = super::transformers::transform_page(
                 page,
                 &config.base_url,
