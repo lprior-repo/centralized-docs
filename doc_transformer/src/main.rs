@@ -2833,6 +2833,51 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[test]
+    fn test_apply_query_filter_threshold_zero_keeps_all() {
+        // When threshold is 0.0, all pages should be kept (no filtering)
+        let pages = vec![
+            make_scraped_page("https://example.com/a", "rust async", 2),
+            make_scraped_page("https://example.com/b", "python data", 2),
+        ];
+
+        let result = apply_query_filter(pages.clone(), Some("rust"), 0.0);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap_or_default().len(), pages.len());
+    }
+
+    #[test]
+    fn test_apply_query_filter_empty_query_keeps_all() {
+        // When query is empty (after trimming), all pages should be kept
+        let pages = vec![
+            make_scraped_page("https://example.com/a", "rust async", 2),
+            make_scraped_page("https://example.com/b", "python data", 2),
+        ];
+
+        let result = apply_query_filter(pages.clone(), Some("   "), 0.1);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap_or_default().len(), pages.len());
+    }
+
+    #[test]
+    fn test_apply_query_filter_with_different_thresholds() {
+        // Test that higher threshold filters more pages
+        let pages = vec![
+            make_scraped_page("https://example.com/a", "rust rust rust rust", 4),
+            make_scraped_page("https://example.com/b", "rust", 1),
+            make_scraped_page("https://example.com/c", "python", 1),
+        ];
+
+        // With threshold 0.0, all pages kept
+        let result0 = apply_query_filter(pages.clone(), Some("rust"), 0.0);
+        assert!(result0.is_ok());
+        assert_eq!(result0.unwrap_or_default().len(), 3);
+
+        // With very high threshold, only high-scoring pages kept
+        let result_high = apply_query_filter(pages, Some("rust"), 100.0);
+        assert!(result_high.is_err()); // All filtered out due to high threshold
+    }
+
     // BEAD-004: ReDoS protection tests
 
     #[test]
