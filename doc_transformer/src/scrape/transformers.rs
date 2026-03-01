@@ -18,6 +18,7 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::fs;
+use std::hash::Hasher;
 use std::path::Path;
 
 use super::validation::{FilteringMode, PageFilterStatus};
@@ -31,6 +32,10 @@ pub fn calculate_backoff_delay(base_delay_ms: u64, attempt: u32) -> u64 {
 }
 
 /// Convert URL to a filesystem-safe slug
+///
+/// This function generates a unique slug for each distinct URL, including
+/// query parameters and fragments. This prevents slug collisions between
+/// URLs like `/docs?page=1` and `/docs?page=2`.
 pub fn url_to_slug(url: &str) -> Result<String> {
     let parsed = url::Url::parse(url).context("Failed to parse URL for slug generation")?;
 
@@ -75,6 +80,26 @@ pub fn url_to_slug(url: &str) -> Result<String> {
         .strip_suffix("-htm")
         .map_or(slug.as_str(), |s| s)
         .to_string();
+
+    // Include query parameters in slug to prevent collisions
+    // e.g., /docs?page=1 and /docs?page=2 should have different slugs
+    let query = parsed.query();
+    let fragment = parsed.fragment();
+
+    let slug = if query.is_some() || fragment.is_some() {
+        // Create a short hash of query+fragment to avoid long slugs
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        if let Some(q) = query {
+            std::hash::Hash::hash(q, &mut hasher);
+        }
+        if let Some(f) = fragment {
+            std::hash::Hash::hash(f, &mut hasher);
+        }
+        let hash = (hasher.finish() % 10000).to_string();
+        format!("{}-q{}", slug, hash)
+    } else {
+        slug
+    };
 
     let slug = if slug.len() > 200 {
         // Safe truncation at character boundary (BEAD-001 fix)
@@ -428,6 +453,59 @@ mod tests {
         if let Ok(slug) = result {
             assert_eq!(slug, "docs-getting-started");
         }
+    }
+
+    #[test]
+    fn test_url_to_slug_with_query_params() {
+        // Query parameters should produce unique slugs
+        let slug1 = url_to_slug("https://example.com/docs?page=1").unwrap();
+        let slug2 = url_to_slug("https://example.com/docs?page=2").unwrap();
+
+        // Slugs should be different
+        assert_ne!(slug1, slug2);
+        // Both should contain the base path
+        assert!(slug1.starts_with("docs-q"));
+        assert!(slug2.starts_with("docs-q"));
+    }
+
+    #[test]
+    fn test_url_to_slug_with_fragment() {
+        // Fragments should produce unique slugs
+        let slug1 = url_to_slug("https://example.com/docs#section1").unwrap();
+        let slug2 = url_to_slug("https://example.com/docs#section2").unwrap();
+
+        // Slugs should be different
+        assert_ne!(slug1, slug2);
+        // Both should contain the base path
+        assert!(slug1.starts_with("docs-q"));
+        assert!(slug2.starts_with("docs-q"));
+    }
+
+    #[test]
+    fn test_url_to_slug_query_and_fragment_together() {
+        // Both query and fragment should produce unique slugs
+        let slug1 = url_to_slug("https://example.com/docs?page=1#section").unwrap();
+        let slug2 = url_to_slug("https://example.com/docs?page=2#section").unwrap();
+
+        // Slugs should be different
+        assert_ne!(slug1, slug2);
+    }
+
+    #[test]
+    fn test_url_to_slug_no_query_no_suffix() {
+        // URLs without query/fragment should NOT have -q suffix
+        let slug = url_to_slug("https://example.com/docs").unwrap();
+        assert_eq!(slug, "docs");
+        assert!(!slug.contains("-q"));
+    }
+
+    #[test]
+    fn test_url_to_slug_different_paths_different_slugs() {
+        // Different paths should still produce different slugs
+        let slug1 = url_to_slug("https://example.com/docs?page=1").unwrap();
+        let slug2 = url_to_slug("https://example.com/api?page=1").unwrap();
+
+        assert_ne!(slug1, slug2);
     }
 
     #[test]
