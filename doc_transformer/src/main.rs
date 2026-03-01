@@ -1041,6 +1041,8 @@ fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "invalid config",
         "invalid or too complex regex",
         "regex parse error",
+        "slow pattern",
+        "redos risk",
         "permission denied",
         "no markdown files found",
         "cannot index empty",

@@ -34,7 +34,57 @@ const EXIT_CI_FAILED: i32 = 2;
 const EXIT_PRECONDITION_FAILED: i32 = 3;
 const EXIT_BUDGET_EXCEEDED: i32 = 4;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Check for help/version flags and return exit code if handled, None otherwise.
+fn handle_help_version_flags() -> Option<i32> {
+    let args: Vec<String> = std::env::args().collect();
+
+    for arg in &args[1..] {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print_help();
+                return Some(EXIT_GATE_PASSED);
+            }
+            "--version" => {
+                print_version();
+                return Some(EXIT_GATE_PASSED);
+            }
+            _ => {}
+        }
+    }
+
+    None
+}
+
+fn print_help() {
+    println!("release-gate - Production Release Gate");
+    println!();
+    println!("USAGE:");
+    println!("    release-gate");
+    println!();
+    println!("OPTIONS:");
+    println!("    -h, --help       Print this help message");
+    println!("    --version        Print version information");
+    println!();
+    println!("EXIT CODES:");
+    println!("    0: All gates passed, release is clear");
+    println!("    1: P0 beads are open (release blocked)");
+    println!("    2: Moon CI failed (release blocked)");
+    println!("    3: Precondition failed (br or moon not available)");
+    println!("    4: Warning budget exceeded");
+}
+
+fn print_version() {
+    println!("release-gate {}", VERSION);
+}
+
 fn main() {
+    // Check for help/version flags before running the gate
+    if let Some(code) = handle_help_version_flags() {
+        std::process::exit(code);
+    }
+
     let result = run_gate();
     let exit_code = match result {
         Ok(GateResult {
