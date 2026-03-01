@@ -74,7 +74,7 @@ mod types;
 mod validate;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use scrape::SitemapStrategy;
 use serde::{Deserialize, Serialize};
 use spider::configuration::RedirectPolicy;
@@ -464,10 +464,11 @@ fn validate_filter_regex(pattern: &str) -> Result<(), String> {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "doc_transformer")]
-#[command(version = "5.0")]
-#[command(about = "Transform documentation into AI-optimized knowledge structures")]
-#[command(long_about = "
+#[command(
+    name = "doc_transformer",
+    version = "5.0",
+    about = "Transform documentation into AI-optimized knowledge structures",
+    long_about = "
 doc_transformer v5.0 - The AI-Optimized Documentation Indexer
 
 USAGE:
@@ -482,7 +483,11 @@ OUTPUT:
   COMPASS.md    - Human-readable navigation
   docs/         - Transformed documents with frontmatter
   chunks/       - Semantic chunks with context prefix
-")]
+",
+    // Disable automatic exit on error so we can return exit code 1 for validation errors
+    // instead of clap's default exit code 2
+    disable_help_subcommand = true,
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -710,7 +715,37 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let cli = Cli::parse();
+    // Build command with error handling that returns exit code 1 for validation errors
+    // instead of clap's default exit code 2
+    let cmd = Cli::command();
+
+    // Try to parse, handling validation errors with exit code 1
+    let cli = match cmd.try_get_matches() {
+        Ok(matches) => matches,
+        Err(e) => {
+            // Check if it's a help/version request (these should exit with code 0)
+            if e.kind() == clap::error::ErrorKind::DisplayHelp
+                || e.kind() == clap::error::ErrorKind::DisplayVersion
+            {
+                // Print help/version and exit with code 0
+                eprintln!("{}", e);
+                process::exit(0);
+            }
+            // For all other errors (validation errors), print and exit with code 1
+            eprintln!("{}", e);
+            process::exit(1);
+        }
+    };
+
+    // Re-parse as Cli with the matches we already got
+    let cli = match Cli::from_arg_matches(&cli) {
+        Ok(cli) => cli,
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(1);
+        }
+    };
+
     let mut search_context: Option<(bool, String)> = None;
 
     let result = match cli.command {
@@ -951,8 +986,8 @@ async fn main() -> Result<()> {
 /// - Exit 2: Pipeline/internal errors (transform failures, corrupt data, network errors)
 ///
 /// This ensures consistent exit codes across all validation layers:
-/// - Parser-level validation (via clap value_parser) already exits with 2
-/// - Runtime validation now also exits with 1 for user input errors
+/// - Parser-level validation (via clap value_parser) now exits with 1 (user error)
+/// - Runtime validation also exits with 1 for user input errors
 fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
     // Check for validation errors (user input) - these should exit with 1
     let error_string = err.to_string();
@@ -986,11 +1021,11 @@ fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         return 1;
     }
 
-    // Special case: "no results found" is not an error, it's a valid outcome
-    // This is a search-specific behavior where the query was valid but matched nothing
+    // "no results found" is a search error condition - scripts need to know search failed
+    // Both JSON and text modes should return exit code 1 for no results
     if error_string_lower.contains("no results found") {
-        // Successful search with no results -> exit 0
-        return 0;
+        // No results is an error condition -> exit 1
+        return 1;
     }
 
     // Pipeline error -> exit 2
@@ -1887,13 +1922,17 @@ fn run_search(
         })
         .collect();
 
-    let status = if cli_results.is_empty() {
-        "no_results"
-    } else if advanced_search_failed {
+    // Determine status: partial when fallback was used (even with zero results),
+    // no_results only when primary search succeeded but found nothing,
+    // ok when primary search found results
+    let status = if advanced_search_failed {
         "partial"
+    } else if cli_results.is_empty() {
+        "no_results"
     } else {
         "ok"
     };
+
     emit_search_output(
         query,
         "bm25-fallback",
