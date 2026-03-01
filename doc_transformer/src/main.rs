@@ -1176,6 +1176,7 @@ struct OutputLock {
 #[derive(Debug, Serialize, Deserialize)]
 struct OutputLockMetadata {
     pid: u32,
+    start_time: u64,
     created_at_unix_secs: u64,
 }
 
@@ -1203,6 +1204,7 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
         .and_then(|mut file| {
             let metadata = OutputLockMetadata {
                 pid: process::id(),
+                start_time: get_process_start_time(process::id()).unwrap_or(0),
                 created_at_unix_secs: now_unix_secs(),
             };
 
@@ -1238,12 +1240,30 @@ fn now_unix_secs() -> u64 {
         .map_or(0, |duration| duration.as_secs())
 }
 
-fn process_is_alive(pid: u32) -> bool {
+/// Get process start time in clock ticks since system boot.
+/// Reads from /proc/<pid>/stat, field 22 (starttime).
+fn get_process_start_time(pid: u32) -> Option<u64> {
+    let stat_path = PathBuf::from("/proc").join(pid.to_string()).join("stat");
+    std::fs::read_to_string(&stat_path)
+        .ok()
+        .and_then(|content| {
+            content.split(')').nth(1).and_then(|rest| {
+                let fields: Vec<&str> = rest.split_whitespace().collect();
+                fields.get(19).and_then(|s| s.parse::<u64>().ok())
+            })
+        })
+}
+
+fn process_is_alive(pid: u32, start_time: u64) -> bool {
+    let current_start_time = get_process_start_time(process::id()).unwrap_or(0);
+
     if pid == process::id() {
-        return true;
+        return current_start_time == start_time;
     }
 
-    PathBuf::from("/proc").join(pid.to_string()).exists()
+    get_process_start_time(pid)
+        .map(|actual_start_time| actual_start_time == start_time)
+        .unwrap_or(false)
 }
 
 fn lock_age_secs(lock_path: &Path) -> Option<u64> {
@@ -1263,7 +1283,8 @@ fn read_lock_metadata(lock_path: &Path) -> Option<OutputLockMetadata> {
 fn should_reclaim_stale_lock(lock_path: &Path) -> bool {
     if let Some(metadata) = read_lock_metadata(lock_path) {
         let age_secs = now_unix_secs().saturating_sub(metadata.created_at_unix_secs);
-        return !process_is_alive(metadata.pid) || age_secs > OUTPUT_LOCK_STALE_AFTER_SECS;
+        return !process_is_alive(metadata.pid, metadata.start_time)
+            || age_secs > OUTPUT_LOCK_STALE_AFTER_SECS;
     }
 
     lock_age_secs(lock_path).is_some_and(|age| age > OUTPUT_LOCK_STALE_AFTER_SECS)

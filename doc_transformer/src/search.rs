@@ -117,26 +117,84 @@ fn create_schema() -> (Schema, SchemaFields) {
     (schema, fields)
 }
 
-/// Open existing Tantivy index or create new one if missing/corrupted
+/// Rebuild the Tantivy index from INDEX.json data.
 ///
-/// ## Behavior
-///
-/// 1. If `index_path/.tantivy_index` exists and is valid, open it
-/// 2. If index is corrupted, delete and recreate from scratch
-/// 3. If missing, create new empty index
-///
-/// ## Error Handling
-///
-/// Returns error only if index directory creation fails or persistence layer issues.
-/// Corruption is handled transparently (rebuild).
-///
-/// # Arguments
-///
-/// * `index_path` - Directory where index will be stored/opened
-///
-/// # Returns
-///
-/// Tantivy Index ready for reading/writing
+/// This is used for recovery when the Tantivy index is corrupted.
+/// It reads document data from INDEX.json and re-indexes all documents.
+pub fn rebuild_index_from_json(index_path: &Path) -> Result<Index> {
+    let index_json_path = index_path.join("INDEX.json");
+
+    let index_content = fs::read_to_string(&index_json_path)
+        .map_err(|e| anyhow!("Failed to read INDEX.json: {e}"))?;
+
+    let index_value: serde_json::Value = serde_json::from_str(&index_content)
+        .map_err(|e| anyhow!("Failed to parse INDEX.json: {e}"))?;
+
+    let documents = index_value["documents"]
+        .as_array()
+        .ok_or_else(|| anyhow!("Invalid INDEX.json: missing documents array"))?;
+
+    let docs: Vec<crate::index::IndexDocument> = documents
+        .iter()
+        .filter_map(|doc| {
+            let id = doc["id"].as_str()?;
+            let title = doc["title"].as_str().unwrap_or("");
+            let summary = doc["summary"].as_str().unwrap_or("");
+            let path = doc["path"].as_str().unwrap_or("");
+            let category = doc["category"].as_str().unwrap_or("");
+            let word_count = doc["word_count"].as_u64().unwrap_or(0) as usize;
+            let tags: Vec<String> = doc["tags"]
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+            let chunk_ids: Vec<String> = doc["chunk_ids"]
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+            let headings: Vec<String> = doc["headings"]
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            Some(crate::index::IndexDocument {
+                id: id.to_string(),
+                title: title.to_string(),
+                path: path.to_string(),
+                category: category.to_string(),
+                tags,
+                summary: summary.to_string(),
+                word_count,
+                chunk_ids,
+                headings,
+            })
+        })
+        .collect();
+
+    let index_dir = index_path.join(".tantivy_index");
+    fs::create_dir_all(&index_dir)?;
+    let (schema, _fields) = create_schema();
+    let index = Index::create_in_dir(&index_dir, schema)
+        .map_err(|e| anyhow!("Failed to create index: {e}"))?;
+
+    if !docs.is_empty() {
+        index_documents(&index, docs)?;
+    }
+
+    Ok(index)
+}
+
 pub fn open_or_create_index(index_path: &Path) -> Result<Index> {
     let index_dir = index_path.join(".tantivy_index");
 
@@ -147,8 +205,25 @@ pub fn open_or_create_index(index_path: &Path) -> Result<Index> {
         } else {
             match Index::open_in_dir(&index_dir) {
                 Ok(index) => return Ok(index),
-                Err(_) => {
-                    // Index is corrupted, rebuild
+                Err(e) => {
+                    // Index is corrupted, try to rebuild from INDEX.json
+                    eprintln!("Warning: Failed to open index: {e}");
+                    if index_path.join("INDEX.json").exists() {
+                        eprintln!("Attempting to rebuild index from INDEX.json...");
+                        match rebuild_index_from_json(index_path) {
+                            Ok(index) => {
+                                eprintln!("Successfully rebuilt index from INDEX.json");
+                                return Ok(index);
+                            }
+                            Err(rebuild_err) => {
+                                eprintln!(
+                                    "Warning: Failed to rebuild index from INDEX.json: {}",
+                                    rebuild_err
+                                );
+                            }
+                        }
+                    }
+                    // Fall back to creating empty index
                     fs::remove_dir_all(&index_dir).ok();
                 }
             }
@@ -163,7 +238,12 @@ pub fn open_or_create_index(index_path: &Path) -> Result<Index> {
 
 /// Open Tantivy index if it already exists.
 ///
-/// Returns Ok(None) when no index directory is present.
+/// Returns Ok(None) when:
+/// - No index directory is present
+/// - Index directory is corrupted (recovers by removing)
+///
+/// This allows the search to fall back to INDEX.json when the Tantivy index
+/// is unavailable or corrupted.
 #[allow(dead_code)]
 pub fn open_existing_index(index_path: &Path) -> Result<Option<Index>> {
     let index_dir = index_path.join(".tantivy_index");
@@ -172,9 +252,22 @@ pub fn open_existing_index(index_path: &Path) -> Result<Option<Index>> {
         return Ok(None);
     }
 
-    Index::open_in_dir(&index_dir)
-        .map(Some)
-        .map_err(|e| anyhow!("Failed to open index: {e}"))
+    // Handle case where path exists but is a file (not a directory)
+    if index_dir.is_file() {
+        fs::remove_file(&index_dir).ok();
+        return Ok(None);
+    }
+
+    // Try to open existing index
+    match Index::open_in_dir(&index_dir) {
+        Ok(index) => Ok(Some(index)),
+        Err(_) => {
+            // Index is corrupted, remove it and return None to trigger fallback
+            // This allows search to use INDEX.json instead
+            fs::remove_dir_all(&index_dir).ok();
+            Ok(None)
+        }
+    }
 }
 
 /// Index a batch of documents into Tantivy
