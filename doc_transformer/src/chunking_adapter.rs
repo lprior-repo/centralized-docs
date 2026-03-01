@@ -15,9 +15,6 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-const MAX_CHUNKING_SIZE_BYTES: u64 = 10 * 1024 * 1024;
-const CHUNKING_SIZE_WARNING_THRESHOLD_BYTES: u64 = 5 * 1024 * 1024;
-
 /// Create directory with improved error context for permission issues
 fn create_dir_with_context(path: &Path, context: &str) -> Result<()> {
     fs::create_dir_all(path).map_err(|e| {
@@ -184,34 +181,38 @@ fn escape_frontmatter(s: &str) -> String {
 /// - The chunks directory cannot be created
 /// - Chunking fails in contextual-chunker
 /// - Writing chunk files fails
-/// - A document exceeds MAX_CHUNKING_SIZE_BYTES
+/// - A document exceeds `max_document_bytes`
 #[allow(clippy::implicit_hasher)]
 pub fn chunk_all(
     analyses: &[Analysis],
     link_map: &HashMap<String, IdMapping>,
     output_dir: &Path,
+    max_document_bytes: u64,
 ) -> Result<ChunksResult> {
     // Create chunks directory
     let chunks_dir = output_dir.join("chunks");
     create_dir_with_context(&chunks_dir, "chunks")?;
 
+    // Calculate warning threshold (50% of max)
+    let warning_threshold = max_document_bytes / 2;
+
     // Check document sizes and warn/fail for oversized content
     for analysis in analyses {
         let content_size = analysis.content.len() as u64;
-        if content_size > MAX_CHUNKING_SIZE_BYTES {
+        if content_size > max_document_bytes {
             anyhow::bail!(
-                "Document '{}' ({} bytes) exceeds maximum chunking size limit ({} bytes). \
-                 Please split the document or increase MAX_CHUNKING_SIZE_BYTES.",
+                "Document '{}' ({} bytes) exceeds maximum document size limit ({} bytes). \
+                 Please split the document or increase --max-document-bytes.",
                 analysis.source_path,
                 content_size,
-                MAX_CHUNKING_SIZE_BYTES
+                max_document_bytes
             );
         }
-        if content_size > CHUNKING_SIZE_WARNING_THRESHOLD_BYTES {
+        if content_size > warning_threshold {
             eprintln!(
                 "Warning: Large document '{}' ({} bytes) may take significant time to chunk. \
                  Consider splitting documents larger than {} bytes for better performance.",
-                analysis.source_path, content_size, CHUNKING_SIZE_WARNING_THRESHOLD_BYTES
+                analysis.source_path, content_size, warning_threshold
             );
         }
     }

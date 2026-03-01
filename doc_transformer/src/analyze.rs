@@ -86,7 +86,49 @@ pub struct Analysis {
     pub content: String,
 }
 
-/// Analyze files using functional composition with `filter_map`
+/// Represents a file that failed during analysis with the error message.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailedFile {
+    pub source_path: String,
+    pub error: String,
+}
+
+/// Result of analyzing multiple files, tracking both successes and failures.
+///
+/// This allows callers to detect partial failures and respond appropriately,
+/// ensuring the invariant: `analyses.len() + failed_files.len() == total_discovered`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnalyzeResult {
+    pub analyses: Vec<Analysis>,
+    pub failed_files: Vec<FailedFile>,
+    pub total_discovered: usize,
+}
+
+impl AnalyzeResult {
+    /// Returns the number of successfully analyzed files.
+    #[allow(dead_code)]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.analyses.len()
+    }
+
+    /// Returns true if no files were successfully analyzed.
+    #[allow(dead_code)]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.analyses.is_empty()
+    }
+}
+
+impl std::ops::Deref for AnalyzeResult {
+    type Target = Vec<Analysis>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.analyses
+    }
+}
+
+/// Analyze files using functional composition, tracking both successes and failures.
 ///
 /// # Errors
 ///
@@ -97,7 +139,7 @@ pub fn analyze_files(
     files: &[DiscoveryFile],
     source_dir: &Path,
     category_config_path: Option<&Path>,
-) -> Result<Vec<Analysis>> {
+) -> Result<AnalyzeResult> {
     // Load category config if provided
     let config = if let Some(path) = category_config_path {
         Some(CategoryConfig::load_from_file(path)?)
@@ -107,27 +149,44 @@ pub fn analyze_files(
 
     let input_count = files.len();
 
-    let analyses: Vec<_> = files
+    // Use partition to separate successful analyses from failures
+    let (analyses, failed_files): (Vec<_>, Vec<_>) = files
         .iter()
-        .filter_map(|file| {
+        .map(|file| {
             let file_path = source_dir.join(&file.source_path);
-            analyze_single_file(&file.source_path, &file_path, config.as_ref())
-                .map_err(|e| eprintln!("Error: analysis failed: {}: {}", file.source_path, e))
-                .ok()
+            analyze_single_file(&file.source_path, &file_path, config.as_ref()).map_err(|e| {
+                FailedFile {
+                    source_path: file.source_path.clone(),
+                    error: e.to_string(),
+                }
+            })
         })
-        .collect();
+        .partition(Result::is_ok);
+
+    let analyses: Vec<_> = analyses.into_iter().filter_map(Result::ok).collect();
+    let failed_files: Vec<_> = failed_files.into_iter().filter_map(Result::err).collect();
 
     // If we had input files but produced no analyses, all files failed.
     // This is a critical error - we should not proceed with 0 documents.
     if input_count > 0 && analyses.is_empty() {
+        // Collect all error messages for a comprehensive error report
+        let error_summary = failed_files
+            .iter()
+            .map(|f| format!("{}: {}", f.source_path, f.error))
+            .collect::<Vec<_>>()
+            .join("; ");
         anyhow::bail!(
             "Failed to analyze any of the {input_count} discovered file(s). \
             Check file permissions, encoding (files must be valid UTF-8), \
-            and that files are not corrupted."
+            and that files are not corrupted. Errors: {error_summary}"
         );
     }
 
-    Ok(analyses)
+    Ok(AnalyzeResult {
+        analyses,
+        failed_files,
+        total_discovered: input_count,
+    })
 }
 
 fn analyze_single_file(

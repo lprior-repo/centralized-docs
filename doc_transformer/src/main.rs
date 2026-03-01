@@ -94,6 +94,7 @@ struct IndexConfig {
     max_chunk_keywords: usize,
     hnsw_m: usize,
     hnsw_ef_construction: usize,
+    max_document_bytes: u64,
 }
 
 impl Default for IndexConfig {
@@ -107,6 +108,7 @@ impl Default for IndexConfig {
             max_chunk_keywords: 12,
             hnsw_m: 16,
             hnsw_ef_construction: 200,
+            max_document_bytes: 10 * 1024 * 1024, // 10MB default
         }
     }
 }
@@ -644,6 +646,10 @@ enum Commands {
         /// HNSW graph construction effort (50-1000, default: 200)
         #[arg(long, value_name = "EF", default_value = "200", value_parser = validate_hnsw_ef_construction, allow_hyphen_values = true)]
         hnsw_ef_construction: usize,
+
+        /// Maximum document size in bytes (default: 10MB, warn at 5MB)
+        #[arg(long, value_parser = validate_positive_bytes)]
+        max_document_bytes: Option<u64>,
     },
 
     /// Scrape and index in one step
@@ -765,6 +771,7 @@ async fn main() -> Result<()> {
             max_chunk_keywords,
             hnsw_m,
             hnsw_ef_construction,
+            max_document_bytes,
         }) => {
             let config = IndexConfig {
                 generate_llms: llms_txt,
@@ -775,6 +782,7 @@ async fn main() -> Result<()> {
                 max_chunk_keywords,
                 hnsw_m,
                 hnsw_ef_construction,
+                max_document_bytes: max_document_bytes.unwrap_or(10 * 1024 * 1024),
             };
             run_index(&source, &output, &config)
         }
@@ -1071,6 +1079,21 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
     println!("[SCRAPE] Starting crawl...");
     let mut result = scrape::scrape_site(&scrape_config).await?;
 
+    // Check for partial/total failure BEFORE further processing
+    // Exit with code 2 if any pages failed to scrape
+    if result.error_count > 0 {
+        println!();
+        println!("{}", "=".repeat(70));
+        println!("SCRAPE COMPLETE (PARTIAL FAILURE)");
+        println!("{}", "=".repeat(70));
+        println!("Success: {} pages", result.success_count);
+        println!("Errors:  {} pages failed", result.error_count);
+        println!();
+        println!("Hint: Check .scrape/manifest.json for error details");
+        println!("{}\n", "=".repeat(70));
+        process::exit(2);
+    }
+
     println!("  Scraped: {} pages", result.success_count);
 
     // Apply BM25 filtering if query is provided (extracted common logic)
@@ -1099,6 +1122,9 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
     println!("{}", "=".repeat(70));
     println!("Output:  {}", output.display());
     println!("Pages:   {} scraped", result.success_count);
+    if result.error_count > 0 {
+        println!("Errors:  {} pages failed", result.error_count);
+    }
     println!("Files:   .scrape/*.md + manifest.json");
     println!("{}\n", "=".repeat(70));
 
@@ -1266,14 +1292,6 @@ fn process_is_alive(pid: u32, start_time: u64) -> bool {
         .unwrap_or(false)
 }
 
-fn lock_age_secs(lock_path: &Path) -> Option<u64> {
-    std::fs::metadata(lock_path)
-        .ok()
-        .and_then(|metadata| metadata.modified().ok())
-        .and_then(|modified| modified.elapsed().ok())
-        .map(|duration| duration.as_secs())
-}
-
 fn read_lock_metadata(lock_path: &Path) -> Option<OutputLockMetadata> {
     std::fs::File::open(lock_path)
         .ok()
@@ -1287,7 +1305,9 @@ fn should_reclaim_stale_lock(lock_path: &Path) -> bool {
             || age_secs > OUTPUT_LOCK_STALE_AFTER_SECS;
     }
 
-    lock_age_secs(lock_path).is_some_and(|age| age > OUTPUT_LOCK_STALE_AFTER_SECS)
+    // FIX: If we can't read the lock metadata (empty/malformed),
+    // treat it as stale immediately - likely from crashed process
+    true
 }
 
 /// Run the index command (main pipeline)
@@ -1325,13 +1345,33 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     // Use manifest.source_dir for analysis (handles both directory and single file cases)
     let analysis_base_path = PathBuf::from(&discover_manifest.source_dir);
     println!("[STEP 2] ANALYZE");
-    let analyses = analyze::analyze_files(
+    let analyze_result = analyze::analyze_files(
         &files,
         &analysis_base_path,
         config.category_config.as_deref(),
     )?;
+
+    // Report failed files if any
+    if !analyze_result.failed_files.is_empty() {
+        eprintln!(
+            "  Warning: {} of {} files failed to analyze",
+            analyze_result.failed_files.len(),
+            analyze_result.total_discovered
+        );
+        for failed in &analyze_result.failed_files {
+            eprintln!("    - {}: {}", failed.source_path, failed.error);
+        }
+    }
+
+    let analyses = analyze_result.analyses;
     let categories = analyze::count_categories(&analyses);
     println!("  Processed {} files", analyses.len());
+    if !analyze_result.failed_files.is_empty() {
+        println!(
+            "  {} files failed analysis",
+            analyze_result.failed_files.len()
+        );
+    }
     println!(
         "  Categories: ref={} concept={} tutorial={} ops={} meta={}\n",
         categories.get("ref").unwrap_or(&0),
@@ -1356,7 +1396,8 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
 
     // STEP 5: CHUNK (Hierarchical)
     println!("[STEP 5] CHUNK");
-    let chunks_result = chunking_adapter::chunk_all(&analyses, &link_map, output)?;
+    let chunks_result =
+        chunking_adapter::chunk_all(&analyses, &link_map, output, config.max_document_bytes)?;
     println!(
         "  Generated {} chunks from {} documents",
         chunks_result.total_chunks, chunks_result.document_count
@@ -1927,6 +1968,42 @@ mod tests {
 
         write_lock_metadata(&lock_path, &metadata);
 
+        assert!(should_reclaim_stale_lock(&lock_path));
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_should_reclaim_stale_lock_when_empty_file() {
+        let temp_dir = unique_temp_dir("lock-reclaim-empty");
+        let create_dir_result = std::fs::create_dir_all(&temp_dir);
+        assert!(create_dir_result.is_ok());
+
+        let lock_path = temp_dir.join(".doc_transformer.lock");
+
+        // Create empty lock file
+        let file_result = std::fs::File::create(&lock_path);
+        assert!(file_result.is_ok());
+
+        // Empty file should be treated as stale
+        assert!(should_reclaim_stale_lock(&lock_path));
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_should_reclaim_stale_lock_when_malformed_json() {
+        let temp_dir = unique_temp_dir("lock-reclaim-malformed");
+        let create_dir_result = std::fs::create_dir_all(&temp_dir);
+        assert!(create_dir_result.is_ok());
+
+        let lock_path = temp_dir.join(".doc_transformer.lock");
+
+        // Create lock file with malformed JSON
+        let write_result = std::fs::write(&lock_path, "{not valid json");
+        assert!(write_result.is_ok());
+
+        // Malformed JSON should be treated as stale
         assert!(should_reclaim_stale_lock(&lock_path));
 
         let _ = std::fs::remove_dir_all(temp_dir);

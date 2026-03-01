@@ -600,15 +600,16 @@ pub fn run_index<P: AsRef<Path>>(
         discover::discover_files(source).context("Discovery phase failed")?;
 
     // Phase 2: ANALYZE
-    let analyses =
+    let analyze_result =
         analyze::analyze_files(&discovered_files, source, None).context("Analysis phase failed")?;
+    let analyses = analyze_result.analyses;
 
     // Phase 3: ASSIGN IDs
     let (_analyses_with_ids, link_map) = assign::assign_ids(analyses.clone());
 
     // Phase 4: CHUNK
-    let chunks_result =
-        chunk::chunk_all(&analyses, &link_map, output).context("Chunking phase failed")?;
+    let chunks_result = chunk::chunk_all(&analyses, &link_map, output, 10 * 1024 * 1024)
+        .context("Chunking phase failed")?;
 
     // Phase 5: INDEX
     index::build_and_write_index(

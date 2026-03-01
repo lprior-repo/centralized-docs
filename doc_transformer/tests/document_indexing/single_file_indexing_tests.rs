@@ -45,15 +45,15 @@ More content.
     assert_eq!(manifest.total_files, 1, "Manifest should show 1 file");
 
     // Analyze files
-    let analyses = doc_transformer::analyze::analyze_files(&files, source_dir, None)
+    let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None)
         .expect("analyze_files should succeed");
 
-    assert_eq!(analyses.len(), 1, "Should analyze exactly 1 file");
-    assert_eq!(analyses[0].title, "Test Document");
-    assert_eq!(analyses[0].source_path, "test.md");
+    assert_eq!(analyze_result.len(), 1, "Should analyze exactly 1 file");
+    assert_eq!(analyze_result[0].title, "Test Document");
+    assert_eq!(analyze_result[0].source_path, "test.md");
 
     // Assign IDs
-    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyses);
+    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyze_result.analyses);
     assert_eq!(analyses.len(), 1);
     assert_eq!(link_map.len(), 1);
 
@@ -77,9 +77,13 @@ More content.
     assert_eq!(transformed_files, 1, "Should have 1 transformed file");
 
     // Chunk files
-    let chunks_result =
-        doc_transformer::chunking_adapter::chunk_all(&analyses, &link_map, &output_dir)
-            .expect("chunk_all should succeed");
+    let chunks_result = doc_transformer::chunking_adapter::chunk_all(
+        &analyses,
+        &link_map,
+        &output_dir,
+        10 * 1024 * 1024,
+    )
+    .expect("chunk_all should succeed");
     assert!(chunks_result.total_chunks > 0, "Should generate chunks");
     assert_eq!(chunks_result.document_count, 1);
 
@@ -152,13 +156,13 @@ And should work with the indexing pipeline.
     assert_eq!(manifest.total_files, 1, "Manifest should show 1 file");
 
     // Analyze files
-    let analyses = doc_transformer::analyze::analyze_files(&files, source_dir, None)
+    let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None)
         .expect("analyze_files should succeed");
 
-    assert_eq!(analyses.len(), 1, "Should analyze exactly 1 file");
+    assert_eq!(analyze_result.len(), 1, "Should analyze exactly 1 file");
 
     // Assign IDs
-    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyses);
+    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyze_result.analyses);
 
     // Create output directory
     fs::create_dir_all(&output_dir).expect("Failed to create output dir");
@@ -169,9 +173,13 @@ And should work with the indexing pipeline.
             .expect("transform_all should succeed");
     assert_eq!(transform_result.success_count, 1);
 
-    let chunks_result =
-        doc_transformer::chunking_adapter::chunk_all(&analyses, &link_map, &output_dir)
-            .expect("chunk_all should succeed");
+    let chunks_result = doc_transformer::chunking_adapter::chunk_all(
+        &analyses,
+        &link_map,
+        &output_dir,
+        10 * 1024 * 1024,
+    )
+    .expect("chunk_all should succeed");
     assert!(chunks_result.total_chunks > 0);
     assert_eq!(chunks_result.document_count, 1);
 
@@ -234,13 +242,13 @@ With some content.
     assert_eq!(manifest.total_files, 1, "Manifest should show 1 file");
 
     // Analyze files
-    let analyses = doc_transformer::analyze::analyze_files(&files, source_dir, None)
+    let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None)
         .expect("analyze_files should succeed");
 
-    assert_eq!(analyses.len(), 1, "Should analyze exactly 1 file");
+    assert_eq!(analyze_result.len(), 1, "Should analyze exactly 1 file");
 
     // Assign IDs
-    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyses);
+    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyze_result.analyses);
 
     // Create output directory
     fs::create_dir_all(&output_dir).expect("Failed to create output dir");
@@ -251,9 +259,13 @@ With some content.
             .expect("transform_all should succeed");
     assert_eq!(transform_result.success_count, 1);
 
-    let chunks_result =
-        doc_transformer::chunking_adapter::chunk_all(&analyses, &link_map, &output_dir)
-            .expect("chunk_all should succeed");
+    let chunks_result = doc_transformer::chunking_adapter::chunk_all(
+        &analyses,
+        &link_map,
+        &output_dir,
+        10 * 1024 * 1024,
+    )
+    .expect("chunk_all should succeed");
     assert!(chunks_result.total_chunks > 0);
     assert_eq!(chunks_result.document_count, 1);
 
@@ -312,15 +324,15 @@ fn test_index_single_unsupported_json_fails_gracefully() {
     // Analyze files with empty input - returns empty Vec successfully
     // This is correct behavior: unsupported files are filtered at discovery,
     // not at analysis. Analysis only errors when files exist but fail to read.
-    let result = doc_transformer::analyze::analyze_files(&files, source_dir, None);
+    let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None);
 
     // With 0 input files, analyze returns an empty Vec (not an error)
     // The error case is when input_count > 0 but all analyses fail
     assert!(
-        result.is_ok(),
+        analyze_result.is_ok(),
         "analyze_files should succeed with 0 files (returns empty Vec)"
     );
-    let analyses = result.unwrap();
+    let analyses = analyze_result.unwrap().analyses;
     assert_eq!(
         analyses.len(),
         0,
@@ -389,13 +401,13 @@ Some content here.
     let analysis_base = PathBuf::from(&manifest.source_dir);
 
     // Analyze files
-    let analyses = doc_transformer::analyze::analyze_files(&files, &analysis_base, None)
+    let analyze_result = doc_transformer::analyze::analyze_files(&files, &analysis_base, None)
         .expect("analyze_files should succeed");
 
-    assert_eq!(analyses.len(), 1, "Should analyze exactly 1 file");
+    assert_eq!(analyze_result.len(), 1, "Should analyze exactly 1 file");
 
     // Assign IDs
-    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyses);
+    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyze_result.analyses);
 
     // Create output directory
     fs::create_dir_all(&output_dir).expect("Failed to create output dir");
@@ -406,9 +418,13 @@ Some content here.
             .expect("transform_all should succeed");
     assert_eq!(transform_result.success_count, 1);
 
-    let chunks_result =
-        doc_transformer::chunking_adapter::chunk_all(&analyses, &link_map, &output_dir)
-            .expect("chunk_all should succeed");
+    let chunks_result = doc_transformer::chunking_adapter::chunk_all(
+        &analyses,
+        &link_map,
+        &output_dir,
+        10 * 1024 * 1024,
+    )
+    .expect("chunk_all should succeed");
     assert!(chunks_result.total_chunks > 0);
     assert_eq!(chunks_result.document_count, 1);
 
@@ -470,11 +486,11 @@ Content B.
         doc_transformer::discover::discover_files(&md_file).expect("discover_files should succeed");
 
     // Analyze
-    let analyses = doc_transformer::analyze::analyze_files(&files, source_dir, None)
+    let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None)
         .expect("analyze_files should succeed");
 
     // Assign IDs
-    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyses);
+    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyze_result.analyses);
 
     // Create output directory
     fs::create_dir_all(&output_dir).expect("Failed to create output dir");
@@ -484,9 +500,13 @@ Content B.
         .expect("transform_all should succeed");
 
     // Chunk
-    let chunks_result =
-        doc_transformer::chunking_adapter::chunk_all(&analyses, &link_map, &output_dir)
-            .expect("chunk_all should succeed");
+    let chunks_result = doc_transformer::chunking_adapter::chunk_all(
+        &analyses,
+        &link_map,
+        &output_dir,
+        10 * 1024 * 1024,
+    )
+    .expect("chunk_all should succeed");
 
     // Build index
     doc_transformer::index::build_and_write_index(
@@ -617,19 +637,23 @@ Finally, we have a conclusion section that wraps up the document.
     let (files, _manifest) =
         doc_transformer::discover::discover_files(&md_file).expect("discover_files should succeed");
 
-    let analyses = doc_transformer::analyze::analyze_files(&files, source_dir, None)
+    let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None)
         .expect("analyze_files should succeed");
 
-    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyses);
+    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyze_result.analyses);
 
     fs::create_dir_all(&output_dir).expect("Failed to create output dir");
 
     doc_transformer::transform::transform_all(&analyses, &link_map, &output_dir)
         .expect("transform_all should succeed");
 
-    let chunks_result =
-        doc_transformer::chunking_adapter::chunk_all(&analyses, &link_map, &output_dir)
-            .expect("chunk_all should succeed");
+    let chunks_result = doc_transformer::chunking_adapter::chunk_all(
+        &analyses,
+        &link_map,
+        &output_dir,
+        10 * 1024 * 1024,
+    )
+    .expect("chunk_all should succeed");
 
     // Verify chunks were generated
     assert!(
@@ -766,13 +790,13 @@ This is an MDX file with JSX components.
     assert_eq!(manifest.total_files, 1, "Manifest should show 1 file");
 
     // Analyze files
-    let analyses = doc_transformer::analyze::analyze_files(&files, source_dir, None)
+    let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None)
         .expect("analyze_files should succeed");
 
-    assert_eq!(analyses.len(), 1, "Should analyze exactly 1 file");
+    assert_eq!(analyze_result.len(), 1, "Should analyze exactly 1 file");
 
     // Assign IDs
-    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyses);
+    let (analyses, link_map) = doc_transformer::assign::assign_ids(analyze_result.analyses);
 
     // Create output directory
     fs::create_dir_all(&output_dir).expect("Failed to create output dir");
@@ -783,9 +807,13 @@ This is an MDX file with JSX components.
             .expect("transform_all should succeed");
     assert_eq!(transform_result.success_count, 1);
 
-    let chunks_result =
-        doc_transformer::chunking_adapter::chunk_all(&analyses, &link_map, &output_dir)
-            .expect("chunk_all should succeed");
+    let chunks_result = doc_transformer::chunking_adapter::chunk_all(
+        &analyses,
+        &link_map,
+        &output_dir,
+        10 * 1024 * 1024,
+    )
+    .expect("chunk_all should succeed");
     assert!(chunks_result.total_chunks > 0);
     assert_eq!(chunks_result.document_count, 1);
 
