@@ -58,10 +58,7 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
             };
 
             let test_result = scrape_single_attempt(&quick_config, true).await;
-            let pages_found = test_result
-                .as_ref()
-                .map(|r| r.success_count > 0)
-                .unwrap_or(false);
+            let pages_found = test_result.as_ref().is_ok_and(|r| r.success_count > 0);
 
             if pages_found {
                 println!("[SCRAPE] Sitemap found, using sitemap strategy...");

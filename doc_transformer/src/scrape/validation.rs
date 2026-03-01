@@ -367,6 +367,7 @@ pub struct SpaDetectionResult {
 /// - Fewer than 5 pages were scraped AND
 /// - More than 5 URLs were discovered (indicating the site has more content)
 /// - The site likely requires JavaScript to render content
+#[allow(clippy::cast_precision_loss)]
 pub fn detect_potential_spa(result: &ScrapeResult) -> SpaDetectionResult {
     let pages_scraped = result.success_count;
     let total_urls = result.total_urls;

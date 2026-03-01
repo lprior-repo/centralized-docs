@@ -1,41 +1,77 @@
-# Moon workspace configuration for centralized-docs
+# Moon workspace configuration
 workspace:
-  # VCS configuration
   vcs:
     manager: git
-    ignoreUnknownFiles: false
-
-  # Project root
   root: .
 
 projects:
-  # Release gate tool
   release-gate:
     root: release-gate
-    type: rust
     language: rust
 
-  # This project
   docmgr:
     root: doc_transformer
-    type: rust
     language: rust
 
-# Task configuration defaults
+# Workspace-level tasks that run on the whole workspace
 tasks:
-  # Output tracking for cache invalidation
-  outputs:
-    - target/
-    - bin/
-    - dist/
+  build:
+    command: cargo
+    args: ["build", "--release", "-p", "doc_transformer"]
+    description: Build doc_transformer release
 
-  # Aggressive caching strategy
-  cacheStrategy: content
+  test:
+    command: cargo
+    args: ["test", "-p", "doc_transformer"]
+    description: Test doc_transformer
 
-  # Run independent tasks in parallel
-  runInParallel: true
+  check:
+    command: cargo
+    args: ["check", "-p", "doc_transformer"]
+    description: Type check doc_transformer
 
-  # Inherit environment variables
-  env:
-    CARGO_TARGET_DIR: ./target
-    RUSTFLAGS: -D warnings
+  clippy:
+    command: cargo
+    args: ["clippy", "-p", "doc_transformer", "--", "-D", "warnings"]
+    description: Lint doc_transformer
+
+  fmt:
+    command: cargo
+    args: ["fmt", "--check"]
+    description: Check formatting
+
+  :build:
+    command: cargo
+    args: ["build", "--release", "-p", "doc_transformer"]
+
+  :test:
+    command: cargo
+    args: ["test", "-p", "doc_transformer"]
+
+  :check:
+    command: cargo
+    args: ["check", "-p", "doc_transformer"]
+
+  :clippy:
+    command: cargo
+    args: ["clippy", "-p", "doc_transformer", "--", "-D", "warnings"]
+
+  :fmt:
+    command: cargo
+    args: ["fmt", "--check"]
+
+  :quick:
+    command: echo
+    args: ["Running fmt and clippy..."]
+    deps:
+      - task: fmt
+      - task: clippy
+
+  :ci:
+    command: echo
+    args: ["Running CI: fmt, clippy, check, test"]
+    deps:
+      - task: fmt
+      - task: clippy
+      - task: check
+      - task: test

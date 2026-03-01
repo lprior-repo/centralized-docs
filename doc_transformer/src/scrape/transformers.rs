@@ -227,7 +227,7 @@ pub fn find_related_pages<'a>(
         .filter(|(shared, _)| *shared > 0)
         .collect();
 
-    related.sort_by(|a, b| b.0.cmp(&a.0));
+    related.sort_by_key(|b| std::cmp::Reverse(b.0));
     related.into_iter().take(5).map(|(_, page)| page).collect()
 }
 

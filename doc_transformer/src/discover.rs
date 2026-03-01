@@ -29,6 +29,7 @@ pub struct DiscoverManifest {
 /// Returns an error if:
 /// - The source directory does not exist
 /// - The canonical path cannot be resolved
+#[allow(clippy::too_many_lines)]
 pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, DiscoverManifest)> {
     if !source_dir.exists() {
         anyhow::bail!("Source not found: {}", source_dir.display());
@@ -99,8 +100,7 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
                     |n| n.to_string_lossy().to_string(),
                 );
                 eprintln!(
-                    "Warning: Skipping broken symlink '{}' (target does not exist)",
-                    symlink_name
+                    "Warning: Skipping broken symlink '{symlink_name}' (target does not exist)"
                 );
                 continue;
             }
