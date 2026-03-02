@@ -732,17 +732,16 @@ async fn main() -> Result<()> {
                 eprintln!("{}", e);
                 process::exit(0);
             }
-            // User input errors: validation errors and missing required args (exit code 1)
-            // Pipeline errors: everything else (exit code 2)
-            let user_input_errors = [
+            // Validation errors (invalid argument values) exit with code 2 per contract
+            // Other errors (missing required args) exit with code 1
+            let validation_errors = [
                 clap::error::ErrorKind::ValueValidation,
                 clap::error::ErrorKind::InvalidValue,
-                clap::error::ErrorKind::MissingRequiredArgument,
             ];
-            let exit_code = if user_input_errors.contains(&e.kind()) {
-                1
-            } else {
+            let exit_code = if validation_errors.contains(&e.kind()) {
                 2
+            } else {
+                1
             };
             eprintln!("{}", e);
             process::exit(exit_code);
@@ -753,17 +752,16 @@ async fn main() -> Result<()> {
     let cli = match Cli::from_arg_matches(&cli) {
         Ok(cli) => cli,
         Err(e) => {
-            // User input errors: validation errors and missing required args (exit code 1)
-            // Pipeline errors: everything else (exit code 2)
-            let user_input_errors = [
+            // Validation errors (invalid argument values) exit with code 2 per contract
+            // Other errors (missing required args) exit with code 1
+            let validation_errors = [
                 clap::error::ErrorKind::ValueValidation,
                 clap::error::ErrorKind::InvalidValue,
-                clap::error::ErrorKind::MissingRequiredArgument,
             ];
-            let exit_code = if user_input_errors.contains(&e.kind()) {
-                1
-            } else {
+            let exit_code = if validation_errors.contains(&e.kind()) {
                 2
+            } else {
+                1
             };
             eprintln!("{}", e);
             process::exit(exit_code);
