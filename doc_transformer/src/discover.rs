@@ -219,9 +219,13 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
         );
     }
 
-    // Emit warning summary for broken symlinks if any were found
+    // Broken symlinks cause non-zero exit code as they indicate problems with the source
     if skipped_broken_symlink > 0 {
-        eprintln!("Warning: Found {skipped_broken_symlink} broken symlink(s) in source directory",);
+        anyhow::bail!(
+            "Found {} broken symlink(s) in source directory. \
+             Please fix or remove broken symlinks before indexing.",
+            skipped_broken_symlink
+        );
     }
 
     // Emit warning summary for I/O errors (permission denied, etc.) if any were found
@@ -815,9 +819,9 @@ mod tests {
         assert!(result.is_err(), "Oversized single file should be rejected");
     }
 
-    /// Test that broken symlinks are detected and warned about
+    /// Test that broken symlinks cause discovery to FAIL with non-zero exit code
     #[test]
-    fn test_discover_files_warns_about_broken_symlinks() {
+    fn test_discover_files_fails_on_broken_symlinks() {
         let temp_dir = match TempDir::new() {
             Ok(d) => d,
             Err(e) => panic!("Failed to create temp dir: {e}"),
@@ -841,11 +845,51 @@ mod tests {
             }
         }
 
-        // Discover files - should find the valid file and warn about broken symlink
+        // Discover files - should FAIL because broken symlinks cause non-zero exit
+        let result = discover_files(dir_path);
+        assert!(
+            result.is_err(),
+            "discover_files should FAIL when broken symlinks are found"
+        );
+
+        // Check error message mentions broken symlink
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("broken symlink"),
+            "Error should mention 'broken symlink', got: {}",
+            err_msg
+        );
+    }
+
+    /// Test that valid symlinks (pointing to real files) are processed correctly
+    #[test]
+    fn test_discover_files_with_valid_symlink() {
+        let temp_dir = match TempDir::new() {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
+        let dir_path = temp_dir.path();
+
+        let real_file = dir_path.join("real.md");
+        match fs::write(&real_file, "# Real Document\nContent here") {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to create real file: {e}"),
+        }
+
+        let valid_link = dir_path.join("link.md");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            if let Err(e) = symlink(&real_file, &valid_link) {
+                panic!("Failed to create valid symlink: {e}");
+            }
+        }
+
         let result = discover_files(dir_path);
         assert!(
             result.is_ok(),
-            "discover_files should succeed with broken symlinks"
+            "discover_files should succeed with valid symlinks, got: {:?}",
+            result.as_ref().err()
         );
 
         let (discovered_files, _manifest) = match result {
@@ -853,16 +897,17 @@ mod tests {
             Err(e) => panic!("discover_files failed: {e}"),
         };
 
-        // Should find the one valid file
-        assert_eq!(
-            discovered_files.len(),
-            1,
-            "Should discover 1 valid file, got {}",
+        assert!(
+            discovered_files.len() >= 1,
+            "Should discover at least 1 file, got {}",
             discovered_files.len()
         );
+        
+        let file_names: Vec<_> = discovered_files.iter().map(|f| f.source_path.clone()).collect();
         assert!(
-            discovered_files[0].source_path.contains("valid.md"),
-            "Should find valid.md"
+            file_names.iter().any(|n| n.contains("real.md")),
+            "Should find real.md, found: {:?}",
+            file_names
         );
     }
 }
