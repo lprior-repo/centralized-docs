@@ -913,4 +913,129 @@ mod tests {
             file_names
         );
     }
+
+    /// Test that symlink pointing to directory is processed correctly
+    #[test]
+    fn test_discover_files_with_symlink_to_directory() {
+        let temp_dir = match TempDir::new() {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
+        let dir_path = temp_dir.path();
+
+        let real_dir = dir_path.join("realdir");
+        let real_file_in_dir = real_dir.join("nested.md");
+        match fs::create_dir(&real_dir) {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to create dir: {e}"),
+        };
+        match fs::write(&real_file_in_dir, "# Nested\nContent") {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to create nested file: {e}"),
+        }
+
+        let dir_link = dir_path.join("linkdir");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            if let Err(e) = symlink(&real_dir, &dir_link) {
+                panic!("Failed to create dir symlink: {e}");
+            }
+        }
+
+        let result = discover_files(dir_path);
+        assert!(
+            result.is_ok(),
+            "discover_files should succeed with symlink to directory, got: {:?}",
+            result.as_ref().err()
+        );
+
+        let (discovered_files, _manifest) = match result {
+            Ok(v) => v,
+            Err(e) => panic!("discover_files failed: {e}"),
+        };
+
+        let file_names: Vec<_> = discovered_files
+            .iter()
+            .map(|f| f.source_path.clone())
+            .collect();
+        assert!(
+            file_names.iter().any(|n| n.contains("nested.md")),
+            "Should find nested.md inside symlinked dir, found: {:?}",
+            file_names
+        );
+    }
+
+    /// Test that multiple broken symlinks are counted correctly in error
+    #[test]
+    fn test_discover_files_multiple_broken_symlinks() {
+        let temp_dir = match TempDir::new() {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
+        let dir_path = temp_dir.path();
+
+        match fs::write(dir_path.join("good.md"), "# Good\nContent") {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to create good file: {e}"),
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let _ = symlink("/nonexistent1", dir_path.join("broken1.md"));
+            let _ = symlink("/nonexistent2", dir_path.join("broken2.md"));
+            let _ = symlink("/nonexistent3", dir_path.join("broken3.md"));
+        }
+
+        let result = discover_files(dir_path);
+        assert!(
+            result.is_err(),
+            "Should fail with multiple broken symlinks"
+        );
+
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("3 broken symlink"),
+            "Error should mention 3 broken symlinks, got: {}",
+            err_msg
+        );
+    }
+
+    /// Test that self-referential symlink (circular) is treated as broken
+    #[test]
+    fn test_discover_files_circular_symlink() {
+        let temp_dir = match TempDir::new() {
+            Ok(d) => d,
+            Err(e) => panic!("Failed to create temp dir: {e}"),
+        };
+        let dir_path = temp_dir.path();
+
+        match fs::write(dir_path.join("file.md"), "# Content\nText") {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to create file: {e}"),
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let link_path = dir_path.join("self.md");
+            if let Err(e) = symlink(&link_path, &link_path) {
+                panic!("Failed to create self-referential symlink: {e}");
+            }
+        }
+
+        let result = discover_files(dir_path);
+        assert!(
+            result.is_err(),
+            "Self-referential (circular) symlink should be treated as broken"
+        );
+
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("broken symlink"),
+            "Error should mention broken symlink, got: {}",
+            err_msg
+        );
+    }
 }
