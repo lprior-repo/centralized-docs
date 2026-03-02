@@ -1047,6 +1047,7 @@ fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "no markdown files found",
         "cannot index empty",
         "parent path is not a directory",
+        "validation failed",
     ];
 
     let is_user_input = user_input_patterns
