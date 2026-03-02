@@ -1239,7 +1239,10 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
         println!("{}", "=".repeat(70));
         println!("SCRAPE FAILED - Domain unreachable");
         println!("{}", "=".repeat(70));
-        println!("Could not reach '{}'. The domain may not exist or DNS resolution failed.", result.base_url);
+        println!(
+            "Could not reach '{}'. The domain may not exist or DNS resolution failed.",
+            result.base_url
+        );
         println!();
         println!("Please verify:");
         println!("  - The URL is correct and accessible in a browser");
@@ -1437,10 +1440,7 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
                 // Lock file exists - check if it's stale (process died or lock too old)
                 // Only reclaim AFTER atomic creation fails, not before
                 if lock_path.exists() && should_reclaim_stale_lock(&lock_path) {
-                    eprintln!(
-                        "[WARN] Reclaiming stale lock at {}",
-                        lock_path.display()
-                    );
+                    eprintln!("[WARN] Reclaiming stale lock at {}", lock_path.display());
                     // Try to remove stale lock - may fail if other process took it
                     if std::fs::remove_file(&lock_path).is_ok() {
                         // Successfully removed stale lock, retry creation

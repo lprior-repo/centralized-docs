@@ -114,7 +114,8 @@ pub fn transform_all(
         .iter()
         .filter_map(|analysis| {
             link_map.get(&analysis.source_path).map(|mapping| {
-                let (result, file_broken_links) = transform_file(analysis, mapping, link_map, &docs_dir);
+                let (result, file_broken_links) =
+                    transform_file(analysis, mapping, link_map, &docs_dir);
                 broken_links.extend(file_broken_links);
                 result.map_err(|e| {
                     eprintln!("Error: transform failed: {}: {}", analysis.source_path, e);
@@ -216,7 +217,10 @@ fn transform_file(
         .collect();
 
     if let Err(e) = fs::write(output_file, final_content) {
-        return (Err(anyhow::anyhow!("Failed to write file: {}", e)), broken_link_infos);
+        return (
+            Err(anyhow::anyhow!("Failed to write file: {}", e)),
+            broken_link_infos,
+        );
     }
 
     (Ok(()), broken_link_infos)

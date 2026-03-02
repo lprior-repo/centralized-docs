@@ -156,7 +156,12 @@ impl KnowledgeDAG {
         self.dfs_reach(start, target, &mut visited)
     }
 
-    fn dfs_reach(&self, idx: NodeIndex, target: NodeIndex, visited: &mut HashSet<NodeIndex>) -> bool {
+    fn dfs_reach(
+        &self,
+        idx: NodeIndex,
+        target: NodeIndex,
+        visited: &mut HashSet<NodeIndex>,
+    ) -> bool {
         if !visited.insert(idx) {
             return false;
         }

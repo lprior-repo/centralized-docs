@@ -902,8 +902,11 @@ mod tests {
             "Should discover at least 1 file, got {}",
             discovered_files.len()
         );
-        
-        let file_names: Vec<_> = discovered_files.iter().map(|f| f.source_path.clone()).collect();
+
+        let file_names: Vec<_> = discovered_files
+            .iter()
+            .map(|f| f.source_path.clone())
+            .collect();
         assert!(
             file_names.iter().any(|n| n.contains("real.md")),
             "Should find real.md, found: {:?}",
