@@ -1439,7 +1439,35 @@ fn test_scrape_invalid_filter_regex() {
 }
 
 #[test]
-fn test_scrape_invalid_max_page_bytes() {
+fn test_scrape_filter_matches_nothing_returns_nonzero_exit() {
+    let temp = TempDir::new().unwrap();
+    let output_dir = temp.path().join("output");
+
+    let result = run_cli(&[
+        "scrape",
+        "http://example.com",
+        "--output",
+        output_dir.to_str().unwrap(),
+        "--filter",
+        "/nonexistent-path-12345",
+        "--no-sitemap",
+    ]);
+
+    // Filter matching nothing should return non-zero exit code (not success)
+    assert!(
+        !result.status.success(),
+        "Filter matching nothing should return non-zero exit, got: {}",
+        result.status
+    );
+
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        stderr.contains("Failed to scrape any pages"),
+        "Error should mention failed to scrape. Got: {stderr}"
+    );
+}
+
+#[test]
     let temp = TempDir::new().unwrap();
     let output_dir = temp.path().join("output");
 
