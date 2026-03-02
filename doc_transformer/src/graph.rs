@@ -115,6 +115,62 @@ impl KnowledgeDAG {
         }
     }
 
+    /// Add an edge only if it won't create a cycle.
+    /// Returns true if edge was added, false if it would create a cycle.
+    pub fn add_edge_if_no_cycle(&mut self, edge: GraphEdge) -> bool {
+        let from_idx = self.node_map.get(&edge.from).copied();
+        let to_idx = self.node_map.get(&edge.to).copied();
+
+        if let (Some(from), Some(to)) = (from_idx, to_idx) {
+            // Check if adding this edge would create a cycle
+            if self.would_create_cycle(from, to) {
+                return false;
+            }
+
+            self.graph.add_edge(
+                from,
+                to,
+                GraphEdgeData {
+                    edge_type: edge.edge_type.clone(),
+                    weight: edge.weight,
+                },
+            );
+            self.edges_vec.push(edge);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Check if adding an edge between two node indices would create a cycle
+    fn would_create_cycle(&self, from: NodeIndex, to: NodeIndex) -> bool {
+        // If there's already a path from 'to' to 'from', adding from->to creates a cycle
+        self.graph
+            .edges(to)
+            .any(|e| self.would_reach_target(e.target(), from))
+    }
+
+    /// DFS to check if we can reach target from start
+    fn would_reach_target(&self, start: NodeIndex, target: NodeIndex) -> bool {
+        let mut visited = HashSet::new();
+        self.dfs_reach(start, target, &mut visited)
+    }
+
+    fn dfs_reach(&self, idx: NodeIndex, target: NodeIndex, visited: &mut HashSet<NodeIndex>) -> bool {
+        if !visited.insert(idx) {
+            return false;
+        }
+        if idx == target {
+            return true;
+        }
+        for edge in self.graph.edges(idx) {
+            if self.dfs_reach(edge.target(), target, visited) {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Get all edges of a specific type
     #[must_use]
     pub fn edges_by_type(&self, edge_type: &EdgeType) -> Vec<&GraphEdge> {
@@ -698,5 +754,98 @@ mod tests {
             &[EdgeType::Sequential, EdgeType::Parent],
         );
         assert!(!would_cycle, "b->c should not create cycle");
+    }
+
+    #[test]
+    fn test_add_edge_if_no_cycle_prevents_cycles() {
+        let mut dag = KnowledgeDAG::new();
+
+        dag.add_node(GraphNode {
+            id: "a".to_string(),
+            node_type: NodeType::Chunk,
+            title: "A".to_string(),
+            category: None,
+        });
+        dag.add_node(GraphNode {
+            id: "b".to_string(),
+            node_type: NodeType::Chunk,
+            title: "B".to_string(),
+            category: None,
+        });
+        dag.add_node(GraphNode {
+            id: "c".to_string(),
+            node_type: NodeType::Chunk,
+            title: "C".to_string(),
+            category: None,
+        });
+
+        // a -> b (sequential)
+        let added = dag.add_edge_if_no_cycle(GraphEdge {
+            from: "a".to_string(),
+            to: "b".to_string(),
+            edge_type: EdgeType::Sequential,
+            weight: 1.0,
+        });
+        assert!(added, "a->b should be added");
+
+        // b -> c (sequential)
+        let added = dag.add_edge_if_no_cycle(GraphEdge {
+            from: "b".to_string(),
+            to: "c".to_string(),
+            edge_type: EdgeType::Sequential,
+            weight: 1.0,
+        });
+        assert!(added, "b->c should be added");
+
+        // Try to add c -> a (would create cycle a->b->c->a)
+        let added = dag.add_edge_if_no_cycle(GraphEdge {
+            from: "c".to_string(),
+            to: "a".to_string(),
+            edge_type: EdgeType::Sequential,
+            weight: 1.0,
+        });
+        assert!(!added, "c->a should be rejected - creates cycle");
+
+        // Verify only 2 edges exist
+        assert_eq!(dag.edges().len(), 2);
+    }
+
+    #[test]
+    fn test_add_edge_if_no_cycle_prevents_bidirectional() {
+        let mut dag = KnowledgeDAG::new();
+
+        dag.add_node(GraphNode {
+            id: "a".to_string(),
+            node_type: NodeType::Chunk,
+            title: "A".to_string(),
+            category: None,
+        });
+        dag.add_node(GraphNode {
+            id: "b".to_string(),
+            node_type: NodeType::Chunk,
+            title: "B".to_string(),
+            category: None,
+        });
+
+        // a -> b (related)
+        let added = dag.add_edge_if_no_cycle(GraphEdge {
+            from: "a".to_string(),
+            to: "b".to_string(),
+            edge_type: EdgeType::Related,
+            weight: 0.8,
+        });
+        assert!(added, "a->b should be added");
+
+        // b -> a (would create bidirectional cycle)
+        let added = dag.add_edge_if_no_cycle(GraphEdge {
+            from: "b".to_string(),
+            to: "a".to_string(),
+            edge_type: EdgeType::Related,
+            weight: 0.8,
+        });
+        assert!(!added, "b->a should be rejected - creates cycle");
+
+        // Verify only 1 edge exists
+        assert_eq!(dag.edges().len(), 1);
     }
 }
