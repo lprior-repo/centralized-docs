@@ -1518,7 +1518,9 @@ fn should_reclaim_stale_lock(lock_path: &Path) -> bool {
             || age_secs > OUTPUT_LOCK_STALE_AFTER_SECS;
     }
 
-    false
+    // FIX: If we can't read the lock metadata (empty/malformed),
+    // treat it as stale immediately - likely from crashed process
+    true
 }
 
 /// Run the index command (main pipeline)
@@ -2219,9 +2221,8 @@ mod tests {
         let file_result = std::fs::File::create(&lock_path);
         assert!(file_result.is_ok());
 
-        // Empty file with no valid metadata should NOT be auto-reclaimed
-        // to avoid race conditions with other processes
-        assert!(!should_reclaim_stale_lock(&lock_path));
+        // Empty file should be treated as stale - likely from crashed process
+        assert!(should_reclaim_stale_lock(&lock_path));
 
         let _ = std::fs::remove_dir_all(temp_dir);
     }
@@ -2238,9 +2239,8 @@ mod tests {
         let write_result = std::fs::write(&lock_path, "{not valid json");
         assert!(write_result.is_ok());
 
-        // Malformed JSON with no valid metadata should NOT be auto-reclaimed
-        // to avoid race conditions with other processes
-        assert!(!should_reclaim_stale_lock(&lock_path));
+        // Malformed JSON should be treated as stale - likely from crashed process
+        assert!(should_reclaim_stale_lock(&lock_path));
 
         let _ = std::fs::remove_dir_all(temp_dir);
     }
