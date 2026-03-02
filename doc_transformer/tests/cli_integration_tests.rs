@@ -1468,6 +1468,7 @@ fn test_scrape_filter_matches_nothing_returns_nonzero_exit() {
 }
 
 #[test]
+fn test_scrape_max_page_bytes_zero_fails() {
     let temp = TempDir::new().unwrap();
     let output_dir = temp.path().join("output");
 

@@ -1025,6 +1025,7 @@ fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "missing",
         "required",
         "not found",
+        "no such file",
         "must be at least",
         "must be at most",
         "must be positive",
