@@ -1355,20 +1355,11 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
     std::fs::create_dir_all(output)?;
     let lock_path = output.join(".doc_transformer.lock");
 
-    // Attempt to create lock file - this is atomic at the OS level
-    // Use a loop to handle stale lock reclamation race condition
-    let mut retries = 0;
+    let mut retries: usize = 0;
     const MAX_RETRIES: usize = 3;
 
-    while retries < MAX_RETRIES {
-        // Check and reclaim stale lock if needed BEFORE trying to create
-        if lock_path.exists() && should_reclaim_stale_lock(&lock_path) {
-            eprintln!("[WARN] Reclaiming stale lock at {}", lock_path.display());
-            // Try to remove stale lock - ignore error as another process may have taken it
-            let _ = std::fs::remove_file(&lock_path);
-        }
-
-        // Try to create the lock file atomically
+    loop {
+        // First, try to create the lock file atomically (fails immediately if exists)
         match OpenOptions::new()
             .create_new(true)
             .write(true)
@@ -1407,13 +1398,28 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
                 });
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                // Lock file exists - check if we should retry (stale lock was reclaimed)
+                // Lock file exists - check if it's stale (process died or lock too old)
+                // Only reclaim AFTER atomic creation fails, not before
+                if lock_path.exists() && should_reclaim_stale_lock(&lock_path) {
+                    eprintln!(
+                        "[WARN] Reclaiming stale lock at {}",
+                        lock_path.display()
+                    );
+                    // Try to remove stale lock - may fail if other process took it
+                    if std::fs::remove_file(&lock_path).is_ok() {
+                        // Successfully removed stale lock, retry creation
+                        continue;
+                    }
+                }
+
+                // Lock exists and is not stale (or failed to remove) - retry with backoff
                 retries = retries.saturating_add(1);
                 if retries < MAX_RETRIES {
                     // Brief sleep to allow other process to release lock
-                    std::thread::sleep(std::time::Duration::from_millis(10));
+                    std::thread::sleep(std::time::Duration::from_millis(50));
                     continue;
                 }
+
                 // Max retries exceeded - report lock conflict
                 return Err(anyhow::anyhow!(
                     "Another index operation appears to be running for '{}'. Remove '{}' if stale.",
@@ -1429,12 +1435,6 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
             }
         }
     }
-
-    // Should not reach here, but just in case
-    Err(anyhow::anyhow!(
-        "Failed to acquire output lock after {} retries",
-        MAX_RETRIES
-    ))
 }
 
 fn now_unix_secs() -> u64 {
@@ -1482,9 +1482,7 @@ fn should_reclaim_stale_lock(lock_path: &Path) -> bool {
             || age_secs > OUTPUT_LOCK_STALE_AFTER_SECS;
     }
 
-    // FIX: If we can't read the lock metadata (empty/malformed),
-    // treat it as stale immediately - likely from crashed process
-    true
+    false
 }
 
 /// Run the index command (main pipeline)
@@ -2169,8 +2167,9 @@ mod tests {
         let file_result = std::fs::File::create(&lock_path);
         assert!(file_result.is_ok());
 
-        // Empty file should be treated as stale
-        assert!(should_reclaim_stale_lock(&lock_path));
+        // Empty file with no valid metadata should NOT be auto-reclaimed
+        // to avoid race conditions with other processes
+        assert!(!should_reclaim_stale_lock(&lock_path));
 
         let _ = std::fs::remove_dir_all(temp_dir);
     }
@@ -2187,8 +2186,9 @@ mod tests {
         let write_result = std::fs::write(&lock_path, "{not valid json");
         assert!(write_result.is_ok());
 
-        // Malformed JSON should be treated as stale
-        assert!(should_reclaim_stale_lock(&lock_path));
+        // Malformed JSON with no valid metadata should NOT be auto-reclaimed
+        // to avoid race conditions with other processes
+        assert!(!should_reclaim_stale_lock(&lock_path));
 
         let _ = std::fs::remove_dir_all(temp_dir);
     }
