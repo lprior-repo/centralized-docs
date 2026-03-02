@@ -1,5 +1,5 @@
 [workspace]
-members = ["doc_transformer", "contextual-chunker", "llms-txt-parser", "release-gate"]
+members = ["doc_transformer", "contextual-chunker", "llms-txt-parser"]
 resolver = "2"
 
 [workspace.package]
