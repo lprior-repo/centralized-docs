@@ -1211,6 +1211,22 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
     println!("[SCRAPE] Starting crawl...");
     let mut result = scrape::scrape_site(&scrape_config).await?;
 
+    // Check if domain was reachable BEFORE checking for partial failures
+    // If total_urls == 0, the domain couldn't be reached (DNS failure, connection refused, etc.)
+    if result.total_urls == 0 && result.success_count == 0 {
+        println!();
+        println!("{}", "=".repeat(70));
+        println!("SCRAPE FAILED - Domain unreachable");
+        println!("{}", "=".repeat(70));
+        println!("Could not reach '{}'. The domain may not exist or DNS resolution failed.", result.base_url);
+        println!();
+        println!("Please verify:");
+        println!("  - The URL is correct and accessible in a browser");
+        println!("  - The domain exists and is spelled correctly");
+        println!("{}\n", "=".repeat(70));
+        process::exit(2);
+    }
+
     // Check for partial/total failure BEFORE further processing
     // Exit with code 2 if any pages failed to scrape
     if result.error_count > 0 {
