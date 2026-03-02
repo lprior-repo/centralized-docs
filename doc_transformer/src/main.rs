@@ -1015,9 +1015,29 @@ async fn main() -> Result<()> {
 /// - Parser-level validation (via clap value_parser) now exits with 1 (user error)
 /// - Runtime validation also exits with 1 for user input errors
 fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
-    // Check for validation errors (user input) - these should exit with 1
     let error_string = err.to_string();
     let error_string_lower = error_string.to_lowercase();
+
+    // Pipeline error patterns (must check BEFORE user input patterns)
+    // These are network/infrastructure errors that should exit with 2
+    let pipeline_error_patterns = [
+        "url protocol",
+        "class=net",
+        "connection refused",
+        "connection timed out",
+        "network error",
+        "ssl error",
+        "tls error",
+        "certificate",
+    ];
+
+    let is_pipeline_error = pipeline_error_patterns
+        .iter()
+        .any(|pattern| error_string_lower.contains(pattern));
+
+    if is_pipeline_error {
+        return 2;
+    }
 
     // User input error patterns (explicit matches - high precision)
     // These are errors where the user provided invalid input
