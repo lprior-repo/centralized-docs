@@ -334,6 +334,13 @@ pub fn validate_slug(slug: &str) -> Result<()> {
 /// Validate that a scrape result contains at least one page
 pub fn validate_scrape_result(result: &ScrapeResult) -> Result<()> {
     if result.success_count == 0 {
+        if result.total_urls == 0 {
+            anyhow::bail!(
+                "Failed to reach '{}'. The domain may not exist or DNS resolution failed. \
+                Please verify the URL is correct and accessible in a browser.",
+                result.base_url
+            );
+        }
         anyhow::bail!(
             "Failed to scrape any pages from '{}'. \
             Please verify:\n  \
