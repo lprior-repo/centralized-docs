@@ -70,13 +70,6 @@ pub struct TransformResult {
     pub success_count: usize,
     pub total_count: usize,
     pub error_count: usize,
-    pub broken_links: Vec<BrokenLinkInfo>,
-}
-
-#[derive(Debug, Clone)]
-pub struct BrokenLinkInfo {
-    pub source_file: String,
-    pub link: String,
 }
 
 /// Create directory with improved error context for permission issues
@@ -108,15 +101,11 @@ pub fn transform_all(
     let docs_dir = output_dir.join("docs");
     create_dir_with_context(&docs_dir, "docs")?;
 
-    let mut broken_links = Vec::new();
-
     let results = analyses
         .iter()
         .filter_map(|analysis| {
             link_map.get(&analysis.source_path).map(|mapping| {
-                let (result, file_broken_links) =
-                    transform_file(analysis, mapping, link_map, &docs_dir);
-                broken_links.extend(file_broken_links);
+                let result = transform_file(analysis, mapping, link_map, &docs_dir);
                 result.map_err(|e| {
                     eprintln!("Error: transform failed: {}: {}", analysis.source_path, e);
                     e
@@ -132,7 +121,6 @@ pub fn transform_all(
         success_count,
         total_count: analyses.len(),
         error_count,
-        broken_links,
     })
 }
 
@@ -141,7 +129,7 @@ fn transform_file(
     mapping: &IdMapping,
     link_map: &HashMap<String, IdMapping>,
     docs_dir: &Path,
-) -> (Result<()>, Vec<BrokenLinkInfo>) {
+) -> Result<()> {
     let doc_id = &mapping.id;
     let filename = &mapping.filename;
 
@@ -208,22 +196,11 @@ fn transform_file(
     // Write file
     let output_file = docs_dir.join(filename);
 
-    let broken_link_infos: Vec<BrokenLinkInfo> = broken_links
-        .iter()
-        .map(|link| BrokenLinkInfo {
-            source_file: analysis.source_path.clone(),
-            link: link.clone(),
-        })
-        .collect();
-
     if let Err(e) = fs::write(output_file, final_content) {
-        return (
-            Err(anyhow::anyhow!("Failed to write file: {}", e)),
-            broken_link_infos,
-        );
+        return Err(anyhow::anyhow!("Failed to write file: {}", e));
     }
 
-    (Ok(()), broken_link_infos)
+    Ok(())
 }
 
 /// Parse markdown using pulldown-cmark with full `CommonMark` + GFM support

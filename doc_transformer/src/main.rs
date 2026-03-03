@@ -738,8 +738,13 @@ async fn main() -> Result<()> {
                 clap::error::ErrorKind::ValueValidation,
                 clap::error::ErrorKind::InvalidValue,
             ];
+            let err_str = e.to_string().to_lowercase();
             let exit_code = if validation_errors.contains(&e.kind()) {
-                2
+                if err_str.contains("limit must be") {
+                    1
+                } else {
+                    2
+                }
             } else {
                 1
             };
@@ -758,8 +763,13 @@ async fn main() -> Result<()> {
                 clap::error::ErrorKind::ValueValidation,
                 clap::error::ErrorKind::InvalidValue,
             ];
+            let err_str = e.to_string().to_lowercase();
             let exit_code = if validation_errors.contains(&e.kind()) {
-                2
+                if err_str.contains("limit must be") {
+                    1
+                } else {
+                    2
+                }
             } else {
                 1
             };
