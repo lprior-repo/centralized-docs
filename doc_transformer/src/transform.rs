@@ -197,7 +197,7 @@ fn transform_file(
     let output_file = docs_dir.join(filename);
 
     if let Err(e) = fs::write(output_file, final_content) {
-        return Err(anyhow::anyhow!("Failed to write file: {}", e));
+        return Err(anyhow::anyhow!("Failed to write file: {e}"));
     }
 
     Ok(())

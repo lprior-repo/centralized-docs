@@ -222,9 +222,8 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
     // Broken symlinks cause non-zero exit code as they indicate problems with the source
     if skipped_broken_symlink > 0 {
         anyhow::bail!(
-            "Found {} broken symlink(s) in source directory. \
-             Please fix or remove broken symlinks before indexing.",
-            skipped_broken_symlink
+            "Found {skipped_broken_symlink} broken symlink(s) in source directory. \
+             Please fix or remove broken symlinks before indexing."
         );
     }
 
