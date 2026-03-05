@@ -1,12 +1,12 @@
 # Beads - AI-Native Issue Tracking
 
-Welcome to Beads! This repository uses **beads_rust** for issue tracking - a lightweight, Rust-based implementation designed to live directly in your codebase alongside your code.
+Welcome to Beads! This repository uses **beads** for issue tracking - a lightweight, Rust-based implementation designed to live directly in your codebase alongside your code.
 
-## What is beads_rust?
+## What is beads?
 
-beads_rust is a non-invasive issue tracker that lives in your repo, making it perfect for AI coding agents and developers who want their issues close to their code. No web UI, no background daemon, no auto-commits - everything is explicit and predictable.
+beads is a non-invasive issue tracker that lives in your repo, making it perfect for AI coding agents and developers who want their issues close to their code. No web UI, no background daemon, no auto-commits - everything is explicit and predictable.
 
-**Learn more:** [github.com/Dicklesworthstone/beads_rust](https://github.com/Dicklesworthstone/beads_rust)
+**Learn more:** [github.com/steveyegge/beads](https://github.com/steveyegge/beads)
 
 ## Quick Start
 
@@ -63,25 +63,25 @@ Issues in Beads are:
 
 ## Get Started with Beads
 
-Try beads_rust in your own projects:
+Try beads in your own projects:
 
 ```bash
-# Install beads_rust
-curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh" | bash
+# Install beads
+curl -fsSL "https://raw.githubusercontent.com/steveyegge/beads/main/install.sh" | bash
 
 # Initialize in your repo
 br init
 
 # Create your first issue
-br create "Try out beads_rust"
+br create "Try out beads"
 ```
 
 ## Learn More
 
-- **Documentation**: [github.com/Dicklesworthstone/beads_rust](https://github.com/Dicklesworthstone/beads_rust)
+- **Documentation**: [github.com/steveyegge/beads](https://github.com/steveyegge/beads)
 - **Quick Start Guide**: Run `br --help`
 - **Issue Viewer**: Use `bv` (beads_viewer) for TUI and graph analysis
 
 ---
 
-*beads_rust: Lightweight, non-invasive issue tracking for AI agents* ⚡
+*beads: Lightweight, non-invasive issue tracking for AI agents* ⚡

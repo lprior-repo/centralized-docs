@@ -79,3 +79,7 @@ package.json
 # bv (beads viewer) local config and caches
 .bv/
 /website/book/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
