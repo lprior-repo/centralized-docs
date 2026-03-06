@@ -196,6 +196,7 @@ impl OpenAIProvider {
     ///
     /// Returns `EmbeddingProviderError::MissingApiKey` if the API key is empty.
     /// Returns `EmbeddingProviderError::ApiError` if the HTTP client fails to build.
+    #[allow(clippy::duration_suboptimal_units)]
     pub fn new(api_key: impl Into<String>) -> Result<Self, EmbeddingProviderError> {
         let api_key = api_key.into();
         if api_key.is_empty() {
@@ -390,6 +391,7 @@ impl CohereProvider {
     ///
     /// Returns `EmbeddingProviderError::MissingApiKey` if the API key is empty.
     /// Returns `EmbeddingProviderError::ApiError` if the HTTP client fails to build.
+    #[allow(clippy::duration_suboptimal_units)]
     pub fn new(api_key: impl Into<String>) -> Result<Self, EmbeddingProviderError> {
         let api_key = api_key.into();
         if api_key.is_empty() {
