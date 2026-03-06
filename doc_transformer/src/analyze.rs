@@ -1,49 +1,11 @@
-//! Analysis phase of the documentation transformation pipeline.
-//!
-//! This module provides document analysis capabilities that extract structured
-//! metadata from markdown files. It forms the second phase of the pipeline,
-//! following [`discover`] and preceding [`transform`].
-//!
-//! # Analysis Capabilities
-//!
-//! - **Title extraction** - Derives document titles from H1 headings or filenames
-//! - **Frontmatter parsing** - Extracts YAML frontmatter metadata
-//! - **Heading extraction** - Identifies all headings with their levels and positions
-//! - **Link detection** - Finds internal and external links for relationship mapping
-//! - **Content statistics** - Word counts, code block detection, table detection
-//! - **Auto-categorization** - Intelligently categorizes documents (tutorial, ops, ref, meta, concept)
-//!
-//! # Core Types
-//!
-//! - [`Analysis`] - Complete analysis result for a single document
-//! - [`Heading`] - Extracted heading with level and position
-//! - [`Link`] - Discovered link with target URL and [`LinkKind`] classification
-//! - [`LinkKind`] - Whether a link is [`LinkKind::Internal`] (relative path) or
-//!   [`LinkKind::External`] (absolute URL / mailto)
-//!
-//! # Example
-//!
-//! ```rust,ignore
-//! use doc_transformer::analyze::analyze_files;
-//! use std::path::Path;
-//!
-//! let analyses = analyze_files(&discovered_files, Path::new("./docs"), None)?;
-//! for analysis in &analyses {
-//!     println!("{}: {} words, category: {}",
-//!         analysis.title, analysis.word_count, analysis.category);
-//! }
-//! ```
-
 use crate::config::CategoryConfig;
 use crate::discover::DiscoveryFile;
 use anyhow::Result;
-use itertools::Itertools;
-use regex::Regex;
+use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use tap::Pipe;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Heading {
@@ -52,15 +14,9 @@ pub struct Heading {
     pub line: usize,
 }
 
-/// Whether a link points within the documentation set or to an external resource.
-///
-/// Replaces `is_internal: bool` — makes the two cases explicit and
-/// impossible to confuse at call sites.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LinkKind {
-    /// Target is a relative path within the docs (not http/https/mailto)
     Internal,
-    /// Target is an absolute URL or mailto address
     External,
 }
 
@@ -86,17 +42,12 @@ pub struct Analysis {
     pub content: String,
 }
 
-/// Represents a file that failed during analysis with the error message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FailedFile {
     pub source_path: String,
     pub error: String,
 }
 
-/// Result of analyzing multiple files, tracking both successes and failures.
-///
-/// This allows callers to detect partial failures and respond appropriately,
-/// ensuring the invariant: `analyses.len() + failed_files.len() == total_discovered`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalyzeResult {
     pub analyses: Vec<Analysis>,
@@ -105,14 +56,12 @@ pub struct AnalyzeResult {
 }
 
 impl AnalyzeResult {
-    /// Returns the number of successfully analyzed files.
     #[allow(dead_code)]
     #[must_use]
     pub fn len(&self) -> usize {
         self.analyses.len()
     }
 
-    /// Returns true if no files were successfully analyzed.
     #[allow(dead_code)]
     #[must_use]
     pub fn is_empty(&self) -> bool {
@@ -128,19 +77,21 @@ impl std::ops::Deref for AnalyzeResult {
     }
 }
 
-/// Analyze files using functional composition, tracking both successes and failures.
-///
-/// # Errors
-///
-/// Returns an error if files were discovered but none could be analyzed.
-/// This prevents silent failures where I/O errors or encoding issues
-/// cause the pipeline to proceed with 0 documents.
+pub fn count_categories(analyses: &[Analysis]) -> HashMap<String, usize> {
+    analyses
+        .iter()
+        .fold(HashMap::new(), |mut acc, analysis| {
+            *acc.entry(analysis.category.clone()).or_insert(0) =
+                acc.get(&analysis.category).unwrap_or(&0).saturating_add(1);
+            acc
+        })
+}
+
 pub fn analyze_files(
     files: &[DiscoveryFile],
     source_dir: &Path,
     category_config_path: Option<&Path>,
 ) -> Result<AnalyzeResult> {
-    // Load category config if provided
     let config = if let Some(path) = category_config_path {
         Some(CategoryConfig::load_from_file(path)?)
     } else {
@@ -149,7 +100,6 @@ pub fn analyze_files(
 
     let input_count = files.len();
 
-    // Use partition to separate successful analyses from failures
     let (analyses, failed_files): (Vec<_>, Vec<_>) = files
         .iter()
         .map(|file| {
@@ -166,10 +116,7 @@ pub fn analyze_files(
     let analyses: Vec<_> = analyses.into_iter().filter_map(Result::ok).collect();
     let failed_files: Vec<_> = failed_files.into_iter().filter_map(Result::err).collect();
 
-    // If we had input files but produced no analyses, all files failed.
-    // This is a critical error - we should not proceed with 0 documents.
     if input_count > 0 && analyses.is_empty() {
-        // Collect all error messages for a comprehensive error report
         let error_summary = failed_files
             .iter()
             .map(|f| format!("{}: {}", f.source_path, f.error))
@@ -189,6 +136,121 @@ pub fn analyze_files(
     })
 }
 
+struct MarkdownMetadata {
+    title: Option<String>,
+    headings: Vec<Heading>,
+    links: Vec<Link>,
+    first_paragraph: String,
+    has_code: bool,
+    has_tables: bool,
+}
+
+fn extract_markdown_metadata(content: &str) -> MarkdownMetadata {
+    let mut title = None;
+    let mut headings = Vec::new();
+    let mut links = Vec::new();
+    let mut first_paragraph = String::new();
+    let mut has_code = false;
+    let mut has_tables = false;
+
+    let line_starts: Vec<usize> = std::iter::once(0)
+        .chain(content.match_indices('\n').map(|(i, _)| i.saturating_add(1)))
+        .collect();
+
+    let parser = Parser::new(content).into_offset_iter();
+
+    let mut current_heading: Option<Heading> = None;
+    let mut current_link: Option<Link> = None;
+    let mut in_first_paragraph = false;
+    let mut found_first_paragraph = false;
+
+    for (event, range) in parser {
+        match event {
+            Event::Start(Tag::Heading { level, .. }) => {
+                let level_num = match level {
+                    HeadingLevel::H1 => 1,
+                    HeadingLevel::H2 => 2,
+                    HeadingLevel::H3 => 3,
+                    HeadingLevel::H4 => 4,
+                    HeadingLevel::H5 => 5,
+                    HeadingLevel::H6 => 6,
+                };
+                let line_num = line_starts.partition_point(|&x| x <= range.start);
+                current_heading = Some(Heading {
+                    level: level_num,
+                    text: String::new(),
+                    line: line_num.saturating_sub(1),
+                });
+            }
+            Event::End(TagEnd::Heading(_)) => {
+                if let Some(mut h) = current_heading.take() {
+                    h.text = h.text.trim().to_string();
+                    if h.level == 1 && title.is_none() {
+                        title = Some(h.text.clone());
+                    }
+                    headings.push(h);
+                }
+            }
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                let target = dest_url.to_string();
+                let kind = if target.starts_with("http://")
+                    || target.starts_with("https://")
+                    || target.starts_with("mailto:")
+                {
+                    LinkKind::External
+                } else {
+                    LinkKind::Internal
+                };
+                current_link = Some(Link {
+                    text: String::new(),
+                    target,
+                    kind,
+                });
+            }
+            Event::End(TagEnd::Link) => {
+                if let Some(l) = current_link.take() {
+                    links.push(l);
+                }
+            }
+            Event::Start(Tag::Paragraph) => {
+                if !found_first_paragraph {
+                    in_first_paragraph = true;
+                }
+            }
+            Event::End(TagEnd::Paragraph) => {
+                if in_first_paragraph {
+                    in_first_paragraph = false;
+                    found_first_paragraph = true;
+                }
+            }
+            Event::Start(Tag::CodeBlock(_)) => has_code = true,
+            Event::Start(Tag::Table(_)) => has_tables = true,
+            Event::Text(text) | Event::Code(text) => {
+                if let Some(h) = &mut current_heading {
+                    h.text.push_str(&text);
+                }
+                if let Some(l) = &mut current_link {
+                    l.text.push_str(&text);
+                }
+                if in_first_paragraph && first_paragraph.len() < 200 {
+                    first_paragraph.push_str(&text);
+                    first_paragraph.push(' ');
+                }
+            }
+            _ => {}
+        }
+    }
+
+    MarkdownMetadata {
+        title,
+        headings,
+        links,
+        first_paragraph: first_paragraph.trim().to_string(),
+        has_code,
+        has_tables,
+    }
+}
+
 fn analyze_single_file(
     source_path: &str,
     file_path: &Path,
@@ -196,14 +258,34 @@ fn analyze_single_file(
 ) -> Result<Analysis> {
     let content = fs::read_to_string(file_path)?;
 
-    let title = extract_title(&content, source_path);
     let (frontmatter, clean_content) = extract_frontmatter(&content);
-    let headings = extract_headings(&clean_content);
-    let links = extract_links(&clean_content);
-    let first_paragraph = extract_first_paragraph(&clean_content);
+    let metadata = extract_markdown_metadata(&clean_content);
+
+    let title = metadata.title.unwrap_or_else(|| {
+        Path::new(source_path)
+            .file_stem()
+            .filter(|s| !s.is_empty())
+            .map_or_else(
+                || "Untitled".to_string(),
+                |s| {
+                    let s = s.to_string_lossy().replace(['-', '_'], " ");
+                    s.split_whitespace()
+                        .map(|w| {
+                            let mut chars = w.chars();
+                            match chars.next() {
+                                None => String::new(),
+                                Some(first) => {
+                                    first.to_uppercase().collect::<String>() + chars.as_str()
+                                }
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                },
+            )
+    });
+
     let word_count = clean_content.split_whitespace().count();
-    let has_code = clean_content.contains("```");
-    let has_tables = has_table(&clean_content);
 
     let category = if let Some(config) = category_config {
         let filename = Path::new(source_path)
@@ -219,59 +301,15 @@ fn analyze_single_file(
         source_path: source_path.to_string(),
         title,
         frontmatter,
-        headings,
-        links,
-        first_paragraph,
+        headings: metadata.headings,
+        links: metadata.links,
+        first_paragraph: metadata.first_paragraph,
         word_count,
-        has_code,
-        has_tables,
+        has_code: metadata.has_code,
+        has_tables: metadata.has_tables,
         category,
         content: clean_content,
     })
-}
-
-fn extract_title(content: &str, filename: &str) -> String {
-    // (?m) enables multiline mode so ^ matches start of any line, not just start of string
-    let title = Regex::new(r"(?m)^# (.+)$")
-        .ok()
-        .and_then(|h1_regex| h1_regex.captures_iter(content).next())
-        .and_then(|cap| cap.get(1))
-        .and_then(|title_match| {
-            let trimmed = title_match.as_str().trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
-        })
-        .unwrap_or_else(|| {
-            // Use filename - fallback to "untitled" if no valid stem
-            Path::new(filename)
-                .file_stem()
-                .filter(|s| !s.is_empty())
-                .map_or_else(
-                    || "untitled".to_string(),
-                    |s| {
-                        s.to_string_lossy()
-                            .to_string()
-                            .replace(['-', '_'], " ")
-                            .trim()
-                            .to_string()
-                    },
-                )
-        });
-
-    title
-        .split_whitespace()
-        .map(|s| {
-            let mut chars = s.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, String) {
@@ -281,7 +319,6 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
 
     let lines: Vec<&str> = content.lines().collect();
 
-    // Find the end of the frontmatter block
     let end_idx = lines
         .iter()
         .enumerate()
@@ -317,93 +354,6 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
     (Some(fm), remaining)
 }
 
-/// Extract headings from content using functional composition
-fn extract_headings(content: &str) -> Vec<Heading> {
-    let Ok(regex) = Regex::new(r"^(#{1,6})\s+(.+)$") else {
-        return Vec::new();
-    };
-
-    content
-        .lines()
-        .enumerate()
-        .filter_map(|(line_num, line)| {
-            regex.captures(line).and_then(|cap| {
-                // Safe extraction of level from capture group 1
-                let level_match = cap.get(1)?;
-                let text_match = cap.get(2)?;
-
-                // Safe conversion: markdown headers are 1-6 hashes, so length always fits in u32
-                let level = u32::try_from(level_match.as_str().len()).unwrap_or(1);
-
-                Some(Heading {
-                    level,
-                    text: text_match.as_str().trim().to_string(),
-                    line: line_num,
-                })
-            })
-        })
-        .collect()
-}
-
-/// Extract links from content using functional composition
-fn extract_links(content: &str) -> Vec<Link> {
-    let Ok(regex) = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)") else {
-        return Vec::new();
-    };
-
-    regex
-        .captures_iter(content)
-        .filter_map(|cap| {
-            // Safe extraction of text from capture group 1
-            let text_match = cap.get(1)?;
-            let target_match = cap.get(2)?;
-
-            let text = text_match.as_str().to_string();
-            let target = target_match.as_str().to_string();
-            let kind = if target.starts_with("http://")
-                || target.starts_with("https://")
-                || target.starts_with("mailto:")
-            {
-                LinkKind::External
-            } else {
-                LinkKind::Internal
-            };
-
-            Some(Link { text, target, kind })
-        })
-        .collect()
-}
-
-/// Extract first paragraph using functional composition with fold
-fn extract_first_paragraph(content: &str) -> String {
-    content
-        .lines()
-        .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
-        .filter(|line| !line.starts_with('>') && !line.starts_with('|'))
-        .fold(String::new(), |mut acc, line| {
-            if acc.len() < 20 {
-                acc.push_str(line);
-                acc.push(' ');
-            }
-            acc
-        })
-        .trim()
-        .pipe(|s| {
-            let char_count = s.chars().count();
-            if char_count > 200 {
-                s.chars().take(200).collect()
-            } else {
-                s.to_string()
-            }
-        })
-}
-
-fn has_table(content: &str) -> bool {
-    Regex::new(r"\|.*\|.*\|")
-        .map(|re| re.is_match(content))
-        .unwrap_or(false)
-}
-
 fn detect_category(filename: &str, content: &str) -> String {
     let fname_lower = Path::new(filename)
         .file_stem()
@@ -414,56 +364,50 @@ fn detect_category(filename: &str, content: &str) -> String {
 
     let content_lower = content.to_lowercase();
 
-    // Meta
     if matches!(
         fname_lower.as_str(),
-        "readme" | "changelog" | "contributing" | "index" | "license"
+        "readme"
+            | "changelog"
+            | "contributing"
+            | "license"
+            | "security"
+            | "code_of_conduct"
+            | "index"
     ) {
         return "meta".to_string();
     }
 
-    // Tutorial
-    if content_lower.contains("getting started")
-        || content_lower.contains("step 1")
-        || content_lower.contains("step 2")
-        || content_lower.contains("## step")
-        || Regex::new(r"^\d+\.\s+")
-            .map(|step_re| step_re.is_match(content))
-            .unwrap_or(false)
+    if content_lower.contains("tutorial")
+        || content_lower.contains("getting started")
+        || content_lower.contains("quickstart")
+        || fname_lower.contains("tutorial")
+        || fname_lower.contains("quickstart")
     {
         return "tutorial".to_string();
     }
 
-    // Ops
-    if content_lower.contains("deploy")
-        || content_lower.contains("install")
-        || content_lower.contains("troubleshoot")
-        || content_lower.contains("debug")
-        || content_lower.contains("production")
-        || content_lower.contains("monitoring")
-        || content_lower.contains("error:")
-    {
-        return "ops".to_string();
-    }
-
-    // Ref
-    if content_lower.contains("## api")
-        || content_lower.contains("## reference")
-        || content_lower.contains("## configuration")
-        || content_lower.contains("parameters:")
-        || content_lower.contains("returns:")
-        || content_lower.contains("arguments:")
+    if content_lower.contains("api")
+        || content_lower.contains("reference")
+        || content_lower.contains("function ")
+        || content_lower.contains("class ")
+        || fname_lower.contains("api")
+        || fname_lower.contains("reference")
     {
         return "ref".to_string();
     }
 
-    "concept".to_string()
-}
+    if content_lower.contains("how-to")
+        || content_lower.contains("how to")
+        || content_lower.contains("guide")
+        || content_lower.contains("deployment")
+        || fname_lower.contains("how-to")
+        || fname_lower.contains("guide")
+        || fname_lower.contains("deployment")
+    {
+        return "ops".to_string();
+    }
 
-/// Count categories using functional composition with counts
-#[must_use]
-pub fn count_categories(analyses: &[Analysis]) -> HashMap<String, usize> {
-    analyses.iter().map(|a| a.category.clone()).counts()
+    "concept".to_string()
 }
 
 #[cfg(test)]
