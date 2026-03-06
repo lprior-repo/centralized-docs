@@ -396,74 +396,74 @@ fn rewrite_links_ast(
 
 /// Ensure document has exactly one H1 heading (AST-based).
 ///
-/// Returns the content with H1 added if missing, and demotes any subsequent H1s to H2.
+/// If missing, it adds an H1 at the top.
+/// If multiple exist, it adds an H1 at the top and bumps all existing headings down one level to preserve hierarchy.
 fn ensure_h1_ast(content: &str, title: &str) -> String {
-    let events = parse_markdown(content);
     let mut h1_count: usize = 0;
+    for event in parse_markdown(content) {
+        if let Event::Start(Tag::Heading {
+            level: pulldown_cmark::HeadingLevel::H1,
+            ..
+        }) = event
+        {
+            h1_count = h1_count.saturating_add(1);
+        }
+    }
 
-    let mut transformed_events = Vec::new();
+    if h1_count == 1 {
+        return content.to_string();
+    }
+
+    let bump_level = |level: pulldown_cmark::HeadingLevel| -> pulldown_cmark::HeadingLevel {
+        match level {
+            pulldown_cmark::HeadingLevel::H1 => pulldown_cmark::HeadingLevel::H2,
+            pulldown_cmark::HeadingLevel::H2 => pulldown_cmark::HeadingLevel::H3,
+            pulldown_cmark::HeadingLevel::H3 => pulldown_cmark::HeadingLevel::H4,
+            pulldown_cmark::HeadingLevel::H4 => pulldown_cmark::HeadingLevel::H5,
+            pulldown_cmark::HeadingLevel::H5 | pulldown_cmark::HeadingLevel::H6 => {
+                pulldown_cmark::HeadingLevel::H6
+            }
+        }
+    };
+
+    let events = parse_markdown(content);
+    let mut transformed_events = vec![
+        Event::Start(Tag::Heading {
+            level: pulldown_cmark::HeadingLevel::H1,
+            id: None,
+            classes: vec![],
+            attrs: vec![],
+        }),
+        Event::Text(CowStr::from(title.to_string())),
+        Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1)),
+        Event::SoftBreak,
+        Event::SoftBreak,
+    ];
+    transformed_events.push(Event::SoftBreak);
 
     for event in events {
         match event {
             Event::Start(Tag::Heading {
-                level: pulldown_cmark::HeadingLevel::H1,
+                level,
                 id,
                 classes,
                 attrs,
-            }) => {
-                h1_count = h1_count.saturating_add(1);
-                if h1_count > 1 {
-                    transformed_events.push(Event::Start(Tag::Heading {
-                        level: pulldown_cmark::HeadingLevel::H2,
-                        id,
-                        classes,
-                        attrs,
-                    }));
-                } else {
-                    transformed_events.push(Event::Start(Tag::Heading {
-                        level: pulldown_cmark::HeadingLevel::H1,
-                        id,
-                        classes,
-                        attrs,
-                    }));
-                }
+            }) if h1_count > 1 => {
+                transformed_events.push(Event::Start(Tag::Heading {
+                    level: bump_level(level),
+                    id,
+                    classes,
+                    attrs,
+                }));
             }
-            Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1)) => {
-                if h1_count > 1 {
-                    transformed_events.push(Event::End(TagEnd::Heading(
-                        pulldown_cmark::HeadingLevel::H2,
-                    )));
-                } else {
-                    transformed_events.push(Event::End(TagEnd::Heading(
-                        pulldown_cmark::HeadingLevel::H1,
-                    )));
-                }
+            Event::End(TagEnd::Heading(level)) if h1_count > 1 => {
+                transformed_events.push(Event::End(TagEnd::Heading(bump_level(level))));
             }
             other => transformed_events.push(other),
         }
     }
 
-    if h1_count == 0 {
-        let heading_events = vec![
-            Event::Start(Tag::Heading {
-                level: pulldown_cmark::HeadingLevel::H1,
-                id: None,
-                classes: vec![],
-                attrs: vec![],
-            }),
-            Event::Text(CowStr::from(title.to_string())),
-            Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1)),
-            Event::SoftBreak,
-            Event::SoftBreak,
-        ];
-        let new_events: Vec<_> = heading_events
-            .into_iter()
-            .chain(transformed_events)
-            .collect();
-        events_to_markdown(new_events)
-    } else {
-        events_to_markdown(transformed_events)
-    }
+    events_to_markdown(transformed_events)
 }
 
 /// Check if content already has a context blockquote (AST-based)
