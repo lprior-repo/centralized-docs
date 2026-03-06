@@ -30,7 +30,10 @@ pub struct DiscoverManifest {
 /// - The source directory does not exist
 /// - The canonical path cannot be resolved
 #[allow(clippy::too_many_lines)]
-pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, DiscoverManifest)> {
+pub fn discover_files(
+    source_dir: &Path,
+    path_filter: Option<&str>,
+) -> Result<(Vec<DiscoveryFile>, DiscoverManifest)> {
     if !source_dir.exists() {
         anyhow::bail!("Source not found: {}", source_dir.display());
     }
@@ -157,6 +160,15 @@ pub fn discover_files(source_dir: &Path) -> Result<(Vec<DiscoveryFile>, Discover
                             continue;
                         }
                     };
+
+                    // Apply path filter if provided
+                    if let Some(pattern_str) = path_filter {
+                        if let Ok(regex) = regex::Regex::new(pattern_str) {
+                            if !regex.is_match(&rel_path) {
+                                continue;
+                            }
+                        }
+                    }
 
                     // Get file size, skip if metadata fails (e.g., permission denied)
                     let size = match path.metadata() {
@@ -399,7 +411,7 @@ mod tests {
         };
 
         // Discover files - should FAIL because no readable files exist
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
 
         // Clean up: restore permissions so temp dir can be removed
         let _ = fs::set_permissions(&unreadable_dir, PermissionsExt::from_mode(0o755));
@@ -451,7 +463,7 @@ mod tests {
         }
 
         // Discover files - should succeed with readable files
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
 
         assert!(
             result.is_ok(),
@@ -519,7 +531,7 @@ mod tests {
             Err(e) => panic!("Failed to create html file: {e}"),
         }
 
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
         assert!(result.is_ok());
 
         let (files, _manifest) = match result {
@@ -538,7 +550,7 @@ mod tests {
         };
         let dir_path = temp_dir.path();
 
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
         assert!(result.is_ok());
 
         let (files, manifest) = match result {
@@ -577,7 +589,7 @@ mod tests {
             Err(e) => panic!("Failed to create sub file: {e}"),
         }
 
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
         assert!(result.is_ok());
 
         let (files, _manifest) = match result {
@@ -613,7 +625,7 @@ mod tests {
         }
 
         // Test: discover_files should accept a single file path
-        let result = discover_files(&single_file);
+        let result = discover_files(&single_file, None);
         assert!(
             result.is_ok(),
             "discover_files should accept single file, got: {:?}",
@@ -654,7 +666,7 @@ mod tests {
         }
 
         // Should succeed but find no files (unsupported type)
-        let result = discover_files(&unsupported_file);
+        let result = discover_files(&unsupported_file, None);
         assert!(
             result.is_ok(),
             "discover_files should succeed even with unsupported file type"
@@ -676,7 +688,7 @@ mod tests {
     #[test]
     fn test_discover_single_file_not_found() {
         let nonexistent = PathBuf::from("/nonexistent/path/file.md");
-        let result = discover_files(&nonexistent);
+        let result = discover_files(&nonexistent, None);
 
         assert!(
             result.is_err(),
@@ -763,7 +775,7 @@ mod tests {
             Err(e) => panic!("Failed to create root file: {e}"),
         }
 
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
         assert!(result.is_ok());
 
         let (files, _manifest) = match result {
@@ -793,7 +805,7 @@ mod tests {
             Err(e) => panic!("Failed to create empty file: {e}"),
         }
 
-        let result = discover_files(&file);
+        let result = discover_files(&file, None);
         assert!(result.is_err(), "Empty single file should be rejected");
     }
 
@@ -814,7 +826,7 @@ mod tests {
             Err(e) => panic!("Failed to set file length: {e}"),
         }
 
-        let result = discover_files(&file);
+        let result = discover_files(&file, None);
         assert!(result.is_err(), "Oversized single file should be rejected");
     }
 
@@ -845,7 +857,7 @@ mod tests {
         }
 
         // Discover files - should FAIL because broken symlinks cause non-zero exit
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
         assert!(
             result.is_err(),
             "discover_files should FAIL when broken symlinks are found"
@@ -884,7 +896,7 @@ mod tests {
             }
         }
 
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
         assert!(
             result.is_ok(),
             "discover_files should succeed with valid symlinks, got: {:?}",
@@ -942,7 +954,7 @@ mod tests {
             }
         }
 
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
         assert!(
             result.is_ok(),
             "discover_files should succeed with symlink to directory, got: {:?}",
@@ -987,7 +999,7 @@ mod tests {
             let _ = symlink("/nonexistent3", dir_path.join("broken3.md"));
         }
 
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
         assert!(result.is_err(), "Should fail with multiple broken symlinks");
 
         let err_msg = result.unwrap_err().to_string();
@@ -1021,7 +1033,7 @@ mod tests {
             }
         }
 
-        let result = discover_files(dir_path);
+        let result = discover_files(dir_path, None);
         assert!(
             result.is_err(),
             "Self-referential (circular) symlink should be treated as broken"

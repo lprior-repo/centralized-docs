@@ -97,6 +97,7 @@ struct IndexConfig {
     hnsw_m: usize,
     hnsw_ef_construction: usize,
     max_document_bytes: u64,
+    path_filter: Option<String>,
 }
 
 impl Default for IndexConfig {
@@ -111,6 +112,7 @@ impl Default for IndexConfig {
             hnsw_m: 16,
             hnsw_ef_construction: 200,
             max_document_bytes: 10 * 1024 * 1024, // 10MB default
+            path_filter: None,
         }
     }
 }
@@ -608,6 +610,10 @@ enum Commands {
         /// Project name for llms.txt header
         #[arg(long)]
         project_name: Option<String>,
+
+        /// Regex pattern to filter file paths (e.g. '^docs/en/' to only index English docs)
+        #[arg(short, long, value_name = "REGEX")]
+        filter: Option<String>,
     },
 
     /// Index local markdown files into AI-optimized structure
@@ -850,6 +856,7 @@ async fn main() -> Result<()> {
                 hnsw_m,
                 hnsw_ef_construction,
                 max_document_bytes: max_document_bytes.unwrap_or(10 * 1024 * 1024),
+                path_filter: None, // Standard index doesn't have path filtering yet
             };
             run_index(&source, &output, &config)
         }
@@ -860,6 +867,7 @@ async fn main() -> Result<()> {
             branch,
             depth: _,
             project_name,
+            filter,
         }) => {
             // Git ingestion using git2 with functional principles
             let temp_dir = output.join(".git-clone");
@@ -919,6 +927,7 @@ async fn main() -> Result<()> {
                         .unwrap_or_else(|| "Documentation".to_string())
                 }),
                 project_desc: format!("Documentation cloned from {repo_url}"),
+                path_filter: filter,
                 ..Default::default()
             };
 
@@ -1561,7 +1570,8 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
 
     // STEP 1: DISCOVER
     println!("[STEP 1] DISCOVER");
-    let (files, discover_manifest) = discover::discover_files(source)?;
+    let (files, discover_manifest) =
+        discover::discover_files(source, config.path_filter.as_deref())?;
     println!("  Found {} files\n", files.len());
 
     // Exit with error if no markdown files found (user error - exit code 1)
