@@ -1584,16 +1584,14 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
         config.category_config.as_deref(),
     )?;
 
-    // Report failed files if any - this is an error condition
+    // Report failed files as warnings instead of failing the entire build
     if !analyze_result.failed_files.is_empty() {
-        // Collect error messages for comprehensive error reporting
-        let error_summary = analyze_result
-            .failed_files
-            .iter()
-            .map(|f| format!("{}: {}", f.source_path, f.error))
-            .collect::<Vec<_>>()
-            .join("; ");
-        anyhow::bail!("analysis failed: {}", error_summary);
+        for failed_file in &analyze_result.failed_files {
+            eprintln!(
+                "Warning: Failed to analyze {}: {}",
+                failed_file.source_path, failed_file.error
+            );
+        }
     }
 
     let analyses = analyze_result.analyses;
