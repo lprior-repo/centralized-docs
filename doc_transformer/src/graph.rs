@@ -239,14 +239,10 @@ impl KnowledgeDAG {
                 return; // Already visited
             }
 
-            // Find edges from this node that match the allowed edge types
-            for edge in self
-                .edges_vec
-                .iter()
-                .filter(|e| e.from == node.id && edge_types.contains(&e.edge_type))
-            {
-                if let Some(&target_idx) = self.node_map.get(&edge.to) {
-                    self.dfs_reachable_with_edge_types(target_idx, edge_types, visited);
+            // Find edges from this node that match the allowed edge types in O(E_node)
+            for edge in self.graph.edges(idx) {
+                if edge_types.contains(&edge.weight().edge_type) {
+                    self.dfs_reachable_with_edge_types(edge.target(), edge_types, visited);
                 }
             }
         }

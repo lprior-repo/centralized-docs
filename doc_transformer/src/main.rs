@@ -865,7 +865,7 @@ async fn main() -> Result<()> {
             repo_url,
             output,
             branch,
-            depth: _,
+            depth: _, // git2-rs doesn't easily support shallow clones natively
             project_name,
             filter,
         }) => {
@@ -879,7 +879,7 @@ async fn main() -> Result<()> {
                 println!("[GIT CLONE] Existing .git directory detected");
                 println!("  Checking for markdown files...");
             } else {
-                println!("[GIT CLONE] Cloning repository...");
+                println!("[GIT CLONE] Cloning repository (full depth)...");
 
                 // Build repo builder with branch configuration
                 let mut builder = git2::build::RepoBuilder::new();
@@ -931,7 +931,15 @@ async fn main() -> Result<()> {
                 ..Default::default()
             };
 
-            run_index(&temp_dir, &output, &index_config)?;
+            let index_result = run_index(&temp_dir, &output, &index_config);
+
+            // Clean up massive git clone directory to save disk space
+            if temp_dir.exists() {
+                println!("[CLEANUP] Removing temporary clone directory...");
+                let _ = std::fs::remove_dir_all(&temp_dir);
+            }
+
+            index_result?;
 
             println!();
             println!("{}", "=".repeat(70));

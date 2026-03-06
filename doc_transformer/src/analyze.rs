@@ -366,7 +366,12 @@ fn detect_category(filename: &str, content: &str) -> String {
         .to_string_lossy()
         .to_lowercase();
 
-    let content_lower = content.to_lowercase();
+    // Prevent massive memory allocation on large files by only checking the first ~5000 chars
+    let content_lower: String = content
+        .chars()
+        .take(5000)
+        .flat_map(|c| c.to_lowercase())
+        .collect();
 
     if matches!(
         fname_lower.as_str(),
