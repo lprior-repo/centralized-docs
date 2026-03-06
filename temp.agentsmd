@@ -1,0 +1,64 @@
+# Developer & Agent Instructions
+
+## 0. THE PRIME DIRECTIVE (SCIENTIFIC RIGOR & HONESTY)
+*   **SKEPTICISM OVER PLEASING**: You are not here to make the user happy. You are here to write scientifically correct, accurate, and rigorous code. Be skeptical and critical towards the user and the code you write at all times.
+*   **NEVER LIE. NEVER HALLUCINATE.** If you do not know something, or if a command fails, you MUST state explicitly that you are unsure or blocked. 
+*   **Extreme Engineering Rigor**: All orders below are absolutely mandatory. You will not deviate ever.
+
+## 1. Core Engineering Rules & Development Lifecycle
+
+*These are absolute guarantees. The system MUST ALWAYS do these and MUST NEVER violate them.*
+
+```jsonl
+{"rule": "SCIENTIFIC_RIGOR", "mandatory": true, "description": "Do not aim to please. Write scientifically correct code. Be highly critical of the user and yourself. Never lie or hallucinate."}
+{"rule": "CODEBASE_LOCATION", "mandatory": true, "description": "Code lives in the current working directory."}
+{"rule": "WORKSPACE_ISOLATION", "mandatory": true, "description": "Git is BANNED. ALWAYS use Jujutsu (`jj new`) for isolation. NEVER run `git` commands."}
+{"rule": "DESTRUCTIVE_OPS_BANNED", "mandatory": true, "description": "`rm -rf`, `git reset --hard`, and `git rebase --hard` are STRICTLY BANNED. You MUST ask explicitly before any destructive operation."}
+{"rule": "DDD_ARCHITECTURE", "mandatory": true, "description": "Use Domain-Driven Design. Invoke `scott-ddd-refactor` skill. Make illegal states unrepresentable."}
+{"rule": "RUST_CONTRACTS", "mandatory": true, "description": "ALWAYS invoke `rust-contract` BEFORE coding to specify preconditions, postconditions, and errors."}
+{"rule": "FUNCTIONAL_RUST", "mandatory": true, "description": "Invoke `functional-rust-generator`. Data->Calc->Actions. Zero panics/unwrap/mut. Extreme DRY."}
+{"rule": "COMBATIVE_TESTING", "mandatory": true, "description": "Invoke `red-queen` & `qa-enforcer`. Drive adversarial tests into every change. Execute dynamically."}
+{"rule": "TOOLING", "mandatory": true, "description": "Raw Cargo commands and Clippy are STRICTLY BANNED. ALWAYS use `moon` CICD commands (e.g., `moon run :ci`). Flawless source, test code quality is irrelevant."}
+{"rule": "NO_MIGRATIONS", "mandatory": true, "description": "Migrations don't exist. Use idempotent schema initialization (IF NOT EXISTS)."}
+{"rule": "ISSUE_TRACKING", "mandatory": true, "description": "Use `bd` exclusively. No markdown TODOs. Invoke `planner` skill to create/decompose new beads via CUE schema."}
+{"rule": "GO_SKILL_WORKFLOW", "mandatory": true, "description": "When picking up a bead, ALWAYS invoke `go-skill` to execute the full BRCLI-first lifecycle: pick bead, isolate, implement, QA, CI, rebase, PR, cleanup."}
+{"rule": "LANDING_SKILL", "mandatory": true, "description": "When ending a session, ALWAYS invoke `landing-skill` to audit, file beads, run quality gates, rebase onto main, verify, close beads, and cleanup workspaces."}
+
+{"phase": "1_RESEARCH", "transition_condition": "Understand constraints and DDD context skeptically."}
+{"phase": "2_PLAN", "transition_condition": "Draft deterministic plan. Decompose via `planner` skill if creating beads."}
+{"phase": "3_CONTRACT_REVIEW", "transition_condition": "Invoke `rust-contract`. Output contract-spec.md and martin-fowler-tests.md."}
+{"phase": "4_IMPLEMENTATION", "transition_condition": "Isolate via `jj new`. Invoke `functional-rust-generator` and `scott-ddd-refactor`. TDD."}
+{"phase": "5_VERIFICATION", "transition_condition": "Verify against contract spec using `moon`."}
+{"phase": "6_QA_ENFORCEMENT", "transition_condition": "Invoke `qa-enforcer` & `red-queen`. Break boundaries. Fix all found issues."}
+{"phase": "7_MOON_CICD", "transition_condition": "Execute 100% `moon` CICD run. Must pass flawlessly. NEVER run cargo directly."}
+{"phase": "8_LANDING", "transition_condition": "Push to main via `jj git fetch && jj rebase -d main && bd sync && jj git push` IF AND ONLY IF healthy."}
+```
+
+## 2. Functional Rust & DDD (Deep Doctrine)
+*   **Functional Core, Imperative Shell**: Data (inert enums/structs) -> Calculations (pure functions returning `Result`) -> Actions (minimal I/O at the absolute boundaries).
+*   **Zero Panics Law**: `unwrap`, `expect`, and `panic!` are STRICTLY FORBIDDEN. Handle all errors explicitly.
+*   **Functional Primitives**: No `mut`. No `for`/`while` loops. Rely entirely on `itertools`, `tap`, and persistent data structures (`im`, `rpds`). 
+*   **EXTREME DRY**: Never repeat logic. Extract, modularize, and reuse strictly.
+
+## 3. Issue Tracking (Beads & Planner)
+*   **Execution**: Find work (`bd ready`), claim (`bd update <id> --claim`), and close (`bd close <id> --reason "Done"`).
+*   **Decomposition**: If you need to create NEW issues or decompose work, you MUST invoke the `planner` skill and follow its state machine to generate properly validated CUE schema beads.
+*   **Bead Workflow**: When picking up a bead, ALWAYS invoke `go-skill` to execute the full lifecycle end-to-end.
+
+## 4. Execution Rules
+*   **Destructive Operations**: `rm -rf` is completely banned. `git reset --hard` and `git rebase --hard` are completely banned. You MUST explicitly ask the user for permission before deleting files or abandoning state.
+*   **Non-Interactive**: Aside from asking permission for destructive ops, use flags to prevent hanging on standard terminal prompts.
+
+## 5. Verification Commands (JSONL)
+
+```jsonl
+{"cmd": "bd --version", "expect": "version output"}
+{"cmd": "bd doctor | grep -E 'passed|failed'", "expect": "passed or failed status"}
+{"cmd": "curl -sf http://127.0.0.1:909/restate/health", "expect": "healthy response"}
+{"cmd": "ps aux | grep 'oya serve' | grep -v grep", "expect": "oya serve process running"}
+{"cmd": "curl -sf http://127.0.0.1:9180/restate/health", "expect": "oya service healthy"}
+{"cmd": "bd create 'test bead' --type feature --priority 1 --json", "expect": "bead id in JSON"}
+{"cmd": "bd update <id> --claim", "expect": "claim success"}
+{"cmd": "./target/release/oya lifecycle --bead <id> --repo <repo>", "expect": "lifecycle started"}
+{"cmd": "curl -s http://127.0.0.1:909/OyaService/get_lifecycle -H 'Content-Type: application/json' -d '{\"key\":\"<id>\"}'", "expect": "lifecycle status JSON"}
+```
