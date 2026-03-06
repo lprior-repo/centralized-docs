@@ -25,6 +25,7 @@ pub struct IndexDocument {
     pub word_count: usize,
     pub chunk_ids: Vec<String>,
     pub headings: Vec<String>,
+    pub content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -168,6 +169,7 @@ fn build_document_index<S: std::hash::BuildHasher>(
                 word_count: analysis.word_count,
                 chunk_ids,
                 headings: analysis.headings.iter().map(|h| h.text.clone()).collect(),
+                content: analysis.content.clone(),
             }
         })
         .collect();
@@ -1004,6 +1006,7 @@ mod tests {
                         "Content".to_string(),
                         "Conclusion".to_string(),
                     ],
+                    content: "This is test content.".to_string(),
                 }
             })
             .collect()
@@ -1120,6 +1123,7 @@ mod tests {
                 word_count: 100,
                 chunk_ids: vec![],
                 headings: vec!["Heading".to_string()],
+                content: format!("Content for document {i}"),
             })
             .collect();
 
@@ -1766,6 +1770,7 @@ mod tests {
             word_count: 100,
             chunk_ids: vec!["chunk_0".to_string(), "chunk_1".to_string()],
             headings: vec!["Rust Ownership".to_string(), "Rust Borrowing".to_string()],
+            content: "Rust ownership and borrowing content.".to_string(),
         }];
 
         // Both chunks share the same tags, so HNSW will find them mutually similar

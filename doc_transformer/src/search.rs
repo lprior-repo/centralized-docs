@@ -167,6 +167,7 @@ pub fn rebuild_index_from_json(index_path: &Path) -> Result<Index> {
                         .collect()
                 })
                 .unwrap_or_default();
+            let content = doc["content"].as_str().unwrap_or("").to_string();
 
             Some(crate::index::IndexDocument {
                 id: id.to_string(),
@@ -178,6 +179,7 @@ pub fn rebuild_index_from_json(index_path: &Path) -> Result<Index> {
                 word_count,
                 chunk_ids,
                 headings,
+                content,
             })
         })
         .collect();
@@ -325,6 +327,29 @@ pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument
     Ok(())
 }
 
+/// Escape wildcard characters that would create unintended wildcard queries.
+///
+/// Only escapes `*` and `?` which would match arbitrary characters.
+/// Other special characters (quotes, parentheses, etc.) are left unescaped
+/// so that invalid queries still produce helpful error messages.
+fn escape_tantivy_query(query: &str) -> String {
+    let mut escaped = String::with_capacity(query.len().saturating_mul(2));
+
+    for ch in query.chars() {
+        match ch {
+            // Only escape wildcard characters to prevent unintended matches
+            '*' | '?' => {
+                escaped.push('\\');
+                escaped.push(ch);
+            }
+            // Keep other characters as-is (allows parse errors for invalid syntax)
+            _ => escaped.push(ch),
+        }
+    }
+
+    escaped
+}
+
 /// Search the Tantivy index
 ///
 /// ## Query Syntax
@@ -366,6 +391,10 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
     // Validate limit to prevent Tantivy panic (must be > 0)
     let limit = crate::validate::validate_limit(&limit.to_string()).map_err(|e| anyhow!("{e}"))?;
 
+    // Escape special characters that have meaning in Tantivy query syntax
+    // This prevents wildcard queries and other unintended query parsing
+    let escaped_query = escape_tantivy_query(query_str);
+
     // Get reader for searching
     let reader = index.reader()?;
     let searcher = reader.searcher();
@@ -373,7 +402,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
     // Parse query
     let query_parser = QueryParser::for_index(index, vec![fields.content]);
     let query = query_parser
-        .parse_query(query_str)
+        .parse_query(&escaped_query)
         .map_err(|e| anyhow!("Invalid query: {e}"))?;
 
     // Execute search and get top results
@@ -426,8 +455,11 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
 
                 let score = tantivy_score;
 
-                // Only include results with positive scores (filter out non-matches and negative zeros)
-                if score <= 0.0 {
+                // Filter out non-matches with very low scores
+                // BM25 scores can be positive but very small for partial matches
+                // We use 0.001 as minimum threshold to ensure meaningful results
+                const MIN_SCORE_THRESHOLD: f32 = 0.001;
+                if score <= MIN_SCORE_THRESHOLD {
                     return Ok(None);
                 }
 

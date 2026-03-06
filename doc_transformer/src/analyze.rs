@@ -77,14 +77,13 @@ impl std::ops::Deref for AnalyzeResult {
     }
 }
 
+#[must_use]
 pub fn count_categories(analyses: &[Analysis]) -> HashMap<String, usize> {
-    analyses
-        .iter()
-        .fold(HashMap::new(), |mut acc, analysis| {
-            *acc.entry(analysis.category.clone()).or_insert(0) =
-                acc.get(&analysis.category).unwrap_or(&0).saturating_add(1);
-            acc
-        })
+    analyses.iter().fold(HashMap::new(), |mut acc, analysis| {
+        *acc.entry(analysis.category.clone()).or_insert(0) =
+            acc.get(&analysis.category).unwrap_or(&0).saturating_add(1);
+        acc
+    })
 }
 
 pub fn analyze_files(
@@ -154,7 +153,11 @@ fn extract_markdown_metadata(content: &str) -> MarkdownMetadata {
     let mut has_tables = false;
 
     let line_starts: Vec<usize> = std::iter::once(0)
-        .chain(content.match_indices('\n').map(|(i, _)| i.saturating_add(1)))
+        .chain(
+            content
+                .match_indices('\n')
+                .map(|(i, _)| i.saturating_add(1)),
+        )
         .collect();
 
     let parser = Parser::new(content).into_offset_iter();
