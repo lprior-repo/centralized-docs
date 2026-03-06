@@ -42,6 +42,7 @@ Clone and index Git-hosted documentation.
 - `--branch <BRANCH>`: Git branch to checkout (default: main).
 - `--depth <N>`: Clone depth (0 = full, 1 = shallow/faster, default: 1).
 - `--project-name <NAME>`: Project name for llms.txt header.
+- `--filter`, `-f <REGEX>`: Regex pattern to filter file paths (e.g. `^docs/en/` to only index English docs and exclude translations).
 
 #### `index`
 Index local markdown files into an AI-optimized structure.
