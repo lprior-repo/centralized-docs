@@ -214,22 +214,24 @@ fn build_document_index<S: std::hash::BuildHasher>(
 /// This is a pure data transformation - no I/O performed.
 fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Result<Vec<ChunkMetadata>> {
     // Check for duplicate chunk_ids (BEAD-012 fix)
-    let mut seen_ids = std::collections::HashSet::new();
-    for chunk in chunks {
-        if !seen_ids.insert(&chunk.chunk_id) {
-            anyhow::bail!("Duplicate chunk_id found: {}", chunk.chunk_id);
-        }
-    }
+    chunks
+        .iter()
+        .try_fold(std::collections::HashSet::new(), |mut seen_ids, chunk| {
+            if !seen_ids.insert(&chunk.chunk_id) {
+                anyhow::bail!("Duplicate chunk_id found: {}", chunk.chunk_id);
+            }
+            Ok(seen_ids)
+        })?;
 
-    let mut siblings_map: HashMap<String, Vec<String>> = HashMap::new();
-
-    for chunk in chunks {
-        let key = format!("{}::{}", chunk.doc_id, chunk.chunk_level.as_str());
-        siblings_map
-            .entry(key)
-            .or_default()
-            .push(chunk.chunk_id.clone());
-    }
+    let siblings_map: HashMap<String, Vec<String>> = chunks
+        .iter()
+        .map(|chunk| {
+            (
+                format!("{}::{}", chunk.doc_id, chunk.chunk_level.as_str()),
+                chunk.chunk_id.clone(),
+            )
+        })
+        .into_group_map();
 
     Ok(chunks
         .iter()
@@ -323,19 +325,21 @@ struct GraphAnalytics {
 fn compute_graph_analytics(dag: &KnowledgeDAG, documents: &[IndexDocument]) -> GraphAnalytics {
     let topo_order = dag.topological_order();
 
-    let mut reachability: HashMap<String, Vec<String>> = HashMap::new();
-    let mut node_importance: HashMap<String, f32> = HashMap::new();
+    let (reachability, node_importance): (HashMap<String, Vec<String>>, HashMap<String, f32>) =
+        documents
+            .iter()
+            .map(|doc| {
+                let reachable = dag.reachable_from(&doc.id);
+                let mut reachable_list: Vec<String> =
+                    reachable.into_iter().filter(|id| id != &doc.id).collect();
+                reachable_list.sort();
 
-    for doc in documents {
-        let reachable = dag.reachable_from(&doc.id);
-        let mut reachable_list: Vec<String> =
-            reachable.into_iter().filter(|id| id != &doc.id).collect();
-        reachable_list.sort();
-        reachability.insert(doc.id.clone(), reachable_list);
-
-        // Compute node importance (sum of outgoing edge weights)
-        node_importance.insert(doc.id.clone(), dag.node_importance(&doc.id));
-    }
+                (
+                    (doc.id.clone(), reachable_list),
+                    (doc.id.clone(), dag.node_importance(&doc.id)),
+                )
+            })
+            .unzip();
 
     GraphAnalytics {
         topo_order,
@@ -455,37 +459,41 @@ pub fn build_and_write_compass<S: std::hash::BuildHasher>(
         })
         .into_group_map();
 
+    use std::fmt::Write as _;
     let mut compass = String::new();
-    compass.push_str("# Documentation Compass\n\n");
-    compass.push_str(&format!("> **{} documents**\n\n", analyses.len()));
+    let _ = write!(
+        compass,
+        "# Documentation Compass\n\n> **{} documents**\n\n",
+        analyses.len()
+    );
 
     // By category
-    for category in &["tutorial", "concept", "ref", "ops", "meta"] {
-        if let Some(docs) = by_category.get(*category) {
-            compass.push_str("## ");
-            compass.push_str(&category.to_uppercase());
-            compass.push_str("\n\n");
-            for (title, filename, tags) in docs.iter().take(5) {
-                let tag_str = tags
-                    .iter()
-                    .take(2)
-                    .map(|t| format!("`{t}`"))
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                compass.push_str("- [");
-                compass.push_str(title);
-                compass.push_str("](./docs/");
-                compass.push_str(filename);
-                compass.push_str(") ");
-                compass.push_str(&tag_str);
+    let compass_content = ["tutorial", "concept", "ref", "ops", "meta"]
+        .into_iter()
+        .fold(compass, |mut compass, category| {
+            if let Some(docs) = by_category.get(category) {
+                let _ = write!(compass, "## {}\n\n", category.to_uppercase());
+                let section_docs: String =
+                    docs.iter()
+                        .take(5)
+                        .fold(String::new(), |mut s, (title, filename, tags)| {
+                            let tag_str = tags
+                                .iter()
+                                .take(2)
+                                .map(|t| format!("`{t}`"))
+                                .collect::<Vec<_>>()
+                                .join(" ");
+                            let _ = writeln!(s, "- [{title}](./docs/{filename}) {tag_str}");
+                            s
+                        });
+                compass.push_str(&section_docs);
                 compass.push('\n');
             }
-            compass.push('\n');
-        }
-    }
+            compass
+        });
 
     let compass_file = output_dir.join("COMPASS.md");
-    fs::write(compass_file, compass)?;
+    fs::write(compass_file, compass_content)?;
 
     Ok(())
 }
@@ -553,30 +561,24 @@ fn build_vocabulary(
     chunks: &[Chunk],
     max_chunk_keywords: usize,
 ) -> Result<HashMap<String, usize>> {
-    let mut all_terms: Vec<String> = Vec::new();
-
-    // Collect categories
-    for (_, _, category) in document_tags {
-        if !category.is_empty() {
-            all_terms.push(category.clone());
-        }
-    }
-
-    // Collect tags
-    for (_, tags, _) in document_tags {
-        for tag in tags {
-            if !tag.is_empty() {
-                all_terms.push(tag.clone());
-            }
-        }
-    }
-
-    // Collect chunk keywords
-    for chunk in chunks {
-        for (keyword, _) in chunk_terms(chunk, max_chunk_keywords) {
-            all_terms.push(keyword);
-        }
-    }
+    // Collect terms using a functional pipeline
+    let all_terms: Vec<String> = document_tags
+        .iter()
+        .flat_map(|(_, _, category)| std::iter::once(category.clone()).filter(|c| !c.is_empty()))
+        .chain(
+            document_tags
+                .iter()
+                .flat_map(|(_, tags, _)| tags.iter())
+                .filter(|&t| !t.is_empty())
+                .cloned(),
+        )
+        .chain(
+            chunks
+                .iter()
+                .flat_map(|chunk| chunk_terms(chunk, max_chunk_keywords))
+                .map(|(keyword, _)| keyword),
+        )
+        .collect();
 
     // Deduplicate and assign indices using functional pattern
     let vocab: HashMap<String, usize> = all_terms
@@ -694,7 +696,7 @@ pub fn build_knowledge_dag(
     let mut dag = KnowledgeDAG::new();
 
     // Add document nodes
-    for doc in documents {
+    documents.iter().fold((), |(), doc| {
         let node = GraphNode {
             id: doc.id.clone(),
             node_type: NodeType::Document,
@@ -702,10 +704,10 @@ pub fn build_knowledge_dag(
             category: Some(doc.category.clone()),
         };
         dag.add_node(node);
-    }
+    });
 
     // Add chunk nodes
-    for chunk in chunks {
+    chunks.iter().fold((), |(), chunk| {
         let node = GraphNode {
             id: chunk.chunk_id.clone(),
             node_type: NodeType::Chunk,
@@ -717,10 +719,10 @@ pub fn build_knowledge_dag(
             category: None,
         };
         dag.add_node(node);
-    }
+    });
 
     // Add parent-child edges (document -> chunks)
-    for chunk in chunks {
+    chunks.iter().fold((), |(), chunk| {
         let edge = GraphEdge {
             from: chunk.doc_id.clone(),
             to: chunk.chunk_id.clone(),
@@ -728,10 +730,10 @@ pub fn build_knowledge_dag(
             weight: 1.0,
         };
         dag.add_edge(edge);
-    }
+    });
 
     // Add sequential edges (previous -> next chunks)
-    for chunk in chunks {
+    chunks.iter().fold((), |(), chunk| {
         if let Some(next_id) = &chunk.next_chunk_id {
             let edge = GraphEdge {
                 from: chunk.chunk_id.clone(),
@@ -741,7 +743,7 @@ pub fn build_knowledge_dag(
             };
             dag.add_edge(edge);
         }
-    }
+    });
 
     // Detect and add related chunk edges using HNSW (O(n log n) instead of O(n²))
     let max_related = max_related_chunks.unwrap_or(5);
@@ -795,7 +797,7 @@ pub fn build_knowledge_dag(
                     std::collections::HashSet::new();
 
                 // Query top-k neighbors for each chunk
-                for (i, chunk) in chunks.iter().enumerate() {
+                chunks.iter().enumerate().fold((), |(), (i, chunk)| {
                     let (chunk_tags, chunk_category) = &chunk_terms_list[i];
 
                     let query_embedding = generate_embedding_from_terms(
@@ -809,59 +811,60 @@ pub fn build_knowledge_dag(
                     if let Ok(neighbors) =
                         query_neighbors(&index, &query_embedding, max_related.saturating_add(1))
                     {
-                        let mut added_edges: usize = 0;
-                        for (neighbor_idx, similarity) in neighbors {
-                            // Skip self-edges and low-similarity matches
-                            // Explicit bounds check to prevent panic on malformed HNSW indices
-                            if neighbor_idx != i
-                                && neighbor_idx < chunks.len()
-                                && similarity >= SIMILARITY_THRESHOLD
-                                && added_edges < max_related
-                            {
-                                let from_id = chunk.chunk_id.clone();
-                                let to_id = chunks[neighbor_idx].chunk_id.clone();
+                        let _ = neighbors.into_iter().fold(
+                            0,
+                            |mut added_edges, (neighbor_idx, similarity)| {
+                                // Skip self-edges and low-similarity matches
+                                // Explicit bounds check to prevent panic on malformed HNSW indices
+                                if neighbor_idx != i
+                                    && neighbor_idx < chunks.len()
+                                    && similarity >= SIMILARITY_THRESHOLD
+                                    && added_edges < max_related
+                                {
+                                    let from_id = chunk.chunk_id.clone();
+                                    let to_id = chunks[neighbor_idx].chunk_id.clone();
 
-                                // Check if reverse edge already exists (prevents bidirectional edges)
-                                // This ensures the graph remains acyclic
-                                let reverse_exists = existing_related_edges
-                                    .contains(&(to_id.clone(), from_id.clone()));
+                                    // Check if reverse edge already exists (prevents bidirectional edges)
+                                    // This ensures the graph remains acyclic
+                                    let reverse_exists = existing_related_edges
+                                        .contains(&(to_id.clone(), from_id.clone()));
 
-                                if !reverse_exists {
-                                    // Check if adding this edge would create a cycle via any edge type
-                                    // Must include Related to prevent cycles like A->B->C->A through related edges
-                                    let would_cycle = dag.would_create_cycle_with_edge_types(
-                                        &from_id,
-                                        &to_id,
-                                        &[
-                                            EdgeType::Sequential,
-                                            EdgeType::Parent,
-                                            EdgeType::Related,
-                                        ],
-                                    );
+                                    if !reverse_exists {
+                                        // Check if adding this edge would create a cycle via any edge type
+                                        // Must include Related to prevent cycles like A->B->C->A through related edges
+                                        let would_cycle = dag.would_create_cycle_with_edge_types(
+                                            &from_id,
+                                            &to_id,
+                                            &[
+                                                EdgeType::Sequential,
+                                                EdgeType::Parent,
+                                                EdgeType::Related,
+                                            ],
+                                        );
 
-                                    if would_cycle {
-                                        // Skip this edge to prevent cycle
-                                        continue;
+                                        if !would_cycle {
+                                            // Track this edge to prevent reverse edge later
+                                            // Must track BEFORE adding edge since from_id/to_id get moved
+                                            existing_related_edges
+                                                .insert((from_id.clone(), to_id.clone()));
+
+                                            let edge = GraphEdge {
+                                                from: from_id,
+                                                to: to_id,
+                                                edge_type: EdgeType::Related,
+                                                weight: similarity,
+                                            };
+                                            dag.add_edge(edge);
+
+                                            added_edges = added_edges.saturating_add(1);
+                                        }
                                     }
-
-                                    // Track this edge to prevent reverse edge later
-                                    // Must track BEFORE adding edge since from_id/to_id get moved
-                                    existing_related_edges.insert((from_id.clone(), to_id.clone()));
-
-                                    let edge = GraphEdge {
-                                        from: from_id,
-                                        to: to_id,
-                                        edge_type: EdgeType::Related,
-                                        weight: similarity,
-                                    };
-                                    dag.add_edge(edge);
-
-                                    added_edges = added_edges.saturating_add(1);
                                 }
-                            }
-                        }
+                                added_edges
+                            },
+                        );
                     }
-                }
+                });
             }
             Err(e) => {
                 // HNSW index build failed - skip related edges

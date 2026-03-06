@@ -109,86 +109,36 @@ pub fn generate_llms_txt<S: BuildHasher>(
         })
         .into_group_map();
 
-    // Smart section detection: only include sections with documents
-    let has_tutorials = by_category.get("tutorial").is_some_and(|v| !v.is_empty());
-    let has_concepts = by_category.get("concept").is_some_and(|v| !v.is_empty());
-    let has_refs = by_category.get("ref").is_some_and(|v| !v.is_empty());
-    let has_ops = by_category.get("ops").is_some_and(|v| !v.is_empty());
-    let has_meta = by_category.get("meta").is_some_and(|v| !v.is_empty());
-
-    // Getting Started (tutorials) - only if documents exist
-    if has_tutorials {
-        if let Some(tutorials) = by_category.get("tutorial") {
-            content.push_str("## Getting Started\n\n");
-            for (analysis, mapping) in tutorials.iter().take(config.max_per_category) {
-                let desc = truncate_summary(&analysis.first_paragraph, 60);
-                content.push_str(&format!(
-                    "- [{}](./docs/{}): {}\n",
-                    analysis.title, mapping.filename, desc
-                ));
+    let mut append_section = |title: &str, category: &str, include_desc: bool| {
+        if let Some(items) = by_category.get(category) {
+            if !items.is_empty() {
+                content.push_str(&format!("## {title}\n\n"));
+                let section_content: String = items
+                    .iter()
+                    .take(config.max_per_category)
+                    .map(|(analysis, mapping)| {
+                        if include_desc {
+                            let desc = truncate_summary(&analysis.first_paragraph, 60);
+                            format!(
+                                "- [{}](./docs/{}): {desc}\n",
+                                analysis.title, mapping.filename
+                            )
+                        } else {
+                            format!("- [{}](./docs/{})\n", analysis.title, mapping.filename)
+                        }
+                    })
+                    .collect();
+                content.push_str(&section_content);
+                content.push('\n');
             }
-            content.push('\n');
         }
-    }
+    };
 
-    // Core Concepts - only if documents exist
-    if has_concepts {
-        if let Some(concepts) = by_category.get("concept") {
-            content.push_str("## Core Concepts\n\n");
-            for (analysis, mapping) in concepts.iter().take(config.max_per_category) {
-                let desc = truncate_summary(&analysis.first_paragraph, 60);
-                content.push_str(&format!(
-                    "- [{}](./docs/{}): {}\n",
-                    analysis.title, mapping.filename, desc
-                ));
-            }
-            content.push('\n');
-        }
-    }
-
-    // API Reference - only if documents exist
-    if has_refs {
-        if let Some(refs) = by_category.get("ref") {
-            content.push_str("## API Reference\n\n");
-            for (analysis, mapping) in refs.iter().take(config.max_per_category) {
-                let desc = truncate_summary(&analysis.first_paragraph, 60);
-                content.push_str(&format!(
-                    "- [{}](./docs/{}): {}\n",
-                    analysis.title, mapping.filename, desc
-                ));
-            }
-            content.push('\n');
-        }
-    }
-
-    // Operations - only if documents exist
-    if has_ops {
-        if let Some(ops) = by_category.get("ops") {
-            content.push_str("## Operations\n\n");
-            for (analysis, mapping) in ops.iter().take(config.max_per_category) {
-                let desc = truncate_summary(&analysis.first_paragraph, 60);
-                content.push_str(&format!(
-                    "- [{}](./docs/{}): {}\n",
-                    analysis.title, mapping.filename, desc
-                ));
-            }
-            content.push('\n');
-        }
-    }
-
-    // Optional section (meta) - only if documents exist
-    if has_meta {
-        if let Some(meta) = by_category.get("meta") {
-            content.push_str("## Optional\n\n");
-            for (analysis, mapping) in meta.iter().take(config.max_per_category) {
-                content.push_str(&format!(
-                    "- [{}](./docs/{})\n",
-                    analysis.title, mapping.filename
-                ));
-            }
-            content.push('\n');
-        }
-    }
+    append_section("Getting Started", "tutorial", true);
+    append_section("Core Concepts", "concept", true);
+    append_section("API Reference", "ref", true);
+    append_section("Operations", "ops", true);
+    append_section("Optional", "meta", false);
 
     // Machine-readable index reference
     content.push_str("## Machine-Readable Index\n\n");
@@ -236,30 +186,25 @@ pub fn generate_llms_full_txt<S: BuildHasher>(
         })
         .collect_vec();
 
-    for (analysis, mapping) in sorted {
-        // Document header
-        content.push_str(&format!(
-            "## {} [{}]\n\n",
-            analysis.title, analysis.category
-        ));
-        content.push_str(&format!("**Path**: docs/{}\n", mapping.filename));
-        content.push_str(&format!("**ID**: {}\n\n", mapping.id));
+    use std::fmt::Write as _;
+    let full_content: String =
+        sorted
+            .into_iter()
+            .fold(String::new(), |mut s, (analysis, mapping)| {
+                let doc_path = docs_dir.join(&mapping.filename);
+                let body = fs::read_to_string(&doc_path)
+                    .map(|content| skip_frontmatter(&content).to_string())
+                    .unwrap_or_else(|_| analysis.first_paragraph.clone());
 
-        // Read and include document content
-        let doc_path = docs_dir.join(&mapping.filename);
-        if let Ok(doc_content) = fs::read_to_string(&doc_path) {
-            // Skip frontmatter if present
-            let body = skip_frontmatter(&doc_content);
-            content.push_str(body);
-            content.push_str("\n\n");
-        } else {
-            // Fall back to summary if file not found
-            content.push_str(&analysis.first_paragraph);
-            content.push_str("\n\n");
-        }
+                let _ = write!(
+                    s,
+                    "## {} [{}]\n\n**Path**: docs/{}\n**ID**: {}\n\n{}\n\n---\n\n",
+                    analysis.title, analysis.category, mapping.filename, mapping.id, body
+                );
+                s
+            });
 
-        content.push_str("---\n\n");
-    }
+    content.push_str(&full_content);
 
     fs::write(output_dir.join("llms-full.txt"), content)?;
 
@@ -365,9 +310,15 @@ pub fn generate_agents_md<S: BuildHasher>(
         .collect();
 
     content.push_str("### Document Categories\n\n");
-    for (cat, count) in &categories {
-        content.push_str(&format!("- **{cat}**: {count} documents\n"));
-    }
+    use std::fmt::Write as _;
+    let category_content: String =
+        categories
+            .into_iter()
+            .fold(String::new(), |mut s, (cat, count)| {
+                let _ = writeln!(s, "- **{cat}**: {count} documents");
+                s
+            });
+    content.push_str(&category_content);
     content.push('\n');
 
     // Navigation instructions
