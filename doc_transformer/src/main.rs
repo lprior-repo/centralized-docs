@@ -1,4 +1,4 @@
-//! `doc_transformer` v5.0 — AI-Optimized Documentation Indexer
+//! `doc_transformer` v6.0 — AI-Optimized Documentation Indexer
 //!
 //! CLI entry point for the `doc_transformer` pipeline. Exposes four sub-commands
 //! that can be composed to go from a raw documentation source (local files **or**
@@ -1208,10 +1208,6 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
         validate_filter_regex(filter).map_err(|e| anyhow::anyhow!(e))?;
     }
 
-    println!("\n{}", "=".repeat(70));
-    println!("DOC_TRANSFORMER v5.0 - SCRAPE");
-    println!("{}\n", "=".repeat(70));
-
     println!("[SCRAPE] Target: {url}");
     println!(
         "  Options: sitemap={:?}, delay={}ms, timeout={}s, retries={}, concurrency={}",
@@ -1547,10 +1543,6 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     validate_output_path(output)?;
     let _output_lock = acquire_output_lock(output)?;
 
-    println!("\n{}", "=".repeat(70));
-    println!("DOC_TRANSFORMER v5.0 (Knowledge DAG + llms.txt)");
-    println!("{}\n", "=".repeat(70));
-
     // Log graph configuration parameters
     println!("[CONFIG] Graph Parameters:");
     println!(
@@ -1747,10 +1739,6 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
     if let Some(ref f) = filter {
         validate_filter_regex(f).map_err(|e| anyhow::anyhow!(e))?;
     }
-
-    println!("\n{}", "=".repeat(70));
-    println!("DOC_TRANSFORMER v5.0 - INGEST (Scrape + Index)");
-    println!("{}\n", "=".repeat(70));
 
     // Phase 1: Scrape
     println!("[PHASE 1] SCRAPE\n");
