@@ -62,7 +62,8 @@ for repo in "${REPOS[@]}"; do
 		chunks=$(jq '.chunks | length' "$out_dir/INDEX.json" 2>/dev/null || echo "0")
 
 		# Calculate words
-		raw_words=$(find "$out_dir/.git-clone" -name "*.md" -exec cat {} + 2>/dev/null | wc -w || echo "0")
+		raw_words=$(jq '[.documents[].word_count] | add' "$out_dir/INDEX.json" 2>/dev/null || echo "0")
+		if [ "$raw_words" = "null" ]; then raw_words="0"; fi
 		llms_words=$(wc -w <"$out_dir/llms.txt" 2>/dev/null || echo "0")
 
 		# Prevent division by zero
