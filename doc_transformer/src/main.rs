@@ -97,6 +97,7 @@ struct IndexConfig {
     hnsw_m: usize,
     hnsw_ef_construction: usize,
     max_document_bytes: u64,
+    force_validation: bool,
 }
 
 impl Default for IndexConfig {
@@ -111,6 +112,7 @@ impl Default for IndexConfig {
             hnsw_m: 16,
             hnsw_ef_construction: 200,
             max_document_bytes: 10 * 1024 * 1024, // 10MB default
+            force_validation: false,
         }
     }
 }
@@ -608,6 +610,10 @@ enum Commands {
         /// Project name for llms.txt header
         #[arg(long)]
         project_name: Option<String>,
+
+        /// Bypass validation errors and force index generation
+        #[arg(long)]
+        force: bool,
     },
 
     /// Index local markdown files into AI-optimized structure
@@ -850,6 +856,7 @@ async fn main() -> Result<()> {
                 hnsw_m,
                 hnsw_ef_construction,
                 max_document_bytes: max_document_bytes.unwrap_or(10 * 1024 * 1024),
+                force_validation: false, // Default CLI doesn't have force flag yet for `index`
             };
             run_index(&source, &output, &config)
         }
@@ -860,6 +867,7 @@ async fn main() -> Result<()> {
             branch,
             depth: _,
             project_name,
+            force,
         }) => {
             // Git ingestion using git2 with functional principles
             let temp_dir = output.join(".git-clone");
@@ -906,7 +914,7 @@ async fn main() -> Result<()> {
             println!("[DISCOVER] Found {} markdown files", markdown_files.len());
             println!();
 
-            let index_config = IndexConfig {
+            let mut index_config = IndexConfig {
                 generate_llms: true,
                 project_name: project_name.as_ref().cloned().unwrap_or_else(|| {
                     url::Url::parse(&repo_url)
@@ -921,6 +929,7 @@ async fn main() -> Result<()> {
                 project_desc: format!("Documentation cloned from {repo_url}"),
                 ..Default::default()
             };
+            index_config.force_validation = force;
 
             run_index(&temp_dir, &output, &index_config)?;
 
@@ -1646,11 +1655,15 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
 
     // Bail early if validation fails - no artifacts written yet
     if validation_result.total_errors > 0 {
-        anyhow::bail!(
-            "Validation failed: {} errors found across {} files",
-            validation_result.total_errors,
-            validation_result.files_checked
-        );
+        if config.force_validation {
+            println!("[WARN] Validation failed with {} errors, but continuing because --force was passed", validation_result.total_errors);
+        } else {
+            anyhow::bail!(
+                "Validation failed: {} errors found across {} files. Use --force to build the index anyway.",
+                validation_result.total_errors,
+                validation_result.files_checked
+            );
+        }
     }
 
     // STEP 7: INDEX + GRAPH
