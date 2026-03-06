@@ -14,6 +14,12 @@ It provides tools to parse, index, and search documentation using BM25, semantic
 
 ### 1. Installation
 
+**For macOS and Linux (Recommended):**
+```bash
+curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/scripts/install.sh | bash
+```
+
+**From source:**
 ```bash
 cargo install --path .
 ```
