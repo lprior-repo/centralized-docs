@@ -31,12 +31,12 @@ if ! command -v cargo &>/dev/null; then
 			echo "Then re-run this script."
 		fi
 	elif [ "${MACHINE}" == "Linux" ]; then
-		# On Debian/Ubuntu, build-essential is often needed for linking.
+		# On Debian/Ubuntu, build-essential and pkg-config/libssl-dev are often needed for compiling.
 		if command -v apt-get &>/dev/null; then
-			echo "Checking for build dependencies (cc/linker)..."
-			if ! command -v cc &>/dev/null; then
-				echo "Installing build-essential (requires sudo)..."
-				sudo apt-get update && sudo apt-get install -y build-essential || echo "Warning: failed to install build-essential. Compilation might fail."
+			echo "Checking for build dependencies (cc/linker/openssl)..."
+			if ! command -v cc &>/dev/null || ! command -v pkg-config &>/dev/null; then
+				echo "Installing build-essential, pkg-config, and libssl-dev (requires sudo)..."
+				sudo apt-get update && sudo apt-get install -y build-essential pkg-config libssl-dev || echo "Warning: failed to install build dependencies. Compilation might fail."
 			fi
 		fi
 	fi
