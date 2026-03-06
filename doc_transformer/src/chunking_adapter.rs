@@ -81,7 +81,13 @@ fn analysis_to_document(analysis: &Analysis, link_map: &HashMap<String, IdMappin
         .get(&analysis.source_path)
         .map_or_else(|| fallback_doc_id(analysis), |m| m.id.clone());
 
-    Document::new(doc_id, analysis.title.clone(), analysis.content.clone())
+    let title = if analysis.title.is_empty() {
+        "Untitled".to_string()
+    } else {
+        analysis.title.clone()
+    };
+
+    Document::new(doc_id, title, analysis.content.clone())
 }
 
 fn fallback_doc_id(analysis: &Analysis) -> String {
