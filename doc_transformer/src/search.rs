@@ -297,7 +297,12 @@ pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument
     // Add each document
     for doc in documents {
         // content field: combination of title + summary for searching
-        let searchable_content = format!("{} {} {}", doc.title, doc.summary, doc.path);
+        let tags_str = doc.tags.join(" ");
+        let headings_str = doc.headings.join(" ");
+        let searchable_content = format!(
+            "{} {} {} {} {}",
+            doc.title, doc.summary, doc.path, tags_str, headings_str
+        );
 
         // Use tantivy::doc! macro to build document
         let tantivy_doc = doc!(
@@ -376,7 +381,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
     let mut results = Vec::new();
 
     // Extract stored fields from results
-    for (_score, doc_address) in top_docs {
+    for (tantivy_score, doc_address) in top_docs {
         let retrieved_doc: tantivy::TantivyDocument = searcher.doc(doc_address)?;
 
         // Extract fields (safely with defaults)
@@ -405,7 +410,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
             .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
             .unwrap_or_else(|| "uncategorized".to_string());
 
-        let word_count = retrieved_doc
+        let _word_count = retrieved_doc
             .get_first(fields.word_count)
             .map(tantivy::schema::OwnedValue::from)
             .and_then(|v| v.as_ref().as_u64())
@@ -417,22 +422,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
             .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
             .unwrap_or_else(|| format!("docs/{}.md", id.replace('/', "-")));
 
-        let title_with_path = if path.is_empty() {
-            title.clone()
-        } else {
-            let path_for_scoring = path
-                .replace(['/', '-', '.', '_'], " ")
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ");
-            format!("{title} {path} {path_for_scoring}")
-        };
-
-        // Recalculate score for this document using simplified BM25
-        // (Tantivy's internal score can't be easily extracted)
-        // SAFETY: word_count from u64 field, typical values < 100k, well within f32 precision
-        #[allow(clippy::cast_precision_loss)]
-        let score = score_document_simple(&title_with_path, &summary, query_str, word_count as f32);
+        let score = tantivy_score;
 
         // Only include results with positive scores (filter out non-matches and negative zeros)
         if score <= 0.0 {
