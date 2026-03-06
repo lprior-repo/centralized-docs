@@ -302,8 +302,8 @@ pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument
         let tags_str = doc.tags.join(" ");
         let headings_str = doc.headings.join(" ");
         let searchable_content = format!(
-            "{} {} {} {} {}",
-            doc.title, doc.summary, doc.path, tags_str, headings_str
+            "{} {} {} {} {} {}",
+            doc.title, doc.summary, doc.path, tags_str, headings_str, doc.content
         );
 
         // Use tantivy::doc! macro to build document

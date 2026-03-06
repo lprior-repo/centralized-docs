@@ -144,6 +144,7 @@ struct MarkdownMetadata {
     has_tables: bool,
 }
 
+#[allow(clippy::too_many_lines)]
 fn extract_markdown_metadata(content: &str) -> MarkdownMetadata {
     let mut title = None;
     let mut headings = Vec::new();

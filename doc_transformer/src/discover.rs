@@ -988,10 +988,7 @@ mod tests {
         }
 
         let result = discover_files(dir_path);
-        assert!(
-            result.is_err(),
-            "Should fail with multiple broken symlinks"
-        );
+        assert!(result.is_err(), "Should fail with multiple broken symlinks");
 
         let err_msg = result.unwrap_err().to_string();
         assert!(
