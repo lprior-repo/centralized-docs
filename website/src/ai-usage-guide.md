@@ -16,46 +16,50 @@ When you run `doc_transformer index` or `ingest-git`, the CLI generates an `llms
 
 **This is the only file your agent needs to read initially.**
 
-### Step 1: The Initial Prompt
+---
 
-Give your AI agent a system prompt similar to this:
-> "You are an expert developer. To understand how to use the `[Library Name]` library, read the `llms.txt` file located at `[Path to Output]`. Do not read any other files until you have read the index."
+## ⚡ The Copy-Paste Agent Instructions (50 Tokens)
 
-The `llms.txt` file contains less than 300 words. It provides:
-- A curated list of the most important entry-point documents (categorized by Tutorials, Concepts, API Reference).
-- The exact path to the `INDEX.json` file.
+Copy and paste this snippet directly into your `AGENTS.md`, `.clinerules`, or system prompt to instruct your agent on how to use Centralized Docs effectively:
 
-### Step 2: Agent Tooling (Retrieval)
+```markdown
+# Documentation Retrieval
+This project uses `doc_transformer` for documentation. 
+1. START by reading `llms.txt` in the docs output directory. Do NOT read raw markdown files.
+2. SEARCH for concepts using: `doc_transformer search "query" -d <output-dir> --limit 3 --json`
+3. READ specific chunks by using `jq` to extract the `content` field from the JSON output of your search, or by navigating the `INDEX.json` DAG.
+```
 
-To make your agent effective, it needs access to two tools (functions) that interact with the `doc_transformer` output.
+---
 
-#### Tool 1: `search_docs(query)`
-Instead of blindly reading files, the agent should be programmed to use the `doc_transformer search` CLI command.
+## Step-by-Step: How Agents Use the CLI
+
+To make your agent effective, it needs access to a terminal where it can execute `doc_transformer` commands natively. Here is the exact workflow an autonomous agent should follow to keep its token usage minimal.
+
+### 1. The Initial Search
+Instead of blindly reading files, the agent runs the `search` CLI command.
 
 ```bash
 doc_transformer search "how to configure oauth" --index-dir ./output --limit 3 --json
 ```
 
-Because `doc_transformer` uses BM25 semantic indexing on the full body text, this will instantly return the 3 most relevant documents in a structured JSON payload.
+Because `doc_transformer` uses BM25 semantic indexing on the full body text, this instantly returns the 3 most relevant documents in a structured JSON payload.
 
-#### Tool 2: `read_chunk(chunk_id)`
-When the agent finds a relevant document via search, it can read the specific `chunk` instead of the whole file. 
+### 2. Reading the Chunk Context
+When the agent receives the JSON payload, it can read the specific `content` instead of the whole file. 
 
 Every chunk in the `INDEX.json` DAG contains its `heading_path`. For example:
 `["Security - First Steps", "OAuth2 with Password", "Implementation"]`.
 
-This completely solves the "lost in the middle" problem. The agent can read a 500-token chunk and know *exactly* where it sits in the hierarchy of the broader documentation.
+This completely solves the "lost in the middle" problem. The agent reads a 200-token chunk and knows *exactly* where it sits in the hierarchy of the broader documentation.
 
-## Advanced Usage: Traversing the Knowledge DAG
-
+### 3. Advanced Usage: Traversing the Knowledge DAG
 The `INDEX.json` contains a Directed Acyclic Graph (DAG) of the documentation. Every chunk knows its:
 - `parent_chunk_id`
 - `child_chunk_ids`
 - `sibling_chunk_ids`
-- `next_chunk_id`
-- `previous_chunk_id`
 
-If an agent reads a Summary chunk and needs more detail, it doesn't need to do another fuzzy search. It simply looks at the `child_chunk_ids` array in the JSON and fetches the specific detailed chunk. It can navigate the documentation programmatically just like a human clicking "Next Page".
+If an agent reads a Summary chunk and needs more detail, it doesn't need to do another fuzzy search. It simply looks at the `child_chunk_ids` array in the JSON and fetches the specific detailed chunk from the index. It navigates the documentation programmatically just like a human clicking "Next Page".
 
 ## Token Efficiency Benchmarks
 
