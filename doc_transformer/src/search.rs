@@ -295,7 +295,7 @@ pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument
     let mut writer = index.writer(50_000_000)?;
 
     // Add each document
-    for doc in documents {
+    documents.into_iter().try_for_each(|doc| -> Result<()> {
         // content field: combination of title + summary for searching
         let tags_str = doc.tags.join(" ");
         let headings_str = doc.headings.join(" ");
@@ -316,7 +316,8 @@ pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument
         );
 
         writer.add_document(tantivy_doc)?;
-    }
+        Ok(())
+    })?;
 
     // Commit transaction
     writer.commit()?;
@@ -378,66 +379,70 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
     // Execute search and get top results
     let top_docs = searcher.search(&query, &TopDocs::with_limit(limit))?;
 
-    let mut results = Vec::new();
-
     // Extract stored fields from results
-    for (tantivy_score, doc_address) in top_docs {
-        let retrieved_doc: tantivy::TantivyDocument = searcher.doc(doc_address)?;
+    let mut results: Vec<SearchResult> = top_docs
+        .into_iter()
+        .map(
+            |(tantivy_score, doc_address)| -> Result<Option<SearchResult>> {
+                let retrieved_doc: tantivy::TantivyDocument = searcher.doc(doc_address)?;
 
-        // Extract fields (safely with defaults)
-        // Tantivy 0.25: Convert CompactDocValue -> OwnedValue -> extract
-        let id = retrieved_doc
-            .get_first(fields.id)
-            .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
-            .unwrap_or_else(|| "unknown".to_string());
+                // Extract fields (safely with defaults)
+                // Tantivy 0.25: Convert CompactDocValue -> OwnedValue -> extract
+                let id = retrieved_doc
+                    .get_first(fields.id)
+                    .map(tantivy::schema::OwnedValue::from)
+                    .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
+                    .unwrap_or_else(|| "unknown".to_string());
 
-        let title = retrieved_doc
-            .get_first(fields.title)
-            .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
-            .unwrap_or_else(|| "Untitled".to_string());
+                let title = retrieved_doc
+                    .get_first(fields.title)
+                    .map(tantivy::schema::OwnedValue::from)
+                    .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
+                    .unwrap_or_else(|| "Untitled".to_string());
 
-        let summary = retrieved_doc
-            .get_first(fields.summary)
-            .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
-            .unwrap_or_else(|| "No summary available".to_string());
+                let summary = retrieved_doc
+                    .get_first(fields.summary)
+                    .map(tantivy::schema::OwnedValue::from)
+                    .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
+                    .unwrap_or_else(|| "No summary available".to_string());
 
-        let category = retrieved_doc
-            .get_first(fields.category)
-            .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
-            .unwrap_or_else(|| "uncategorized".to_string());
+                let category = retrieved_doc
+                    .get_first(fields.category)
+                    .map(tantivy::schema::OwnedValue::from)
+                    .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
+                    .unwrap_or_else(|| "uncategorized".to_string());
 
-        let _word_count = retrieved_doc
-            .get_first(fields.word_count)
-            .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_u64())
-            .unwrap_or(0);
+                let _word_count = retrieved_doc
+                    .get_first(fields.word_count)
+                    .map(tantivy::schema::OwnedValue::from)
+                    .and_then(|v| v.as_ref().as_u64())
+                    .unwrap_or(0);
 
-        let path = retrieved_doc
-            .get_first(fields.path)
-            .map(tantivy::schema::OwnedValue::from)
-            .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
-            .unwrap_or_else(|| format!("docs/{}.md", id.replace('/', "-")));
+                let path = retrieved_doc
+                    .get_first(fields.path)
+                    .map(tantivy::schema::OwnedValue::from)
+                    .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
+                    .unwrap_or_else(|| format!("docs/{}.md", id.replace('/', "-")));
 
-        let score = tantivy_score;
+                let score = tantivy_score;
 
-        // Only include results with positive scores (filter out non-matches and negative zeros)
-        if score <= 0.0 {
-            continue;
-        }
+                // Only include results with positive scores (filter out non-matches and negative zeros)
+                if score <= 0.0 {
+                    return Ok(None);
+                }
 
-        results.push(SearchResult {
-            id,
-            title,
-            summary,
-            category,
-            score,
-            path,
-        });
-    }
+                Ok(Some(SearchResult {
+                    id,
+                    title,
+                    summary,
+                    category,
+                    score,
+                    path,
+                }))
+            },
+        )
+        .filter_map(Result::transpose)
+        .collect::<Result<Vec<_>>>()?;
 
     results.sort_by(|a, b| {
         b.score

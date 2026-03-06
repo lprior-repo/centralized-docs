@@ -827,7 +827,7 @@ fn test_index_invalid_hnsw_ef_construction_too_small() {
 fn test_index_output_dir_not_writable() {
     let temp = TempDir::new().unwrap();
     let source = temp.path().join("source");
-    let output_dir = temp.path().join("output");
+    let _output_dir = temp.path().join("output");
     let parent_nonexistent = temp.path().join("nonexistent").join("subdir");
 
     fs::create_dir_all(&source).unwrap();
