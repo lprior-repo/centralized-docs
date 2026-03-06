@@ -6,21 +6,12 @@ use std::path::Path;
 use std::sync::LazyLock;
 use thiserror::Error;
 
-// Lazy-initialized regex patterns for validation
+// Pre-compiled regex patterns to avoid compilation on every check.
 //
 // These patterns are hardcoded and verified by tests, but we use Option
 // to maintain the zero-panic guarantee across all code.
-static H1_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"(?m)^# [^#]").ok());
-
 static TAGS_REGEX: LazyLock<Option<Regex>> =
     LazyLock::new(|| Regex::new(r"tags:\s*\[[^\]]{10,}\]").ok());
-
-/// Get H1 regex or return error if compilation failed
-fn h1_regex() -> Result<&'static Regex, anyhow::Error> {
-    H1_REGEX
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("H1 regex failed to compile"))
-}
 
 /// Get tags regex or return error if compilation failed
 fn tags_regex() -> Result<&'static Regex, anyhow::Error> {
@@ -157,10 +148,20 @@ fn validate_file(content: &str) -> (Vec<String>, Vec<String>) {
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
 
-    // V001: single_h1
-    let h1_count = h1_regex()
-        .map(|regex| regex.find_iter(content).count())
-        .unwrap_or(0);
+    // V001: single_h1 using AST parsing to ignore code blocks
+    let parser = pulldown_cmark::Parser::new(content);
+    let h1_count = parser
+        .filter(|event| {
+            matches!(
+                event,
+                pulldown_cmark::Event::Start(pulldown_cmark::Tag::Heading {
+                    level: pulldown_cmark::HeadingLevel::H1,
+                    ..
+                })
+            )
+        })
+        .count();
+
     if h1_count == 0 {
         errors.push("Missing H1 heading".to_string());
     } else if h1_count > 1 {

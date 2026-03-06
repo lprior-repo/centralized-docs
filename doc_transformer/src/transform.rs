@@ -396,23 +396,54 @@ fn rewrite_links_ast(
 
 /// Ensure document has exactly one H1 heading (AST-based).
 ///
-/// Returns the content with H1 added if missing.
+/// Returns the content with H1 added if missing, and demotes any subsequent H1s to H2.
 fn ensure_h1_ast(content: &str, title: &str) -> String {
     let events = parse_markdown(content);
+    let mut h1_count: usize = 0;
 
-    let has_h1 = events.iter().any(|e| {
-        matches!(
-            e,
+    let mut transformed_events = Vec::new();
+
+    for event in events {
+        match event {
             Event::Start(Tag::Heading {
                 level: pulldown_cmark::HeadingLevel::H1,
-                ..
-            })
-        )
-    });
+                id,
+                classes,
+                attrs,
+            }) => {
+                h1_count = h1_count.saturating_add(1);
+                if h1_count > 1 {
+                    transformed_events.push(Event::Start(Tag::Heading {
+                        level: pulldown_cmark::HeadingLevel::H2,
+                        id,
+                        classes,
+                        attrs,
+                    }));
+                } else {
+                    transformed_events.push(Event::Start(Tag::Heading {
+                        level: pulldown_cmark::HeadingLevel::H1,
+                        id,
+                        classes,
+                        attrs,
+                    }));
+                }
+            }
+            Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1)) => {
+                if h1_count > 1 {
+                    transformed_events.push(Event::End(TagEnd::Heading(
+                        pulldown_cmark::HeadingLevel::H2,
+                    )));
+                } else {
+                    transformed_events.push(Event::End(TagEnd::Heading(
+                        pulldown_cmark::HeadingLevel::H1,
+                    )));
+                }
+            }
+            other => transformed_events.push(other),
+        }
+    }
 
-    if has_h1 {
-        content.to_string()
-    } else {
+    if h1_count == 0 {
         let heading_events = vec![
             Event::Start(Tag::Heading {
                 level: pulldown_cmark::HeadingLevel::H1,
@@ -425,8 +456,13 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
             Event::SoftBreak,
             Event::SoftBreak,
         ];
-        let new_events: Vec<_> = heading_events.into_iter().chain(events).collect();
+        let new_events: Vec<_> = heading_events
+            .into_iter()
+            .chain(transformed_events)
+            .collect();
         events_to_markdown(new_events)
+    } else {
+        events_to_markdown(transformed_events)
     }
 }
 
