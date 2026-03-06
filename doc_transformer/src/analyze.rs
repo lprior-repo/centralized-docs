@@ -280,33 +280,34 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
     }
 
     let lines: Vec<&str> = content.lines().collect();
-    let mut end_idx = None;
 
-    for (i, line) in lines.iter().enumerate().skip(1) {
-        if line.starts_with("---") {
-            end_idx = Some(i);
-            break;
-        }
-    }
+    // Find the end of the frontmatter block
+    let end_idx = lines
+        .iter()
+        .enumerate()
+        .skip(1)
+        .find(|(_, line)| line.starts_with("---"))
+        .map(|(i, _)| i);
 
     let Some(end_idx) = end_idx else {
         return (None, content.to_string());
     };
 
     let mut fm = HashMap::new();
-    if lines.len() < 2 || end_idx <= 1 {
-        return (Some(fm), content.to_string());
-    }
-    for line in &lines[1..end_idx] {
-        if let Some(pos) = line.find(':') {
-            let key = line[..pos].trim().to_string();
-            let val = line
-                .get(pos.saturating_add(1)..)
-                .unwrap_or("")
-                .trim()
-                .to_string();
-            fm.insert(key, val);
-        }
+    if lines.len() >= 2 && end_idx > 1 {
+        fm = lines[1..end_idx]
+            .iter()
+            .filter_map(|line| {
+                let pos = line.find(':')?;
+                let key = line[..pos].trim().to_string();
+                let val = line
+                    .get(pos.saturating_add(1)..)
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                Some((key, val))
+            })
+            .collect();
     }
 
     let remaining = lines
@@ -463,4 +464,46 @@ fn detect_category(filename: &str, content: &str) -> String {
 #[must_use]
 pub fn count_categories(analyses: &[Analysis]) -> HashMap<String, usize> {
     analyses.iter().map(|a| a.category.clone()).counts()
+}
+
+#[cfg(test)]
+mod frontmatter_tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_frontmatter_valid() {
+        let content = "---\ntitle: Test\ncategory: concept\n---\n\n# Body";
+        let (fm_opt, body) = extract_frontmatter(content);
+        assert!(fm_opt.is_some());
+        let fm = fm_opt.unwrap();
+        assert_eq!(fm.get("title").unwrap(), "Test");
+        assert_eq!(fm.get("category").unwrap(), "concept");
+        assert_eq!(body.trim(), "# Body");
+    }
+
+    #[test]
+    fn test_extract_frontmatter_empty() {
+        let content = "---\n---\n# Body";
+        let (fm_opt, body) = extract_frontmatter(content);
+        assert!(fm_opt.is_some());
+        let fm = fm_opt.unwrap();
+        assert!(fm.is_empty());
+        assert_eq!(body.trim(), "# Body");
+    }
+
+    #[test]
+    fn test_extract_frontmatter_missing() {
+        let content = "# Body without frontmatter\nLine 2";
+        let (fm_opt, body) = extract_frontmatter(content);
+        assert!(fm_opt.is_none());
+        assert_eq!(body.trim(), "# Body without frontmatter\nLine 2");
+    }
+
+    #[test]
+    fn test_extract_frontmatter_unclosed() {
+        let content = "---\ntitle: Test\n\n# Body";
+        let (fm_opt, body) = extract_frontmatter(content);
+        assert!(fm_opt.is_none());
+        assert_eq!(body.trim(), "---\ntitle: Test\n\n# Body");
+    }
 }
