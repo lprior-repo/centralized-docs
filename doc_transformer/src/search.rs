@@ -32,29 +32,6 @@ use tantivy::query::QueryParser;
 use tantivy::schema::{Field, Schema, Value, STORED, TEXT};
 use tantivy::Index;
 
-/// BM25 parameter: term frequency saturation.
-///
-/// Controls how quickly the term frequency component saturates.
-/// Higher values reduce the impact of repeated term occurrences.
-///
-/// - Range: 1.2-2.0 is typical
-/// - 1.2 = lower saturation (term frequency continues to contribute)
-/// - 2.0 = higher saturation (diminishing returns kicks in earlier)
-///
-/// See: Robertson & Zaragoza (2009) "The Probabilistic Relevance Framework: BM25 and Beyond"
-const BM25_K1: f32 = 1.2;
-
-/// BM25 parameter: document length normalization.
-///
-/// Controls how much document length affects the score.
-///
-/// - 0.0 = no length normalization (long documents have no penalty)
-/// - 1.0 = full normalization (long documents heavily penalized)
-/// - 0.75 = standard value (balances length and relevance)
-///
-/// See: Robertson & Zaragoza (2009) "The Probabilistic Relevance Framework: BM25 and Beyond"
-const BM25_B: f32 = 0.75;
-
 /// Schema field indices (cached for performance)
 pub struct SchemaFields {
     pub id: Field,
@@ -515,19 +492,20 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
 #[allow(dead_code)] // Exported for library users - not used internally
 #[must_use]
 pub fn score_document_simple(title: &str, summary: &str, query: &str, word_count: f32) -> f32 {
-    let k1 = BM25_K1;
-    let b = BM25_B;
-
     let document = format!("{title} {summary}");
 
-    // Strip basic punctuation before splitting whitespace
+    // Strip basic punctuation before splitting whitespace by replacing with space
     let clean_doc = document.replace(
         &[
             ',', '.', '?', '!', ';', '(', ')', '[', ']', '{', '}', '"', '\'',
         ][..],
-        "",
+        " ",
     );
-    let doc_words: Vec<&str> = clean_doc.split_whitespace().collect();
+    // Lowercase all words once to avoid O(M*N) allocations
+    let doc_words: Vec<String> = clean_doc
+        .split_whitespace()
+        .map(|w| w.to_lowercase())
+        .collect();
     // SAFETY: Document length (title + summary) typically < 1000 words, well within f32 precision
     let doc_length = doc_words.len() as f32;
 
@@ -538,25 +516,30 @@ pub fn score_document_simple(title: &str, summary: &str, query: &str, word_count
         &[
             ',', '.', '?', '!', ';', '(', ')', '[', ']', '{', '}', '"', '\'',
         ][..],
-        "",
+        " ",
     );
     clean_query
         .split_whitespace()
         .map(|term| {
             let term_lower = term.to_lowercase();
             // SAFETY: Term frequency in a single document typically < 100, well within f32 precision
-            doc_words
-                .iter()
-                .filter(|w| w.to_lowercase() == term_lower)
-                .count() as f32
+            doc_words.iter().filter(|w| *w == &term_lower).count() as f32
         })
         .filter(|&tf| tf > 0.0)
         .map(|tf| {
-            let idf = (10.0_f32).ln();
-            let numerator = tf * (k1 + 1.0);
-            let denominator = tf + k1 * (1.0 - b + b * (doc_length / avg_doc_length));
-            // Guard against division by zero (should be prevented above)
-            idf * (numerator / denominator.max(0.0001))
+            let idf_val = (10.0_f32).ln();
+
+            let tf_typed = crate::math_types::TermFrequency::try_new(tf)
+                .unwrap_or(crate::math_types::TermFrequency::ZERO);
+            let doc_len_typed = crate::math_types::DocumentLength::try_new(doc_length)
+                .unwrap_or(crate::math_types::DocumentLength::ZERO);
+            let avg_doc_len_typed =
+                crate::math_types::AverageDocumentLength::safe_new(avg_doc_length);
+            let idf_typed = crate::math_types::InverseDocumentFrequency::try_new(idf_val)
+                .unwrap_or(crate::math_types::InverseDocumentFrequency::ONE);
+
+            crate::math_types::pure_bm25(tf_typed, doc_len_typed, avg_doc_len_typed, idf_typed)
+                .value()
         })
         .sum()
 }
