@@ -20,6 +20,7 @@ fn create_test_index(dir: &Path) -> anyhow::Result<()> {
             summary: "Document with unicode: cafe naive resume facade".to_string(),
             path: "test/unicode-doc.md".to_string(),
             category: "tutorial".to_string(),
+            content: String::new(),
             word_count: 50,
             tags: vec!["unicode".to_string(), "encoding".to_string()],
             chunk_ids: vec!["chunk-1".to_string()],
@@ -31,6 +32,7 @@ fn create_test_index(dir: &Path) -> anyhow::Result<()> {
             summary: "This is an exact match test for phrase search".to_string(),
             path: "test/exact-match.md".to_string(),
             category: "ref".to_string(),
+            content: String::new(),
             word_count: 30,
             tags: vec!["test".to_string()],
             chunk_ids: vec!["chunk-2".to_string()],
@@ -42,6 +44,7 @@ fn create_test_index(dir: &Path) -> anyhow::Result<()> {
             summary: "Learn programming with rust and python".to_string(),
             path: "tutorial/programming.md".to_string(),
             category: "tutorial".to_string(),
+            content: String::new(),
             word_count: 200,
             tags: vec![
                 "programming".to_string(),
@@ -119,6 +122,7 @@ fn test_search_results_sorted_by_recalculated_score() {
             summary: "Rust Rust".to_string(),
             path: "test/high-tf-low-avg.md".to_string(),
             category: "tutorial".to_string(),
+            content: String::new(),
             word_count: 1,
             tags: vec![],
             chunk_ids: vec![],
@@ -130,6 +134,7 @@ fn test_search_results_sorted_by_recalculated_score() {
             summary: "Rust".to_string(),
             path: "test/low-tf-high-avg.md".to_string(),
             category: "tutorial".to_string(),
+            content: String::new(),
             word_count: 10_000,
             tags: vec![],
             chunk_ids: vec![],
@@ -151,8 +156,8 @@ fn test_search_results_sorted_by_recalculated_score() {
         "Results should be sorted by recalculated score"
     );
     assert_eq!(
-        results[0].id, "test/low-tf-high-avg",
-        "Lower TF with larger average length should still rank higher after rescoring"
+        results[0].id, "test/high-tf-low-avg",
+        "Higher TF with shorter length should rank higher under standard BM25"
     );
 }
 
@@ -224,6 +229,7 @@ fn test_search_matches_terms_in_path() {
         summary: "No keyword in title or summary".to_string(),
         path: "docs/specialpathmd".to_string(),
         category: "tutorial".to_string(),
+        content: String::new(),
         word_count: 40,
         tags: vec![],
         chunk_ids: vec![],

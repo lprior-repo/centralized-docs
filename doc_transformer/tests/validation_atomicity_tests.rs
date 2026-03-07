@@ -37,7 +37,7 @@ It should pass validation.
     fs::write(source_dir.join("valid.md"), valid_content)?;
 
     // Run discovery
-    let (files, _manifest) = discover::discover_files(source_dir)?;
+    let (files, _manifest) = discover::discover_files(source_dir, None)?;
 
     // Run analysis
     let analysis_base_path = source_dir.to_path_buf();
@@ -158,7 +158,7 @@ It should pass validation.
     fs::write(source_dir.join("valid.md"), valid_content)?;
 
     // Run pipeline
-    let (files, _manifest) = discover::discover_files(source_dir)?;
+    let (files, _manifest) = discover::discover_files(source_dir, None)?;
     let analysis_base_path = source_dir.to_path_buf();
     let analyze_result = analyze::analyze_files(&files, &analysis_base_path, None)?;
     let analyses = analyze_result.analyses;

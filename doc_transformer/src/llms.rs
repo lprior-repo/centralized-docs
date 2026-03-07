@@ -103,9 +103,15 @@ pub fn generate_llms_txt<S: BuildHasher>(
     let by_category: HashMap<&str, Vec<(&Analysis, &IdMapping)>> = analyses
         .iter()
         .filter_map(|analysis| {
-            link_map
-                .get(&analysis.source_path)
-                .map(|mapping| (analysis.category.as_str(), (analysis, mapping)))
+            if let Some(mapping) = link_map.get(&analysis.source_path) {
+                Some((analysis.category.as_str(), (analysis, mapping)))
+            } else {
+                eprintln!(
+                    "Warning: Missing ID mapping for document: {}",
+                    analysis.source_path
+                );
+                None
+            }
         })
         .into_group_map();
 
@@ -178,7 +184,17 @@ pub fn generate_llms_full_txt<S: BuildHasher>(
     // Sort by category then title for consistent ordering using functional pattern
     let sorted: Vec<_> = analyses
         .iter()
-        .filter_map(|a| link_map.get(&a.source_path).map(|m| (a, m)))
+        .filter_map(|a| {
+            if let Some(m) = link_map.get(&a.source_path) {
+                Some((a, m))
+            } else {
+                eprintln!(
+                    "Warning: Missing ID mapping for document: {}",
+                    a.source_path
+                );
+                None
+            }
+        })
         .sorted_by(|a, b| {
             a.0.category
                 .cmp(&b.0.category)

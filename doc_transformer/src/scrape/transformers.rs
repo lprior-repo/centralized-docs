@@ -425,8 +425,7 @@ mod tests {
     fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
+            .map_or(0, |d| d.as_nanos());
         std::env::temp_dir().join(format!("{prefix}-{nanos}"))
     }
 
@@ -464,8 +463,8 @@ mod tests {
         // Slugs should be different
         assert_ne!(slug1, slug2);
         // Both should contain query indicator
-        assert!(slug1.contains("-q"), "slug1: {}", slug1);
-        assert!(slug2.contains("-q"), "slug2: {}", slug2);
+        assert!(slug1.contains("-q"), "slug1: {slug1}");
+        assert!(slug2.contains("-q"), "slug2: {slug2}");
     }
 
     #[test]
@@ -483,7 +482,7 @@ mod tests {
                     .chars()
                     .skip_while(|c| *c != 'q')
                     .nth(1)
-                    .map_or(false, |c| c.is_ascii_digit())
+                    .is_some_and(|c| c.is_ascii_digit())
         );
         assert!(
             slug2.contains("-q")
@@ -491,7 +490,7 @@ mod tests {
                     .chars()
                     .skip_while(|c| *c != 'q')
                     .nth(1)
-                    .map_or(false, |c| c.is_ascii_digit())
+                    .is_some_and(|c| c.is_ascii_digit())
         );
     }
 

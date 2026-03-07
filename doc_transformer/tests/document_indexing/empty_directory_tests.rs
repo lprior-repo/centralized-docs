@@ -55,7 +55,7 @@ fn run_indexing_pipeline(source_dir: &Path, output_dir: &Path) -> Result<Extende
 
     // Phase 1: DISCOVER
     let (discovered_files, _manifest) =
-        discover::discover_files(source_dir).context("Discovery phase failed")?;
+        discover::discover_files(source_dir, None).context("Discovery phase failed")?;
     let discovered_count = discovered_files.len();
 
     // Phase 2: ANALYZE

@@ -216,7 +216,7 @@ fn test_document_validation_invalid_utf8() {
     let _index_path = dir.path();
 
     // Create documents with invalid UTF-8 sequences
-    let _invalid_utf8_docs = vec![doc_transformer::analyze::Analysis {
+    let _invalid_utf8_docs = [doc_transformer::analyze::Analysis {
         source_path: "test1.md".to_string(),
         title: "Test".to_string(),
         category: "ref".to_string(),

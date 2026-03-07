@@ -17,6 +17,7 @@ fn create_test_index(dir: &tempfile::TempDir) -> anyhow::Result<()> {
         summary: "A comprehensive guide to Rust programming language".to_string(),
         path: "test/doc1.md".to_string(),
         category: "tutorial".to_string(),
+        content: String::new(),
         word_count: 500,
         tags: vec!["rust".to_string(), "programming".to_string()],
         chunk_ids: vec![],

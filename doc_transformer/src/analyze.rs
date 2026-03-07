@@ -144,15 +144,23 @@ struct MarkdownMetadata {
     has_tables: bool,
 }
 
+#[derive(Default)]
+#[allow(clippy::struct_excessive_bools)]
+struct MetadataState {
+    title: Option<String>,
+    headings: Vec<Heading>,
+    links: Vec<Link>,
+    first_paragraph: String,
+    has_code: bool,
+    has_tables: bool,
+    current_heading: Option<Heading>,
+    current_link: Option<Link>,
+    in_first_paragraph: bool,
+    found_first_paragraph: bool,
+}
+
 #[allow(clippy::too_many_lines)]
 fn extract_markdown_metadata(content: &str) -> MarkdownMetadata {
-    let mut title = None;
-    let mut headings = Vec::new();
-    let mut links = Vec::new();
-    let mut first_paragraph = String::new();
-    let mut has_code = false;
-    let mut has_tables = false;
-
     let line_starts: Vec<usize> = std::iter::once(0)
         .chain(
             content
@@ -163,12 +171,7 @@ fn extract_markdown_metadata(content: &str) -> MarkdownMetadata {
 
     let parser = Parser::new(content).into_offset_iter();
 
-    let mut current_heading: Option<Heading> = None;
-    let mut current_link: Option<Link> = None;
-    let mut in_first_paragraph = false;
-    let mut found_first_paragraph = false;
-
-    for (event, range) in parser {
+    let final_state = parser.fold(MetadataState::default(), |mut state, (event, range)| {
         match event {
             Event::Start(Tag::Heading { level, .. }) => {
                 let level_num = match level {
@@ -180,19 +183,19 @@ fn extract_markdown_metadata(content: &str) -> MarkdownMetadata {
                     HeadingLevel::H6 => 6,
                 };
                 let line_num = line_starts.partition_point(|&x| x <= range.start);
-                current_heading = Some(Heading {
+                state.current_heading = Some(Heading {
                     level: level_num,
                     text: String::new(),
                     line: line_num.saturating_sub(1),
                 });
             }
             Event::End(TagEnd::Heading(_)) => {
-                if let Some(mut h) = current_heading.take() {
+                if let Some(mut h) = state.current_heading.take() {
                     h.text = h.text.trim().to_string();
-                    if h.level == 1 && title.is_none() {
-                        title = Some(h.text.clone());
+                    if h.level == 1 && state.title.is_none() {
+                        state.title = Some(h.text.clone());
                     }
-                    headings.push(h);
+                    state.headings.push(h);
                 }
             }
             Event::Start(Tag::Link { dest_url, .. }) => {
@@ -205,53 +208,54 @@ fn extract_markdown_metadata(content: &str) -> MarkdownMetadata {
                 } else {
                     LinkKind::Internal
                 };
-                current_link = Some(Link {
+                state.current_link = Some(Link {
                     text: String::new(),
                     target,
                     kind,
                 });
             }
             Event::End(TagEnd::Link) => {
-                if let Some(l) = current_link.take() {
-                    links.push(l);
+                if let Some(l) = state.current_link.take() {
+                    state.links.push(l);
                 }
             }
             Event::Start(Tag::Paragraph) => {
-                if !found_first_paragraph {
-                    in_first_paragraph = true;
+                if !state.found_first_paragraph {
+                    state.in_first_paragraph = true;
                 }
             }
             Event::End(TagEnd::Paragraph) => {
-                if in_first_paragraph {
-                    in_first_paragraph = false;
-                    found_first_paragraph = true;
+                if state.in_first_paragraph {
+                    state.in_first_paragraph = false;
+                    state.found_first_paragraph = true;
                 }
             }
-            Event::Start(Tag::CodeBlock(_)) => has_code = true,
-            Event::Start(Tag::Table(_)) => has_tables = true,
+            Event::Start(Tag::CodeBlock(_)) => state.has_code = true,
+            Event::Start(Tag::Table(_)) => state.has_tables = true,
             Event::Text(text) | Event::Code(text) => {
-                if let Some(h) = &mut current_heading {
+                if let Some(h) = &mut state.current_heading {
                     h.text.push_str(&text);
                 }
-                if let Some(l) = &mut current_link {
+                if let Some(l) = &mut state.current_link {
                     l.text.push_str(&text);
                 }
-                if in_first_paragraph && first_paragraph.len() < 200 {
-                    first_paragraph.push_str(&text);
-                    first_paragraph.push(' ');
+                if state.in_first_paragraph && state.first_paragraph.len() < 200 {
+                    state.first_paragraph.push_str(&text);
+                    state.first_paragraph.push(' ');
                 }
             }
             _ => {}
         }
-    }
+        state
+    });
 
     MarkdownMetadata {
-        title,
-        headings,
-        links,
-        first_paragraph: first_paragraph.trim().to_string(),
-        has_code,
-        has_tables,
+        title: final_state.title,
+        headings: final_state.headings,
+        links: final_state.links,
+        first_paragraph: final_state.first_paragraph.trim().to_string(),
+        has_code: final_state.has_code,
+        has_tables: final_state.has_tables,
     }
 }
 
@@ -270,16 +274,16 @@ fn analyze_single_file(
             .file_stem()
             .filter(|s| !s.is_empty())
             .map_or_else(
-                || "Untitled".to_string(),
+                || generate_untitled_id(source_path, &content),
                 |s| {
                     let s = s.to_string_lossy().replace(['-', '_'], " ");
                     s.split_whitespace()
                         .map(|w| {
-                            let mut chars = w.chars();
-                            match chars.next() {
+                            let first = w.chars().next();
+                            match first {
                                 None => String::new(),
-                                Some(first) => {
-                                    first.to_uppercase().collect::<String>() + chars.as_str()
+                                Some(f) => {
+                                    f.to_uppercase().collect::<String>() + &w[f.len_utf8()..]
                                 }
                             }
                         })
@@ -316,6 +320,21 @@ fn analyze_single_file(
     })
 }
 
+fn generate_untitled_id(path: &str, content: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let hash_val = [path, content]
+        .iter()
+        .fold(
+            std::collections::hash_map::DefaultHasher::new(),
+            |mut h, &s| {
+                s.hash(&mut h);
+                h
+            },
+        )
+        .finish();
+    format!("Untitled-{hash_val:x}")
+}
+
 fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, String) {
     if !content.starts_with("---") {
         return (None, content.to_string());
@@ -334,9 +353,8 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
         return (None, content.to_string());
     };
 
-    let mut fm = HashMap::new();
-    if lines.len() >= 2 && end_idx > 1 {
-        fm = lines[1..end_idx]
+    let fm: HashMap<String, String> = if lines.len() >= 2 && end_idx > 1 {
+        lines[1..end_idx]
             .iter()
             .filter_map(|line| {
                 let pos = line.find(':')?;
@@ -348,8 +366,10 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
                     .to_string();
                 Some((key, val))
             })
-            .collect();
-    }
+            .collect()
+    } else {
+        HashMap::new()
+    };
 
     let remaining = lines
         .get(end_idx.saturating_add(1)..)
@@ -362,15 +382,17 @@ fn detect_category(filename: &str, content: &str) -> String {
     let fname_lower = Path::new(filename)
         .file_stem()
         .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| std::ffi::OsStr::new("untitled"))
-        .to_string_lossy()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| generate_untitled_id(filename, content))
         .to_lowercase();
 
+    let (_, clean_content) = extract_frontmatter(content);
+
     // Prevent massive memory allocation on large files by only checking the first ~5000 chars
-    let content_lower: String = content
+    let content_lower: String = clean_content
         .chars()
         .take(5000)
-        .flat_map(|c| c.to_lowercase())
+        .flat_map(char::to_lowercase)
         .collect();
 
     if matches!(
@@ -420,6 +442,7 @@ fn detect_category(filename: &str, content: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod frontmatter_tests {
     use super::*;
 
@@ -428,9 +451,9 @@ mod frontmatter_tests {
         let content = "---\ntitle: Test\ncategory: concept\n---\n\n# Body";
         let (fm_opt, body) = extract_frontmatter(content);
         assert!(fm_opt.is_some());
-        let fm = fm_opt.unwrap();
-        assert_eq!(fm.get("title").unwrap(), "Test");
-        assert_eq!(fm.get("category").unwrap(), "concept");
+        let fm = fm_opt.expect("Expected frontmatter");
+        assert_eq!(fm.get("title").expect("Expected title"), "Test");
+        assert_eq!(fm.get("category").expect("Expected category"), "concept");
         assert_eq!(body.trim(), "# Body");
     }
 

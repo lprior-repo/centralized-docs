@@ -463,7 +463,7 @@ pub fn generate_large_markdown(title: &str, word_count: usize) -> String {
 
     while words_generated < word_count {
         // Start a new section every ~500 words
-        if words_generated % 500 == 0 {
+        if words_generated.is_multiple_of(500) {
             content.push_str(&section_template.replace("{}", &section_num.to_string()));
             section_num = section_num.saturating_add(1);
         }
@@ -597,7 +597,7 @@ pub fn run_index<P: AsRef<Path>>(
 
     // Phase 1: DISCOVER
     let (discovered_files, _manifest) =
-        discover::discover_files(source).context("Discovery phase failed")?;
+        discover::discover_files(source, None).context("Discovery phase failed")?;
 
     // Phase 2: ANALYZE
     let analyze_result =

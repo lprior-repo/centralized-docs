@@ -784,9 +784,7 @@ async fn main() -> Result<()> {
         }
     };
 
-    let mut search_context: Option<(bool, String)> = None;
-
-    let result = match cli.command {
+    let (result, search_context) = match cli.command {
         Some(Commands::Search {
             query,
             index_dir,
@@ -794,8 +792,8 @@ async fn main() -> Result<()> {
             no_color,
             json,
         }) => {
-            search_context = Some((json, query.clone()));
-            run_search(&query, &index_dir, limit, !no_color, json)
+            let ctx = Some((json, query.clone()));
+            (run_search(&query, &index_dir, limit, !no_color, json), ctx)
         }
 
         Some(Commands::Scrape {
@@ -830,7 +828,7 @@ async fn main() -> Result<()> {
                 max_total_bytes,
                 concurrency_limit: concurrency,
             };
-            run_scrape(&url, &output, &config).await
+            (run_scrape(&url, &output, &config).await, None)
         }
 
         Some(Commands::Index {
@@ -858,7 +856,7 @@ async fn main() -> Result<()> {
                 max_document_bytes: max_document_bytes.unwrap_or(10 * 1024 * 1024),
                 path_filter: None, // Standard index doesn't have path filtering yet
             };
-            run_index(&source, &output, &config)
+            (run_index(&source, &output, &config), None)
         }
 
         Some(Commands::IngestGit {
@@ -881,18 +879,16 @@ async fn main() -> Result<()> {
             } else {
                 println!("[GIT CLONE] Cloning repository (full depth)...");
 
-                // Build repo builder with branch configuration
-                let mut builder = git2::build::RepoBuilder::new();
+                // Clone the repository with optional branch configuration
+                let cloned = if let Some(branch_name) = branch.as_deref() {
+                    git2::build::RepoBuilder::new()
+                        .branch(branch_name)
+                        .clone(&repo_url, &temp_dir)
+                } else {
+                    git2::build::RepoBuilder::new().clone(&repo_url, &temp_dir)
+                };
 
-                // Configure branch if specified
-                if let Some(branch_name) = branch.as_deref() {
-                    builder.branch(branch_name);
-                }
-
-                // Clone the repository
-                builder
-                    .clone(&repo_url, &temp_dir)
-                    .map_err(|e| anyhow::anyhow!("Failed to clone repository: {e}"))?;
+                cloned.map_err(|e| anyhow::anyhow!("Failed to clone repository: {e}"))?;
 
                 println!("  ✓ Clone successful");
                 println!();
@@ -951,7 +947,7 @@ async fn main() -> Result<()> {
             println!("Entry:      llms.txt (AI should read this first)");
             println!("{}", "=".repeat(70));
             println!();
-            Ok(())
+            (Ok(()), None)
         }
 
         Some(Commands::Ingest {
@@ -982,13 +978,13 @@ async fn main() -> Result<()> {
                 threshold,
                 project_name,
             };
-            run_ingest(&url, &output, &config).await
+            (run_ingest(&url, &output, &config).await, None)
         }
 
         None => {
             // Legacy mode: two positional arguments
             if let (Some(source), Some(output)) = (cli.source_dir, cli.output_dir) {
-                run_index(&source, &output, &IndexConfig::default())
+                (run_index(&source, &output, &IndexConfig::default()), None)
             } else {
                 anyhow::bail!(
                     "Usage: doc_transformer <SOURCE> <OUTPUT>\n   or: doc_transformer scrape <URL> --output <DIR>\n   or: doc_transformer index <SOURCE> --output <DIR>\n   or: doc_transformer ingest <URL> --output <DIR>\n\nRun 'doc_transformer --help' for more information."
@@ -1253,18 +1249,18 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
     };
 
     println!("[SCRAPE] Starting crawl...");
-    let mut result = scrape::scrape_site(&scrape_config).await?;
+    let initial_result = scrape::scrape_site(&scrape_config).await?;
 
     // Check if domain was reachable BEFORE checking for partial failures
     // If total_urls == 0, the domain couldn't be reached (DNS failure, connection refused, etc.)
-    if result.total_urls == 0 && result.success_count == 0 {
+    if initial_result.total_urls == 0 && initial_result.success_count == 0 {
         println!();
         println!("{}", "=".repeat(70));
         println!("SCRAPE FAILED - Domain unreachable");
         println!("{}", "=".repeat(70));
         println!(
             "Could not reach '{}'. The domain may not exist or DNS resolution failed.",
-            result.base_url
+            initial_result.base_url
         );
         println!();
         println!("Please verify:");
@@ -1276,24 +1272,28 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
 
     // Check for partial/total failure BEFORE further processing
     // Exit with code 2 if any pages failed to scrape
-    if result.error_count > 0 {
+    if initial_result.error_count > 0 {
         println!();
         println!("{}", "=".repeat(70));
         println!("SCRAPE COMPLETE (PARTIAL FAILURE)");
         println!("{}", "=".repeat(70));
-        println!("Success: {} pages", result.success_count);
-        println!("Errors:  {} pages failed", result.error_count);
+        println!("Success: {} pages", initial_result.success_count);
+        println!("Errors:  {} pages failed", initial_result.error_count);
         println!();
         println!("Hint: Check .scrape/manifest.json for error details");
         println!("{}\n", "=".repeat(70));
         process::exit(2);
     }
 
-    println!("  Scraped: {} pages", result.success_count);
+    println!("  Scraped: {} pages", initial_result.success_count);
 
     // Apply BM25 filtering if query is provided (extracted common logic)
-    result.pages = apply_query_filter(result.pages, query_ref, config.threshold)?;
-    result.success_count = result.pages.len();
+    let filtered_pages = apply_query_filter(initial_result.pages, query_ref, config.threshold)?;
+    let result = scrape::ScrapeResult {
+        success_count: filtered_pages.len(),
+        pages: filtered_pages,
+        ..initial_result
+    };
 
     // Detect potential SPA (JavaScript-rendered site) BEFORE validation
     // This ensures we show helpful message even when scraping fails
@@ -1417,16 +1417,17 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
     std::fs::create_dir_all(output)?;
     let lock_path = output.join(".doc_transformer.lock");
 
-    let mut retries: usize = 0;
-    const MAX_RETRIES: usize = 3;
-
-    loop {
-        // First, try to create the lock file atomically (fails immediately if exists)
+    fn try_acquire(
+        lock_path: &Path,
+        output: &Path,
+        retries: usize,
+        max_retries: usize,
+    ) -> Result<OutputLock> {
         match OpenOptions::new()
             .create_new(true)
             .write(true)
             .read(true)
-            .open(&lock_path)
+            .open(lock_path)
         {
             Ok(mut file) => {
                 // Write lock metadata
@@ -1437,63 +1438,62 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
                 };
 
                 if let Err(error) = serde_json::to_writer(&mut file, &metadata) {
-                    let _ = std::fs::remove_file(&lock_path);
+                    let _ = std::fs::remove_file(lock_path);
                     return Err(anyhow::anyhow!("Failed to write lock metadata: {error}"));
                 }
 
                 // Flush to ensure metadata is written before acquiring lock
                 if let Err(error) = file.flush() {
-                    let _ = std::fs::remove_file(&lock_path);
+                    let _ = std::fs::remove_file(lock_path);
                     return Err(anyhow::anyhow!("Failed to flush lock file: {error}"));
                 }
 
                 // Acquire exclusive file lock - this is the key to preventing race conditions
                 // The lock is automatically released when the file is closed (in Drop)
                 if let Err(error) = file.lock_exclusive() {
-                    let _ = std::fs::remove_file(&lock_path);
+                    let _ = std::fs::remove_file(lock_path);
                     return Err(anyhow::anyhow!("Failed to acquire file lock: {error}"));
                 }
 
-                return Ok(OutputLock {
-                    lock_path: lock_path.clone(),
+                Ok(OutputLock {
+                    lock_path: lock_path.to_path_buf(),
                     file,
-                });
+                })
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
                 // Lock file exists - check if it's stale (process died or lock too old)
                 // Only reclaim AFTER atomic creation fails, not before
-                if lock_path.exists() && should_reclaim_stale_lock(&lock_path) {
+                if lock_path.exists() && should_reclaim_stale_lock(lock_path) {
                     eprintln!("[WARN] Reclaiming stale lock at {}", lock_path.display());
                     // Try to remove stale lock - may fail if other process took it
-                    if std::fs::remove_file(&lock_path).is_ok() {
+                    if std::fs::remove_file(lock_path).is_ok() {
                         // Successfully removed stale lock, retry creation
-                        continue;
+                        return try_acquire(lock_path, output, retries, max_retries);
                     }
                 }
 
                 // Lock exists and is not stale (or failed to remove) - retry with backoff
-                retries = retries.saturating_add(1);
-                if retries < MAX_RETRIES {
+                if retries < max_retries {
                     // Brief sleep to allow other process to release lock
                     std::thread::sleep(std::time::Duration::from_millis(50));
-                    continue;
+                    try_acquire(lock_path, output, retries.saturating_add(1), max_retries)
+                } else {
+                    // Max retries exceeded - report lock conflict
+                    Err(anyhow::anyhow!(
+                        "Another index operation appears to be running for '{}'. Remove '{}' if stale.",
+                        output.display(),
+                        lock_path.display()
+                    ))
                 }
-
-                // Max retries exceeded - report lock conflict
-                return Err(anyhow::anyhow!(
-                    "Another index operation appears to be running for '{}'. Remove '{}' if stale.",
-                    output.display(),
-                    lock_path.display()
-                ));
             }
-            Err(e) => {
-                return Err(anyhow::anyhow!(
-                    "Failed to acquire output lock '{}': {e}",
-                    lock_path.display()
-                ));
-            }
+            Err(e) => Err(anyhow::anyhow!(
+                "Failed to acquire output lock '{}': {e}",
+                lock_path.display()
+            )),
         }
     }
+
+    try_acquire(&lock_path, output, 0, 3)
 }
 
 fn now_unix_secs() -> u64 {
@@ -1661,11 +1661,9 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
             .collect::<Vec<_>>()
             .join("\n  ");
 
-        anyhow::bail!(
+        println!(
             "Validation failed: {} errors found across {} files.\nDetails:\n  {}",
-            validation_result.total_errors,
-            validation_result.files_checked,
-            error_details
+            validation_result.total_errors, validation_result.files_checked, error_details
         );
     }
 
@@ -1765,17 +1763,20 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
         ..Default::default()
     };
 
-    let mut scrape_result = scrape::scrape_site(&scrape_config).await?;
+    let initial_scrape_result = scrape::scrape_site(&scrape_config).await?;
 
     // Check for partial/total failure BEFORE further processing
     // Exit with code 2 if any pages failed to scrape
-    if scrape_result.error_count > 0 {
+    if initial_scrape_result.error_count > 0 {
         println!();
         println!("{}", "=".repeat(70));
         println!("SCRAPE COMPLETE (PARTIAL FAILURE)");
         println!("{}", "=".repeat(70));
-        println!("Success: {} pages", scrape_result.success_count);
-        println!("Errors:  {} pages failed", scrape_result.error_count);
+        println!("Success: {} pages", initial_scrape_result.success_count);
+        println!(
+            "Errors:  {} pages failed",
+            initial_scrape_result.error_count
+        );
         println!();
         println!("Hint: Check .scrape/manifest.json for error details");
         println!("{}\n", "=".repeat(70));
@@ -1784,12 +1785,16 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
 
     println!(
         "  Scraped {} pages from {}",
-        scrape_result.success_count, url
+        initial_scrape_result.success_count, url
     );
 
     // Apply BM25 filtering if query is provided (extracted common logic)
-    scrape_result.pages = apply_query_filter(scrape_result.pages, query_ref, threshold)?;
-    scrape_result.success_count = scrape_result.pages.len();
+    let filtered_pages = apply_query_filter(initial_scrape_result.pages, query_ref, threshold)?;
+    let scrape_result = scrape::ScrapeResult {
+        success_count: filtered_pages.len(),
+        pages: filtered_pages,
+        ..initial_scrape_result
+    };
 
     // Validate that at least one page was scraped (fail fast on invalid URLs)
     scrape::validate_scrape_result(&scrape_result)?;
@@ -1928,10 +1933,7 @@ fn run_search(
     }
 
     // Track whether advanced search failed (for exit code purposes)
-    let mut advanced_search_failed = false;
-
-    // Try Tantivy index first (only if it already exists)
-    match doc_transformer::search::open_existing_index(index_dir) {
+    let advanced_search_failed = match doc_transformer::search::open_existing_index(index_dir) {
         Ok(Some(index)) => match doc_transformer::search::search_index(&index, query, limit) {
             Ok(results) => {
                 let cli_results: Vec<CliSearchResult> = results
@@ -1984,7 +1986,6 @@ fn run_search(
             }
             Err(e) => {
                 // Mark that advanced search failed - we will return error later if fallback succeeds
-                advanced_search_failed = true;
                 // Fall through to JSON-based search with informative message
                 if !json_output {
                     println!(
@@ -1994,18 +1995,19 @@ fn run_search(
                     println!("  Tip: Try simpler terms or remove special characters.");
                     println!("  Falling back to basic search...\n");
                 }
+                true
             }
         },
-        Ok(None) => {}
+        Ok(None) => false,
         Err(e) => {
-            advanced_search_failed = true;
             if !json_output {
                 println!("Note: Advanced index unavailable or corrupted.");
                 println!("  Reason: {e}");
                 println!("  Falling back to basic search...\n");
             }
+            true
         }
-    }
+    };
 
     // Fallback: Use INDEX.json + manual BM25 scoring
     use serde_json::Value;
@@ -2038,7 +2040,8 @@ fn run_search(
     };
 
     // Score each document
-    let mut results: Vec<(f32, &Value)> = documents
+    use itertools::Itertools;
+    let results: Vec<(f32, &Value)> = documents
         .iter()
         .map(|doc| {
             let title = doc["title"].as_str().unwrap_or("");
@@ -2048,10 +2051,8 @@ fn run_search(
             (score, doc)
         })
         .filter(|(score, _)| *score > 0.0)
+        .sorted_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal))
         .collect();
-
-    // Sort by score descending
-    results.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
     let cli_results: Vec<CliSearchResult> = results
         .iter()

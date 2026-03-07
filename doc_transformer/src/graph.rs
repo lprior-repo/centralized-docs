@@ -205,11 +205,41 @@ impl KnowledgeDAG {
     ) -> bool {
         // If there's already a path from target to source via the specified edge types,
         // adding source->target would create a cycle
-        self.reachable_from_via_edge_types(target, edge_types)
-            .contains(source)
+        let (Some(&source_idx), Some(&target_idx)) =
+            (self.node_map.get(source), self.node_map.get(target))
+        else {
+            return false;
+        };
+
+        if source_idx == target_idx {
+            return true;
+        }
+
+        let edge_type_set: HashSet<&EdgeType> = edge_types.iter().collect();
+        let mut visited = HashSet::new();
+        let mut stack = vec![target_idx];
+
+        while let Some(current_idx) = stack.pop() {
+            if current_idx == source_idx {
+                return true;
+            }
+
+            if !visited.insert(current_idx) {
+                continue;
+            }
+
+            for edge in self.graph.edges(current_idx) {
+                if edge_type_set.contains(&edge.weight().edge_type) {
+                    stack.push(edge.target());
+                }
+            }
+        }
+
+        false
     }
 
     /// Get all nodes reachable from a given node using only specific edge types.
+    #[allow(dead_code)]
     #[must_use]
     pub fn reachable_from_via_edge_types(
         &self,
@@ -228,6 +258,7 @@ impl KnowledgeDAG {
             .unwrap_or_default()
     }
 
+    #[allow(dead_code)]
     fn dfs_reachable_with_edge_types(
         &self,
         idx: NodeIndex,
@@ -347,6 +378,7 @@ pub fn jaccard_similarity(tags1: &[String], tags2: &[String]) -> f32 {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::map_clone)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
@@ -358,8 +390,8 @@ mod tests {
             tags1 in prop::collection::vec(".*", 0..20),
             tags2 in prop::collection::vec(".*", 0..20)
         ) {
-            let vec1: Vec<String> = tags1.into_iter().map(|s| s.to_string()).collect();
-            let vec2: Vec<String> = tags2.into_iter().map(|s| s.to_string()).collect();
+            let vec1: Vec<String> = tags1.into_iter().map(|s| s.clone()).collect();
+            let vec2: Vec<String> = tags2.into_iter().map(|s| s.clone()).collect();
 
             let result1 = jaccard_similarity(&vec1, &vec2);
             let result2 = jaccard_similarity(&vec2, &vec1);
@@ -372,7 +404,7 @@ mod tests {
     proptest! {
         #[test]
         fn prop_jaccard_reflexivity(tags in prop::collection::vec(".*", 0..20)) {
-            let vec: Vec<String> = tags.into_iter().map(|s| s.to_string()).collect();
+            let vec: Vec<String> = tags.into_iter().map(|s| s.clone()).collect();
             let result = jaccard_similarity(&vec, &vec);
 
             prop_assert_eq!(result, 1.0);
@@ -386,8 +418,8 @@ mod tests {
             tags1 in prop::collection::vec(".*", 0..20),
             tags2 in prop::collection::vec(".*", 0..20)
         ) {
-            let vec1: Vec<String> = tags1.into_iter().map(|s| s.to_string()).collect();
-            let vec2: Vec<String> = tags2.into_iter().map(|s| s.to_string()).collect();
+            let vec1: Vec<String> = tags1.into_iter().map(|s| s.clone()).collect();
+            let vec2: Vec<String> = tags2.into_iter().map(|s| s.clone()).collect();
 
             let result = jaccard_similarity(&vec1, &vec2);
 

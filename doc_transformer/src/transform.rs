@@ -104,13 +104,19 @@ pub fn transform_all(
     let results = analyses
         .iter()
         .filter_map(|analysis| {
-            link_map.get(&analysis.source_path).map(|mapping| {
+            if let Some(mapping) = link_map.get(&analysis.source_path) {
                 let result = transform_file(analysis, mapping, link_map, &docs_dir);
-                result.map_err(|e| {
+                Some(result.map_err(|e| {
                     eprintln!("Error: transform failed: {}: {}", analysis.source_path, e);
                     e
-                })
-            })
+                }))
+            } else {
+                eprintln!(
+                    "Warning: dropped document without link_map entry: {}",
+                    analysis.source_path
+                );
+                None
+            }
         })
         .collect::<Vec<_>>();
 
@@ -214,62 +220,62 @@ fn parse_markdown(content: &str) -> Vec<Event<'_>> {
 fn fix_headings_ast(content: &str) -> String {
     let events = parse_markdown(content);
 
-    let mut fixed_events = Vec::new();
-    let mut last_heading_level: Option<u32> = None;
-    let mut in_code_block = false;
+    let (fixed_events, _, _) = events.into_iter().fold(
+        (Vec::new(), None::<u32>, false),
+        |(mut events, mut last_heading_level, mut in_code_block), event| {
+            match event {
+                // Track code block boundaries - never transform inside code
+                Event::Start(Tag::CodeBlock(kind)) => {
+                    in_code_block = true;
+                    events.push(Event::Start(Tag::CodeBlock(kind)));
+                }
+                Event::End(TagEnd::CodeBlock) => {
+                    in_code_block = false;
+                    events.push(Event::End(TagEnd::CodeBlock));
+                }
 
-    for event in events {
-        match event {
-            // Track code block boundaries - never transform inside code
-            Event::Start(Tag::CodeBlock(kind)) => {
-                in_code_block = true;
-                fixed_events.push(Event::Start(Tag::CodeBlock(kind)));
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                in_code_block = false;
-                fixed_events.push(Event::End(TagEnd::CodeBlock));
-            }
-
-            // Transform headings (unless in code block)
-            Event::Start(Tag::Heading {
-                level,
-                id,
-                classes,
-                attrs,
-            }) if !in_code_block => {
-                let new_level = if let Some(last_level) = last_heading_level {
-                    // Prevent level skips: if current > last + 1, demote to last + 1
-                    let level_num = heading_level_to_u32(level);
-                    if level_num > last_level.saturating_add(1) {
-                        // Demote to last_level + 1
-                        from_u32_level(last_level.saturating_add(1))
-                    } else {
-                        level
-                    }
-                } else {
-                    level
-                };
-
-                // Limit to max level 4
-                let final_level = if heading_level_to_u32(new_level) > 4 {
-                    from_u32_level(4)
-                } else {
-                    new_level
-                };
-
-                last_heading_level = Some(heading_level_to_u32(final_level));
-                fixed_events.push(Event::Start(Tag::Heading {
-                    level: final_level,
+                // Transform headings (unless in code block)
+                Event::Start(Tag::Heading {
+                    level,
                     id,
                     classes,
                     attrs,
-                }));
-            }
+                }) if !in_code_block => {
+                    let new_level = if let Some(last_level) = last_heading_level {
+                        // Prevent level skips: if current > last + 1, demote to last + 1
+                        let level_num = heading_level_to_u32(level);
+                        if level_num > last_level.saturating_add(1) {
+                            // Demote to last_level + 1
+                            from_u32_level(last_level.saturating_add(1))
+                        } else {
+                            level
+                        }
+                    } else {
+                        level
+                    };
 
-            // Pass through all other events unchanged
-            other => fixed_events.push(other),
-        }
-    }
+                    // Limit to max level 4
+                    let final_level = if heading_level_to_u32(new_level) > 4 {
+                        from_u32_level(4)
+                    } else {
+                        new_level
+                    };
+
+                    last_heading_level = Some(heading_level_to_u32(final_level));
+                    events.push(Event::Start(Tag::Heading {
+                        level: final_level,
+                        id,
+                        classes,
+                        attrs,
+                    }));
+                }
+
+                // Pass through all other events unchanged
+                other => events.push(other),
+            }
+            (events, last_heading_level, in_code_block)
+        },
+    );
 
     // Convert back to markdown
     events_to_markdown(fixed_events)
@@ -315,81 +321,86 @@ fn rewrite_links_ast(
         .parent()
         .unwrap_or_else(|| Path::new(""));
 
-    let mut broken_links = Vec::new();
-    let mut transformed_events = Vec::new();
-    let mut in_code_block = false;
+    let (transformed_events, broken_links, _) = events.into_iter().fold(
+        (Vec::new(), Vec::new(), false),
+        |(mut transformed_events, mut broken_links, in_code_block), event| {
+            let (new_event, new_in_code_block, new_broken_link) = match event {
+                // Never transform links inside code blocks
+                Event::Start(Tag::CodeBlock(kind)) => {
+                    (Event::Start(Tag::CodeBlock(kind)), true, None)
+                }
+                Event::End(TagEnd::CodeBlock) => (Event::End(TagEnd::CodeBlock), false, None),
 
-    for event in events {
-        match event {
-            // Never transform links inside code blocks
-            Event::Start(Tag::CodeBlock(kind)) => {
-                in_code_block = true;
-                transformed_events.push(Event::Start(Tag::CodeBlock(kind)));
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                in_code_block = false;
-                transformed_events.push(Event::End(TagEnd::CodeBlock));
-            }
-
-            // Transform Link events
-            Event::Start(Tag::Link {
-                link_type,
-                dest_url,
-                title,
-                id,
-            }) if !in_code_block => {
-                let url_str = dest_url.to_string();
-
-                // Keep external links and anchors unchanged
-                let new_url = if url_str.starts_with("http://")
-                    || url_str.starts_with("https://")
-                    || url_str.starts_with("mailto:")
-                    || url_str.starts_with('#')
-                {
-                    dest_url.clone()
-                } else {
-                    // Try to resolve and map the link
-                    let resolved_path = if url_str.starts_with("./") {
-                        source_dir.join(url_str.trim_start_matches("./"))
-                    } else {
-                        source_dir.join(&url_str)
-                    };
-
-                    // Look up in link_map
-                    let mut mapped_filename: Option<String> = None;
-                    for (src_path, mapping) in link_map {
-                        let src_file = Path::new(src_path).file_name().filter(|s| !s.is_empty());
-                        let resolved_file = resolved_path.file_name().filter(|s| !s.is_empty());
-
-                        if src_file == resolved_file && src_file.is_some()
-                            || src_path.ends_with(&resolved_path.to_string_lossy().to_string())
-                        {
-                            mapped_filename = Some(mapping.filename.clone());
-                            break;
-                        }
-                    }
-
-                    if let Some(new_filename) = mapped_filename {
-                        // Format as ./filename without extra spaces
-                        CowStr::from(format!("./{new_filename}"))
-                    } else {
-                        broken_links.push(url_str.clone());
-                        dest_url.clone()
-                    }
-                };
-
-                transformed_events.push(Event::Start(Tag::Link {
+                // Transform Link events
+                Event::Start(Tag::Link {
                     link_type,
-                    dest_url: new_url,
+                    dest_url,
                     title,
                     id,
-                }));
-            }
+                }) if !in_code_block => {
+                    let url_str = dest_url.to_string();
 
-            // Pass through all other events unchanged
-            other => transformed_events.push(other),
-        }
-    }
+                    // Keep external links and anchors unchanged
+                    let (new_url, new_broken_link) = if url_str.starts_with("http://")
+                        || url_str.starts_with("https://")
+                        || url_str.starts_with("mailto:")
+                        || url_str.starts_with('#')
+                    {
+                        (dest_url.clone(), None)
+                    } else {
+                        // Try to resolve and map the link
+                        let resolved_path = if url_str.starts_with("./") {
+                            source_dir.join(url_str.trim_start_matches("./"))
+                        } else {
+                            source_dir.join(&url_str)
+                        };
+
+                        // Look up in link_map
+                        let mapped_filename = link_map.iter().find_map(|(src_path, mapping)| {
+                            let src_file =
+                                Path::new(src_path).file_name().filter(|s| !s.is_empty());
+                            let resolved_file = resolved_path.file_name().filter(|s| !s.is_empty());
+
+                            if src_file == resolved_file && src_file.is_some()
+                                || src_path.ends_with(&resolved_path.to_string_lossy().to_string())
+                            {
+                                Some(mapping.filename.clone())
+                            } else {
+                                None
+                            }
+                        });
+
+                        if let Some(new_filename) = mapped_filename {
+                            // Format as ./filename without extra spaces
+                            (CowStr::from(format!("./{new_filename}")), None)
+                        } else {
+                            (dest_url.clone(), Some(url_str.clone()))
+                        }
+                    };
+
+                    (
+                        Event::Start(Tag::Link {
+                            link_type,
+                            dest_url: new_url,
+                            title,
+                            id,
+                        }),
+                        in_code_block,
+                        new_broken_link,
+                    )
+                }
+
+                // Pass through all other events unchanged
+                other => (other, in_code_block, None),
+            };
+
+            transformed_events.push(new_event);
+            if let Some(link) = new_broken_link {
+                broken_links.push(link);
+            }
+            (transformed_events, broken_links, new_in_code_block)
+        },
+    );
 
     (events_to_markdown(transformed_events), broken_links)
 }
@@ -399,16 +410,19 @@ fn rewrite_links_ast(
 /// If missing, it adds an H1 at the top.
 /// If multiple exist, it adds an H1 at the top and bumps all existing headings down one level to preserve hierarchy.
 fn ensure_h1_ast(content: &str, title: &str) -> String {
-    let mut h1_count: usize = 0;
-    for event in parse_markdown(content) {
-        if let Event::Start(Tag::Heading {
-            level: pulldown_cmark::HeadingLevel::H1,
-            ..
-        }) = event
-        {
-            h1_count = h1_count.saturating_add(1);
-        }
-    }
+    let events = parse_markdown(content);
+    let h1_count = events
+        .iter()
+        .filter(|e| {
+            matches!(
+                e,
+                Event::Start(Tag::Heading {
+                    level: pulldown_cmark::HeadingLevel::H1,
+                    ..
+                })
+            )
+        })
+        .count();
 
     if h1_count == 1 {
         return content.to_string();
@@ -426,8 +440,7 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
         }
     };
 
-    let events = parse_markdown(content);
-    let mut transformed_events = vec![
+    let header_events = vec![
         Event::Start(Tag::Heading {
             level: pulldown_cmark::HeadingLevel::H1,
             id: None,
@@ -438,10 +451,10 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
         Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1)),
         Event::SoftBreak,
         Event::SoftBreak,
+        Event::SoftBreak,
     ];
-    transformed_events.push(Event::SoftBreak);
 
-    for event in events {
+    let transformed_events = events.into_iter().fold(header_events, |mut acc, event| {
         match event {
             Event::Start(Tag::Heading {
                 level,
@@ -449,7 +462,7 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
                 classes,
                 attrs,
             }) if h1_count > 1 => {
-                transformed_events.push(Event::Start(Tag::Heading {
+                acc.push(Event::Start(Tag::Heading {
                     level: bump_level(level),
                     id,
                     classes,
@@ -457,11 +470,12 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
                 }));
             }
             Event::End(TagEnd::Heading(level)) if h1_count > 1 => {
-                transformed_events.push(Event::End(TagEnd::Heading(bump_level(level))));
+                acc.push(Event::End(TagEnd::Heading(bump_level(level))));
             }
-            other => transformed_events.push(other),
+            other => acc.push(other),
         }
-    }
+        acc
+    });
 
     events_to_markdown(transformed_events)
 }
@@ -469,25 +483,23 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
 /// Check if content already has a context blockquote (AST-based)
 fn content_has_blockquote_context(content: &str) -> bool {
     let events = parse_markdown(content);
-
-    let mut in_blockquote = false;
-    for event in &events {
-        match event {
-            Event::Start(Tag::BlockQuote(_)) => {
-                in_blockquote = true;
-            }
-            Event::End(TagEnd::BlockQuote(_)) => {
-                in_blockquote = false;
-            }
-            Event::Text(text) if in_blockquote => {
-                if text.contains("Context") {
-                    return true;
+    events
+        .into_iter()
+        .fold((false, false), |(in_blockquote, found), event| {
+            if found {
+                (in_blockquote, true)
+            } else {
+                match event {
+                    Event::Start(Tag::BlockQuote(_)) => (true, false),
+                    Event::End(TagEnd::BlockQuote(_)) => (false, false),
+                    Event::Text(text) if in_blockquote && text.contains("Context") => {
+                        (in_blockquote, true)
+                    }
+                    _ => (in_blockquote, false),
                 }
             }
-            _ => {}
-        }
-    }
-    false
+        })
+        .1
 }
 
 /// Inject context block after H1 (AST-based).
@@ -495,35 +507,36 @@ fn content_has_blockquote_context(content: &str) -> bool {
 /// Returns the content with context block added.
 fn inject_context_block_ast(content: &str, context_text: &str) -> String {
     let events = parse_markdown(content);
-    let mut new_events = Vec::new();
-    let mut inserted = false;
 
-    for event in &events {
-        new_events.push(event.clone());
+    let (new_events, _) =
+        events
+            .into_iter()
+            .fold((Vec::new(), false), |(mut acc, inserted), event| {
+                let is_h1_end = matches!(
+                    event,
+                    Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1))
+                );
+                acc.push(event);
 
-        // After H1 closing tag, inject context blockquote
-        if !inserted
-            && matches!(
-                event,
-                Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1))
-            )
-        {
-            new_events.push(Event::SoftBreak);
-            new_events.push(Event::SoftBreak);
-            new_events.push(Event::Start(Tag::BlockQuote(None)));
-            new_events.push(Event::Start(Tag::Paragraph));
-            new_events.push(Event::Start(Tag::Strong));
-            new_events.push(Event::Text(CowStr::from("Context")));
-            new_events.push(Event::End(TagEnd::Strong));
-            new_events.push(Event::Text(CowStr::from(": ")));
-            new_events.push(Event::Text(CowStr::from(context_text.to_string())));
-            new_events.push(Event::End(TagEnd::Paragraph));
-            new_events.push(Event::End(TagEnd::BlockQuote(None)));
-            new_events.push(Event::SoftBreak);
-            new_events.push(Event::SoftBreak);
-            inserted = true;
-        }
-    }
+                if !inserted && is_h1_end {
+                    acc.push(Event::SoftBreak);
+                    acc.push(Event::SoftBreak);
+                    acc.push(Event::Start(Tag::BlockQuote(None)));
+                    acc.push(Event::Start(Tag::Paragraph));
+                    acc.push(Event::Start(Tag::Strong));
+                    acc.push(Event::Text(CowStr::from("Context")));
+                    acc.push(Event::End(TagEnd::Strong));
+                    acc.push(Event::Text(CowStr::from(": ")));
+                    acc.push(Event::Text(CowStr::from(context_text.to_string())));
+                    acc.push(Event::End(TagEnd::Paragraph));
+                    acc.push(Event::End(TagEnd::BlockQuote(None)));
+                    acc.push(Event::SoftBreak);
+                    acc.push(Event::SoftBreak);
+                    (acc, true)
+                } else {
+                    (acc, inserted)
+                }
+            });
 
     events_to_markdown(new_events)
 }
@@ -539,10 +552,8 @@ where
     I: IntoIterator<Item = Event<'a>>,
 {
     let mut buf = String::new();
-    if pulldown_cmark_to_cmark::cmark(events.into_iter(), &mut buf).is_err() {
-        buf.clear();
-    }
-    buf
+    pulldown_cmark_to_cmark::cmark(events.into_iter(), &mut buf)
+        .map_or_else(|_| String::new(), |_| buf)
 }
 
 /// Safely truncate a string to a maximum number of Unicode characters

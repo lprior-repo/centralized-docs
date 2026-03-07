@@ -106,7 +106,7 @@ fn run_index_pipeline(source_dir: &Path, output_dir: &Path) -> anyhow::Result<In
 
     // Phase 1: DISCOVER
     let (discovered_files, _manifest) =
-        discover::discover_files(source_dir).context("Discovery phase failed")?;
+        discover::discover_files(source_dir, None).context("Discovery phase failed")?;
 
     // Phase 2: ANALYZE
     let analyze_result = analyze::analyze_files(&discovered_files, source_dir, None)

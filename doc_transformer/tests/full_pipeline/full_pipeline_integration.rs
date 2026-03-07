@@ -244,7 +244,7 @@ fn generate_large_markdown(word_count: usize) -> String {
 fn run_full_pipeline(test_dir: &Path, output_dir: &Path) -> Result<PipelineResult> {
     // Phase 1: DISCOVER
     let (discovered_files, _manifest) =
-        discover::discover_files(test_dir).context("Discovery phase failed")?;
+        discover::discover_files(test_dir, None).context("Discovery phase failed")?;
 
     // Phase 2: ANALYZE
     let analyze_result = analyze::analyze_files(&discovered_files, test_dir, None)

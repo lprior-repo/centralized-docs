@@ -332,9 +332,11 @@ fn compute_graph_analytics(dag: &KnowledgeDAG, documents: &[IndexDocument]) -> G
             .iter()
             .map(|doc| {
                 let reachable = dag.reachable_from(&doc.id);
-                let mut reachable_list: Vec<String> =
-                    reachable.into_iter().filter(|id| id != &doc.id).collect();
-                reachable_list.sort();
+                let reachable_list: Vec<String> = reachable
+                    .into_iter()
+                    .filter(|id| id != &doc.id)
+                    .sorted()
+                    .collect();
 
                 (
                     (doc.id.clone(), reachable_list),
@@ -461,38 +463,34 @@ pub fn build_and_write_compass<S: std::hash::BuildHasher>(
         })
         .into_group_map();
 
-    use std::fmt::Write as _;
-    let mut compass = String::new();
-    let _ = write!(
-        compass,
-        "# Documentation Compass\n\n> **{} documents**\n\n",
-        analyses.len()
-    );
-
-    // By category
     let compass_content = ["tutorial", "concept", "ref", "ops", "meta"]
         .into_iter()
-        .fold(compass, |mut compass, category| {
-            if let Some(docs) = by_category.get(category) {
-                let _ = write!(compass, "## {}\n\n", category.to_uppercase());
-                let section_docs: String =
-                    docs.iter()
-                        .take(5)
-                        .fold(String::new(), |mut s, (title, filename, tags)| {
-                            let tag_str = tags
-                                .iter()
-                                .take(2)
-                                .map(|t| format!("`{t}`"))
-                                .collect::<Vec<_>>()
-                                .join(" ");
-                            let _ = writeln!(s, "- [{title}](./docs/{filename}) {tag_str}");
-                            s
-                        });
-                compass.push_str(&section_docs);
-                compass.push('\n');
-            }
-            compass
-        });
+        .filter_map(|category| {
+            by_category.get(category).map(|docs| {
+                let section_docs = docs.iter().take(5).fold(
+                    String::new(),
+                    |mut output, (title, filename, tags)| {
+                        let tag_str = tags
+                            .iter()
+                            .take(2)
+                            .map(|t| format!("`{t}`"))
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        use std::fmt::Write;
+                        let _ = writeln!(output, "- [{title}](./docs/{filename}) {tag_str}");
+                        output
+                    },
+                );
+                format!("## {}\n\n{}\n", category.to_uppercase(), section_docs)
+            })
+        })
+        .collect::<String>();
+
+    let compass_content = format!(
+        "# Documentation Compass\n\n> **{} documents**\n\n{}",
+        analyses.len(),
+        compass_content
+    );
 
     let compass_file = output_dir.join("COMPASS.md");
     fs::write(compass_file, compass_content)?;
@@ -615,29 +613,32 @@ fn chunk_terms(chunk: &Chunk, max_chunk_keywords: usize) -> Vec<(String, f32)> {
         extract_keywords_weighted(&chunk.summary, SUMMARY_WEIGHT)
     };
 
-    let mut weighted: Vec<(String, f32)> = heading_terms
+    let weighted: Vec<(String, f32)> = heading_terms
         .into_iter()
         .chain(summary_terms)
-        .fold(HashMap::new(), |mut acc, (term, weight)| {
-            acc.entry(term)
-                .and_modify(|existing| {
-                    if weight > *existing {
-                        *existing = weight;
-                    }
-                })
-                .or_insert(weight);
-            acc
-        })
+        .fold(
+            HashMap::new(),
+            |mut acc: HashMap<String, f32>, (term, weight)| {
+                acc.entry(term)
+                    .and_modify(|existing| {
+                        if weight > *existing {
+                            *existing = weight;
+                        }
+                    })
+                    .or_insert(weight);
+                acc
+            },
+        )
         .into_iter()
+        .sorted_by(|(a_term, a_weight), (b_term, b_weight)| {
+            b_weight
+                .partial_cmp(a_weight)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a_term.cmp(b_term))
+        })
+        .take(max_chunk_keywords)
         .collect();
 
-    weighted.sort_by(|(a_term, a_weight), (b_term, b_weight)| {
-        b_weight
-            .partial_cmp(a_weight)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a_term.cmp(b_term))
-    });
-    weighted.truncate(max_chunk_keywords);
     weighted
 }
 
@@ -695,10 +696,10 @@ pub fn build_knowledge_dag(
 ) -> Result<KnowledgeDAG> {
     const MAX_CHUNKS_FOR_SEMANTIC_GRAPH: usize = 5000;
 
-    let mut dag = KnowledgeDAG::new();
+    let dag = KnowledgeDAG::new();
 
     // Add document nodes
-    documents.iter().fold((), |(), doc| {
+    let dag = documents.iter().fold(dag, |mut dag, doc| {
         let node = GraphNode {
             id: doc.id.clone(),
             node_type: NodeType::Document,
@@ -706,10 +707,11 @@ pub fn build_knowledge_dag(
             category: Some(doc.category.clone()),
         };
         dag.add_node(node);
+        dag
     });
 
     // Add chunk nodes
-    chunks.iter().fold((), |(), chunk| {
+    let dag = chunks.iter().fold(dag, |mut dag, chunk| {
         let node = GraphNode {
             id: chunk.chunk_id.clone(),
             node_type: NodeType::Chunk,
@@ -721,10 +723,11 @@ pub fn build_knowledge_dag(
             category: None,
         };
         dag.add_node(node);
+        dag
     });
 
     // Add parent-child edges (document -> chunks)
-    chunks.iter().fold((), |(), chunk| {
+    let dag = chunks.iter().fold(dag, |mut dag, chunk| {
         let edge = GraphEdge {
             from: chunk.doc_id.clone(),
             to: chunk.chunk_id.clone(),
@@ -732,10 +735,11 @@ pub fn build_knowledge_dag(
             weight: 1.0,
         };
         dag.add_edge(edge);
+        dag
     });
 
     // Add sequential edges (previous -> next chunks)
-    chunks.iter().fold((), |(), chunk| {
+    let dag = chunks.iter().fold(dag, |mut dag, chunk| {
         if let Some(next_id) = &chunk.next_chunk_id {
             let edge = GraphEdge {
                 from: chunk.chunk_id.clone(),
@@ -745,6 +749,7 @@ pub fn build_knowledge_dag(
             };
             dag.add_edge(edge);
         }
+        dag
     });
 
     // Detect and add related chunk edges using HNSW (O(n log n) instead of O(n²))
@@ -752,7 +757,7 @@ pub fn build_knowledge_dag(
     let max_chunk_keywords = max_chunk_keywords.unwrap_or(DEFAULT_MAX_CHUNK_KEYWORDS);
     const SIMILARITY_THRESHOLD: f32 = 0.3;
 
-    if !chunks.is_empty() && chunks.len() <= MAX_CHUNKS_FOR_SEMANTIC_GRAPH {
+    let dag = if !chunks.is_empty() && chunks.len() <= MAX_CHUNKS_FOR_SEMANTIC_GRAPH {
         // Build vocabulary from tags, categories, and chunk keywords
         let vocabulary = build_vocabulary(document_tags, chunks, max_chunk_keywords)?;
         let embedding_dim = vocabulary.len().max(1); // At least 1 dimension
@@ -773,9 +778,11 @@ pub fn build_knowledge_dag(
                         (Vec::new(), "unknown".to_string())
                     });
 
-                let mut terms: Vec<(String, f32)> =
-                    tags.into_iter().map(|tag| (tag, TAG_WEIGHT)).collect();
-                terms.extend(chunk_terms(chunk, max_chunk_keywords));
+                let terms: Vec<(String, f32)> = tags
+                    .into_iter()
+                    .map(|tag| (tag, TAG_WEIGHT))
+                    .chain(chunk_terms(chunk, max_chunk_keywords))
+                    .collect();
                 let terms = merge_weighted_terms(terms);
                 (terms, category)
             })
@@ -792,96 +799,94 @@ pub fn build_knowledge_dag(
         // Build HNSW index for O(log n) nearest neighbor search
         match build_index_with_params(&embeddings, hnsw_m, hnsw_ef_construction) {
             Ok(index) => {
-                // Track existing related edges to prevent bidirectional edges that form cycles.
-                // Uses a HashSet of (from, to) pairs for O(1) lookup.
-                // Only add edge A->B if edge B->A doesn't already exist.
-                let mut existing_related_edges: std::collections::HashSet<(String, String)> =
-                    std::collections::HashSet::new();
+                let (dag, _existing_related_edges) = chunks.iter().enumerate().fold(
+                    (dag, std::collections::HashSet::new()),
+                    |(dag, existing_related_edges), (i, chunk)| {
+                        let (chunk_tags, chunk_category) = &chunk_terms_list[i];
 
-                // Query top-k neighbors for each chunk
-                chunks.iter().enumerate().fold((), |(), (i, chunk)| {
-                    let (chunk_tags, chunk_category) = &chunk_terms_list[i];
+                        let query_embedding = generate_embedding_from_terms(
+                            chunk_tags,
+                            chunk_category,
+                            &vocabulary,
+                            embedding_dim,
+                        );
 
-                    let query_embedding = generate_embedding_from_terms(
-                        chunk_tags,
-                        chunk_category,
-                        &vocabulary,
-                        embedding_dim,
-                    );
+                        // Query HNSW for top-k neighbors (k+1 to account for self)
+                        if let Ok(neighbors) =
+                            query_neighbors(&index, &query_embedding, max_related.saturating_add(1))
+                        {
+                            let (dag, existing_related_edges, _) = neighbors.into_iter().fold(
+                                (dag, existing_related_edges, 0),
+                                |(mut dag, mut existing_related_edges, mut added_edges),
+                                 (neighbor_idx, similarity)| {
+                                    if neighbor_idx != i
+                                        && neighbor_idx < chunks.len()
+                                        && similarity >= SIMILARITY_THRESHOLD
+                                        && added_edges < max_related
+                                    {
+                                        let from_id = chunk.chunk_id.clone();
+                                        let to_id = chunks[neighbor_idx].chunk_id.clone();
 
-                    // Query HNSW for top-k neighbors (k+1 to account for self)
-                    if let Ok(neighbors) =
-                        query_neighbors(&index, &query_embedding, max_related.saturating_add(1))
-                    {
-                        let _ = neighbors.into_iter().fold(
-                            0,
-                            |mut added_edges, (neighbor_idx, similarity)| {
-                                // Skip self-edges and low-similarity matches
-                                // Explicit bounds check to prevent panic on malformed HNSW indices
-                                if neighbor_idx != i
-                                    && neighbor_idx < chunks.len()
-                                    && similarity >= SIMILARITY_THRESHOLD
-                                    && added_edges < max_related
-                                {
-                                    let from_id = chunk.chunk_id.clone();
-                                    let to_id = chunks[neighbor_idx].chunk_id.clone();
+                                        let reverse_exists = existing_related_edges
+                                            .contains(&(to_id.clone(), from_id.clone()));
 
-                                    // Check if reverse edge already exists (prevents bidirectional edges)
-                                    // This ensures the graph remains acyclic
-                                    let reverse_exists = existing_related_edges
-                                        .contains(&(to_id.clone(), from_id.clone()));
+                                        if !reverse_exists {
+                                            let would_cycle = dag
+                                                .would_create_cycle_with_edge_types(
+                                                    &from_id,
+                                                    &to_id,
+                                                    &[
+                                                        EdgeType::Sequential,
+                                                        EdgeType::Parent,
+                                                        EdgeType::Related,
+                                                    ],
+                                                );
 
-                                    if !reverse_exists {
-                                        // Check if adding this edge would create a cycle via any edge type
-                                        // Must include Related to prevent cycles like A->B->C->A through related edges
-                                        let would_cycle = dag.would_create_cycle_with_edge_types(
-                                            &from_id,
-                                            &to_id,
-                                            &[
-                                                EdgeType::Sequential,
-                                                EdgeType::Parent,
-                                                EdgeType::Related,
-                                            ],
-                                        );
+                                            if !would_cycle {
+                                                existing_related_edges
+                                                    .insert((from_id.clone(), to_id.clone()));
 
-                                        if !would_cycle {
-                                            // Track this edge to prevent reverse edge later
-                                            // Must track BEFORE adding edge since from_id/to_id get moved
-                                            existing_related_edges
-                                                .insert((from_id.clone(), to_id.clone()));
+                                                let edge = GraphEdge {
+                                                    from: from_id,
+                                                    to: to_id,
+                                                    edge_type: EdgeType::Related,
+                                                    weight: similarity,
+                                                };
+                                                dag.add_edge(edge);
 
-                                            let edge = GraphEdge {
-                                                from: from_id,
-                                                to: to_id,
-                                                edge_type: EdgeType::Related,
-                                                weight: similarity,
-                                            };
-                                            dag.add_edge(edge);
-
-                                            added_edges = added_edges.saturating_add(1);
+                                                added_edges = added_edges.saturating_add(1);
+                                            }
                                         }
                                     }
-                                }
-                                added_edges
-                            },
-                        );
-                    }
-                });
+                                    (dag, existing_related_edges, added_edges)
+                                },
+                            );
+                            (dag, existing_related_edges)
+                        } else {
+                            (dag, existing_related_edges)
+                        }
+                    },
+                );
+                dag
             }
             Err(e) => {
                 // HNSW index build failed - skip related edges
                 // This can happen with empty embeddings or invalid vectors
                 eprintln!("Error: HNSW index build failed ({e}), skipping related chunk edges");
                 // Continue without adding related edges - document structure (parent/sequential) is preserved
+                dag
             }
         }
-    } else if chunks.len() > MAX_CHUNKS_FOR_SEMANTIC_GRAPH {
-        eprintln!(
-            "Warning: {} chunks exceeds semantic graph limit ({}), skipping related chunk edge construction",
-            chunks.len(),
-            MAX_CHUNKS_FOR_SEMANTIC_GRAPH
-        );
-    }
+    } else {
+        if chunks.len() > MAX_CHUNKS_FOR_SEMANTIC_GRAPH {
+            eprintln!(
+                "Warning: {} chunks exceeds semantic graph limit ({}), skipping related chunk edge construction",
+                chunks.len(),
+                MAX_CHUNKS_FOR_SEMANTIC_GRAPH
+            );
+        }
+        dag
+    };
 
     Ok(dag)
 }
@@ -901,6 +906,7 @@ mod tests {
 
     /// Generate synthetic test chunks with realistic structure
     fn generate_test_chunks(n: usize) -> Vec<Chunk> {
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
         let docs_per_batch = (n as f64).sqrt().ceil() as usize;
         let chunks_per_doc = n.div_ceil(docs_per_batch);
 
@@ -1104,7 +1110,7 @@ mod tests {
     }
 
     /// Test that edge count is O(n log n), not O(n²)
-    /// With HNSW, we expect at most max_related edges per node
+    /// With HNSW, we expect at most `max_related` edges per node
     #[test]
     fn test_knowledge_dag_edge_count_is_linear() {
         const N: usize = 100;
@@ -1271,7 +1277,7 @@ mod tests {
         assert!(vocab.contains_key("basics"));
     }
 
-    /// Test that chunk metadata has no duplicate chunk_ids
+    /// Test that chunk metadata has no duplicate `chunk_ids`
     /// This verifies the fix for BEAD-012
     #[test]
     fn test_chunk_metadata_no_duplicate_ids() {
@@ -1460,7 +1466,7 @@ mod tests {
             let clean_category = if category.is_empty() { "default".to_string() } else { category };
 
             // Build vocabulary including all tags and category
-            let vocab = build_test_vocabulary(&[clean_tags.clone()], &[clean_category.clone()]);
+            let vocab = build_test_vocabulary(std::slice::from_ref(&clean_tags), std::slice::from_ref(&clean_category));
 
             // If vocabulary is empty, produce zero embedding (always has magnitude 0)
             if vocab.is_empty() {
@@ -1508,7 +1514,7 @@ mod tests {
         );
 
         proptest!(|(tags in strategy.0, category in strategy.1, embedding_dim in strategy.2)| {
-            let vocab = build_test_vocabulary(&[tags.clone()], &[category.clone()]);
+            let vocab = build_test_vocabulary(std::slice::from_ref(&tags), std::slice::from_ref(&category));
 
             let embedding = generate_embedding_from_terms(
                 &tags_to_terms(&tags),
@@ -1540,7 +1546,7 @@ mod tests {
         );
 
         proptest!(|(tags in strategy.0, category in strategy.1, embedding_dim in strategy.2)| {
-            let vocab = build_test_vocabulary(&[tags.clone()], &[category.clone()]);
+            let vocab = build_test_vocabulary(std::slice::from_ref(&tags), std::slice::from_ref(&category));
 
             // Generate embedding twice with same inputs
             let embedding1 = generate_embedding_from_terms(
@@ -1618,7 +1624,7 @@ mod tests {
         );
 
         proptest!(|(tags in strategy.0, category in strategy.1, embedding_dim in strategy.2)| {
-            let vocab = build_test_vocabulary(&[tags.clone()], &[category.clone()]);
+            let vocab = build_test_vocabulary(std::slice::from_ref(&tags), std::slice::from_ref(&category));
 
             let embedding = generate_embedding_from_terms(
                 &tags_to_terms(&tags),
@@ -1651,7 +1657,7 @@ mod tests {
             let mut tags_sorted = tags.clone();
             tags_sorted.sort();
 
-            let vocab = build_test_vocabulary(&[tags.clone(), tags_sorted.clone()], &[category.clone()]);
+            let vocab = build_test_vocabulary(&[tags.clone(), tags_sorted.clone()], std::slice::from_ref(&category));
 
             let embedding1 = generate_embedding_from_terms(
                 &tags_to_terms(&tags),
@@ -1781,7 +1787,7 @@ mod tests {
         )];
 
         let dag = build_knowledge_dag(&documents, &chunks, &document_tags, None, None, None, None)
-            .expect("Failed to build knowledge DAG");
+            .unwrap_or_else(|e| panic!("Failed to build knowledge DAG: {e}"));
 
         // Get the related edges
         let related_edges = dag.edges_by_type(&EdgeType::Related);
@@ -1796,8 +1802,7 @@ mod tests {
 
         assert!(
             !has_bidirectional,
-            "DAG should not have bidirectional Related edges that form cycles. Found: {:?}",
-            related_edges
+            "DAG should not have bidirectional Related edges that form cycles. Found: {related_edges:?}"
         );
 
         // Verify topological order succeeds without fallback

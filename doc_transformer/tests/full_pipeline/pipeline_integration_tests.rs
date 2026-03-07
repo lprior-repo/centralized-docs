@@ -48,7 +48,7 @@ impl IntegrationTestContext {
 
     /// Discover files in the test directory
     fn discover_files(&self) -> Vec<PathBuf> {
-        match discover::discover_files(self.root()) {
+        match discover::discover_files(self.root(), None) {
             Ok((files, _)) => files
                 .into_iter()
                 .map(|df| PathBuf::from(df.source_path))

@@ -51,14 +51,6 @@ pub fn discover_files(
         );
     }
 
-    let mut files = Vec::new();
-    let mut skipped_large = 0usize;
-    let mut skipped_empty = 0usize;
-    let mut skipped_broken_symlink = 0usize;
-    let mut skipped_io_error = 0usize;
-    // Track files skipped specifically due to permission denied (chmod 000, etc.)
-    // These must cause a non-zero exit so the user knows indexing is incomplete.
-    let mut permission_denied_files: Vec<String> = Vec::new();
     // Markdown extensions (primary)
     let markdown_exts = [".md", ".mdx", ".markdown", ".mdown", ".mkd"];
     // Text extensions (processed but may not be actual markdown - warn)
@@ -79,141 +71,184 @@ pub fn discover_files(
         return discover_single_file(&canonical_path, &all_exts);
     }
 
-    // Directory case: walk the directory tree
-    for entry in WalkDir::new(&canonical_path) {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(e) => {
-                // Check if the underlying IO error is a permission denied
-                let is_permission_denied = e
-                    .io_error()
-                    .map(|io_err| io_err.kind() == std::io::ErrorKind::PermissionDenied)
-                    .unwrap_or(false);
-                if is_permission_denied {
-                    let path_str = e
-                        .path()
-                        .map(|p| p.display().to_string())
-                        .unwrap_or_else(|| "<unknown>".to_string());
-                    eprintln!("Error: Cannot read file '{path_str}': permission denied");
-                    permission_denied_files.push(path_str);
-                } else {
-                    skipped_io_error = skipped_io_error.saturating_add(1);
-                    eprintln!("Warning: Skipping path due to I/O error: {e}");
-                }
-                continue;
-            }
-        };
+    enum DiscoveryEvent {
+        File(DiscoveryFile),
+        SkippedLarge,
+        SkippedEmpty,
+        SkippedBrokenSymlink,
+        SkippedIoError,
+        PermissionDenied(String),
+        None,
+    }
 
-        let path = entry.path();
-
-        // Skip excluded directories (exact match on directory name)
-        if path.components().any(|c| {
-            exclude_dirs
-                .iter()
-                .any(|excl| c.as_os_str().to_string_lossy() == *excl)
-        }) {
-            continue;
-        }
-
-        // Check for broken symlinks before file type check
-        // Symlinks with no valid target should be warned about and skipped
-        if entry.file_type().is_symlink() {
-            // Try to read the metadata following the symlink
-            // If this fails, the symlink target doesn't exist (broken symlink)
-            if std::fs::metadata(path).is_err() {
-                // Symlink is broken (target does not exist)
-                skipped_broken_symlink = skipped_broken_symlink.saturating_add(1);
-                let symlink_name = path.file_name().map_or_else(
-                    || "unknown".to_string(),
-                    |n| n.to_string_lossy().to_string(),
-                );
-                eprintln!(
-                    "Warning: Skipping broken symlink '{symlink_name}' (target does not exist)"
-                );
-                continue;
-            }
-        }
-
-        if path.is_file() {
-            if let Some(ext) = path.extension() {
-                let ext_str = format!(".{}", ext.to_string_lossy());
-                if all_exts.contains(&ext_str.as_str()) {
-                    // Warn for non-markdown text files being processed as markdown
-                    if text_exts.contains(&ext_str.as_str()) {
-                        let filename = path.file_name().map_or_else(
-                            || "unknown".to_string(),
-                            |n| n.to_string_lossy().to_string(),
-                        );
-                        eprintln!(
-                            "Warning: Processing non-markdown file '{filename}' with extension '{ext_str}'. \
-                            This file may not be valid markdown."
-                        );
+    let events: Vec<DiscoveryEvent> = WalkDir::new(&canonical_path)
+        .into_iter()
+        .map(|entry_res| {
+            let entry = match entry_res {
+                Ok(e) => e,
+                Err(e) => {
+                    // Check if the underlying IO error is a permission denied
+                    let is_permission_denied = e
+                        .io_error()
+                        .map(|io_err| io_err.kind() == std::io::ErrorKind::PermissionDenied)
+                        .unwrap_or(false);
+                    if is_permission_denied {
+                        let path_str = e
+                            .path()
+                            .map(|p| p.display().to_string())
+                            .unwrap_or_else(|| "<unknown>".to_string());
+                        eprintln!("Error: Cannot read file '{path_str}': permission denied");
+                        return DiscoveryEvent::PermissionDenied(path_str);
                     }
-                    // Get relative path, skip if it fails (e.g., prefix mismatch)
-                    let rel_path = match path.strip_prefix(&canonical_path) {
-                        Ok(p) => p.to_string_lossy().to_string(),
-                        Err(e) => {
-                            eprintln!(
-                                "Warning: Failed to get relative path for {}: {e}",
-                                path.display()
-                            );
-                            continue;
-                        }
-                    };
+                    eprintln!("Warning: Skipping path due to I/O error: {e}");
+                    return DiscoveryEvent::SkippedIoError;
+                }
+            };
 
-                    // Apply path filter if provided
-                    if let Some(pattern_str) = path_filter {
-                        if let Ok(regex) = regex::Regex::new(pattern_str) {
-                            if !regex.is_match(&rel_path) {
-                                continue;
+            let path = entry.path();
+
+            // Skip excluded directories (exact match on directory name)
+            if path.components().any(|c| {
+                exclude_dirs
+                    .iter()
+                    .any(|excl| c.as_os_str().to_string_lossy() == *excl)
+            }) {
+                return DiscoveryEvent::None;
+            }
+
+            // Check for broken symlinks before file type check
+            // Symlinks with no valid target should be warned about and skipped
+            if entry.file_type().is_symlink() {
+                // Try to read the metadata following the symlink
+                // If this fails, the symlink target doesn't exist (broken symlink)
+                if std::fs::metadata(path).is_err() {
+                    // Symlink is broken (target does not exist)
+                    let symlink_name = path.file_name().map_or_else(
+                        || "unknown".to_string(),
+                        |n| n.to_string_lossy().to_string(),
+                    );
+                    eprintln!(
+                        "Warning: Skipping broken symlink '{symlink_name}' (target does not exist)"
+                    );
+                    return DiscoveryEvent::SkippedBrokenSymlink;
+                }
+            }
+
+            if path.is_file() {
+                if let Some(ext) = path.extension() {
+                    let ext_str = format!(".{}", ext.to_string_lossy());
+                    if all_exts.contains(&ext_str.as_str()) {
+                        // Warn for non-markdown text files being processed as markdown
+                        if text_exts.contains(&ext_str.as_str()) {
+                            let filename = path.file_name().map_or_else(
+                                || "unknown".to_string(),
+                                |n| n.to_string_lossy().to_string(),
+                            );
+                            eprintln!(
+                                "Warning: Processing non-markdown file '{filename}' with extension '{ext_str}'. \
+                                This file may not be valid markdown."
+                            );
+                        }
+                        // Get relative path, skip if it fails (e.g., prefix mismatch)
+                        let rel_path = match path.strip_prefix(&canonical_path) {
+                            Ok(p) => p.to_string_lossy().to_string(),
+                            Err(e) => {
+                                eprintln!(
+                                    "Warning: Failed to get relative path for {}: {e}",
+                                    path.display()
+                                );
+                                return DiscoveryEvent::None;
+                            }
+                        };
+
+                        // Apply path filter if provided
+                        if let Some(pattern_str) = path_filter {
+                            if let Ok(regex) = regex::Regex::new(pattern_str) {
+                                if !regex.is_match(&rel_path) {
+                                    return DiscoveryEvent::None;
+                                }
                             }
                         }
-                    }
 
-                    // Get file size, skip if metadata fails (e.g., permission denied)
-                    let size = match path.metadata() {
-                        Ok(meta) => meta.len(),
-                        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-                            let path_str = path.display().to_string();
-                            eprintln!("Error: Cannot read file '{path_str}': permission denied");
-                            permission_denied_files.push(path_str);
-                            continue;
+                        // Get file size, skip if metadata fails (e.g., permission denied)
+                        let size = match path.metadata() {
+                            Ok(meta) => meta.len(),
+                            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                                let path_str = path.display().to_string();
+                                eprintln!("Error: Cannot read file '{path_str}': permission denied");
+                                return DiscoveryEvent::PermissionDenied(path_str);
+                            }
+                            Err(e) => {
+                                eprintln!(
+                                    "Warning: Failed to read metadata for {}: {e}, skipping file",
+                                    path.display()
+                                );
+                                return DiscoveryEvent::SkippedIoError;
+                            }
+                        };
+
+                        if size == 0 {
+                            eprintln!("Error: Skipping empty file {}", path.display());
+                            return DiscoveryEvent::SkippedEmpty;
                         }
-                        Err(e) => {
-                            skipped_io_error = skipped_io_error.saturating_add(1);
+
+                        if size > MAX_SOURCE_FILE_BYTES {
                             eprintln!(
-                                "Warning: Failed to read metadata for {}: {e}, skipping file",
-                                path.display()
+                                "Warning: Skipping oversized file {} ({} bytes exceeds {} byte limit)",
+                                path.display(),
+                                size,
+                                MAX_SOURCE_FILE_BYTES
                             );
-                            continue;
+                            return DiscoveryEvent::SkippedLarge;
                         }
-                    };
 
-                    if size == 0 {
-                        skipped_empty = skipped_empty.saturating_add(1);
-                        eprintln!("Error: Skipping empty file {}", path.display());
-                        continue;
+                        return DiscoveryEvent::File(DiscoveryFile {
+                            source_path: rel_path,
+                            size_bytes: size,
+                        });
                     }
-
-                    if size > MAX_SOURCE_FILE_BYTES {
-                        skipped_large = skipped_large.saturating_add(1);
-                        eprintln!(
-                            "Warning: Skipping oversized file {} ({} bytes exceeds {} byte limit)",
-                            path.display(),
-                            size,
-                            MAX_SOURCE_FILE_BYTES
-                        );
-                        continue;
-                    }
-
-                    files.push(DiscoveryFile {
-                        source_path: rel_path,
-                        size_bytes: size,
-                    });
                 }
             }
-        }
-    }
+            DiscoveryEvent::None
+        })
+        .collect();
+
+    let files: Vec<DiscoveryFile> = events
+        .iter()
+        .filter_map(|e| {
+            if let DiscoveryEvent::File(f) = e {
+                Some(f.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    let skipped_large = events
+        .iter()
+        .filter(|e| matches!(e, DiscoveryEvent::SkippedLarge))
+        .count();
+    let skipped_empty = events
+        .iter()
+        .filter(|e| matches!(e, DiscoveryEvent::SkippedEmpty))
+        .count();
+    let skipped_broken_symlink = events
+        .iter()
+        .filter(|e| matches!(e, DiscoveryEvent::SkippedBrokenSymlink))
+        .count();
+    let skipped_io_error = events
+        .iter()
+        .filter(|e| matches!(e, DiscoveryEvent::SkippedIoError))
+        .count();
+    let permission_denied_files: Vec<String> = events
+        .iter()
+        .filter_map(|e| {
+            if let DiscoveryEvent::PermissionDenied(p) = e {
+                Some(p.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
 
     // Error if no files found but there were I/O errors (e.g., all files have permission issues)
     // This ensures we don't silently skip unreadable files without user feedback
@@ -370,7 +405,7 @@ fn discover_single_file(
 }
 
 #[cfg(test)]
-#[allow(clippy::panic)]
+#[allow(clippy::panic, clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
     use std::fs::{self, File};
@@ -393,22 +428,22 @@ mod tests {
         // Create a subdirectory with a file inside - but NO readable files at root
         let unreadable_dir = dir_path.join("restricted");
         match fs::create_dir(&unreadable_dir) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create restricted dir: {e}"),
-        };
+        }
 
         let file_in_dir = unreadable_dir.join("inside.md");
         match fs::write(&file_in_dir, "# Inside Restricted\nContent") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create file in restricted dir: {e}"),
-        };
+        }
 
         // Remove read+execute permissions from subdirectory (making it unreadable)
         // This prevents WalkDir from even entering the directory
         match fs::set_permissions(&unreadable_dir, PermissionsExt::from_mode(0o000)) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to set permissions: {e}"),
-        };
+        }
 
         // Discover files - should FAIL because no readable files exist
         let result = discover_files(dir_path, None);
@@ -426,8 +461,7 @@ mod tests {
         let err_msg = result.unwrap_err().to_string();
         assert!(
             err_msg.contains("permission denied"),
-            "Error should mention 'permission denied', got: {}",
-            err_msg
+            "Error should mention 'permission denied', got: {err_msg}"
         );
     }
 
@@ -449,7 +483,7 @@ mod tests {
             Err(e) => panic!("Failed to create file1: {e}"),
         };
         match f1.write_all(b"# Readable Document 1\nContent here") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to write file1: {e}"),
         }
 
@@ -458,7 +492,7 @@ mod tests {
             Err(e) => panic!("Failed to create file2: {e}"),
         };
         match f2.write_all(b"# Readable Document 2\nMore content") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to write file2: {e}"),
         }
 
@@ -511,19 +545,19 @@ mod tests {
         let other_file = dir_path.join("test.html");
 
         match fs::write(&md_file, "# Markdown\n\ncontent\n") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create md file: {e}"),
         }
         match fs::write(&txt_file, "plain text") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create txt file: {e}"),
         }
         match fs::write(&rst_file, "Heading\n=======\n") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create rst file: {e}"),
         }
         match fs::write(&mdx_file_test, "# MDX\n\n<Component />") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create mdx file: {e}"),
         }
         match File::create(&other_file) {
@@ -573,7 +607,7 @@ mod tests {
         // Create nested structure
         let subdir = dir_path.join("subdir");
         match fs::create_dir(&subdir) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create subdir: {e}"),
         }
 
@@ -581,11 +615,11 @@ mod tests {
         let sub_file = subdir.join("sub.md");
 
         match fs::write(&root_file, "# Root\n") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create root file: {e}"),
         }
         match fs::write(&sub_file, "# Sub\n") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create sub file: {e}"),
         }
 
@@ -604,7 +638,7 @@ mod tests {
     }
 
     /// Test that a single markdown file can be indexed directly
-    /// This was P1 bug doc-tx-xpm: discover_files rejected single files
+    /// This was P1 bug doc-tx-xpm: `discover_files` rejected single files
     #[test]
     fn test_discover_single_file() {
         let temp_dir = match TempDir::new() {
@@ -620,7 +654,7 @@ mod tests {
             Err(e) => panic!("Failed to create single file: {e}"),
         };
         match f.write_all(b"# Single Document\n\nThis is a single file to index.") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to write single file: {e}"),
         }
 
@@ -629,7 +663,7 @@ mod tests {
         assert!(
             result.is_ok(),
             "discover_files should accept single file, got: {:?}",
-            result.as_ref().map_err(|e| e.to_string())
+            result.as_ref().map_err(std::string::ToString::to_string)
         );
 
         let (files, manifest) = match result {
@@ -720,23 +754,23 @@ mod tests {
         let vendor_dir = dir_path.join("vendor");
 
         match fs::create_dir(&node_modules) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create node_modules: {e}"),
         }
         match fs::create_dir(&git_dir) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create .git: {e}"),
         }
         match fs::create_dir(&_build) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create _build: {e}"),
         }
         match fs::create_dir(&dist_dir) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create dist: {e}"),
         }
         match fs::create_dir(&vendor_dir) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create vendor: {e}"),
         }
 
@@ -771,7 +805,7 @@ mod tests {
         // Create a file in root that should be found
         let root_file = dir_path.join("root.md");
         match fs::write(&root_file, "# Root\n") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create root file: {e}"),
         }
 
@@ -822,7 +856,7 @@ mod tests {
         };
         let new_len = super::MAX_SOURCE_FILE_BYTES.saturating_add(1);
         match f.set_len(new_len) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to set file length: {e}"),
         }
 
@@ -842,7 +876,7 @@ mod tests {
         // Create a valid markdown file
         let valid_file = dir_path.join("valid.md");
         match fs::write(&valid_file, "# Valid Document\nContent here") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create valid file: {e}"),
         }
 
@@ -867,8 +901,7 @@ mod tests {
         let err_msg = result.unwrap_err().to_string();
         assert!(
             err_msg.contains("broken symlink"),
-            "Error should mention 'broken symlink', got: {}",
-            err_msg
+            "Error should mention 'broken symlink', got: {err_msg}"
         );
     }
 
@@ -883,7 +916,7 @@ mod tests {
 
         let real_file = dir_path.join("real.md");
         match fs::write(&real_file, "# Real Document\nContent here") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create real file: {e}"),
         }
 
@@ -909,7 +942,7 @@ mod tests {
         };
 
         assert!(
-            discovered_files.len() >= 1,
+            !discovered_files.is_empty(),
             "Should discover at least 1 file, got {}",
             discovered_files.len()
         );
@@ -920,8 +953,7 @@ mod tests {
             .collect();
         assert!(
             file_names.iter().any(|n| n.contains("real.md")),
-            "Should find real.md, found: {:?}",
-            file_names
+            "Should find real.md, found: {file_names:?}"
         );
     }
 
@@ -937,11 +969,11 @@ mod tests {
         let real_dir = dir_path.join("realdir");
         let real_file_in_dir = real_dir.join("nested.md");
         match fs::create_dir(&real_dir) {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create dir: {e}"),
-        };
+        }
         match fs::write(&real_file_in_dir, "# Nested\nContent") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create nested file: {e}"),
         }
 
@@ -972,8 +1004,7 @@ mod tests {
             .collect();
         assert!(
             file_names.iter().any(|n| n.contains("nested.md")),
-            "Should find nested.md inside symlinked dir, found: {:?}",
-            file_names
+            "Should find nested.md inside symlinked dir, found: {file_names:?}"
         );
     }
 
@@ -987,7 +1018,7 @@ mod tests {
         let dir_path = temp_dir.path();
 
         match fs::write(dir_path.join("good.md"), "# Good\nContent") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create good file: {e}"),
         }
 
@@ -1005,8 +1036,7 @@ mod tests {
         let err_msg = result.unwrap_err().to_string();
         assert!(
             err_msg.contains("3 broken symlink"),
-            "Error should mention 3 broken symlinks, got: {}",
-            err_msg
+            "Error should mention 3 broken symlinks, got: {err_msg}"
         );
     }
 
@@ -1020,7 +1050,7 @@ mod tests {
         let dir_path = temp_dir.path();
 
         match fs::write(dir_path.join("file.md"), "# Content\nText") {
-            Ok(_) => (),
+            Ok(()) => (),
             Err(e) => panic!("Failed to create file: {e}"),
         }
 
@@ -1042,8 +1072,7 @@ mod tests {
         let err_msg = result.unwrap_err().to_string();
         assert!(
             err_msg.contains("broken symlink"),
-            "Error should mention broken symlink, got: {}",
-            err_msg
+            "Error should mention broken symlink, got: {err_msg}"
         );
     }
 }

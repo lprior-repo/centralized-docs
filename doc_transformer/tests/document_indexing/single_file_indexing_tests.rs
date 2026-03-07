@@ -38,7 +38,7 @@ More content.
     fs::write(&md_file, content).expect("Failed to write test file");
 
     // Discover files
-    let (files, manifest) = doc_transformer::discover::discover_files(&md_file)
+    let (files, manifest) = doc_transformer::discover::discover_files(&md_file, None)
         .expect("discover_files should succeed for single .md file");
 
     assert_eq!(files.len(), 1, "Should discover exactly 1 file");
@@ -149,7 +149,7 @@ And should work with the indexing pipeline.
     fs::write(&txt_file, content).expect("Failed to write test file");
 
     // Discover files
-    let (files, manifest) = doc_transformer::discover::discover_files(&txt_file)
+    let (files, manifest) = doc_transformer::discover::discover_files(&txt_file, None)
         .expect("discover_files should succeed for single .txt file");
 
     assert_eq!(files.len(), 1, "Should discover exactly 1 file");
@@ -235,7 +235,7 @@ With some content.
     fs::write(&rst_file, content).expect("Failed to write test file");
 
     // Discover files
-    let (files, manifest) = doc_transformer::discover::discover_files(&rst_file)
+    let (files, manifest) = doc_transformer::discover::discover_files(&rst_file, None)
         .expect("discover_files should succeed for single .rst file");
 
     assert_eq!(files.len(), 1, "Should discover exactly 1 file");
@@ -311,7 +311,7 @@ fn test_index_single_unsupported_json_fails_gracefully() {
     fs::write(&json_file, content).expect("Failed to write test file");
 
     // Discover files - should succeed but find no supported files
-    let (files, manifest) = doc_transformer::discover::discover_files(&json_file)
+    let (files, manifest) = doc_transformer::discover::discover_files(&json_file, None)
         .expect("discover_files should succeed even for unsupported file");
 
     assert_eq!(
@@ -350,7 +350,7 @@ fn test_index_nonexistent_single_file_fails() {
     let nonexistent_file = temp_dir.path().join("does_not_exist.md");
 
     // Discover files - should fail with clear error
-    let result = doc_transformer::discover::discover_files(&nonexistent_file);
+    let result = doc_transformer::discover::discover_files(&nonexistent_file, None);
 
     assert!(
         result.is_err(),
@@ -389,7 +389,7 @@ Some content here.
     fs::write(&md_file, content).expect("Failed to write test file");
 
     // Discover files using the full path to the file
-    let (files, manifest) = doc_transformer::discover::discover_files(&md_file)
+    let (files, manifest) = doc_transformer::discover::discover_files(&md_file, None)
         .expect("discover_files should succeed for file in subdirectory");
 
     assert_eq!(files.len(), 1, "Should discover exactly 1 file");
@@ -483,7 +483,7 @@ Content B.
 
     // Full pipeline: discover
     let (files, _manifest) =
-        doc_transformer::discover::discover_files(&md_file).expect("discover_files should succeed");
+        doc_transformer::discover::discover_files(&md_file, None).expect("discover_files should succeed");
 
     // Analyze
     let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None)
@@ -635,7 +635,7 @@ Finally, we have a conclusion section that wraps up the document.
 
     // Full pipeline
     let (files, _manifest) =
-        doc_transformer::discover::discover_files(&md_file).expect("discover_files should succeed");
+        doc_transformer::discover::discover_files(&md_file, None).expect("discover_files should succeed");
 
     let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None)
         .expect("analyze_files should succeed");
@@ -783,7 +783,7 @@ This is an MDX file with JSX components.
     fs::write(&mdx_file, content).expect("Failed to write test file");
 
     // Discover files
-    let (files, manifest) = doc_transformer::discover::discover_files(&mdx_file)
+    let (files, manifest) = doc_transformer::discover::discover_files(&mdx_file, None)
         .expect("discover_files should succeed for single .mdx file");
 
     assert_eq!(files.len(), 1, "Should discover exactly 1 file");

@@ -1,4 +1,3 @@
-use contextual_chunker::ChunkType;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use doc_transformer::chunk::{Chunk, ChunkLevel};
 use doc_transformer::graph::KnowledgeDAG;
@@ -97,6 +96,7 @@ fn generate_test_documents(chunks: &[Chunk]) -> Vec<doc_transformer::index::Inde
                 ],
                 summary: format!("Summary for document {idx}"),
                 word_count: 1000 + idx * 100,
+                content: String::new(),
                 chunk_ids,
                 headings: vec![
                     "Introduction".to_string(),

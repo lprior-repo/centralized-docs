@@ -5,8 +5,6 @@
 //! - Precondition: Token counts must be consistent within ±10%
 //! - Postcondition: Parent-child relationships form valid DAG (no cycles)
 
-#![allow(clippy::expect_used)]
-
 use crate::document::Document;
 use anyhow::Result;
 use regex::Regex;
@@ -766,6 +764,7 @@ fn detect_chunk_type(content: &str) -> ChunkType {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
 
     #[test]

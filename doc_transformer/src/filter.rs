@@ -445,7 +445,7 @@ fn is_footer_line(line: &str) -> bool {
 /// **Preconditions:**
 /// - `document` is valid UTF-8 (guaranteed by &str)
 /// - `query` is valid UTF-8 (guaranteed by &str)
-/// - `avg_doc_length` parameter is **IGNORED** (Tantivy computes internally)
+/// - `avg_doc_length` parameter is used for length normalization
 ///
 /// **Postconditions:**
 /// - Return value is always finite (never `NaN`, never Infinity)
@@ -455,89 +455,64 @@ fn is_footer_line(line: &str) -> bool {
 /// **Invariants:**
 /// - Empty document → score = 0.0
 /// - Empty query → score = 0.0
-/// - Invalid query syntax → score = 0.0 (graceful fallback)
-/// - Tantivy tokenizer handles Unicode/emoji correctly
 ///
 /// # Implementation Notes
 ///
-/// Uses Tantivy's BM25 scorer instead of custom implementation. This:
-/// - Reduces code from ~70 LOC to ~60 LOC
-/// - Uses battle-tested algorithm (proven in production)
-/// - Handles edge cases correctly (stop words, case sensitivity, etc.)
-/// - Provides better relevance scores for multi-term queries
-///
-/// Performance: Creates ephemeral index per call. For batch scoring,
-/// consider using the full `search` module with persistent indexes.
-#[allow(unused_variables)] // avg_doc_length ignored (Tantivy computes internally)
+/// Computes a pseudo-BM25 / Term-Frequency score without IDF corpus weighting.
+/// Since this function only takes a single document and lacks corpus statistics,
+/// it computes a term-frequency score with document length normalization rather than true BM25.
 #[must_use]
 pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
-    use tantivy::collector::TopDocs;
-    use tantivy::query::QueryParser;
-    use tantivy::schema::{Schema, TEXT};
-    use tantivy::Index;
+    let k1 = 1.2;
+    let b = 0.75;
 
-    // Early exit for empty inputs (prevent unnecessary indexing)
+    // Early exit for empty inputs
     if document.trim().is_empty() || query.trim().is_empty() {
         return 0.0;
     }
 
-    // Create ephemeral schema with single content field
-    // Store field handle during creation (avoids string lookup)
-    let (schema, content_field) = {
-        let mut schema_builder = Schema::builder();
-        let field = schema_builder.add_text_field("content", TEXT);
-        (schema_builder.build(), field)
-    };
+    // Strip basic punctuation before splitting whitespace
+    let clean_doc = document.replace(
+        &[
+            ',', '.', '?', '!', ';', '(', ')', '[', ']', '{', '}', '"', '\'',
+        ][..],
+        "",
+    );
+    let doc_words: Vec<&str> = clean_doc.split_whitespace().collect();
+    let doc_length = doc_words.len() as f32;
 
-    // Create in-memory index (ephemeral, discarded after scoring)
-    let index = Index::create_in_ram(schema);
+    // Avoid division by zero
+    let safe_avg_doc_length = avg_doc_length.max(1.0);
 
-    // Railway pattern: chain all operations, return 0.0 on any error
-    index
-        .writer(15_000_000) // 15MB heap
-        .map_err(|_| ()) // Convert TantivyError to ()
-        .and_then(|mut index_writer| {
-            // Index the single document
-            index_writer
-                .add_document(tantivy::doc!(content_field => document))
-                .map_err(|_| ())
-                .and_then(|_| index_writer.commit().map_err(|_| ()))
+    let clean_query = query.replace(
+        &[
+            ',', '.', '?', '!', ';', '(', ')', '[', ']', '{', '}', '"', '\'',
+        ][..],
+        "",
+    );
+    let score: f32 = clean_query
+        .split_whitespace()
+        .map(|term| {
+            let term_lower = term.to_lowercase();
+            doc_words
+                .iter()
+                .filter(|w| w.to_lowercase() == term_lower)
+                .count() as f32
         })
-        .and_then(|_| {
-            // Create reader and searcher
-            index
-                .reader()
-                .map(|reader| reader.searcher())
-                .map_err(|_| ())
+        .filter(|&tf| tf > 0.0)
+        .map(|tf| {
+            let idf = (10.0_f32).ln();
+            let numerator = tf * (k1 + 1.0);
+            let denominator = tf + k1 * (1.0 - b + b * (doc_length / safe_avg_doc_length));
+            idf * (numerator / denominator.max(0.0001))
         })
-        .and_then(|searcher| {
-            // Parse query (Tantivy handles case-insensitivity, tokenization)
-            let query_parser = QueryParser::for_index(&index, vec![content_field]);
-            query_parser
-                .parse_query(query)
-                .map(|parsed_query| (searcher, parsed_query))
-                .map_err(|_| ()) // Invalid query syntax → error
-        })
-        .and_then(|(searcher, parsed_query)| {
-            // Execute search (BM25 scoring happens here)
-            searcher
-                .search(&parsed_query, &TopDocs::with_limit(1))
-                .map_err(|_| ())
-        })
-        .ok() // Convert Result<Vec, ()> to Option<Vec>
-        .and_then(|top_docs| {
-            // Extract BM25 score from first result
-            top_docs.first().map(|(score, _doc_address)| *score)
-        })
-        .unwrap_or(0.0) // Default to 0.0 on any error
-        .pipe(|score| {
-            // Final sanity check: ensure result is finite and non-negative
-            if score.is_finite() && score >= 0.0 {
-                score
-            } else {
-                0.0
-            }
-        })
+        .sum();
+
+    if score.is_finite() && score >= 0.0 {
+        score
+    } else {
+        0.0
+    }
 }
 
 /// Batch score documents using BM25 with single persistent index

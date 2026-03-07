@@ -26,7 +26,7 @@ fn test_invalid_utf8_all_files_cause_error() {
 
     // Discover should find the file
     let (files, _manifest) =
-        doc_transformer::discover::discover_files(source).expect("Discovery should succeed");
+        doc_transformer::discover::discover_files(source, None).expect("Discovery should succeed");
     assert_eq!(files.len(), 1, "Should discover the file");
 
     // Analysis should error because the file cannot be read
@@ -64,7 +64,7 @@ fn test_all_files_unreadable_causes_error() {
 
     // Discover finds the files
     let (files, _manifest) =
-        doc_transformer::discover::discover_files(source).expect("Discovery should succeed");
+        doc_transformer::discover::discover_files(source, None).expect("Discovery should succeed");
     assert_eq!(files.len(), 3, "Should discover all 3 files");
 
     // Analysis should fail with a clear error
@@ -89,7 +89,7 @@ fn test_partial_file_analysis_failure_is_ok() {
     fs::write(&bad_md, invalid_utf8).expect("Failed to write bad file");
 
     let (files, _manifest) =
-        doc_transformer::discover::discover_files(source).expect("Discovery should succeed");
+        doc_transformer::discover::discover_files(source, None).expect("Discovery should succeed");
     assert_eq!(files.len(), 2, "Should discover both files");
 
     // Analysis should succeed with one valid file

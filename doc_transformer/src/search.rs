@@ -506,7 +506,10 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
 ///
 /// # Returns
 ///
-/// BM25 score (higher = more relevant)
+/// Pseudo-BM25 / Term-Frequency score without IDF corpus weighting (higher = more relevant)
+///
+/// Note: Since this function only takes a single document and lacks corpus statistics,
+/// it computes a term-frequency score with document length normalization rather than true BM25.
 ///
 /// See: Robertson & Zaragoza (2009) "The Probabilistic Relevance Framework: BM25 and Beyond"
 #[allow(dead_code)] // Exported for library users - not used internally
@@ -516,14 +519,28 @@ pub fn score_document_simple(title: &str, summary: &str, query: &str, word_count
     let b = BM25_B;
 
     let document = format!("{title} {summary}");
-    let doc_words: Vec<&str> = document.split_whitespace().collect();
+
+    // Strip basic punctuation before splitting whitespace
+    let clean_doc = document.replace(
+        &[
+            ',', '.', '?', '!', ';', '(', ')', '[', ']', '{', '}', '"', '\'',
+        ][..],
+        "",
+    );
+    let doc_words: Vec<&str> = clean_doc.split_whitespace().collect();
     // SAFETY: Document length (title + summary) typically < 1000 words, well within f32 precision
     let doc_length = doc_words.len() as f32;
 
     // Avoid division by zero
     let avg_doc_length = word_count.max(1.0);
 
-    query
+    let clean_query = query.replace(
+        &[
+            ',', '.', '?', '!', ';', '(', ')', '[', ']', '{', '}', '"', '\'',
+        ][..],
+        "",
+    );
+    clean_query
         .split_whitespace()
         .map(|term| {
             let term_lower = term.to_lowercase();
