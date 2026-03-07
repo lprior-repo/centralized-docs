@@ -433,7 +433,17 @@ fn write_index_file(output_dir: &Path, index: &serde_json::Value) -> Result<()> 
 /// since search can fall back to INDEX.json.
 fn build_tantivy_index(output_dir: &Path, documents: &[IndexDocument]) -> Result<()> {
     search::open_or_create_index(output_dir)
-        .and_then(|index| search::index_documents(&index, documents.to_vec()))
+        .and_then(|index| {
+            let mut writer = index
+                .writer(50_000_000)
+                .map_err(|e| anyhow::anyhow!("Failed to create writer: {e}"))?;
+            search::index_documents(&mut writer, documents)
+                .map_err(|e| anyhow::anyhow!("Indexing failed: {e}"))?;
+            writer
+                .commit()
+                .map_err(|e| anyhow::anyhow!("Commit failed: {e}"))?;
+            Ok(())
+        })
         .map_err(|e| {
             eprintln!("Error: Failed to build Tantivy index: {e}");
             eprintln!("Search will fall back to INDEX.json, but will be slower");

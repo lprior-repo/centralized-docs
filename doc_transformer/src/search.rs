@@ -30,6 +30,35 @@ use tantivy::doc;
 use tantivy::query::QueryParser;
 use tantivy::schema::{Field, Schema, Value, STORED, TEXT};
 use tantivy::Index;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+#[allow(dead_code)]
+pub enum IndexerError {
+    #[error("Directory access failed: {0}")]
+    DirectoryAccessFailed(String),
+    #[error("Index commit failed: {0}")]
+    IndexCommitFailed(String),
+    #[error("Invalid document")]
+    InvalidDocument,
+    #[error("Uncommitted changes")]
+    UncommittedChanges,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+#[derive(Debug, Error)]
+#[allow(dead_code)]
+pub enum SearchError {
+    #[error("Empty query")]
+    EmptyQuery,
+    #[error("Query parse error: {0}")]
+    QueryParseError(String),
+    #[error("Postcondition violated")]
+    PostconditionViolated,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
 
 /// Schema field indices (cached for performance)
 pub struct SchemaFields {
@@ -167,7 +196,13 @@ pub fn rebuild_index_from_json(index_path: &Path) -> Result<Index> {
         .map_err(|e| anyhow!("Failed to create index: {e}"))?;
 
     if !docs.is_empty() {
-        index_documents(&index, docs)?;
+        let mut writer = index
+            .writer(50_000_000)
+            .map_err(|e| anyhow!("Failed to create writer: {e}"))?;
+        index_documents(&mut writer, &docs)?;
+        writer
+            .commit()
+            .map_err(|e| anyhow!("Failed to commit: {e}"))?;
     }
 
     Ok(index)
@@ -250,55 +285,55 @@ pub fn open_existing_index(index_path: &Path) -> Result<Option<Index>> {
 ///
 /// ## Behavior
 ///
-/// - Creates new writer
 /// - Adds all documents
-/// - Commits transaction
+/// - Does NOT commit transaction (caller is responsible)
 ///
 /// ## Error Handling
 ///
-/// Returns error if write or commit fails (e.g., disk full, permissions).
+/// Returns error if write fails.
 ///
 /// # Arguments
 ///
-/// * `index` - Tantivy index to write to
+/// * `writer` - Mutable reference to Tantivy `IndexWriter`
 /// * `documents` - Documents to index (converted to Tantivy Document format)
 ///
 /// # Returns
 ///
-/// Success on commit, error if any operation fails
-pub fn index_documents(index: &Index, documents: Vec<crate::index::IndexDocument>) -> Result<()> {
+/// Success, error if any operation fails
+pub fn index_documents(
+    writer: &mut tantivy::IndexWriter,
+    documents: &[crate::index::IndexDocument],
+) -> std::result::Result<(), IndexerError> {
     let (_schema, fields) = create_schema();
 
-    // Create writer with buffer size for batch operations
-    let mut writer = index.writer(50_000_000)?;
-
     // Add each document
-    documents.into_iter().try_for_each(|doc| -> Result<()> {
-        // content field: combination of title + summary for searching
-        let tags_str = doc.tags.join(" ");
-        let headings_str = doc.headings.join(" ");
-        let searchable_content = format!(
-            "{} {} {} {} {} {}",
-            doc.title, doc.summary, doc.path, tags_str, headings_str, doc.content
-        );
+    documents
+        .iter()
+        .try_for_each(|doc| -> std::result::Result<(), IndexerError> {
+            // content field: combination of title + summary for searching
+            let tags_str = doc.tags.join(" ");
+            let headings_str = doc.headings.join(" ");
+            let searchable_content = format!(
+                "{} {} {} {} {} {}",
+                doc.title, doc.summary, doc.path, tags_str, headings_str, doc.content
+            );
 
-        // Use tantivy::doc! macro to build document
-        let tantivy_doc = doc!(
-            fields.id => doc.id.as_str(),
-            fields.title => doc.title.as_str(),
-            fields.summary => doc.summary.as_str(),
-            fields.content => searchable_content.as_str(),
-            fields.category => doc.category.as_str(),
-            fields.word_count => doc.word_count as u64,
-            fields.path => doc.path.as_str(),
-        );
+            // Use tantivy::doc! macro to build document
+            let tantivy_doc = doc!(
+                fields.id => doc.id.as_str(),
+                fields.title => doc.title.as_str(),
+                fields.summary => doc.summary.as_str(),
+                fields.content => searchable_content.as_str(),
+                fields.category => doc.category.as_str(),
+                fields.word_count => doc.word_count as u64,
+                fields.path => doc.path.as_str(),
+            );
 
-        writer.add_document(tantivy_doc)?;
-        Ok(())
-    })?;
-
-    // Commit transaction
-    writer.commit()?;
+            writer
+                .add_document(tantivy_doc)
+                .map_err(|e| IndexerError::IndexCommitFailed(e.to_string()))?;
+            Ok(())
+        })?;
 
     Ok(())
 }
@@ -358,38 +393,48 @@ fn escape_tantivy_query(query: &str) -> String {
 ///
 /// Vector of `SearchResult` sorted by relevance (highest score first)
 #[allow(dead_code)] // Exported for library users - not used internally
-pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<SearchResult>> {
+pub fn search_index(
+    index: &Index,
+    query_str: &str,
+    limit: usize,
+) -> std::result::Result<Vec<SearchResult>, SearchError> {
     let (_schema, fields) = create_schema();
 
     // Validate query using centralized validation
-    let query_str = crate::validate::validate_query(query_str).map_err(|e| anyhow!("{e}"))?;
+    let query_str = crate::validate::validate_query(query_str)
+        .map_err(|e| SearchError::QueryParseError(e.to_string()))?;
 
     // Validate limit to prevent Tantivy panic (must be > 0)
-    let limit = crate::validate::validate_limit(&limit.to_string()).map_err(|e| anyhow!("{e}"))?;
+    let limit = crate::validate::validate_limit(&limit.to_string())
+        .map_err(|e| SearchError::QueryParseError(e.to_string()))?;
 
     // Escape special characters that have meaning in Tantivy query syntax
     // This prevents wildcard queries and other unintended query parsing
     let escaped_query = escape_tantivy_query(query_str);
 
     // Get reader for searching
-    let reader = index.reader()?;
+    let reader = index
+        .reader()
+        .map_err(|e| SearchError::Other(anyhow::anyhow!(e)))?;
     let searcher = reader.searcher();
 
     // Parse query
     let query_parser = QueryParser::for_index(index, vec![fields.content]);
     let query = query_parser
         .parse_query(&escaped_query)
-        .map_err(|e| anyhow!("Invalid query: {e}"))?;
+        .map_err(|e| SearchError::QueryParseError(format!("Invalid query: {e}")))?;
 
     // Execute search and get top results
-    let top_docs = searcher.search(&query, &TopDocs::with_limit(limit))?;
+    let top_docs = searcher
+        .search(&query, &TopDocs::with_limit(limit))
+        .map_err(|e| SearchError::Other(anyhow::anyhow!(e)))?;
 
     // Extract stored fields from results
     let mut results: Vec<SearchResult> = top_docs
         .into_iter()
         .map(
-            |(tantivy_score, doc_address)| -> Result<Option<SearchResult>> {
-                let retrieved_doc: tantivy::TantivyDocument = searcher.doc(doc_address)?;
+            |(tantivy_score, doc_address)| -> std::result::Result<Option<SearchResult>, SearchError> {
+                let retrieved_doc: tantivy::TantivyDocument = searcher.doc(doc_address).map_err(|e| SearchError::Other(anyhow::anyhow!(e)))?;
 
                 // Extract fields (safely with defaults)
                 // Tantivy 0.25: Convert CompactDocValue -> OwnedValue -> extract
@@ -451,100 +496,11 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
             },
         )
         .filter_map(Result::transpose)
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<std::result::Result<Vec<_>, SearchError>>()?;
 
-    results.sort_by(|a, b| b.score.cmp(&a.score));
+    results.sort_by_key(|b| std::cmp::Reverse(b.score));
 
     Ok(results)
-}
-
-/// Simple BM25 scoring for a single document.
-///
-/// Used as fallback when Tantivy index is unavailable.
-/// This is the original simplified BM25 implementation.
-///
-/// ## Parameters
-///
-/// - `BM25_K1`: term frequency saturation point (1.2)
-/// - `BM25_B`: length normalization (0.75)
-/// - IDF: ln(10) per term (simplified, not actual document frequency)
-///
-/// # Arguments
-///
-/// * `title` - Document title
-/// * `summary` - Document summary
-/// * `query` - Search query
-/// * `word_count` - Document length (for normalization)
-///
-/// # Returns
-///
-/// Pseudo-BM25 / Term-Frequency score without IDF corpus weighting (higher = more relevant)
-///
-/// Note: Since this function only takes a single document and lacks corpus statistics,
-/// it computes a term-frequency score with document length normalization rather than true BM25.
-///
-/// See: Robertson & Zaragoza (2009) "The Probabilistic Relevance Framework: BM25 and Beyond"
-#[allow(dead_code)] // Exported for library users - not used internally
-#[must_use]
-pub fn score_document_simple(
-    title: &str,
-    summary: &str,
-    query: &str,
-    word_count: f32,
-) -> crate::math_types::Score {
-    let document = format!("{title} {summary}");
-
-    // Strip basic punctuation before splitting whitespace by replacing with space
-    let clean_doc = document.replace(
-        &[
-            ',', '.', '?', '!', ';', '(', ')', '[', ']', '{', '}', '"', '\'',
-        ][..],
-        " ",
-    );
-    // Lowercase all words once to avoid O(M*N) allocations
-    let doc_words: Vec<String> = clean_doc
-        .split_whitespace()
-        .map(|w| w.to_lowercase())
-        .collect();
-    // SAFETY: Document length (title + summary) typically < 1000 words, well within f32 precision
-    let doc_length = doc_words.len() as u32;
-
-    // Avoid division by zero
-    let avg_doc_length = word_count.max(1.0);
-
-    let clean_query = query.replace(
-        &[
-            ',', '.', '?', '!', ';', '(', ')', '[', ']', '{', '}', '"', '\'',
-        ][..],
-        " ",
-    );
-    clean_query
-        .split_whitespace()
-        .map(|term| {
-            let term_lower = term.to_lowercase();
-            // SAFETY: Term frequency in a single document typically < 100, well within u32 precision
-            doc_words.iter().filter(|w| *w == &term_lower).count() as u32
-        })
-        .filter(|&tf| tf > 0)
-        .map(|tf| {
-            let tf_typed = crate::math_types::TermFrequency::try_new(tf)
-                .unwrap_or(crate::math_types::TermFrequency::ZERO);
-            let doc_len_typed = crate::math_types::DocumentLength::try_new(doc_length)
-                .unwrap_or(crate::math_types::DocumentLength::ZERO);
-            let avg_doc_len_typed =
-                crate::math_types::AverageDocumentLength::safe_new(avg_doc_length);
-            let total_docs = crate::math_types::TotalDocuments::new(10);
-            let doc_freq = crate::math_types::DocumentFrequency::new(1);
-
-            crate::math_types::pure_bm25(
-                tf_typed,
-                doc_len_typed,
-                avg_doc_len_typed,
-                total_docs,
-                doc_freq,
-            )
-        })
-        .sum::<crate::math_types::Score>()
 }
 
 #[cfg(test)]
@@ -594,55 +550,5 @@ mod tests {
         assert!(index_dir.is_dir());
 
         Ok(())
-    }
-
-    #[test]
-    fn test_score_document_simple_basic() {
-        let score1 = score_document_simple("rust programming", "learn rust", "rust", 100.0).value();
-        let score2 =
-            score_document_simple("python web dev", "django framework", "rust", 100.0).value();
-
-        // rust should score higher in first doc
-        assert!(score1 > score2);
-    }
-
-    #[test]
-    fn test_score_document_simple_multiple_terms() {
-        let score1 = score_document_simple(
-            "rust programming",
-            "systems programming language",
-            "rust programming",
-            100.0,
-        )
-        .value();
-        let score2 =
-            score_document_simple("rust web", "simple framework", "rust programming", 100.0)
-                .value();
-
-        // Both terms present should score higher than one term
-        assert!(score1 > score2);
-    }
-
-    #[test]
-    fn test_score_document_simple_empty_query() {
-        let score = score_document_simple("rust programming", "systems", "", 100.0).value();
-        assert_eq!(score, 0.0);
-    }
-
-    #[test]
-    fn test_score_document_simple_zero_word_count() {
-        // Should handle zero word_count gracefully
-        let score = score_document_simple("rust", "programming", "rust", 0.0).value();
-        assert!(score.is_finite());
-        assert!(score > 0.0);
-    }
-
-    #[test]
-    fn test_score_document_simple_case_insensitive() {
-        let score1 = score_document_simple("Rust Programming", "Learn Rust", "rust", 100.0).value();
-        let score2 = score_document_simple("RUST PROGRAMMING", "LEARN RUST", "RUST", 100.0).value();
-
-        // Case should not matter
-        assert!((score1 - score2).abs() < 0.0001);
     }
 }

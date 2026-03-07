@@ -23,7 +23,9 @@ fn create_test_index_with_hierarchical_id(dir: &Path) -> anyhow::Result<()> {
     }];
 
     let index = doc_transformer::search::open_or_create_index(dir)?;
-    doc_transformer::search::index_documents(&index, docs)?;
+    let mut writer = index.writer(50_000_000)?;
+    doc_transformer::search::index_documents(&mut writer, &docs)?;
+    writer.commit()?;
     Ok(())
 }
 
@@ -97,7 +99,9 @@ fn test_search_result_single_segment_id() {
     }];
 
     let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
-    doc_transformer::search::index_documents(&index, docs).unwrap();
+    let mut writer = index.writer(50_000_000).unwrap();
+    doc_transformer::search::index_documents(&mut writer, &docs).unwrap();
+    writer.commit().unwrap();
 
     let result = doc_transformer::search::search_index(&index, "api", 10);
 
@@ -134,7 +138,9 @@ fn test_search_result_path_matches_index_json_format() {
 
     let docs = vec![test_doc.clone()];
     let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
-    doc_transformer::search::index_documents(&index, docs).unwrap();
+    let mut writer = index.writer(50_000_000).unwrap();
+    doc_transformer::search::index_documents(&mut writer, &docs).unwrap();
+    writer.commit().unwrap();
 
     let result = doc_transformer::search::search_index(&index, "test", 10);
 
@@ -172,7 +178,9 @@ fn test_search_result_prefers_indexed_path_over_id_format() {
     }];
 
     let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
-    doc_transformer::search::index_documents(&index, docs).unwrap();
+    let mut writer = index.writer(50_000_000).unwrap();
+    doc_transformer::search::index_documents(&mut writer, &docs).unwrap();
+    writer.commit().unwrap();
 
     let result = doc_transformer::search::search_index(&index, "custom path", 10);
 

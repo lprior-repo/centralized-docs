@@ -1163,24 +1163,63 @@ fn apply_query_filter(
     };
 
     let query = raw_query.trim();
-    if query.is_empty() || threshold <= 0.0 {
+    if query.is_empty() || threshold <= 0.0 || pages.is_empty() {
         return Ok(pages);
     }
 
-    let avg_doc_length = if pages.is_empty() {
-        0.0
-    } else {
-        let total_words: usize = pages.iter().map(|page| page.word_count).sum();
-        total_words as f32 / pages.len() as f32
-    };
-
     let original_len = pages.len();
+
+    // Create a temporary RAM index for scoring the scraped pages
+    use tantivy::collector::TopDocs;
+    use tantivy::query::QueryParser;
+    use tantivy::schema::{Schema, Value, STORED, TEXT};
+    use tantivy::Index;
+
+    let mut schema_builder = Schema::builder();
+    let title_field = schema_builder.add_text_field("title", TEXT);
+    let content_field = schema_builder.add_text_field("content", TEXT);
+    let id_field = schema_builder.add_u64_field("id", STORED);
+    let schema = schema_builder.build();
+
+    let index = Index::create_in_ram(schema);
+    let mut writer = index.writer(15_000_000)?;
+
+    for (id, page) in pages.iter().enumerate() {
+        // Use tantivy::doc! macro
+        let doc = tantivy::doc!(
+            title_field => page.title.as_str(),
+            content_field => page.markdown.as_str(),
+            id_field => id as u64
+        );
+        writer.add_document(doc)?;
+    }
+    writer.commit()?;
+
+    let reader = index.reader()?;
+    let searcher = reader.searcher();
+    let query_parser = QueryParser::for_index(&index, vec![title_field, content_field]);
+    let parsed_query = query_parser.parse_query(query)?;
+
+    let top_docs = searcher.search(&parsed_query, &TopDocs::with_limit(pages.len()))?;
+
+    // Collect valid IDs that pass the threshold
+    let mut valid_ids = std::collections::HashSet::new();
+    for (score, doc_address) in top_docs {
+        if score >= threshold {
+            let doc = searcher.doc::<tantivy::TantivyDocument>(doc_address)?;
+            if let Some(val) = doc.get_first(id_field) {
+                if let Some(id_val) = val.as_u64() {
+                    valid_ids.insert(id_val as usize);
+                }
+            }
+        }
+    }
+
     let kept_pages: Vec<scrape::ScrapedPage> = pages
         .into_iter()
-        .filter(|page| {
-            let score = filter::bm25_score(&page.markdown, query, avg_doc_length).value();
-            score.is_finite() && score >= threshold
-        })
+        .enumerate()
+        .filter(|(i, _)| valid_ids.contains(i))
+        .map(|(_, page)| page)
         .collect();
 
     let removed_count = original_len.saturating_sub(kept_pages.len());
@@ -1933,162 +1972,37 @@ fn run_search(
         anyhow::bail!("INDEX.json not found in {}", index_dir.display());
     }
 
-    // Track whether advanced search failed (for exit code purposes)
-    let advanced_search_failed = match doc_transformer::search::open_existing_index(index_dir) {
-        Ok(Some(index)) => match doc_transformer::search::search_index(&index, query, limit) {
-            Ok(results) => {
-                let cli_results: Vec<CliSearchResult> = results
-                    .iter()
-                    .enumerate()
-                    .map(|(i, result)| {
-                        let summary_short = if result.summary.chars().count() > 80 {
-                            let truncated: String = result.summary.chars().take(77).collect();
-                            format!("{truncated}...")
-                        } else {
-                            result.summary.clone()
-                        };
-
-                        CliSearchResult {
-                            rank: i.saturating_add(1),
-                            category: result.category.clone(),
-                            title: result.title.clone(),
-                            path: result.path.clone(),
-                            summary: summary_short,
-                            score: result.score.value(),
-                            backend: "tantivy".to_string(),
-                        }
-                    })
-                    .collect();
-
-                let status = if cli_results.is_empty() {
-                    "no_results"
-                } else {
-                    "ok"
-                };
-                emit_search_output(
-                    query,
-                    "tantivy",
-                    &cli_results,
-                    limit,
-                    json_output,
-                    status,
-                    false,
-                )?;
-
-                if cli_results.is_empty() && json_output {
-                    anyhow::bail!("{SEARCH_JSON_ALREADY_EMITTED_PREFIX}:no_results");
-                }
-
-                if cli_results.is_empty() {
-                    anyhow::bail!("No results found for '{query}'");
-                }
-
-                return Ok(());
-            }
-            Err(e) => {
-                // Mark that advanced search failed - we will return error later if fallback succeeds
-                // Fall through to JSON-based search with informative message
-                if !json_output {
-                    println!(
-                        "Note: Query contains special characters unsupported by advanced search."
-                    );
-                    println!("  Reason: {e}");
-                    println!("  Tip: Try simpler terms or remove special characters.");
-                    println!("  Falling back to basic search...\n");
-                }
-                true
-            }
-        },
-        Ok(None) => false,
-        Err(e) => {
-            if !json_output {
-                println!("Note: Advanced index unavailable or corrupted.");
-                println!("  Reason: {e}");
-                println!("  Falling back to basic search...\n");
-            }
-            true
-        }
+    let index = match doc_transformer::search::open_existing_index(index_dir)? {
+        Some(index) => index,
+        None => anyhow::bail!("Advanced index unavailable or corrupted."),
     };
 
-    // Fallback: Use INDEX.json + manual BM25 scoring
-    use serde_json::Value;
-
-    let index_content = std::fs::read_to_string(&index_path)?;
-    let index: Value = serde_json::from_str(&index_content)?;
-
-    // Extract documents
-    let documents = index["documents"]
-        .as_array()
-        .ok_or_else(|| anyhow::anyhow!("Invalid INDEX.json: missing documents array"))?;
-
-    let _chunks = index["chunks"]
-        .as_array()
-        .ok_or_else(|| anyhow::anyhow!("Invalid INDEX.json: missing chunks array"))?;
-
-    let avg_doc_length = if !documents.is_empty() {
-        let total_words: usize = documents
-            .iter()
-            .filter_map(|d| d["word_count"].as_u64())
-            .filter_map(|c| usize::try_from(c).ok())
-            .sum();
-        if total_words > 0 {
-            total_words as f32 / documents.len() as f32
-        } else {
-            100.0
-        }
-    } else {
-        100.0
-    };
-
-    // Score each document
-    use itertools::Itertools;
-    let results: Vec<(f32, &Value)> = documents
-        .iter()
-        .map(|doc| {
-            let title = doc["title"].as_str().unwrap_or("");
-            let summary = doc["summary"].as_str().unwrap_or("");
-            let searchable = format!("{title} {summary}");
-            let score = filter::bm25_score(&searchable, query, avg_doc_length).value();
-            (score, doc)
-        })
-        .filter(|(score, _)| *score > 0.0)
-        .sorted_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal))
-        .collect();
+    let results = doc_transformer::search::search_index(&index, query, limit)?;
 
     let cli_results: Vec<CliSearchResult> = results
         .iter()
-        .take(limit)
         .enumerate()
-        .map(|(i, (score, doc))| {
-            let title = doc["title"].as_str().unwrap_or("Untitled").to_string();
-            let path = doc["path"].as_str().unwrap_or("").to_string();
-            let category = doc["category"].as_str().unwrap_or("").to_string();
-            let summary = doc["summary"].as_str().unwrap_or("");
-            let summary_short = if summary.chars().count() > 80 {
-                let truncated: String = summary.chars().take(77).collect();
+        .map(|(i, result)| {
+            let summary_short = if result.summary.chars().count() > 80 {
+                let truncated: String = result.summary.chars().take(77).collect();
                 format!("{truncated}...")
             } else {
-                summary.to_string()
+                result.summary.clone()
             };
 
             CliSearchResult {
                 rank: i.saturating_add(1),
-                category,
-                title,
-                path,
+                category: result.category.clone(),
+                title: result.title.clone(),
+                path: result.path.clone(),
                 summary: summary_short,
-                score: *score,
-                backend: "bm25-fallback".to_string(),
+                score: result.score.value(),
+                backend: "tantivy".to_string(),
             }
         })
         .collect();
 
-    // Determine status: partial when fallback was used (even with zero results),
-    // no_results only when primary search succeeded but found nothing,
-    // ok when primary search found results
-    let status = if advanced_search_failed {
-        "partial"
-    } else if cli_results.is_empty() {
+    let status = if cli_results.is_empty() {
         "no_results"
     } else {
         "ok"
@@ -2096,12 +2010,12 @@ fn run_search(
 
     emit_search_output(
         query,
-        "bm25-fallback",
+        "tantivy",
         &cli_results,
         limit,
         json_output,
         status,
-        advanced_search_failed,
+        false,
     )?;
 
     if cli_results.is_empty() && json_output {
@@ -2110,17 +2024,6 @@ fn run_search(
 
     if cli_results.is_empty() {
         anyhow::bail!("No results found for '{query}'");
-    }
-
-    // If advanced search failed but fallback succeeded, return error to signal partial failure
-    if advanced_search_failed && json_output {
-        anyhow::bail!("{SEARCH_JSON_ALREADY_EMITTED_PREFIX}:partial");
-    }
-
-    if advanced_search_failed {
-        anyhow::bail!(
-            "Advanced search failed but basic search succeeded - query may need simplification"
-        );
     }
 
     Ok(())

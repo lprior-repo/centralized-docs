@@ -56,7 +56,9 @@ fn test_tantivy_index_is_populated() -> Result<(), Box<dyn std::error::Error>> {
 
     // Index the documents
     let index = doc_transformer::search::open_or_create_index(test_output)?;
-    doc_transformer::search::index_documents(&index, docs)?;
+    let mut writer = index.writer(50_000_000)?;
+    doc_transformer::search::index_documents(&mut writer, &docs)?;
+    writer.commit()?;
 
     // Verify Tantivy index directory exists
     assert!(
@@ -132,7 +134,9 @@ fn test_search_returns_results() -> Result<(), Box<dyn std::error::Error>> {
 
     // Index the documents
     let index = doc_transformer::search::open_or_create_index(test_output)?;
-    doc_transformer::search::index_documents(&index, docs)?;
+    let mut writer = index.writer(50_000_000)?;
+    doc_transformer::search::index_documents(&mut writer, &docs)?;
+    writer.commit()?;
 
     // Try searching - just verify the search executes without error
     let results = doc_transformer::search::search_index(&index, "rust", 10)?;

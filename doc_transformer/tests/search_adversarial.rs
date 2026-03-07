@@ -10,6 +10,7 @@ where
 
     // Create a simple index first
     let index = search::open_or_create_index(index_path)?;
+    let mut writer = index.writer(50_000_000)?;
     let doc = doc_transformer::index::IndexDocument {
         id: "test".to_string(),
         title: "Test Document".to_string(),
@@ -22,7 +23,8 @@ where
         chunk_ids: vec![],
         headings: vec![],
     };
-    let _ = search::index_documents(&index, vec![doc]);
+    let _ = search::index_documents(&mut writer, &[doc]);
+    let _ = writer.commit()?;
 
     test_fn(&index);
     Ok(())

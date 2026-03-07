@@ -57,14 +57,18 @@ fn create_test_index(dir: &Path) -> anyhow::Result<()> {
     ];
 
     let index = doc_transformer::search::open_or_create_index(dir)?;
-    doc_transformer::search::index_documents(&index, docs)?;
+    let mut writer = index.writer(50_000_000)?;
+    doc_transformer::search::index_documents(&mut writer, &docs)?;
+    writer.commit()?;
     Ok(())
 }
 
 /// Helper to create an empty test index
 fn create_empty_index(dir: &Path) -> anyhow::Result<()> {
     let index = doc_transformer::search::open_or_create_index(dir)?;
-    doc_transformer::search::index_documents(&index, vec![])?;
+    let mut writer = index.writer(50_000_000)?;
+    doc_transformer::search::index_documents(&mut writer, &[])?;
+    writer.commit()?;
     Ok(())
 }
 
@@ -143,7 +147,9 @@ fn test_search_results_sorted_by_recalculated_score() {
     ];
 
     let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
-    doc_transformer::search::index_documents(&index, docs).unwrap();
+    let mut writer = index.writer(50_000_000).unwrap();
+    doc_transformer::search::index_documents(&mut writer, &docs).unwrap();
+    writer.commit().unwrap();
 
     let result = doc_transformer::search::search_index(&index, "rust", 10);
 
@@ -237,7 +243,9 @@ fn test_search_matches_terms_in_path() {
     }];
 
     let index = doc_transformer::search::open_or_create_index(index_dir).unwrap();
-    doc_transformer::search::index_documents(&index, docs).unwrap();
+    let mut writer = index.writer(50_000_000).unwrap();
+    doc_transformer::search::index_documents(&mut writer, &docs).unwrap();
+    writer.commit().unwrap();
 
     // Search for a term that only appears in the path, not in title or summary
     // Using a path without hyphens to avoid Tantivy query parser interpreting

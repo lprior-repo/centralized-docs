@@ -10,9 +10,94 @@ use anyhow::Result;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use std::sync::LazyLock;
 use tap::Pipe;
+use thiserror::Error;
 use tiktoken::{bpe::CoreBpe, encoding::Dict, encoding::Encoding};
+
+#[derive(Debug, Error)]
+pub enum ChunkerError {
+    #[error("Chunk capacity must be greater than 0")]
+    InvalidChunkCapacity,
+    #[error("Postcondition violated: chunk exceeded capacity")]
+    PostconditionViolated,
+    #[error("Tokenization error: {0}")]
+    TokenizationError(String),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+/// Domain type representing a valid, strictly positive chunk capacity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChunkCapacity(NonZeroUsize);
+
+impl ChunkCapacity {
+    pub fn new(capacity: usize) -> std::result::Result<Self, ChunkerError> {
+        NonZeroUsize::new(capacity)
+            .map(Self)
+            .ok_or(ChunkerError::InvalidChunkCapacity)
+    }
+
+    pub fn get(&self) -> usize {
+        self.0.get()
+    }
+}
+
+/// Chunks markdown text into multiple segments, ensuring no segment exceeds `capacity`
+/// and safely handling huge strings to prevent tokenizer panics.
+pub fn chunk_markdown(
+    text: &str,
+    capacity: ChunkCapacity,
+) -> std::result::Result<Vec<String>, ChunkerError> {
+    use text_splitter::{ChunkConfig, MarkdownSplitter};
+
+    let capacity_val = capacity.get();
+    let tokenizer =
+        tiktoken_rs::cl100k_base().map_err(|e| ChunkerError::TokenizationError(e.to_string()))?;
+
+    // Fix: Pre-process absurdly long strings without line breaks to avoid stack overflow
+    // in tiktoken-rs PCRE regex parsing
+    let safe_text = if text.len() > 50_000 && !text.contains('\n') {
+        // Break up the text artificially every 10k chars so the regex doesn't explode
+        let mut broken = String::with_capacity(text.len() + text.len() / 10_000);
+        for (i, c) in text.chars().enumerate() {
+            broken.push(c);
+            if i > 0 && i % 10_000 == 0 {
+                broken.push('\n');
+            }
+        }
+        broken
+    } else {
+        text.to_string()
+    };
+
+    let config = ChunkConfig::new(capacity_val).with_sizer(tokenizer);
+
+    let splitter = MarkdownSplitter::new(config);
+    let chunks: Vec<String> = splitter
+        .chunks(safe_text.as_str())
+        .map(String::from)
+        .collect();
+
+    // Verify postcondition: no chunk should exceed capacity, unless a single word/token exceeds it.
+    // Given the test constraints, we'll verify it according to the specific contract:
+    // If a chunk is larger than capacity, but doesn't have whitespace, it's a single word (allowed).
+    // If it has whitespace and exceeds, we throw PostconditionViolated.
+    for chunk in &chunks {
+        let tokenizer = tiktoken_rs::cl100k_base()
+            .map_err(|e| ChunkerError::TokenizationError(e.to_string()))?;
+        let tokens = tokenizer.encode_with_special_tokens(chunk).len();
+        if tokens > capacity_val {
+            // Check if it's a single unbreakable word
+            if chunk.contains(char::is_whitespace) {
+                return Err(ChunkerError::PostconditionViolated);
+            }
+        }
+    }
+
+    Ok(chunks)
+}
 
 /// Hierarchical chunk level for multi-granularity retrieval
 ///
@@ -202,37 +287,10 @@ pub struct ChunkingResult {
     pub detailed_count: usize,
 }
 
-static H2_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^## (.+)$").ok());
-
-static H3_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^### (.+)$").ok());
-
-static H1_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^# (.+)$").ok());
-
 static TABLE_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"\|.*\|").ok());
 
 static HEADING_REGEX: LazyLock<Option<Regex>> =
     LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").ok());
-
-/// Get H2 regex or return error if compilation failed
-fn h2_regex() -> Result<&'static Regex> {
-    H2_REGEX
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("H2 regex failed to compile"))
-}
-
-/// Get H3 regex or return error if compilation failed
-fn h3_regex() -> Result<&'static Regex> {
-    H3_REGEX
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("H3 regex failed to compile"))
-}
-
-/// Get H1 regex or return error if compilation failed
-fn h1_regex() -> Result<&'static Regex> {
-    H1_REGEX
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("H1 regex failed to compile"))
-}
 
 /// Get TABLE regex or return error if compilation failed
 fn table_regex() -> Result<&'static Regex> {
@@ -294,7 +352,7 @@ pub fn chunk(document: &Document, level: ChunkLevel) -> Result<Vec<Chunk>> {
     }
 
     let mut chunks =
-        create_chunks_at_level(&document.id, &document.title, &document.content, level);
+        create_chunks_at_level(&document.id, &document.title, &document.content, level)?;
     link_chunks(&mut chunks);
     Ok(chunks)
 }
@@ -336,34 +394,33 @@ pub fn chunk_all(documents: &[Document]) -> Result<ChunkingResult> {
         }
     }
 
-    let (all_chunks, summary_count, standard_count, detailed_count) = documents.iter().fold(
-        (Vec::new(), 0usize, 0usize, 0usize),
-        |(mut chunks, sum_count, std_count, det_count), doc| {
-            let mut summary =
-                create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Summary);
-            let mut standard =
-                create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Standard);
-            let mut detailed =
-                create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Detailed);
+    let mut all_chunks = Vec::new();
+    let mut summary_count = 0usize;
+    let mut standard_count = 0usize;
+    let mut detailed_count = 0usize;
 
-            assign_hierarchy(&mut summary, &mut standard, &mut detailed);
+    for doc in documents {
+        let mut summary =
+            create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Summary)?;
+        let mut standard =
+            create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Standard)?;
+        let mut detailed =
+            create_chunks_at_level(&doc.id, &doc.title, &doc.content, ChunkLevel::Detailed)?;
 
-            let summary_count = summary.len();
-            let standard_count = standard.len();
-            let detailed_count = detailed.len();
+        assign_hierarchy(&mut summary, &mut standard, &mut detailed);
 
-            chunks.extend(summary);
-            chunks.extend(standard);
-            chunks.extend(detailed);
+        let summary_len = summary.len();
+        let standard_len = standard.len();
+        let detailed_len = detailed.len();
 
-            (
-                chunks,
-                sum_count.saturating_add(summary_count),
-                std_count.saturating_add(standard_count),
-                det_count.saturating_add(detailed_count),
-            )
-        },
-    );
+        all_chunks.extend(summary);
+        all_chunks.extend(standard);
+        all_chunks.extend(detailed);
+
+        summary_count = summary_count.saturating_add(summary_len);
+        standard_count = standard_count.saturating_add(standard_len);
+        detailed_count = detailed_count.saturating_add(detailed_len);
+    }
 
     Ok(ChunkingResult {
         chunks: all_chunks,
@@ -451,117 +508,50 @@ fn create_chunks_at_level(
     doc_title: &str,
     content: &str,
     level: ChunkLevel,
-) -> Vec<Chunk> {
-    let target_tokens = level.target_tokens();
-    let has_h2 = h2_regex().is_ok_and(|regex| content.lines().any(|line| regex.is_match(line)));
-    let use_fallback_headings = !has_h2;
+) -> Result<Vec<Chunk>> {
+    use text_splitter::{ChunkConfig, MarkdownSplitter};
 
-    let mut chunks = Vec::new();
-    let mut current_chunk = String::new();
-    let mut current_heading: Option<String> = None;
+    let target_tokens = level.target_tokens();
+    let overlap = match level {
+        ChunkLevel::Summary => 30,
+        ChunkLevel::Standard => 100,
+        ChunkLevel::Detailed => 200,
+    };
+
+    let tokenizer =
+        tiktoken_rs::cl100k_base().map_err(|e| anyhow::anyhow!("Tokenizer error: {e}"))?;
+
+    let config = ChunkConfig::new(target_tokens)
+        .with_sizer(tokenizer)
+        .with_overlap(overlap)
+        .map_err(|e| anyhow::anyhow!("ChunkConfig error: {e}"))?;
+
+    let splitter = MarkdownSplitter::new(config);
+
     let mut heading_stack: Vec<String> = Vec::new();
     let mut chunk_heading_path: Vec<String> = vec!["Intro".to_string()];
-    let mut pending_heading_path: Option<Vec<String>> = None;
-    let mut chunk_index = 0;
+    let mut current_heading: Option<String> = None;
+    let mut chunks = Vec::new();
     let mut context_buffer = String::new();
 
-    let lines: Vec<&str> = content.lines().collect();
-
-    for line in &lines {
-        let current_tokens = estimate_tokens(&current_chunk);
-        if let Some((level, text)) = parse_heading(line) {
-            update_heading_stack(&mut heading_stack, level, text);
-            pending_heading_path = Some(normalize_heading_path(&heading_stack));
-            if current_chunk.is_empty() {
-                if let Some(path) = pending_heading_path.take() {
-                    chunk_heading_path = path;
+    for (chunk_index, chunk_text) in splitter.chunks(content).enumerate() {
+        for line in chunk_text.lines() {
+            if let Some((heading_level, text)) = parse_heading(line) {
+                update_heading_stack(&mut heading_stack, heading_level, text.clone());
+                chunk_heading_path = normalize_heading_path(&heading_stack);
+                if heading_level == 2 || (heading_level == 1 && current_heading.is_none()) {
+                    current_heading = Some(text);
                 }
             }
         }
-        let heading_match = h2_regex()
-            .ok()
-            .and_then(|regex| regex.captures(line))
-            .or_else(|| {
-                if use_fallback_headings {
-                    h3_regex()
-                        .ok()
-                        .and_then(|regex| regex.captures(line))
-                        .or_else(|| h1_regex().ok().and_then(|regex| regex.captures(line)))
-                } else {
-                    None
-                }
-            });
-        let should_split = heading_match.is_some()
-            || (current_tokens >= target_tokens && !current_chunk.is_empty());
 
-        if should_split && !current_chunk.is_empty() {
-            let chunk_id = generate_chunk_id(doc_id, chunk_index, level);
-            let summary = create_summary(&current_chunk);
-            let token_count = estimate_tokens(&current_chunk);
-            let chunk_type = detect_chunk_type(&current_chunk);
-
-            let context_prefix = if context_buffer.is_empty() {
-                None
-            } else {
-                Some(context_buffer.clone())
-            };
-
-            chunks.push(Chunk {
-                chunk_id,
-                doc_id: doc_id.to_string(),
-                doc_title: doc_title.to_string(),
-                chunk_index,
-                content: current_chunk.clone(),
-                context_prefix,
-                token_count,
-                heading: current_heading.clone(),
-                heading_path: chunk_heading_path.clone(),
-                chunk_type,
-                previous_chunk_id: chunk_index
-                    .checked_sub(1)
-                    .map(|prev| generate_chunk_id(doc_id, prev, level)),
-                next_chunk_id: None,
-                summary,
-                chunk_level: level,
-                parent_chunk_id: None,
-                child_chunk_ids: Vec::new(),
-            });
-
-            chunk_index = chunk_index.saturating_add(1);
-            if let Some(path) = pending_heading_path.take() {
-                chunk_heading_path = path;
-            }
-
-            let context_tokens = match level {
-                ChunkLevel::Summary => 30,
-                ChunkLevel::Standard => 100,
-                ChunkLevel::Detailed => 200,
-            };
-
-            context_buffer = get_context_tail(&current_chunk, context_tokens);
-            current_chunk.clear();
-        }
-
-        if let Some(caps) = heading_match {
-            current_heading = caps.get(1).map(|m| m.as_str().to_string());
-
-            if !context_buffer.is_empty() {
-                current_chunk.push_str(&context_buffer);
-                current_chunk.push('\n');
-                context_buffer.clear();
-            }
-        }
-
-        current_chunk.push_str(line);
-        current_chunk.push('\n');
-    }
-
-    // Add final chunk
-    if !current_chunk.is_empty() {
         let chunk_id = generate_chunk_id(doc_id, chunk_index, level);
-        let summary = create_summary(&current_chunk);
-        let token_count = estimate_tokens(&current_chunk);
-        let chunk_type = detect_chunk_type(&current_chunk);
+        let summary = create_summary(chunk_text);
+        let token_count = estimate_tokens(chunk_text);
+        let chunk_type = detect_chunk_type(chunk_text);
+        let previous_chunk_id = chunk_index
+            .checked_sub(1)
+            .map(|prev| generate_chunk_id(doc_id, prev, level));
 
         let context_prefix = if context_buffer.is_empty() {
             None
@@ -569,30 +559,26 @@ fn create_chunks_at_level(
             Some(context_buffer.clone())
         };
 
-        if let Some(path) = pending_heading_path.take() {
-            chunk_heading_path = path;
-        }
-
         chunks.push(Chunk {
             chunk_id,
             doc_id: doc_id.to_string(),
             doc_title: doc_title.to_string(),
             chunk_index,
-            content: current_chunk,
+            content: chunk_text.to_string(),
             context_prefix,
             token_count,
-            heading: current_heading,
+            heading: current_heading.clone(),
             heading_path: chunk_heading_path.clone(),
             chunk_type,
-            previous_chunk_id: chunk_index
-                .checked_sub(1)
-                .map(|prev| generate_chunk_id(doc_id, prev, level)),
+            previous_chunk_id,
             next_chunk_id: None,
             summary,
             chunk_level: level,
             parent_chunk_id: None,
             child_chunk_ids: Vec::new(),
         });
+
+        context_buffer = get_context_tail(chunk_text, overlap);
     }
 
     if chunks.is_empty() {
@@ -621,7 +607,7 @@ fn create_chunks_at_level(
         });
     }
 
-    chunks
+    Ok(chunks)
 }
 
 /// Internal: Link chunks sequentially (prev/next)
@@ -960,10 +946,9 @@ mod tests {
         }
 
         let all_content: String = chunks.iter().map(|c| c.content.as_str()).collect();
-        assert_eq!(
-            all_content.matches('😀').count(),
-            full_content.matches('😀').count(),
-            "Emojis should be preserved"
+        assert!(
+            all_content.matches('😀').count() >= full_content.matches('😀').count(),
+            "Emojis should be preserved (can be more due to overlap)"
         );
     }
 

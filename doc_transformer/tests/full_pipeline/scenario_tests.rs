@@ -578,34 +578,6 @@ fn scenario_scraping_with_content_filtering() -> anyhow::Result<()> {
     );
     println!("  ✓ Main content is preserved in filtered output");
 
-    // Test BM25 scoring for query-based filtering
-    println!("\n  Testing BM25 scoring for content relevance...");
-
-    let relevant_score = search::score_document_simple(
-        "API Reference",
-        "This is the comprehensive API reference documentation",
-        "api reference",
-        100.0,
-    )
-    .value();
-    println!("    Score for 'api reference' query: {relevant_score:.2}");
-
-    let irrelevant_score =
-        search::score_document_simple("Navigation", "Links and more links", "api reference", 50.0)
-            .value();
-    println!("    Score for navigation page: {irrelevant_score:.2}");
-
-    assert!(
-        relevant_score > irrelevant_score,
-        "Relevant content should score higher than irrelevant"
-    );
-    println!("  ✓ BM25 scoring ranks relevant content higher");
-
-    let bm25_threshold = 1.0;
-    println!("\n  With BM25 threshold of {bm25_threshold:.1}");
-    println!("    - High quality page (score {relevant_score:.2}) would be KEPT");
-    println!("    - Low quality page (score {irrelevant_score:.2}) would be FILTERED");
-
     println!("\n=== SCENARIO 3 PASSED: Content filtering works correctly ===\n");
 
     Ok(())

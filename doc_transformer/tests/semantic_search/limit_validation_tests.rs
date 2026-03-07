@@ -25,7 +25,9 @@ fn create_test_index(dir: &tempfile::TempDir) -> anyhow::Result<()> {
     }];
 
     let index = doc_transformer::search::open_or_create_index(dir.path())?;
-    doc_transformer::search::index_documents(&index, docs)?;
+    let mut writer = index.writer(50_000_000)?;
+    doc_transformer::search::index_documents(&mut writer, &docs)?;
+    writer.commit()?;
     Ok(())
 }
 
