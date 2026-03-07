@@ -1,5 +1,0 @@
-SYSTEM CONTEXT:
-This is a test of raw API calling via OpenCode. Please output EXACTLY AND ONLY the string: 'API_OK'
-
-User Question:
-Are you working?
