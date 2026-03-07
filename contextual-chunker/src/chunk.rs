@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::LazyLock;
-use tap::Pipe;
 use thiserror::Error;
 use tiktoken::{bpe::CoreBpe, encoding::Dict, encoding::Encoding};
 
@@ -44,17 +43,43 @@ impl ChunkCapacity {
     }
 }
 
+use text_splitter::{ChunkConfig, ChunkSizer, MarkdownSplitter};
+
+#[derive(Clone)]
+struct FastTokenizer {
+    bpe: std::sync::Arc<tiktoken_rs::CoreBPE>,
+}
+
+impl FastTokenizer {
+    fn new() -> std::result::Result<Self, String> {
+        let bpe = tiktoken_rs::cl100k_base().map_err(|e| e.to_string())?;
+        Ok(Self {
+            bpe: std::sync::Arc::new(bpe),
+        })
+    }
+}
+
+impl ChunkSizer for FastTokenizer {
+    fn size(&self, text: &str) -> usize {
+        // Pathological strings (like minified code, base64, or adversarial repeated chars)
+        // cause regex-based tokenizers like tiktoken to exhibit O(N^2) or worse behavior.
+        // If a long string has extremely low space density, we use a fast approximation.
+        let space_count = text.bytes().filter(|&b| b == b' ' || b == b'\n').count();
+        if text.len() > 1000 && space_count < text.len() / 100 {
+            return (text.len() / 4).max(1);
+        }
+        self.bpe.encode_with_special_tokens(text).len()
+    }
+}
+
 /// Chunks markdown text into multiple segments, ensuring no segment exceeds `capacity`
 /// and safely handling huge strings to prevent tokenizer panics.
 pub fn chunk_markdown(
     text: &str,
     capacity: ChunkCapacity,
 ) -> std::result::Result<Vec<String>, ChunkerError> {
-    use text_splitter::{ChunkConfig, MarkdownSplitter};
-
     let capacity_val = capacity.get();
-    let tokenizer =
-        tiktoken_rs::cl100k_base().map_err(|e| ChunkerError::TokenizationError(e.to_string()))?;
+    let tokenizer = FastTokenizer::new().map_err(|e| ChunkerError::TokenizationError(e))?;
 
     // Fix: Pre-process absurdly long strings without line breaks to avoid stack overflow
     // in tiktoken-rs PCRE regex parsing
@@ -507,8 +532,6 @@ fn create_chunks_at_level(
     content: &str,
     level: ChunkLevel,
 ) -> Result<Vec<Chunk>> {
-    use text_splitter::{ChunkConfig, MarkdownSplitter};
-
     let target_tokens = level.target_tokens();
     let overlap = match level {
         ChunkLevel::Summary => 30,
@@ -516,8 +539,7 @@ fn create_chunks_at_level(
         ChunkLevel::Detailed => 200,
     };
 
-    let tokenizer =
-        tiktoken_rs::cl100k_base().map_err(|e| anyhow::anyhow!("Tokenizer error: {e}"))?;
+    let tokenizer = FastTokenizer::new().map_err(|e| anyhow::anyhow!("Tokenizer error: {e}"))?;
 
     let config = ChunkConfig::new(target_tokens)
         .with_sizer(tokenizer)
@@ -544,7 +566,6 @@ fn create_chunks_at_level(
     let mut chunk_heading_path: Vec<String> = vec!["Intro".to_string()];
     let mut current_heading: Option<String> = None;
     let mut chunks = Vec::new();
-    let mut context_buffer = String::new();
 
     for (chunk_index, chunk_text) in splitter.chunks(safe_text.as_str()).enumerate() {
         for line in chunk_text.lines() {
@@ -565,11 +586,8 @@ fn create_chunks_at_level(
             .checked_sub(1)
             .map(|prev| generate_chunk_id(doc_id, prev, level));
 
-        let context_prefix = if context_buffer.is_empty() {
-            None
-        } else {
-            Some(context_buffer.clone())
-        };
+        // text-splitter with overlap already handles context, no need for manual prefixes
+        let context_prefix = None;
 
         chunks.push(Chunk {
             chunk_id,
@@ -589,8 +607,6 @@ fn create_chunks_at_level(
             parent_chunk_id: None,
             child_chunk_ids: Vec::new(),
         });
-
-        context_buffer = get_context_tail(chunk_text, overlap);
     }
 
     if chunks.is_empty() {
@@ -676,6 +692,12 @@ fn normalize_heading_path(stack: &[String]) -> Vec<String> {
 /// Estimate token count using tiktoken cl100k_base tokenizer
 /// Falls back to character approximation if tokenizer unavailable
 fn estimate_tokens(text: &str) -> usize {
+    // Fast path for adversarial/pathological strings with no whitespace
+    // BPE algorithms can be pathologically slow on huge unbroken strings
+    if text.len() > 1000 && !text.contains(|c: char| c.is_whitespace()) {
+        return (text.len() / 4).max(1);
+    }
+
     // Use cached encoding and encoder for efficiency - avoids creating new tokenizer per call
     static ENCODING: std::sync::OnceLock<Option<Encoding>> = std::sync::OnceLock::new();
     static ENCODER: std::sync::OnceLock<Option<CoreBpe>> = std::sync::OnceLock::new();
@@ -704,44 +726,26 @@ fn estimate_tokens(text: &str) -> usize {
 }
 
 /// Create a summary from chunk content (extractive)
-/// Extracts first 1-2 sentences, truncates to 200 chars
+/// Extracts first 200 chars cleanly without mangling markdown
 fn create_summary(content: &str) -> String {
-    content
-        .split(['.', '\n'])
-        .filter(|s| s.trim().len() > 10)
-        .take(2)
-        .collect::<Vec<_>>()
-        .join(". ")
-        .pipe(|summary| {
-            let char_count = summary.chars().count();
-            if char_count > 200 {
-                let truncated: String = summary.chars().take(197).collect();
-                format!("{truncated}...")
-            } else {
-                summary
-            }
-        })
-}
+    let clean_content = content.trim();
+    if clean_content.is_empty() {
+        return String::new();
+    }
 
-/// Get trailing context from chunk (for next chunk's prefix)
-fn get_context_tail(content: &str, max_tokens: usize) -> String {
-    content
-        .lines()
-        .rev()
-        .fold((Vec::new(), 0usize), |(mut lines, count), line| {
-            let line_tokens = estimate_tokens(line);
-            if count.saturating_add(line_tokens) <= max_tokens {
-                lines.push(line);
-                (lines, count.saturating_add(line_tokens))
-            } else {
-                (lines, count)
-            }
-        })
-        .0
-        .into_iter()
-        .rev()
-        .collect::<Vec<_>>()
-        .join("\n")
+    let mut chars = clean_content.chars();
+    let truncated: String = chars.by_ref().take(200).collect();
+
+    // If there's no 201st character, the string is <= 200 chars
+    if chars.next().is_none() {
+        return clean_content.to_string();
+    }
+
+    if let Some(last_space) = truncated.rfind(char::is_whitespace) {
+        format!("{}...", &truncated[..last_space])
+    } else {
+        format!("{}...", truncated)
+    }
 }
 
 /// Detect chunk content type

@@ -36,9 +36,10 @@ use reqwest::{
 use serde::Deserialize;
 use thiserror::Error;
 
-pub use crate::similarity::{
-    build_index, build_index_with_params, query_neighbors, HnswIndex, SimilarityError,
-};
+use serde::Serialize;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmbeddingVector(pub Vec<f32>);
 
 /// Errors that can occur during embedding operations.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

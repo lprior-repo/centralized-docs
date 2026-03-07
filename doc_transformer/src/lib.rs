@@ -122,7 +122,6 @@ pub mod llms;
 pub mod math_types;
 pub mod scrape;
 pub mod search;
-pub mod similarity;
 pub mod transform;
 pub mod types;
 pub mod validate;

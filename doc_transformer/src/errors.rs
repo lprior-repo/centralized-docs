@@ -15,7 +15,6 @@ use thiserror::Error;
 #[cfg(feature = "enhanced")]
 pub use crate::features::FeatureError;
 
-pub use crate::similarity::SimilarityError;
 pub use crate::types::{
     ChunkIdError, ConfigError as TypesConfigError, DocumentIdError, KeywordError, TagError,
 };
@@ -60,10 +59,6 @@ pub enum DocTransformerError {
     /// Keyword validation errors.
     #[error(transparent)]
     Keyword(#[from] KeywordError),
-
-    /// HNSW similarity index errors.
-    #[error(transparent)]
-    Similarity(#[from] SimilarityError),
 
     #[cfg(feature = "enhanced")]
     #[error(transparent)]

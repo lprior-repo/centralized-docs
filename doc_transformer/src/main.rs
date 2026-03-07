@@ -69,7 +69,6 @@ mod llms;
 mod math_types;
 mod scrape;
 mod search;
-mod similarity;
 mod transform;
 mod types;
 mod validate;

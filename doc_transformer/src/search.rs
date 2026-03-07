@@ -189,17 +189,90 @@ pub fn rebuild_index_from_json(index_path: &Path) -> Result<Index> {
         })
         .collect();
 
+    let chunks_val = index_value["chunks"]
+        .as_array()
+        .ok_or_else(|| anyhow!("Invalid INDEX.json: missing chunks array"))?;
+
+    let mut chunks = Vec::with_capacity(chunks_val.len());
+    for chunk in chunks_val {
+        let Some(chunk_id) = chunk["chunk_id"].as_str() else {
+            continue;
+        };
+        let doc_id = chunk["doc_id"].as_str().unwrap_or("");
+        let doc_title = chunk["doc_title"].as_str().unwrap_or("");
+        let summary = chunk["summary"].as_str().unwrap_or("");
+        let token_count = chunk["token_count"].as_u64().unwrap_or(0) as usize;
+        let heading = chunk["heading"].as_str().map(String::from);
+
+        // Reconstruct chunk level
+        let level_str = chunk["chunk_level"].as_str().unwrap_or("standard");
+        let chunk_level = match level_str {
+            "summary" => contextual_chunker::ChunkLevel::Summary,
+            "detailed" => contextual_chunker::ChunkLevel::Detailed,
+            _ => contextual_chunker::ChunkLevel::Standard,
+        };
+
+        // Read the content from the file system
+        let chunk_filename = format!("{}-{}.md", chunk_id.replace(['/', '#'], "-"), level_str);
+        let chunk_path = index_path.join("chunks").join(&chunk_filename);
+
+        let raw_content = fs::read_to_string(&chunk_path).map_err(|e| {
+            anyhow::anyhow!("Failed to read chunk file {}: {}", chunk_path.display(), e)
+        })?;
+
+        // Remove frontmatter if present (robust parsing that handles \r\n and closing tags)
+        let content = if raw_content.starts_with("---\n") || raw_content.starts_with("---\r\n") {
+            let mut lines = raw_content.lines();
+            lines.next(); // skip opening ---
+
+            let mut found_end = false;
+            while let Some(line) = lines.next() {
+                if line.trim_end() == "---" {
+                    found_end = true;
+                    break;
+                }
+            }
+
+            if found_end {
+                lines.collect::<Vec<_>>().join("\n")
+            } else {
+                raw_content
+            }
+        } else {
+            raw_content
+        };
+
+        chunks.push(crate::chunking_adapter::Chunk {
+            chunk_id: chunk_id.to_string(),
+            doc_id: doc_id.to_string(),
+            doc_title: doc_title.to_string(),
+            chunk_index: 0,
+            content,
+            token_count,
+            heading,
+            heading_path: vec![],
+            chunk_type: contextual_chunker::ChunkType::Prose,
+            previous_chunk_id: None,
+            next_chunk_id: None,
+            related_chunk_ids: vec![],
+            summary: summary.to_string(),
+            chunk_level,
+            parent_chunk_id: None,
+            child_chunk_ids: vec![],
+        });
+    }
+
     let index_dir = index_path.join(".tantivy_index");
     fs::create_dir_all(&index_dir)?;
     let (schema, _fields) = create_schema();
     let index = Index::create_in_dir(&index_dir, schema)
         .map_err(|e| anyhow!("Failed to create index: {e}"))?;
 
-    if !docs.is_empty() {
+    if !chunks.is_empty() {
         let mut writer = index
             .writer(50_000_000)
             .map_err(|e| anyhow!("Failed to create writer: {e}"))?;
-        index_documents(&mut writer, &docs)?;
+        index_chunks(&mut writer, &docs, &chunks)?;
         writer
             .commit()
             .map_err(|e| anyhow!("Failed to commit: {e}"))?;
@@ -281,25 +354,7 @@ pub fn open_existing_index(index_path: &Path) -> Result<Option<Index>> {
     }
 }
 
-/// Index a batch of documents into Tantivy
-///
-/// ## Behavior
-///
-/// - Adds all documents
-/// - Does NOT commit transaction (caller is responsible)
-///
-/// ## Error Handling
-///
-/// Returns error if write fails.
-///
-/// # Arguments
-///
-/// * `writer` - Mutable reference to Tantivy `IndexWriter`
-/// * `documents` - Documents to index (converted to Tantivy Document format)
-///
-/// # Returns
-///
-/// Success, error if any operation fails
+/// Index a batch of documents into Tantivy (used by tests)
 pub fn index_documents(
     writer: &mut tantivy::IndexWriter,
     documents: &[crate::index::IndexDocument],
@@ -310,7 +365,6 @@ pub fn index_documents(
     documents
         .iter()
         .try_for_each(|doc| -> std::result::Result<(), IndexerError> {
-            // content field: combination of title + summary for searching
             let tags_str = doc.tags.join(" ");
             let headings_str = doc.headings.join(" ");
             let searchable_content = format!(
@@ -327,6 +381,78 @@ pub fn index_documents(
                 fields.category => doc.category.as_str(),
                 fields.word_count => doc.word_count as u64,
                 fields.path => doc.path.as_str(),
+            );
+
+            writer
+                .add_document(tantivy_doc)
+                .map_err(|e| IndexerError::IndexCommitFailed(e.to_string()))?;
+            Ok(())
+        })?;
+
+    Ok(())
+}
+
+/// Index a batch of chunks into Tantivy
+///
+/// ## Behavior
+///
+/// - Adds all chunks
+/// - Does NOT commit transaction (caller is responsible)
+///
+/// ## Error Handling
+///
+/// Returns error if write fails.
+///
+/// # Arguments
+///
+/// * `writer` - Mutable reference to Tantivy `IndexWriter`
+/// * `documents` - Original documents to resolve categories/paths
+/// * `chunks` - Chunks to index
+///
+/// # Returns
+///
+/// Success, error if any operation fails
+pub fn index_chunks(
+    writer: &mut tantivy::IndexWriter,
+    documents: &[crate::index::IndexDocument],
+    chunks: &[crate::chunking_adapter::Chunk],
+) -> std::result::Result<(), IndexerError> {
+    let (_schema, fields) = create_schema();
+
+    // Map doc_id to doc for fast lookup of category and path
+    let doc_map: std::collections::HashMap<_, _> =
+        documents.iter().map(|d| (d.id.as_str(), d)).collect();
+
+    // Add each chunk
+    chunks
+        .iter()
+        .try_for_each(|chunk| -> std::result::Result<(), IndexerError> {
+            let doc = doc_map.get(chunk.doc_id.as_str());
+            let category = doc.map_or("uncategorized", |d| d.category.as_str());
+
+            // Build the path based on how chunks are saved: "chunks/xxx-summary.md"
+            let level_suffix = chunk.chunk_level.as_str();
+            let chunk_filename = format!(
+                "chunks/{}-{}.md",
+                chunk.chunk_id.replace(['/', '#'], "-"),
+                level_suffix
+            );
+
+            let title = if let Some(h) = &chunk.heading {
+                format!("{} - {}", chunk.doc_title, h)
+            } else {
+                chunk.doc_title.clone()
+            };
+
+            // Use tantivy::doc! macro to build document
+            let tantivy_doc = doc!(
+                fields.id => chunk.chunk_id.as_str(),
+                fields.title => title.as_str(),
+                fields.summary => chunk.summary.as_str(),
+                fields.content => chunk.content.as_str(),
+                fields.category => category,
+                fields.word_count => chunk.token_count as u64,
+                fields.path => chunk_filename.as_str(),
             );
 
             writer
@@ -414,7 +540,11 @@ pub fn search_index(
     let searcher = reader.searcher();
 
     // Parse query
-    let query_parser = QueryParser::for_index(index, vec![fields.content]);
+    // Search across title and content. We could add boosts, but simply including title
+    // helps find relevant structural matches.
+    let mut query_parser = QueryParser::for_index(index, vec![fields.title, fields.content]);
+    query_parser.set_field_boost(fields.title, 3.0); // Boost title matches significantly
+
     let query = query_parser
         .parse_query(&escaped_query)
         .map_err(|e| SearchError::QueryParseError(format!("Invalid query: {e}")))?;
@@ -471,14 +601,6 @@ pub fn search_index(
 
                 let score = crate::math_types::Score::try_new(tantivy_score)
                     .unwrap_or_else(|_| crate::math_types::Score::zero());
-
-                // Filter out non-matches with very low scores
-                // BM25 scores can be positive but very small for partial matches
-                // We use 0.001 as minimum threshold to ensure meaningful results
-                const MIN_SCORE_THRESHOLD: f32 = 0.001;
-                if score.value() <= MIN_SCORE_THRESHOLD {
-                    return Ok(None);
-                }
 
                 Ok(Some(SearchResult {
                     id,

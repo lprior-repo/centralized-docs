@@ -20,10 +20,30 @@ where
         summary: "This is a test document".to_string(),
         content: String::new(),
         word_count: 100,
-        chunk_ids: vec![],
+        chunk_ids: vec!["test_chunk".to_string()],
         headings: vec![],
     };
-    let _ = search::index_documents(&mut writer, &[doc]);
+
+    let chunk = doc_transformer::chunking_adapter::Chunk {
+        chunk_id: "test_chunk".to_string(),
+        doc_id: "test".to_string(),
+        doc_title: "Test Document".to_string(),
+        chunk_index: 0,
+        content: "This is a test chunk content.".to_string(),
+        token_count: 100,
+        heading: Some("Test Heading".to_string()),
+        heading_path: vec!["Test Document".to_string(), "Test Heading".to_string()],
+        chunk_type: contextual_chunker::ChunkType::Prose,
+        previous_chunk_id: None,
+        next_chunk_id: None,
+        related_chunk_ids: vec![],
+        summary: "Test summary".to_string(),
+        chunk_level: contextual_chunker::ChunkLevel::Standard,
+        parent_chunk_id: None,
+        child_chunk_ids: vec![],
+    };
+
+    let _ = search::index_chunks(&mut writer, &[doc], &[chunk]);
     let _ = writer.commit()?;
 
     test_fn(&index);
