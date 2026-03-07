@@ -344,21 +344,16 @@ pub fn index_documents(
 /// Other special characters (quotes, parentheses, etc.) are left unescaped
 /// so that invalid queries still produce helpful error messages.
 fn escape_tantivy_query(query: &str) -> String {
-    let mut escaped = String::with_capacity(query.len().saturating_mul(2));
-
-    for ch in query.chars() {
-        match ch {
-            // Only escape wildcard characters to prevent unintended matches
-            '*' | '?' => {
+    query.chars().fold(
+        String::with_capacity(query.len().saturating_mul(2)),
+        |mut escaped, ch| {
+            if matches!(ch, '*' | '?') {
                 escaped.push('\\');
-                escaped.push(ch);
             }
-            // Keep other characters as-is (allows parse errors for invalid syntax)
-            _ => escaped.push(ch),
-        }
-    }
-
-    escaped
+            escaped.push(ch);
+            escaped
+        },
+    )
 }
 
 /// Search the Tantivy index

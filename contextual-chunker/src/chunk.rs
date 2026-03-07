@@ -59,15 +59,13 @@ pub fn chunk_markdown(
     // Fix: Pre-process absurdly long strings without line breaks to avoid stack overflow
     // in tiktoken-rs PCRE regex parsing
     let safe_text = if text.len() > 50_000 && !text.contains('\n') {
-        // Break up the text artificially every 10k chars so the regex doesn't explode
-        let mut broken = String::with_capacity(text.len() + text.len() / 10_000);
-        for (i, c) in text.chars().enumerate() {
-            broken.push(c);
-            if i > 0 && i % 10_000 == 0 {
-                broken.push('\n');
-            }
-        }
-        broken
+        use itertools::Itertools;
+        // Break up the text artificially every 4k chars so the regex doesn't explode
+        text.chars()
+            .chunks(4_000)
+            .into_iter()
+            .map(Iterator::collect::<String>)
+            .join("\n")
     } else {
         text.to_string()
     };
@@ -528,13 +526,27 @@ fn create_chunks_at_level(
 
     let splitter = MarkdownSplitter::new(config);
 
+    // Fix: Pre-process absurdly long strings without line breaks to avoid stack overflow
+    // in tiktoken-rs PCRE regex parsing
+    let safe_text = if content.len() > 50_000 && !content.contains('\n') {
+        use itertools::Itertools;
+        content
+            .chars()
+            .chunks(4_000)
+            .into_iter()
+            .map(Iterator::collect::<String>)
+            .join("\n")
+    } else {
+        content.to_string()
+    };
+
     let mut heading_stack: Vec<String> = Vec::new();
     let mut chunk_heading_path: Vec<String> = vec!["Intro".to_string()];
     let mut current_heading: Option<String> = None;
     let mut chunks = Vec::new();
     let mut context_buffer = String::new();
 
-    for (chunk_index, chunk_text) in splitter.chunks(content).enumerate() {
+    for (chunk_index, chunk_text) in splitter.chunks(safe_text.as_str()).enumerate() {
         for line in chunk_text.lines() {
             if let Some((heading_level, text)) = parse_heading(line) {
                 update_heading_stack(&mut heading_stack, heading_level, text.clone());
