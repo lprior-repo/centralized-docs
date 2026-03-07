@@ -1178,7 +1178,7 @@ fn apply_query_filter(
     let kept_pages: Vec<scrape::ScrapedPage> = pages
         .into_iter()
         .filter(|page| {
-            let score = filter::bm25_score(&page.markdown, query, avg_doc_length);
+            let score = filter::bm25_score(&page.markdown, query, avg_doc_length).value();
             score.is_finite() && score >= threshold
         })
         .collect();
@@ -1954,7 +1954,7 @@ fn run_search(
                             title: result.title.clone(),
                             path: result.path.clone(),
                             summary: summary_short,
-                            score: result.score,
+                            score: result.score.value(),
                             backend: "tantivy".to_string(),
                         }
                     })
@@ -2048,7 +2048,7 @@ fn run_search(
             let title = doc["title"].as_str().unwrap_or("");
             let summary = doc["summary"].as_str().unwrap_or("");
             let searchable = format!("{title} {summary}");
-            let score = filter::bm25_score(&searchable, query, avg_doc_length);
+            let score = filter::bm25_score(&searchable, query, avg_doc_length).value();
             (score, doc)
         })
         .filter(|(score, _)| *score > 0.0)

@@ -89,7 +89,7 @@ pub struct FilterResult {
     /// Number of elements removed
     pub removed_count: usize,
     /// Density score of kept content
-    pub density_score: f32,
+    pub density_score: crate::math_types::Score,
     /// Whether Readability was successfully used (vs fallback to custom pruning)
     #[allow(dead_code)] // Public API field
     pub used_readability: bool,
@@ -126,7 +126,8 @@ pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
             FilterResult {
                 html: extracted_content,
                 removed_count: 0, // Readability handles removal internally
-                density_score: density,
+                density_score: crate::math_types::Score::try_new(density)
+                    .unwrap_or_else(|_| crate::math_types::Score::zero()),
                 used_readability: true,
             }
         }
@@ -245,7 +246,8 @@ fn fallback_prune_html(html: &str, config: &FilterConfig) -> FilterResult {
     FilterResult {
         html: final_content,
         removed_count,
-        density_score,
+        density_score: crate::math_types::Score::try_new(density_score)
+            .unwrap_or_else(|_| crate::math_types::Score::zero()),
         used_readability: false,
     }
 }
@@ -462,10 +464,10 @@ fn is_footer_line(line: &str) -> bool {
 /// Since this function only takes a single document and lacks corpus statistics,
 /// it computes a term-frequency score with document length normalization rather than true BM25.
 #[must_use]
-pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
+pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> crate::math_types::Score {
     // Early exit for empty inputs
     if document.trim().is_empty() || query.trim().is_empty() {
-        return 0.0;
+        return crate::math_types::Score::zero();
     }
 
     // Strip basic punctuation before splitting whitespace by replacing with space
@@ -480,7 +482,7 @@ pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
         .split_whitespace()
         .map(|w| w.to_lowercase())
         .collect();
-    let doc_length = doc_words.len() as f32;
+    let doc_length = doc_words.len() as u32;
 
     // Avoid division by zero
     let safe_avg_doc_length = avg_doc_length.max(1.0);
@@ -491,35 +493,32 @@ pub fn bm25_score(document: &str, query: &str, avg_doc_length: f32) -> f32 {
         ][..],
         " ",
     );
-    let score: f32 = clean_query
+    clean_query
         .split_whitespace()
         .map(|term| {
             let term_lower = term.to_lowercase();
-            doc_words.iter().filter(|w| *w == &term_lower).count() as f32
+            doc_words.iter().filter(|w| *w == &term_lower).count() as u32
         })
-        .filter(|&tf| tf > 0.0)
+        .filter(|&tf| tf > 0)
         .map(|tf| {
-            let idf_val = (10.0_f32).ln();
-
             let tf_typed = crate::math_types::TermFrequency::try_new(tf)
                 .unwrap_or(crate::math_types::TermFrequency::ZERO);
             let doc_len_typed = crate::math_types::DocumentLength::try_new(doc_length)
                 .unwrap_or(crate::math_types::DocumentLength::ZERO);
             let avg_doc_len_typed =
                 crate::math_types::AverageDocumentLength::safe_new(safe_avg_doc_length);
-            let idf_typed = crate::math_types::InverseDocumentFrequency::try_new(idf_val)
-                .unwrap_or(crate::math_types::InverseDocumentFrequency::ONE);
+            let total_docs = crate::math_types::TotalDocuments::new(10);
+            let doc_freq = crate::math_types::DocumentFrequency::new(1);
 
-            crate::math_types::pure_bm25(tf_typed, doc_len_typed, avg_doc_len_typed, idf_typed)
-                .value()
+            crate::math_types::pure_bm25(
+                tf_typed,
+                doc_len_typed,
+                avg_doc_len_typed,
+                total_docs,
+                doc_freq,
+            )
         })
-        .sum();
-
-    if score.is_finite() && score >= 0.0 {
-        score
-    } else {
-        0.0
-    }
+        .sum::<crate::math_types::Score>()
 }
 
 /// Batch score documents using BM25 with single persistent index
@@ -681,11 +680,11 @@ mod tests {
     fn test_bm25_score() {
         let doc = "rust programming language systems programming";
         let query = "rust programming";
-        let score = bm25_score(doc, query, 100.0);
+        let score = bm25_score(doc, query, 100.0).value();
         assert!(score > 0.0);
 
         let unrelated = "python web development django";
-        let score2 = bm25_score(unrelated, query, 100.0);
+        let score2 = bm25_score(unrelated, query, 100.0).value();
         assert!(score > score2);
     }
 
@@ -693,7 +692,7 @@ mod tests {
     fn test_bm25_zero_avg_length() {
         // Edge case: avg_doc_length is 0.0 (empty corpus)
         // Should NOT panic, should NOT return NaN/Inf
-        let score = bm25_score("rust programming", "rust", 0.0);
+        let score = bm25_score("rust programming", "rust", 0.0).value();
         assert!(score.is_finite(), "Score must be finite, got {score}");
         assert!(score >= 0.0, "Score must be non-negative, got {score}");
         assert!(
@@ -706,7 +705,7 @@ mod tests {
     fn test_bm25_negative_avg_length() {
         // Edge case: avg_doc_length is negative (invalid input)
         // Should use safe default instead
-        let score = bm25_score("hello world", "hello", -100.0);
+        let score = bm25_score("hello world", "hello", -100.0).value();
         assert!(score.is_finite(), "Score must be finite, got {score}");
         assert!(score >= 0.0, "Score must be non-negative, got {score}");
     }
@@ -714,35 +713,35 @@ mod tests {
     #[test]
     fn test_bm25_empty_document() {
         // Edge case: empty document string
-        let score = bm25_score("", "rust", 100.0);
+        let score = bm25_score("", "rust", 100.0).value();
         assert_eq!(score, 0.0, "Empty document should return 0.0 score");
     }
 
     #[test]
     fn test_bm25_empty_query() {
         // Edge case: empty query string
-        let score = bm25_score("rust programming language", "", 100.0);
+        let score = bm25_score("rust programming language", "", 100.0).value();
         assert_eq!(score, 0.0, "Empty query should return 0.0 score");
     }
 
     #[test]
     fn test_bm25_both_empty() {
         // Edge case: both document and query are empty
-        let score = bm25_score("", "", 100.0);
+        let score = bm25_score("", "", 100.0).value();
         assert_eq!(score, 0.0, "Empty doc and query should return 0.0 score");
     }
 
     #[test]
     fn test_bm25_no_matches() {
         // Edge case: query terms don't appear in document
-        let score = bm25_score("python django flask", "rust", 100.0);
+        let score = bm25_score("python django flask", "rust", 100.0).value();
         assert_eq!(score, 0.0, "No matching terms should return 0.0 score");
     }
 
     #[test]
     fn test_bm25_all_zeros_edge_case() {
         // Edge case: all inputs are minimal
-        let score = bm25_score("a", "a", 0.0);
+        let score = bm25_score("a", "a", 0.0).value();
         assert!(
             score.is_finite(),
             "Even with zero avg_length, should be finite"
@@ -753,7 +752,7 @@ mod tests {
     #[test]
     fn test_bm25_single_word_document() {
         // Edge case: document with one word
-        let score = bm25_score("rust", "rust", 100.0);
+        let score = bm25_score("rust", "rust", 100.0).value();
         assert!(score.is_finite());
         assert!(score > 0.0);
     }
@@ -762,7 +761,7 @@ mod tests {
     fn test_bm25_very_long_document() {
         // Edge case: very long document (1M+ words)
         let long_doc = vec!["rust"; 1_000_000].join(" ");
-        let score = bm25_score(&long_doc, "rust", 100.0);
+        let score = bm25_score(&long_doc, "rust", 100.0).value();
         assert!(
             score.is_finite(),
             "Long document should not produce NaN/Inf"
@@ -776,8 +775,8 @@ mod tests {
         let doc = "Rust Programming Language";
         let query_lower = "rust";
         let query_upper = "RUST";
-        let score_lower = bm25_score(doc, query_lower, 100.0);
-        let score_upper = bm25_score(doc, query_upper, 100.0);
+        let score_lower = bm25_score(doc, query_lower, 100.0).value();
+        let score_upper = bm25_score(doc, query_upper, 100.0).value();
         assert_eq!(
             score_lower, score_upper,
             "Matching should be case-insensitive"
@@ -790,8 +789,8 @@ mod tests {
         let doc1 = "rust   programming";
         let doc2 = "rust programming";
         let query = "rust programming";
-        let score1 = bm25_score(doc1, query, 100.0);
-        let score2 = bm25_score(doc2, query, 100.0);
+        let score1 = bm25_score(doc1, query, 100.0).value();
+        let score2 = bm25_score(doc2, query, 100.0).value();
         // Scores may differ due to different word counts, but both must be finite
         assert!(score1.is_finite());
         assert!(score2.is_finite());
@@ -805,9 +804,9 @@ mod tests {
         let single_match = "rust programming";
         let partial_match = "rust web development";
 
-        let score_exact = bm25_score(exact_match, query, 100.0);
-        let score_single = bm25_score(single_match, query, 100.0);
-        let score_partial = bm25_score(partial_match, query, 100.0);
+        let score_exact = bm25_score(exact_match, query, 100.0).value();
+        let score_single = bm25_score(single_match, query, 100.0).value();
+        let score_partial = bm25_score(partial_match, query, 100.0).value();
 
         assert!(
             score_exact >= score_single,
@@ -837,7 +836,7 @@ mod tests {
         ];
 
         for (doc, query, avg_len) in pathological_inputs {
-            let score = bm25_score(doc, query, avg_len);
+            let score = bm25_score(doc, query, avg_len).value();
             assert!(
                 score.is_finite(),
                 "Score must be finite for input: doc={:?}, query={:?}, avg_len={}",
@@ -879,8 +878,8 @@ mod tests {
         assert!(result.html.contains("Main Title") || result.html.contains("main content"));
 
         // Check density score is calculated
-        assert!(result.density_score >= 0.0);
-        assert!(result.density_score <= 1.0);
+        assert!(result.density_score.value() >= 0.0);
+        assert!(result.density_score.value() <= 1.0);
 
         // Check that used_readability indicates which method was used
         let _ = result.used_readability;
@@ -910,8 +909,8 @@ mod tests {
 
         // Should extract article content regardless of method
         assert!(result.html.contains("Article Title") || result.html.contains("article content"));
-        assert!(result.density_score > 0.0);
-        assert!(result.density_score <= 1.0);
+        assert!(result.density_score.value() > 0.0);
+        assert!(result.density_score.value() <= 1.0);
     }
 
     #[test]
@@ -935,8 +934,8 @@ mod tests {
         // Should have used fallback (Readability can't extract)
         // Result should still be valid (non-panic)
         assert!(!result.html.is_empty());
-        assert!(result.density_score >= 0.0);
-        assert!(result.density_score <= 1.0);
+        assert!(result.density_score.value() >= 0.0);
+        assert!(result.density_score.value() <= 1.0);
     }
 
     #[test]

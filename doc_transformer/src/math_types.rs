@@ -5,6 +5,7 @@
 //! Enforces invariants using newtypes so illegal states (like NaN scores or negative frequencies)
 //! are unrepresentable.
 
+use ordered_float::NotNan;
 use std::fmt;
 
 /// Error for mathematical invariants
@@ -28,11 +29,13 @@ impl fmt::Display for MathError {
 }
 
 /// A finite, non-negative ranking score.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct Score(f32);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Score(NotNan<f32>);
 
 impl Score {
-    pub const ZERO: Self = Self(0.0);
+    pub fn zero() -> Self {
+        Self(NotNan::new(0.0).unwrap())
+    }
 
     pub fn try_new(value: f32) -> Result<Self, MathError> {
         if !value.is_finite() {
@@ -41,54 +44,66 @@ impl Score {
         if value < 0.0 {
             return Err(MathError::Negative("Score"));
         }
-        Ok(Self(value))
+        Ok(Self(NotNan::new(value).unwrap()))
     }
 
     pub fn value(self) -> f32 {
-        self.0
+        self.0.into_inner()
     }
 }
 
-/// A finite, non-negative term frequency.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct TermFrequency(f32);
+impl std::ops::Add for Score {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let sum = self.0.into_inner() + rhs.0.into_inner();
+        let clamped = NotNan::new(sum).unwrap_or_else(|_| NotNan::new(f32::MAX).unwrap());
+        Self(clamped)
+    }
+}
+
+impl std::iter::Sum for Score {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Score::zero(), std::ops::Add::add)
+    }
+}
+
+/// A non-negative term frequency.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TermFrequency(u32);
 
 impl TermFrequency {
-    pub const ZERO: Self = Self(0.0);
+    pub const ZERO: Self = Self(0);
 
-    pub fn try_new(value: f32) -> Result<Self, MathError> {
-        if !value.is_finite() {
-            return Err(MathError::NotFinite("TermFrequency"));
-        }
-        if value < 0.0 {
-            return Err(MathError::Negative("TermFrequency"));
-        }
+    pub fn new(value: u32) -> Self {
+        Self(value)
+    }
+
+    pub fn try_new(value: u32) -> Result<Self, MathError> {
         Ok(Self(value))
     }
 
-    pub fn value(self) -> f32 {
+    pub fn value(self) -> u32 {
         self.0
     }
 }
 
-/// A finite, non-negative document length.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct DocumentLength(f32);
+/// A non-negative document length.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct DocumentLength(u32);
 
 impl DocumentLength {
-    pub const ZERO: Self = Self(0.0);
+    pub const ZERO: Self = Self(0);
 
-    pub fn try_new(value: f32) -> Result<Self, MathError> {
-        if !value.is_finite() {
-            return Err(MathError::NotFinite("DocumentLength"));
-        }
-        if value < 0.0 {
-            return Err(MathError::Negative("DocumentLength"));
-        }
+    pub fn new(value: u32) -> Self {
+        Self(value)
+    }
+
+    pub fn try_new(value: u32) -> Result<Self, MathError> {
         Ok(Self(value))
     }
 
-    pub fn value(self) -> f32 {
+    pub fn value(self) -> u32 {
         self.0
     }
 }
@@ -123,47 +138,65 @@ impl AverageDocumentLength {
     }
 }
 
-/// A finite inverse document frequency.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct InverseDocumentFrequency(f32);
+/// Total number of documents in the corpus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TotalDocuments(u32);
 
-impl InverseDocumentFrequency {
-    pub const ONE: Self = Self(1.0);
-
-    pub fn try_new(value: f32) -> Result<Self, MathError> {
-        if !value.is_finite() {
-            return Err(MathError::NotFinite("InverseDocumentFrequency"));
-        }
-        Ok(Self(value))
+impl TotalDocuments {
+    pub fn new(value: u32) -> Self {
+        Self(value)
     }
 
-    pub fn value(self) -> f32 {
+    pub fn value(self) -> u32 {
+        self.0
+    }
+}
+
+/// Number of documents containing the term.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct DocumentFrequency(u32);
+
+impl DocumentFrequency {
+    pub fn new(value: u32) -> Self {
+        Self(value)
+    }
+
+    pub fn value(self) -> u32 {
         self.0
     }
 }
 
 /// A mathematically pure pseudo-BM25 function that takes strongly-typed arguments.
 ///
-/// Computes `idf * ((tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (doc_len / avg_doc_len))))`.
+/// Computes clamped Lucene IDF, preventing division by zero with `f32::EPSILON`.
 #[must_use]
 pub fn pure_bm25(
     tf: TermFrequency,
     doc_len: DocumentLength,
     avg_doc_len: AverageDocumentLength,
-    idf: InverseDocumentFrequency,
+    total_docs: TotalDocuments,
+    doc_freq: DocumentFrequency,
 ) -> Score {
     let k1 = 1.2_f32;
     let b = 0.75_f32;
 
-    let tf_val = tf.value();
-    let doc_len_val = doc_len.value();
+    let tf_val = tf.value() as f32;
+    let doc_len_val = doc_len.value() as f32;
     let avg_doc_len_val = avg_doc_len.value();
-    let idf_val = idf.value();
+
+    let n = total_docs.value() as f32;
+    let df = doc_freq.value() as f32;
+
+    // Clamped Lucene IDF formula to prevent negative values:
+    // IDF = max(0.0, ln(1.0 + (N - df + 0.5) / (df + 0.5)))
+    let idf = (1.0 + (n - df + 0.5) / (df + 0.5)).ln().max(0.0);
 
     let numerator = tf_val * (k1 + 1.0);
-    let denominator = tf_val + k1 * (1.0 - b + b * (doc_len_val / avg_doc_len_val));
+    // Use f32::EPSILON to prevent division by zero
+    let denominator =
+        tf_val + k1 * (1.0 - b + b * (doc_len_val / avg_doc_len_val.max(f32::EPSILON)));
 
-    let raw_score = idf_val * (numerator / denominator.max(0.0001));
+    let raw_score = idf * (numerator / denominator.max(f32::EPSILON));
 
-    Score::try_new(raw_score).unwrap_or(Score::ZERO)
+    Score::try_new(raw_score).unwrap_or_else(|_| Score::zero())
 }

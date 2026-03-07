@@ -23,7 +23,6 @@
 //! ```
 
 use anyhow::{anyhow, Result};
-use std::cmp::Ordering;
 use std::fs;
 use std::path::Path;
 use tantivy::collector::TopDocs;
@@ -51,7 +50,7 @@ pub struct SearchResult {
     pub title: String,
     pub summary: String,
     pub category: String,
-    pub score: f32,
+    pub score: crate::math_types::Score,
     pub path: String,
 }
 
@@ -430,13 +429,14 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
                     .and_then(|v| v.as_ref().as_str().map(std::string::ToString::to_string))
                     .unwrap_or_else(|| format!("docs/{}.md", id.replace('/', "-")));
 
-                let score = tantivy_score;
+                let score = crate::math_types::Score::try_new(tantivy_score)
+                    .unwrap_or_else(|_| crate::math_types::Score::zero());
 
                 // Filter out non-matches with very low scores
                 // BM25 scores can be positive but very small for partial matches
                 // We use 0.001 as minimum threshold to ensure meaningful results
                 const MIN_SCORE_THRESHOLD: f32 = 0.001;
-                if score <= MIN_SCORE_THRESHOLD {
+                if score.value() <= MIN_SCORE_THRESHOLD {
                     return Ok(None);
                 }
 
@@ -453,12 +453,7 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
         .filter_map(Result::transpose)
         .collect::<Result<Vec<_>>>()?;
 
-    results.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(Ordering::Equal)
-            .then_with(|| a.id.cmp(&b.id))
-    });
+    results.sort_by(|a, b| b.score.cmp(&a.score));
 
     Ok(results)
 }
@@ -491,7 +486,12 @@ pub fn search_index(index: &Index, query_str: &str, limit: usize) -> Result<Vec<
 /// See: Robertson & Zaragoza (2009) "The Probabilistic Relevance Framework: BM25 and Beyond"
 #[allow(dead_code)] // Exported for library users - not used internally
 #[must_use]
-pub fn score_document_simple(title: &str, summary: &str, query: &str, word_count: f32) -> f32 {
+pub fn score_document_simple(
+    title: &str,
+    summary: &str,
+    query: &str,
+    word_count: f32,
+) -> crate::math_types::Score {
     let document = format!("{title} {summary}");
 
     // Strip basic punctuation before splitting whitespace by replacing with space
@@ -507,7 +507,7 @@ pub fn score_document_simple(title: &str, summary: &str, query: &str, word_count
         .map(|w| w.to_lowercase())
         .collect();
     // SAFETY: Document length (title + summary) typically < 1000 words, well within f32 precision
-    let doc_length = doc_words.len() as f32;
+    let doc_length = doc_words.len() as u32;
 
     // Avoid division by zero
     let avg_doc_length = word_count.max(1.0);
@@ -522,26 +522,29 @@ pub fn score_document_simple(title: &str, summary: &str, query: &str, word_count
         .split_whitespace()
         .map(|term| {
             let term_lower = term.to_lowercase();
-            // SAFETY: Term frequency in a single document typically < 100, well within f32 precision
-            doc_words.iter().filter(|w| *w == &term_lower).count() as f32
+            // SAFETY: Term frequency in a single document typically < 100, well within u32 precision
+            doc_words.iter().filter(|w| *w == &term_lower).count() as u32
         })
-        .filter(|&tf| tf > 0.0)
+        .filter(|&tf| tf > 0)
         .map(|tf| {
-            let idf_val = (10.0_f32).ln();
-
             let tf_typed = crate::math_types::TermFrequency::try_new(tf)
                 .unwrap_or(crate::math_types::TermFrequency::ZERO);
             let doc_len_typed = crate::math_types::DocumentLength::try_new(doc_length)
                 .unwrap_or(crate::math_types::DocumentLength::ZERO);
             let avg_doc_len_typed =
                 crate::math_types::AverageDocumentLength::safe_new(avg_doc_length);
-            let idf_typed = crate::math_types::InverseDocumentFrequency::try_new(idf_val)
-                .unwrap_or(crate::math_types::InverseDocumentFrequency::ONE);
+            let total_docs = crate::math_types::TotalDocuments::new(10);
+            let doc_freq = crate::math_types::DocumentFrequency::new(1);
 
-            crate::math_types::pure_bm25(tf_typed, doc_len_typed, avg_doc_len_typed, idf_typed)
-                .value()
+            crate::math_types::pure_bm25(
+                tf_typed,
+                doc_len_typed,
+                avg_doc_len_typed,
+                total_docs,
+                doc_freq,
+            )
         })
-        .sum()
+        .sum::<crate::math_types::Score>()
 }
 
 #[cfg(test)]
@@ -595,8 +598,9 @@ mod tests {
 
     #[test]
     fn test_score_document_simple_basic() {
-        let score1 = score_document_simple("rust programming", "learn rust", "rust", 100.0);
-        let score2 = score_document_simple("python web dev", "django framework", "rust", 100.0);
+        let score1 = score_document_simple("rust programming", "learn rust", "rust", 100.0).value();
+        let score2 =
+            score_document_simple("python web dev", "django framework", "rust", 100.0).value();
 
         // rust should score higher in first doc
         assert!(score1 > score2);
@@ -609,9 +613,11 @@ mod tests {
             "systems programming language",
             "rust programming",
             100.0,
-        );
+        )
+        .value();
         let score2 =
-            score_document_simple("rust web", "simple framework", "rust programming", 100.0);
+            score_document_simple("rust web", "simple framework", "rust programming", 100.0)
+                .value();
 
         // Both terms present should score higher than one term
         assert!(score1 > score2);
@@ -619,22 +625,22 @@ mod tests {
 
     #[test]
     fn test_score_document_simple_empty_query() {
-        let score = score_document_simple("rust programming", "systems", "", 100.0);
+        let score = score_document_simple("rust programming", "systems", "", 100.0).value();
         assert_eq!(score, 0.0);
     }
 
     #[test]
     fn test_score_document_simple_zero_word_count() {
         // Should handle zero word_count gracefully
-        let score = score_document_simple("rust", "programming", "rust", 0.0);
+        let score = score_document_simple("rust", "programming", "rust", 0.0).value();
         assert!(score.is_finite());
         assert!(score > 0.0);
     }
 
     #[test]
     fn test_score_document_simple_case_insensitive() {
-        let score1 = score_document_simple("Rust Programming", "Learn Rust", "rust", 100.0);
-        let score2 = score_document_simple("RUST PROGRAMMING", "LEARN RUST", "RUST", 100.0);
+        let score1 = score_document_simple("Rust Programming", "Learn Rust", "rust", 100.0).value();
+        let score2 = score_document_simple("RUST PROGRAMMING", "LEARN RUST", "RUST", 100.0).value();
 
         // Case should not matter
         assert!((score1 - score2).abs() < 0.0001);

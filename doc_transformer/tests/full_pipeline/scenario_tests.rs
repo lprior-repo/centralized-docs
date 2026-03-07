@@ -409,7 +409,7 @@ Advanced settings for performance tuning.
             "    {}. {} (score: {:.2})",
             i + 1,
             result.title,
-            result.score
+            result.score.value()
         );
     }
 
@@ -423,9 +423,9 @@ Advanced settings for performance tuning.
     // Results should have positive scores
     for result in &config_results {
         assert!(
-            result.score > 0.0,
+            result.score.value() > 0.0,
             "Search results should have positive scores, got {} for '{}'",
-            result.score,
+            result.score.value(),
             result.title
         );
     }
@@ -534,7 +534,7 @@ fn scenario_scraping_with_content_filtering() -> anyhow::Result<()> {
     println!("\n  High quality page:");
     println!(
         "    - Density score: {:.2}",
-        high_quality_result.density_score
+        high_quality_result.density_score.value()
     );
     println!(
         "    - Elements removed: {}",
@@ -550,7 +550,7 @@ fn scenario_scraping_with_content_filtering() -> anyhow::Result<()> {
     println!("\n  Low quality page:");
     println!(
         "    - Density score: {:.2}",
-        low_quality_result.density_score
+        low_quality_result.density_score.value()
     );
     println!(
         "    - Elements removed: {}",
@@ -565,7 +565,7 @@ fn scenario_scraping_with_content_filtering() -> anyhow::Result<()> {
     println!("\nTHEN: Content filtering preserves substantive content\n");
 
     assert!(
-        high_quality_result.density_score > 0.1,
+        high_quality_result.density_score.value() > 0.1,
         "High quality content should have positive density score"
     );
     println!("  ✓ High quality content has positive density");
@@ -586,11 +586,13 @@ fn scenario_scraping_with_content_filtering() -> anyhow::Result<()> {
         "This is the comprehensive API reference documentation",
         "api reference",
         100.0,
-    );
+    )
+    .value();
     println!("    Score for 'api reference' query: {relevant_score:.2}");
 
     let irrelevant_score =
-        search::score_document_simple("Navigation", "Links and more links", "api reference", 50.0);
+        search::score_document_simple("Navigation", "Links and more links", "api reference", 50.0)
+            .value();
     println!("    Score for navigation page: {irrelevant_score:.2}");
 
     assert!(

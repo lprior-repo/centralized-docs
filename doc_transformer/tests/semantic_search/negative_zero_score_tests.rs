@@ -90,13 +90,14 @@ fn test_all_results_have_positive_scores() {
 
     for result in &results {
         assert!(
-            result.score > 0.0,
+            result.score.value() > 0.0,
             "Result {} has score {} which is not positive",
             result.id,
-            result.score
+            result.score.value()
         );
         assert_ne!(
-            result.score, -0.0,
+            result.score.value(),
+            -0.0,
             "Result {} has negative zero score",
             result.id
         );
@@ -118,10 +119,10 @@ fn test_query_with_partial_match_filters_non_matching() {
 
     for result in &results {
         assert!(
-            result.score > 0.0,
+            result.score.value() > 0.0,
             "Result {} has score {} which is not positive (partial query: 'test nonexistent')",
             result.id,
-            result.score
+            result.score.value()
         );
     }
 }

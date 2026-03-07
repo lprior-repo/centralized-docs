@@ -250,7 +250,7 @@ fn test_search_matches_terms_in_path() {
     assert!(
         results
             .iter()
-            .any(|r| r.id == "test/path-only" && r.score > 0.0),
+            .any(|r| r.id == "test/path-only" && r.score.value() > 0.0),
         "Path-only match should return a positive score"
     );
 }

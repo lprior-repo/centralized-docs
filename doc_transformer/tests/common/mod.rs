@@ -752,7 +752,7 @@ pub fn run_search<P: AsRef<Path>>(
             title: r.title,
             summary: r.summary,
             category: r.category,
-            score: r.score,
+            score: r.score.value(),
             path: r.path,
         })
         .collect();

@@ -257,7 +257,8 @@ pub fn transform_page(
         FilterResult {
             html: raw_html,
             removed_count: 0,
-            density_score: 1.0,
+            density_score: crate::math_types::Score::try_new(1.0)
+                .unwrap_or_else(|_| crate::math_types::Score::zero()),
             used_readability: false,
         }
     };
@@ -332,7 +333,7 @@ pub fn transform_page(
         slug,
         filter_status,
         elements_removed: prune_result.removed_count,
-        density_score: prune_result.density_score,
+        density_score: prune_result.density_score.value(),
     })
 }
 
