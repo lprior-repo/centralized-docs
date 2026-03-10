@@ -294,6 +294,13 @@ pub fn transform_page(
         &None,
     );
 
+    // Validate that content extraction succeeded - must not be empty or whitespace-only
+    if markdown.trim().is_empty() {
+        anyhow::bail!(
+            "transform_content returned empty result for {url} - content extraction failed"
+        );
+    }
+
     let (markdown, filter_status) = if filtering_enabled {
         (
             filter_markdown(&markdown, &filter_config),
