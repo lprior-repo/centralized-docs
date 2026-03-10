@@ -509,7 +509,17 @@ pub fn extract_title(markdown: &str, url: &str) -> String {
                 .trim_matches('/')
                 .split('/')
                 .next_back()
-                .map_or_else(|| "Untitled".to_string(), |s| s.replace(['-', '_'], " "))
+                .map_or_else(
+                    || "Untitled".to_string(),
+                    |s| {
+                        // Decode percent-encoded characters (e.g., %20 -> space, %3A -> :)
+                        // Using form_urlencoded which handles common URL encoding
+                        let decoded: String = url::form_urlencoded::parse(s.as_bytes())
+                            .map(|(key, _)| key.into_owned())
+                            .collect();
+                        decoded.replace(['-', '_'], " ")
+                    },
+                )
         },
     )
 }
@@ -545,6 +555,107 @@ mod tests {
             extract_title(md_no_h1, "https://example.com/getting-started"),
             "getting started"
         );
+    }
+
+    #[test]
+    fn test_extract_title_encoding_fallback_unicode() {
+        // Test UTF-8 encoded characters in H1 title
+        let md = "# Getting Started © 2024\n\nContent here.";
+        assert_eq!(
+            extract_title(md, "https://example.com"),
+            "Getting Started © 2024"
+        );
+
+        // Test with accented characters
+        let md_accent = "# Résumé\n\nContent here.";
+        assert_eq!(extract_title(md_accent, "https://example.com"), "Résumé");
+
+        // Test with emoji in title
+        let md_emoji = "# Hello World 🌍\n\nContent here.";
+        assert_eq!(
+            extract_title(md_emoji, "https://example.com"),
+            "Hello World 🌍"
+        );
+    }
+
+    #[test]
+    fn test_extract_title_url_encoding_fallback() {
+        // Test URL-encoded characters in fallback URL path
+        let md_no_h1 = "Some content without header";
+
+        // URL with encoded space (%20)
+        assert_eq!(
+            extract_title(md_no_h1, "https://example.com/hello%20world"),
+            "hello world"
+        );
+
+        // URL with encoded underscore (%5F)
+        assert_eq!(
+            extract_title(md_no_h1, "https://example.com/hello_world"),
+            "hello world"
+        );
+
+        // URL with encoded hyphen (%2D)
+        assert_eq!(
+            extract_title(md_no_h1, "https://example.com/hello-world"),
+            "hello world"
+        );
+
+        // URL with mixed encoded characters
+        assert_eq!(
+            extract_title(md_no_h1, "https://example.com/my%20test_page"),
+            "my test page"
+        );
+
+        // URL with multiple path segments - should use last segment
+        assert_eq!(
+            extract_title(md_no_h1, "https://example.com/docs/api/v2"),
+            "v2"
+        );
+    }
+
+    #[test]
+    fn test_extract_title_edge_cases() {
+        // Empty markdown with valid URL
+        assert_eq!(
+            extract_title("", "https://example.com/my-document"),
+            "my document"
+        );
+
+        // Whitespace-only markdown
+        assert_eq!(
+            extract_title("   \n\n   ", "https://example.com/doc"),
+            "doc"
+        );
+
+        // H1 with only whitespace after #
+        let md_whitespace = "#   \n\nContent";
+        assert_eq!(
+            extract_title(md_whitespace, "https://example.com/fallback"),
+            "fallback"
+        );
+
+        // Multiple H1s - should use first
+        let md_multi = "# First Title\n\n# Second Title";
+        assert_eq!(
+            extract_title(md_multi, "https://example.com"),
+            "First Title"
+        );
+
+        // H1 with leading/trailing whitespace
+        let md_trim = "#   Trimmed Title   \n\nContent";
+        assert_eq!(
+            extract_title(md_trim, "https://example.com"),
+            "Trimmed Title"
+        );
+    }
+
+    #[test]
+    fn test_extract_title_invalid_url_fallback() {
+        // Invalid URL should fall back to "Untitled"
+        let md_no_h1 = "Some content";
+        assert_eq!(extract_title(md_no_h1, "not-a-valid-url"), "Untitled");
+        assert_eq!(extract_title(md_no_h1, ""), "Untitled");
     }
 
     #[test]
