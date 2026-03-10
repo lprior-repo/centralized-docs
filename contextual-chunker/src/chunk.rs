@@ -482,8 +482,11 @@ fn assign_hierarchy(summary: &mut [Chunk], standard: &mut [Chunk], detailed: &mu
             .or_else(|| summary_groups.get("intro"));
 
         if let Some(summary_indices) = summary_indices {
+            // Use div_ceil for even distribution of children across parents
+            // Bug fix: (pos * parent_len) / child_len produced uneven distribution
+            let items_per_parent = standard_indices.len().div_ceil(summary_indices.len());
             for (pos, standard_idx) in standard_indices.iter().enumerate() {
-                let parent_pos = (pos * summary_indices.len()) / standard_indices.len();
+                let parent_pos = pos / items_per_parent;
                 let parent_idx = summary_indices[parent_pos];
                 standard[*standard_idx].parent_chunk_id =
                     Some(summary[parent_idx].chunk_id.clone());
@@ -501,8 +504,10 @@ fn assign_hierarchy(summary: &mut [Chunk], standard: &mut [Chunk], detailed: &mu
             .or_else(|| standard_groups.get("intro"));
 
         if let Some(standard_indices) = standard_indices {
+            // Use div_ceil for even distribution
+            let items_per_parent = detailed_indices.len().div_ceil(standard_indices.len());
             for (pos, detailed_idx) in detailed_indices.iter().enumerate() {
-                let parent_pos = (pos * standard_indices.len()) / detailed_indices.len();
+                let parent_pos = pos / items_per_parent;
                 let parent_idx = standard_indices[parent_pos];
                 detailed[*detailed_idx].parent_chunk_id =
                     Some(standard[parent_idx].chunk_id.clone());
