@@ -87,7 +87,8 @@ pub fn url_to_slug(url: &str) -> Result<String> {
 
     let slug = if query.is_some() || fragment.is_some() {
         // Create a short hash of query+fragment to avoid long slugs
-        // Use larger hash space (1M) to reduce collision probability
+        // Use large hash space (10M) to minimize collision probability
+        // With 64-bit hash and 10M space, collision probability is ~1 in 10M for random inputs
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         if let Some(q) = query {
             std::hash::Hash::hash(q, &mut hasher);
@@ -95,7 +96,7 @@ pub fn url_to_slug(url: &str) -> Result<String> {
         if let Some(f) = fragment {
             std::hash::Hash::hash(f, &mut hasher);
         }
-        let hash = (hasher.finish() % 1_000_000).to_string();
+        let hash = (hasher.finish() % 10_000_000).to_string();
         format!("{slug}-q{hash}")
     } else {
         slug

@@ -41,6 +41,7 @@ where
         chunk_level: contextual_chunker::ChunkLevel::Standard,
         parent_chunk_id: None,
         child_chunk_ids: vec![],
+        context_prefix: None,
     };
 
     let _ = search::index_chunks(&mut writer, &[doc], &[chunk]);
