@@ -1,0 +1,17 @@
+[
+  {
+    "id": "doc-vd3p",
+    "title": "cli: Multiple parameter validation errors return exit code 0",
+    "description": "Bug: Multiple parameter validation errors return exit code 0 instead of 1\n\n## Severity: P1 (MAJOR)\n\n## Summary\nMultiple CLI parameter validation errors return exit code 0 (success) instead of exit code 1 (user error). This affects:\n- hnsw_m above maximum (64)\n- hnsw_ef_construction above maximum (1000)\n- max_chunk_keywords above maximum (50)\n- limit above maximum (1000)\n\n## Reproduction Steps\n1. Run: ./doc_transformer index /tmp/src --output /tmp/out --hnsw-m 100\n   - Output: error: hnsw_m must be at most 64...\n   - Exit code: 0  <-- WRONG!\n\n2. Run: ./doc_transformer index /tmp/src --output /tmp/out --hnsw-ef-construction 2000\n   - Output: error: hnsw_ef_construction must be at most 1000...\n   - Exit code: 0  <-- WRONG!\n\n3. Run: ./doc_transformer index /tmp/src --output /tmp/out --max-chunk-keywords 100\n   - Output: error: max_chunk_keywords must be at most 50...\n   - Exit code: 0  <-- WRONG!\n\n4. Run: ./doc_transformer search \"test\" --index-dir /tmp/index -n 1000000000\n   - Output: error: limit must be at most 1000...\n   - Exit code: 0  <-- WRONG!\n\n## Expected Behavior\nAll parameter validation errors should return exit code 1 (user error).\n\n## Root Cause\nThe issue appears to be that clap's default error handling returns exit code 0 or 2 for validation errors, but the CLI's error handling in main.rs is not catching these properly. Looking at the code around lines 716-746, there's a try_get_matches() call that handles some errors but may not be handling all clap validation errors correctly.\n",
+    "status": "in_progress",
+    "priority": 0,
+    "issue_type": "bug",
+    "assignee": "self",
+    "created_at": "2026-03-01T06:00:07.628277916Z",
+    "created_by": "lewis",
+    "updated_at": "2026-03-01T06:03:48.329897461Z",
+    "source_repo": ".",
+    "compaction_level": 0,
+    "original_size": 0
+  }
+]

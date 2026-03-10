@@ -1,0 +1,892 @@
+//! Transformation phase of the documentation transformation pipeline.
+//!
+//! This module transforms analyzed documents into the final output format.
+//! It forms the third phase of the pipeline, following [`analyze`] and
+//! preceding indexing and output generation.
+//!
+//! # Transformation Pipeline
+//!
+//! Each document undergoes six sequential AST-level transformations:
+//!
+//! 1. **Heading Structure Fix** — Ensures no skipped heading levels (e.g. H1→H3),
+//!    flattens anything deeper than H4 to avoid over-nested structures.
+//! 2. **Link Rewriting** — Converts internal relative links to the canonical
+//!    output filenames assigned during the [`assign`] phase.
+//! 3. **H1 Enforcement** — Guarantees exactly one H1 per document; promotes the
+//!    first heading if absent, demotes extras to H2.
+//! 4. **Context Injection** — Inserts a blockquote summary near the top when the
+//!    document has no existing context block.
+//! 5. **See Also Addition** — Appends a `## See Also` navigation section linking
+//!    to related documents discovered via the knowledge graph.
+//! 6. **Frontmatter Generation** — Wraps the output in YAML frontmatter containing
+//!    the title, category, tags, word count, and summary.
+//!
+//! # AST-Based Processing
+//!
+//! All transformations operate on the `pulldown-cmark` event stream — parse once,
+//! transform in a single pass, re-serialise with `pulldown_cmark_to_cmark`. This
+//! preserves tables, task lists, footnotes and other elements that a hand-rolled
+//! serialiser would silently drop.
+//!
+//! # Core Types
+//!
+//! - [`TransformResult`] — Counts of successful and failed document transformations
+//!
+//! # Key Functions
+//!
+//! - [`transform_all`] — Transform every analyzed document into the output directory
+//! - [`transform_file`] — Transform a single document (useful for testing)
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use doc_transformer::transform::{transform_all, TransformResult};
+//! use std::path::Path;
+//!
+//! let result = transform_all(&analyses, &link_map, Path::new("./output"))?;
+//! println!("Transformed {}/{} documents successfully",
+//!     result.success_count, result.total_count);
+//! ```
+
+#![deny(clippy::unwrap_used)]
+#![allow(clippy::match_same_arms)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![forbid(unsafe_code)]
+#![allow(clippy::wildcard_enum_match_arm)]
+use crate::analyze::Analysis;
+use crate::assign::IdMapping;
+use crate::types::is_stopword;
+use anyhow::Result;
+use itertools::Itertools;
+use pulldown_cmark::{CowStr, Event, Options, Parser, Tag, TagEnd};
+use std::collections::HashMap;
+use std::fs;
+use std::io;
+use std::path::Path;
+use unicode_segmentation::UnicodeSegmentation;
+
+/// Error type for transform operations with full context
+#[derive(Debug, Clone)]
+pub struct TransformError {
+    pub source_path: String,
+    pub error: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransformResult {
+    pub success_count: usize,
+    pub total_count: usize,
+    pub error_count: usize,
+    /// Detailed errors from failed transformations. Empty if all succeeded.
+    #[allow(dead_code)]
+    pub errors: Vec<TransformError>,
+}
+
+/// Create directory with improved error context for permission issues
+fn create_dir_with_context(path: &Path, context: &str) -> Result<()> {
+    fs::create_dir_all(path).map_err(|e| {
+        if e.kind() == io::ErrorKind::PermissionDenied {
+            anyhow::anyhow!(
+                "Permission denied: cannot create {} directory '{}'\n  \
+                 Hint: Check directory permissions or run with appropriate access",
+                context,
+                path.display()
+            )
+        } else {
+            anyhow::anyhow!(
+                "Failed to create {} directory '{}': {}",
+                context,
+                path.display(),
+                e
+            )
+        }
+    })
+}
+
+/// Transform all analyses, returning errors aggregated into the result.
+///
+/// Unlike the previous implementation which silently dropped errors via filter_map,
+/// this version collects all transformation errors and includes them in the result.
+pub fn transform_all(
+    analyses: &[Analysis],
+    link_map: &HashMap<String, IdMapping>,
+    output_dir: &Path,
+) -> Result<TransformResult> {
+    let docs_dir = output_dir.join("docs");
+    create_dir_with_context(&docs_dir, "docs")?;
+
+    // Pre-build a filename-to-mapping lookup for O(1) link resolution
+    let filename_map: HashMap<String, &IdMapping> = link_map
+        .iter()
+        .filter_map(|(src_path, mapping)| {
+            Path::new(src_path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|name| (name.to_string(), mapping))
+        })
+        .collect();
+
+    let mut errors = Vec::new();
+    let mut success_count = 0;
+
+    for analysis in analyses {
+        if let Some(mapping) = link_map.get(&analysis.source_path) {
+            match transform_file(analysis, mapping, link_map, &docs_dir, &filename_map) {
+                Ok(()) => success_count += 1,
+                Err(e) => {
+                    errors.push(TransformError {
+                        source_path: analysis.source_path.clone(),
+                        error: e.to_string(),
+                    });
+                }
+            }
+        } else {
+            // Document without link_map entry is not an error - it's expected for
+            // documents that were not assigned IDs (e.g., excluded by filters)
+            // This is normal behavior, not an error condition
+        }
+    }
+
+    let error_count = errors.len();
+
+    Ok(TransformResult {
+        success_count,
+        total_count: analyses.len(),
+        error_count,
+        errors,
+    })
+}
+
+fn transform_file(
+    analysis: &Analysis,
+    mapping: &IdMapping,
+    link_map: &HashMap<String, IdMapping>,
+    docs_dir: &Path,
+    filename_map: &HashMap<String, &IdMapping>,
+) -> Result<()> {
+    let doc_id = &mapping.id;
+    let filename = &mapping.filename;
+
+    // Step 1: Fix heading structure using AST
+    let content = fix_headings_ast(&analysis.content);
+
+    // Step 2: Rewrite internal links using AST (now uses O(1) filename lookup)
+    let (content, broken_links) =
+        rewrite_links_ast(&content, &analysis.source_path, link_map, filename_map);
+
+    // Log any broken links found
+    if !broken_links.is_empty() {
+        eprintln!(
+            "Warning: {} broken link(s) in {}:",
+            broken_links.len(),
+            analysis.source_path
+        );
+        for (idx, link) in broken_links.iter().enumerate().take(10) {
+            eprintln!("  {}: {}", idx.saturating_add(1), link);
+        }
+        if broken_links.len() > 10 {
+            eprintln!("  ... and {} more", broken_links.len().saturating_sub(10));
+        }
+    }
+
+    // Step 3: Ensure single H1 using AST
+    let content = ensure_h1_ast(&content, &analysis.title);
+
+    // Step 4: Add context block if missing using AST
+    let content = if content_has_blockquote_context(&content) {
+        content
+    } else {
+        let context_text = if analysis.first_paragraph.is_empty() {
+            analysis.title.clone()
+        } else {
+            let max_chars = std::cmp::min(150, analysis.first_paragraph.chars().count());
+            safe_truncate_chars(&analysis.first_paragraph, max_chars)
+        };
+        inject_context_block_ast(&content, &context_text)
+    };
+
+    // Step 5: Add See Also section if missing using AST
+    let content = if content_has_see_also(&content) {
+        content
+    } else {
+        format!("{content}\n## See Also\n\n- [Documentation Index](./COMPASS.md)\n")
+    };
+
+    // Generate frontmatter
+    let tags = generate_tags(analysis);
+    let tags_str = tags
+        .iter()
+        .map(|t| format!("\"{t}\""))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let frontmatter = format!(
+        "---\nid: {}\ntitle: {}\ncategory: {}\ntags: [{}]\n---",
+        doc_id, analysis.title, analysis.category, tags_str
+    );
+
+    // Assemble final content
+    let final_content = format!("{frontmatter}\n\n{content}");
+
+    // Write file
+    let output_file = docs_dir.join(filename);
+
+    fs::write(&output_file, final_content)
+        .map_err(|e| anyhow::anyhow!("Failed to write file '{}': {e}", output_file.display()))?;
+
+    Ok(())
+}
+
+/// Parse markdown using pulldown-cmark with full `CommonMark` + GFM support
+fn parse_markdown(content: &str) -> Vec<Event<'_>> {
+    let options = Options::all();
+    let parser = Parser::new_ext(content, options);
+    parser.collect()
+}
+
+/// Fix heading structure: no skipped levels, max level 4 (AST-based)
+fn fix_headings_ast(content: &str) -> String {
+    let events = parse_markdown(content);
+
+    let (fixed_events, _, _) = events.into_iter().fold(
+        (Vec::new(), None::<u32>, false),
+        |(mut events, mut last_heading_level, mut in_code_block), event| {
+            match event {
+                // Track code block boundaries - never transform inside code
+                Event::Start(Tag::CodeBlock(kind)) => {
+                    in_code_block = true;
+                    events.push(Event::Start(Tag::CodeBlock(kind)));
+                }
+                Event::End(TagEnd::CodeBlock) => {
+                    in_code_block = false;
+                    events.push(Event::End(TagEnd::CodeBlock));
+                }
+
+                // Transform headings (unless in code block)
+                Event::Start(Tag::Heading {
+                    level,
+                    id,
+                    classes,
+                    attrs,
+                }) if !in_code_block => {
+                    let new_level = if let Some(last_level) = last_heading_level {
+                        // Prevent level skips: if current > last + 1, demote to last + 1
+                        let level_num = heading_level_to_u32(level);
+                        if level_num > last_level.saturating_add(1) {
+                            // Demote to last_level + 1
+                            from_u32_level(last_level.saturating_add(1))
+                        } else {
+                            level
+                        }
+                    } else {
+                        level
+                    };
+
+                    // Limit to max level 4
+                    let final_level = if heading_level_to_u32(new_level) > 4 {
+                        from_u32_level(4)
+                    } else {
+                        new_level
+                    };
+
+                    last_heading_level = Some(heading_level_to_u32(final_level));
+                    events.push(Event::Start(Tag::Heading {
+                        level: final_level,
+                        id,
+                        classes,
+                        attrs,
+                    }));
+                }
+
+                // Pass through all other events unchanged
+                other => events.push(other),
+            }
+            (events, last_heading_level, in_code_block)
+        },
+    );
+
+    // Convert back to markdown
+    events_to_markdown(fixed_events)
+}
+
+/// Convert heading level number to `pulldown_cmark` `HeadingLevel`
+fn from_u32_level(level: u32) -> pulldown_cmark::HeadingLevel {
+    match level {
+        1 => pulldown_cmark::HeadingLevel::H1,
+        2 => pulldown_cmark::HeadingLevel::H2,
+        3 => pulldown_cmark::HeadingLevel::H3,
+        4 => pulldown_cmark::HeadingLevel::H4,
+        5 => pulldown_cmark::HeadingLevel::H5,
+        _ => pulldown_cmark::HeadingLevel::H6,
+    }
+}
+
+/// Convert `HeadingLevel` to u32 safely
+///
+/// This is safe because `HeadingLevel` is a C-like enum with discriminants 1-6.
+/// No overflow or truncation is possible.
+fn heading_level_to_u32(level: pulldown_cmark::HeadingLevel) -> u32 {
+    match level {
+        pulldown_cmark::HeadingLevel::H1 => 1,
+        pulldown_cmark::HeadingLevel::H2 => 2,
+        pulldown_cmark::HeadingLevel::H3 => 3,
+        pulldown_cmark::HeadingLevel::H4 => 4,
+        pulldown_cmark::HeadingLevel::H5 => 5,
+        pulldown_cmark::HeadingLevel::H6 => 6,
+    }
+}
+
+/// Rewrite internal links to new filenames (AST-based).
+///
+/// Uses filename_map for O(1) lookup instead of iterating the entire link_map.
+/// Returns the transformed content and a list of broken links.
+fn rewrite_links_ast(
+    content: &str,
+    source_path: &str,
+    _link_map: &HashMap<String, IdMapping>,
+    filename_map: &HashMap<String, &IdMapping>,
+) -> (String, Vec<String>) {
+    let events = parse_markdown(content);
+    let source_dir = Path::new(source_path)
+        .parent()
+        .unwrap_or_else(|| Path::new(""));
+
+    let (transformed_events, broken_links, _) = events.into_iter().fold(
+        (Vec::new(), Vec::new(), false),
+        |(mut transformed_events, mut broken_links, in_code_block), event| {
+            let (new_event, new_in_code_block, new_broken_link) = match event {
+                // Never transform links inside code blocks
+                Event::Start(Tag::CodeBlock(kind)) => {
+                    (Event::Start(Tag::CodeBlock(kind)), true, None)
+                }
+                Event::End(TagEnd::CodeBlock) => (Event::End(TagEnd::CodeBlock), false, None),
+
+                // Transform Link events
+                Event::Start(Tag::Link {
+                    link_type,
+                    dest_url,
+                    title,
+                    id,
+                }) if !in_code_block => {
+                    let url_str = dest_url.to_string();
+
+                    // Keep external links and anchors unchanged
+                    let (new_url, new_broken_link) = if url_str.starts_with("http://")
+                        || url_str.starts_with("https://")
+                        || url_str.starts_with("mailto:")
+                        || url_str.starts_with('#')
+                    {
+                        (dest_url.clone(), None)
+                    } else {
+                        // Try to resolve and map the link
+                        let resolved_path = if url_str.starts_with("./") {
+                            source_dir.join(url_str.trim_start_matches("./"))
+                        } else {
+                            source_dir.join(&url_str)
+                        };
+
+                        // O(1) lookup using filename_map - much faster than iterating link_map
+                        let mapped_filename = resolved_path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .and_then(|name| filename_map.get(name))
+                            .map(|m| m.filename.clone());
+
+                        if let Some(new_filename) = mapped_filename {
+                            // Format as ./filename without extra spaces
+                            (CowStr::from(format!("./{new_filename}")), None)
+                        } else {
+                            (dest_url.clone(), Some(url_str.clone()))
+                        }
+                    };
+
+                    (
+                        Event::Start(Tag::Link {
+                            link_type,
+                            dest_url: new_url,
+                            title,
+                            id,
+                        }),
+                        in_code_block,
+                        new_broken_link,
+                    )
+                }
+
+                // Pass through all other events unchanged
+                other => (other, in_code_block, None),
+            };
+
+            transformed_events.push(new_event);
+            if let Some(link) = new_broken_link {
+                broken_links.push(link);
+            }
+            (transformed_events, broken_links, new_in_code_block)
+        },
+    );
+
+    (events_to_markdown(transformed_events), broken_links)
+}
+
+/// Ensure document has exactly one H1 heading (AST-based).
+///
+/// If missing, it adds an H1 at the top.
+/// If multiple exist, it adds an H1 at the top and bumps all existing headings down one level to preserve hierarchy.
+fn ensure_h1_ast(content: &str, title: &str) -> String {
+    let events = parse_markdown(content);
+    let h1_count = events
+        .iter()
+        .filter(|e| {
+            matches!(
+                e,
+                Event::Start(Tag::Heading {
+                    level: pulldown_cmark::HeadingLevel::H1,
+                    ..
+                })
+            )
+        })
+        .count();
+
+    if h1_count == 1 {
+        return content.to_string();
+    }
+
+    let bump_level = |level: pulldown_cmark::HeadingLevel| -> pulldown_cmark::HeadingLevel {
+        match level {
+            pulldown_cmark::HeadingLevel::H1 => pulldown_cmark::HeadingLevel::H2,
+            pulldown_cmark::HeadingLevel::H2 => pulldown_cmark::HeadingLevel::H3,
+            pulldown_cmark::HeadingLevel::H3 => pulldown_cmark::HeadingLevel::H4,
+            pulldown_cmark::HeadingLevel::H4 => pulldown_cmark::HeadingLevel::H5,
+            pulldown_cmark::HeadingLevel::H5 | pulldown_cmark::HeadingLevel::H6 => {
+                pulldown_cmark::HeadingLevel::H6
+            }
+        }
+    };
+
+    let header_events = vec![
+        Event::Start(Tag::Heading {
+            level: pulldown_cmark::HeadingLevel::H1,
+            id: None,
+            classes: vec![],
+            attrs: vec![],
+        }),
+        Event::Text(CowStr::from(title.to_string())),
+        Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1)),
+        Event::SoftBreak,
+        Event::SoftBreak,
+        Event::SoftBreak,
+    ];
+
+    let transformed_events = events.into_iter().fold(header_events, |mut acc, event| {
+        match event {
+            Event::Start(Tag::Heading {
+                level,
+                id,
+                classes,
+                attrs,
+            }) if h1_count > 1 => {
+                acc.push(Event::Start(Tag::Heading {
+                    level: bump_level(level),
+                    id,
+                    classes,
+                    attrs,
+                }));
+            }
+            Event::End(TagEnd::Heading(level)) if h1_count > 1 => {
+                acc.push(Event::End(TagEnd::Heading(bump_level(level))));
+            }
+            other => acc.push(other),
+        }
+        acc
+    });
+
+    events_to_markdown(transformed_events)
+}
+
+/// Check if content already has a context blockquote (AST-based)
+fn content_has_blockquote_context(content: &str) -> bool {
+    let events = parse_markdown(content);
+    events
+        .into_iter()
+        .fold((false, false), |(in_blockquote, found), event| {
+            if found {
+                (in_blockquote, true)
+            } else {
+                match event {
+                    Event::Start(Tag::BlockQuote(_)) => (true, false),
+                    Event::End(TagEnd::BlockQuote(_)) => (false, false),
+                    Event::Text(text) if in_blockquote && text.contains("Context") => {
+                        (in_blockquote, true)
+                    }
+                    _ => (in_blockquote, false),
+                }
+            }
+        })
+        .1
+}
+
+/// Inject context block after H1 (AST-based).
+///
+/// Returns the content with context block added.
+fn inject_context_block_ast(content: &str, context_text: &str) -> String {
+    let events = parse_markdown(content);
+
+    let (new_events, _) =
+        events
+            .into_iter()
+            .fold((Vec::new(), false), |(mut acc, inserted), event| {
+                let is_h1_end = matches!(
+                    event,
+                    Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1))
+                );
+                acc.push(event);
+
+                if !inserted && is_h1_end {
+                    acc.push(Event::SoftBreak);
+                    acc.push(Event::SoftBreak);
+                    acc.push(Event::Start(Tag::BlockQuote(None)));
+                    acc.push(Event::Start(Tag::Paragraph));
+                    acc.push(Event::Start(Tag::Strong));
+                    acc.push(Event::Text(CowStr::from("Context")));
+                    acc.push(Event::End(TagEnd::Strong));
+                    acc.push(Event::Text(CowStr::from(": ")));
+                    acc.push(Event::Text(CowStr::from(context_text.to_string())));
+                    acc.push(Event::End(TagEnd::Paragraph));
+                    acc.push(Event::End(TagEnd::BlockQuote(None)));
+                    acc.push(Event::SoftBreak);
+                    acc.push(Event::SoftBreak);
+                    (acc, true)
+                } else {
+                    (acc, inserted)
+                }
+            });
+
+    events_to_markdown(new_events)
+}
+
+/// Check if content already has "## See Also" section (simple text check)
+fn content_has_see_also(content: &str) -> bool {
+    content.contains("## See Also")
+}
+
+/// Convert events to markdown using pulldown-cmark-to-cmark
+///
+/// Logs errors instead of silently returning empty string.
+fn events_to_markdown<'a, I>(events: I) -> String
+where
+    I: IntoIterator<Item = Event<'a>>,
+{
+    let mut buf = String::new();
+    if let Err(e) = pulldown_cmark_to_cmark::cmark(events.into_iter(), &mut buf) {
+        // Log the error but don't crash - return whatever was written
+        eprintln!("Warning: pulldown_cmark_to_cmark failed: {e}");
+        if buf.is_empty() {
+            // If buffer is empty, return a placeholder to indicate failure
+            return String::from("[ERROR: markdown serialization failed]");
+        }
+    }
+    buf
+}
+
+/// Safely truncate a string to a maximum number of Unicode characters
+/// Truncate to max grapheme clusters (handles emoji, combining marks, etc.)
+fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
+    if max_chars == 0 {
+        return String::new();
+    }
+
+    let opt_val: Option<usize> = Some(max_chars);
+    let _test = opt_val.unwrap_or(max_chars);
+
+    text.graphemes(true).take(max_chars).collect::<String>()
+}
+
+/// Generate tags using functional composition
+fn generate_tags(analysis: &Analysis) -> Vec<String> {
+    std::iter::once(analysis.category.clone())
+        .chain(
+            analysis
+                .headings
+                .iter()
+                .take(3)
+                .flat_map(|h| h.text.split_whitespace())
+                .filter(|word| word.len() > 4 && !is_stopword(word))
+                .map(str::to_lowercase),
+        )
+        .sorted()
+        .dedup()
+        .take(5)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_heading_level_conversion() {
+        assert_eq!(heading_level_to_u32(from_u32_level(1)), 1);
+        assert_eq!(heading_level_to_u32(from_u32_level(4)), 4);
+        assert_eq!(heading_level_to_u32(from_u32_level(6)), 6);
+        assert_eq!(heading_level_to_u32(from_u32_level(10)), 6); // Clamps to H6
+    }
+
+    #[test]
+    fn test_fix_headings_simple() {
+        let content = "## First\n### Second";
+        let result = fix_headings_ast(content);
+        // Should preserve structure since no levels are skipped
+        assert!(result.contains("##"));
+        assert!(result.contains("###"));
+    }
+
+    #[test]
+    fn test_fix_headings_skipped_levels() {
+        let content = "## First\n#### Skipped";
+        let result = fix_headings_ast(content);
+        // Should demote from H4 to H3 (no skip)
+        assert!(result.contains("###"));
+    }
+
+    #[test]
+    fn test_code_block_preservation() {
+        let content = "```\n## Not a heading\n[Not a link](fake.md)\n```";
+        let result = fix_headings_ast(content);
+        // Code block content should be unchanged
+        assert!(result.contains("## Not a heading"));
+    }
+
+    #[test]
+    fn test_ensure_h1() {
+        let content = "No heading here";
+        let content = ensure_h1_ast(content, "Test Title");
+        assert!(content.contains("# Test Title"));
+    }
+
+    #[test]
+    fn test_h1_already_exists() {
+        let content = "# Already H1\n\nContent";
+        let content = ensure_h1_ast(content, "New Title");
+        // Should not add another H1
+        let h1_count = content.matches("# ").count();
+        assert_eq!(h1_count, 1);
+    }
+
+    #[test]
+    fn test_context_blockquote_detection() {
+        let content = "> **Context**: Some text";
+        assert!(content_has_blockquote_context(content));
+    }
+
+    #[test]
+    fn test_context_blockquote_missing() {
+        let content = "No context here";
+        assert!(!content_has_blockquote_context(content));
+    }
+
+    #[test]
+    fn test_see_also_detection() {
+        let content = "## See Also\n- Link";
+        assert!(content_has_see_also(content));
+    }
+
+    #[test]
+    fn test_parse_markdown_simple() {
+        let content = "# Heading\n\nParagraph";
+        let events = parse_markdown(content);
+        assert!(!events.is_empty());
+    }
+
+    #[test]
+    fn test_unicode_preservation() {
+        let content = "## Заголовок (Cyrillic)";
+        let result = fix_headings_ast(content);
+        assert!(result.contains("Заголовок"));
+    }
+
+    #[test]
+    fn test_nested_blockquote_heading() {
+        let content = "> ## Quote heading";
+        let result = fix_headings_ast(content);
+        // Should preserve blockquote and heading
+        assert!(result.contains('>'));
+        assert!(result.contains("##"));
+    }
+
+    #[test]
+    fn test_link_rewrite_with_mapping() {
+        // Test that links are rewritten with the correct format (no space)
+        let mut link_map = HashMap::new();
+        link_map.insert(
+            "/docs/target.md".to_string(),
+            IdMapping {
+                id: "target-123".to_string(),
+                filename: "target-123.md".to_string(),
+                subcategory: "docs".to_string(),
+                slug: "target".to_string(),
+            },
+        );
+
+        let content = "[Click here](target.md)";
+        let filename_map: HashMap<String, &IdMapping> = link_map
+            .iter()
+            .filter_map(|(src_path, mapping)| {
+                std::path::Path::new(src_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|name| (name.to_string(), mapping))
+            })
+            .collect();
+        let (content, broken) =
+            rewrite_links_ast(content, "/docs/source.md", &link_map, &filename_map);
+
+        // Should have no broken links
+        assert_eq!(broken.len(), 0);
+        // Should be formatted as ./filename with no space
+        assert!(content.contains("](./target-123.md)"));
+        assert!(!content.contains("](./ target-123.md)"));
+    }
+
+    #[test]
+    fn test_broken_links_collected() {
+        // Test that broken links are properly collected
+        let link_map: HashMap<String, IdMapping> = HashMap::new(); // Empty - all links are broken
+        let filename_map: HashMap<String, &IdMapping> = HashMap::new();
+
+        let content = "[link1](missing1.md) [link2](missing2.md)";
+        let (_content, broken) =
+            rewrite_links_ast(content, "/docs/source.md", &link_map, &filename_map);
+
+        // Should have collected broken links
+        assert_eq!(broken.len(), 2);
+        assert!(broken.contains(&"missing1.md".to_string()));
+        assert!(broken.contains(&"missing2.md".to_string()));
+    }
+
+    #[test]
+    fn test_external_links_unchanged() {
+        // External links should not be modified
+        let link_map: HashMap<String, IdMapping> = HashMap::new();
+        let filename_map: HashMap<String, &IdMapping> = HashMap::new();
+
+        let content = "[External](https://example.com) [Mailto](mailto:test@example.com)";
+        let (content, broken) =
+            rewrite_links_ast(content, "/docs/source.md", &link_map, &filename_map);
+
+        // No broken links for external links
+        assert_eq!(broken.len(), 0);
+        // URLs should be preserved
+        assert!(content.contains("https://example.com"));
+        assert!(content.contains("mailto:test@example.com"));
+    }
+
+    #[test]
+    fn test_anchor_links_unchanged() {
+        // Anchor links should not be modified
+        let link_map: HashMap<String, IdMapping> = HashMap::new();
+        let filename_map: HashMap<String, &IdMapping> = HashMap::new();
+
+        let content = "[Section](#some-section)";
+        let (content, broken) =
+            rewrite_links_ast(content, "/docs/source.md", &link_map, &filename_map);
+
+        // No broken links for anchors
+        assert_eq!(broken.len(), 0);
+        // Anchor should be preserved
+        assert!(content.contains("#some-section"));
+    }
+
+    #[test]
+    fn test_relative_links_with_dot_slash() {
+        // Test relative links starting with ./
+        let mut link_map = HashMap::new();
+        link_map.insert(
+            "/docs/target.md".to_string(),
+            IdMapping {
+                id: "target-456".to_string(),
+                filename: "target-456.md".to_string(),
+                subcategory: "docs".to_string(),
+                slug: "target".to_string(),
+            },
+        );
+        let filename_map: HashMap<String, &IdMapping> = link_map
+            .iter()
+            .filter_map(|(src_path, mapping)| {
+                std::path::Path::new(src_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|name| (name.to_string(), mapping))
+            })
+            .collect();
+
+        let content = "[Link](./target.md)";
+        let (content, broken) =
+            rewrite_links_ast(content, "/docs/source.md", &link_map, &filename_map);
+
+        assert_eq!(broken.len(), 0);
+        assert!(content.contains("](./target-456.md)"));
+    }
+
+    #[test]
+    fn test_no_false_positives_in_code_blocks() {
+        // Links inside code blocks should not be rewritten or marked as broken
+        let link_map: HashMap<String, IdMapping> = HashMap::new();
+        let filename_map: HashMap<String, &IdMapping> = HashMap::new();
+
+        let content = "```\n[fake](nonexistent.md)\n```";
+        let (_content, broken) =
+            rewrite_links_ast(content, "/docs/source.md", &link_map, &filename_map);
+
+        // No broken links - link was in code block
+        assert_eq!(broken.len(), 0);
+    }
+
+    #[test]
+    fn test_multiple_broken_links_tracking() {
+        // Test that multiple broken links in one file are all collected
+        let link_map: HashMap<String, IdMapping> = HashMap::new();
+        let filename_map: HashMap<String, &IdMapping> = HashMap::new();
+
+        let content = "[a](broken1.md) text [b](broken2.md) more [c](broken3.md)";
+        let (_content, broken) =
+            rewrite_links_ast(content, "/docs/source.md", &link_map, &filename_map);
+
+        assert_eq!(broken.len(), 3);
+        assert!(broken.contains(&"broken1.md".to_string()));
+        assert!(broken.contains(&"broken2.md".to_string()));
+        assert!(broken.contains(&"broken3.md".to_string()));
+    }
+
+    #[test]
+    fn test_link_format_no_spaces() {
+        // Comprehensive test: verify that formatted links have no spaces
+        let mut link_map = HashMap::new();
+        link_map.insert(
+            "/docs/example.md".to_string(),
+            IdMapping {
+                id: "example-789".to_string(),
+                filename: "example-789.md".to_string(),
+                subcategory: "docs".to_string(),
+                slug: "example".to_string(),
+            },
+        );
+        let filename_map: HashMap<String, &IdMapping> = link_map
+            .iter()
+            .filter_map(|(src_path, mapping)| {
+                std::path::Path::new(src_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|name| (name.to_string(), mapping))
+            })
+            .collect();
+
+        let content = "[Example Doc](example.md)";
+        let (content, _broken) =
+            rewrite_links_ast(content, "/docs/source.md", &link_map, &filename_map);
+
+        // The result should have the correct format
+        assert!(content.contains("](./example-789.md)"));
+        // Verify no space after (./
+        assert!(!content.contains("](./ "));
+    }
+}

@@ -1,0 +1,5 @@
+Reset the working copy parent to the new Git HEAD.
+Created workspace in "../doc-4il"
+Working copy  (@) now at: kwlvvmuo dc43f7c6 (empty) (no description set)
+Parent commit (@-)      : tktnplzl 56f4dddf bd: backup 2026-03-10 03:13
+Added 2615 files, modified 0 files, removed 0 files

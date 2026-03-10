@@ -1,0 +1,17 @@
+[
+  {
+    "id": "doc-1b5q",
+    "title": "doc_transformer: Fix category-config file content leak",
+    "description": "Fix --category-config to not echo sensitive file contents in YAML parse errors. Currently passing /etc/passwd as config leaks entire file in error message. Test: doc_transformer index qa-fixtures/basic --output /tmp/test --category-config /etc/passwd should show 'invalid config' not file contents.",
+    "status": "in_progress",
+    "priority": 0,
+    "issue_type": "bug",
+    "assignee": "self",
+    "created_at": "2026-03-01T00:43:12.812548613Z",
+    "created_by": "lewis",
+    "updated_at": "2026-03-01T13:54:58.676527871Z",
+    "source_repo": ".",
+    "compaction_level": 0,
+    "original_size": 0
+  }
+]

@@ -1,0 +1,1 @@
+✓ Updated issue: doc-4il — Long Regex Not Rejected in CLI

@@ -1,0 +1,27 @@
+language: rust
+
+tasks:
+  build:
+    command: cargo
+    args: ["build", "--release", "-p", "doc_transformer"]
+    description: Build release binary
+
+  test:
+    command: cargo
+    args: ["test", "-p", "doc_transformer", "--no-fail-fast"]
+    description: Run all tests
+
+  check:
+    command: cargo
+    args: ["check", "-p", "doc_transformer"]
+    description: Type check
+
+  clippy:
+    command: cargo
+    args: ["clippy", "-p", "doc_transformer", "--no-deps", "--", "-D", "warnings"]
+    description: Lint
+
+  fmt:
+    command: cargo
+    args: ["fmt", "--check"]
+    description: Check formatting

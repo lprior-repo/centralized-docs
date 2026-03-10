@@ -1,0 +1,45 @@
+{
+  "documents": [
+    {
+      "category": "tutorial",
+      "id": "tutorial/general/sample",
+      "path": "docs/tutorial-general-sample.md",
+      "summary": "CUE is a data validation language.",
+      "tags": [
+        "getting",
+        "installation",
+        "started",
+        "tutorial",
+        "usage"
+      ],
+      "title": "Sample",
+      "word_count": 48
+    }
+  ],
+  "generated": "2026-01-08T02:16:52.489796452+00:00",
+  "keywords": {
+    "also": [
+      "tutorial/general/sample"
+    ],
+    "getting": [
+      "tutorial/general/sample"
+    ],
+    "installation": [
+      "tutorial/general/sample"
+    ],
+    "started": [
+      "tutorial/general/sample"
+    ],
+    "usage": [
+      "tutorial/general/sample"
+    ],
+    "with": [
+      "tutorial/general/sample"
+    ]
+  },
+  "stats": {
+    "chunk_count": 4,
+    "doc_count": 1
+  },
+  "version": "4.2"
+}

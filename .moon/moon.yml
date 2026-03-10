@@ -1,0 +1,77 @@
+# Moon workspace configuration
+workspace:
+  vcs:
+    manager: git
+  root: .
+
+projects:
+  release-gate:
+    root: release-gate
+    language: rust
+
+  docmgr:
+    root: doc_transformer
+    language: rust
+
+# Workspace-level tasks that run on the whole workspace
+tasks:
+  build:
+    command: cargo
+    args: ["build", "--release", "-p", "doc_transformer"]
+    description: Build doc_transformer release
+
+  test:
+    command: cargo
+    args: ["test", "-p", "doc_transformer"]
+    description: Test doc_transformer
+
+  check:
+    command: cargo
+    args: ["check", "-p", "doc_transformer"]
+    description: Type check doc_transformer
+
+  clippy:
+    command: cargo
+    args: ["clippy", "-p", "doc_transformer", "--", "-D", "warnings"]
+    description: Lint doc_transformer
+
+  fmt:
+    command: cargo
+    args: ["fmt", "--check"]
+    description: Check formatting
+
+  :build:
+    command: cargo
+    args: ["build", "--release", "-p", "doc_transformer"]
+
+  :test:
+    command: cargo
+    args: ["test", "-p", "doc_transformer"]
+
+  :check:
+    command: cargo
+    args: ["check", "-p", "doc_transformer"]
+
+  :clippy:
+    command: cargo
+    args: ["clippy", "-p", "doc_transformer", "--", "-D", "warnings"]
+
+  :fmt:
+    command: cargo
+    args: ["fmt", "--check"]
+
+  :quick:
+    command: echo
+    args: ["Running fmt and clippy..."]
+    deps:
+      - task: fmt
+      - task: clippy
+
+  :ci:
+    command: echo
+    args: ["Running CI: fmt, clippy, check, test"]
+    deps:
+      - task: fmt
+      - task: clippy
+      - task: check
+      - task: test

@@ -1,0 +1,4 @@
+//! Property-based tests
+//!
+//! Tests using proptest for property-based testing:
+//! - Score document properties

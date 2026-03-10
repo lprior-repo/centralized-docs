@@ -1,0 +1,14 @@
+{
+  "id": "doc-96kv",
+  "title": "cli: broken symlinks in source directory are silently ignored",
+  "description": "# Bug: Broken Symlinks Silently Ignored\n\n## Severity\nP2 - MINOR\n\n## Description\nWhen the source directory contains broken symlinks, the index command silently ignores them with no warning. This could mask configuration issues where users expect certain files to be indexed.\n\n## Reproduction Steps\n1. mkdir /tmp/broken-test\n2. ln -s /nonexistent/file /tmp/broken-test/broken-link\n3. ./doc_transformer index /tmp/broken-test --output /tmp/out\n4. Returns \"Found 0 files\" with no indication that broken symlinks existed\n\n## Expected Behavior\nEither:\n- Skip broken symlinks with a warning message\n- Or fail with an error if --strict is specified\n\n## Fix Required\nAdd warning when broken symlinks are encountered in source.",
+  "status": "in_progress",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_at": "2026-02-28T22:04:37.848750078Z",
+  "created_by": "lewis",
+  "updated_at": "2026-02-28T22:04:37.848750078Z",
+  "source_repo": ".",
+  "compaction_level": 0,
+  "original_size": 0
+}

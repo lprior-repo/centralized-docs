@@ -1,0 +1,16 @@
+[
+  {
+    "id": "doc-2y1p",
+    "title": "CLI: search exit code should be 0 for no results",
+    "description": "The search command returns exit code 1 when no results are found, but this is semantically incorrect - no results is a valid result state, not a user error. Exit code 1 should only be for actual errors like invalid index, missing arguments, etc.\n\n## Reproduction\n```\n$ doc_transformer search 'nonexistent' --index-dir /tmp/test_index\nNo results found for 'nonexistent'\nError: No results found for 'nonexistent'\nExit: 1\n```\n\nExpected: Exit code 0 (success with empty results)\nActual: Exit code 1 (incorrectly indicates user error)",
+    "status": "in_progress",
+    "priority": 0,
+    "issue_type": "bug",
+    "created_at": "2026-02-28T22:06:50.451444255Z",
+    "created_by": "lewis",
+    "updated_at": "2026-03-01T05:41:39.978158949Z",
+    "source_repo": ".",
+    "compaction_level": 0,
+    "original_size": 0
+  }
+]

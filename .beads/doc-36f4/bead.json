@@ -1,0 +1,17 @@
+[
+  {
+    "id": "doc-36f4",
+    "title": "CLI: JSON mode exit code inconsistent for no results",
+    "description": "When using --json flag, the exit code is 1 even when there are no results. The JSON output correctly shows status: \"no_results\" which indicates successful completion with empty results. Exit code 1 is inconsistent with the JSON status.\n\n## Reproduction\n```\n$ doc_transformer search 'nonexistent' --index-dir /tmp/test_index --json\n{\n  \"status\": \"no_results\",\n  \"query\": \"nonexistent\",\n  ...\n}\nExit: 1\n``\"\n\nExpected: Exit code 0 (JSON successfully shows no_results status)\nActual: Exit code 1",
+    "status": "in_progress",
+    "priority": 0,
+    "issue_type": "bug",
+    "assignee": "self",
+    "created_at": "2026-02-28T22:07:00.581995130Z",
+    "created_by": "lewis",
+    "updated_at": "2026-03-01T05:52:50.489177992Z",
+    "source_repo": ".",
+    "compaction_level": 0,
+    "original_size": 0
+  }
+]
