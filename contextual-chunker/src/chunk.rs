@@ -697,12 +697,11 @@ fn estimate_tokens(text: &str) -> usize {
         return (text.len() / 4).max(1);
     }
 
-    // Use cached encoder for efficiency - avoids creating new tokenizer per call
-    static ENCODER: std::sync::LazyLock<tiktoken_rs::CoreBPE> = std::sync::LazyLock::new(|| {
-        tiktoken_rs::cl100k_base().expect("Failed to load cl100k_base encoding")
-    });
+    // Use get_encoding() which returns a cached &'static CoreBpe
+    let encoder =
+        tiktoken::get_encoding("cl100k_base").expect("Failed to load cl100k_base encoding");
 
-    ENCODER.encode_with_special_tokens(text).len()
+    encoder.count(text)
 }
 
 /// Create a summary from chunk content (extractive)
