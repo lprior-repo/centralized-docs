@@ -130,6 +130,8 @@ pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
     // Attempt Readability extraction first
     match try_readability_extraction(html) {
         Ok(extracted_content) => {
+            // Log which extraction method was used
+            eprintln!("[filter] Content extraction: Mozilla Readability (success)");
             let density = calculate_text_density(&extracted_content);
             FilterResult {
                 html: extracted_content,
@@ -140,7 +142,12 @@ pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
                 is_empty: false,
             }
         }
-        Err(_) => {
+        Err(e) => {
+            // Log that we're falling back to custom pruning
+            eprintln!(
+                "[filter] Content extraction: Readability failed ({:?}), using fallback pruning",
+                e
+            );
             // Fallback to custom density-based pruning
             let fallback_result = fallback_prune_html(html, config);
 
@@ -149,6 +156,7 @@ pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
 
             if is_content_empty {
                 // Both Readability and fallback failed to extract content
+                eprintln!("[filter] Content extraction: Both Readability and fallback failed - empty content");
                 FilterResult {
                     html: String::new(),
                     removed_count: fallback_result.removed_count,
