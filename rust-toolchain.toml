@@ -3,7 +3,7 @@
 # Pinning to 1.85 for edition 2024 support
 
 [toolchain]
-channel = "1.88"
+channel = "1.94"
 components = ["rustfmt", "clippy", "rust-analyzer"]
 
 # Target support - add platforms as needed

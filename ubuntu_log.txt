@@ -1,0 +1,823 @@
+Build on ubuntu-latest	Set up job	﻿2026-03-12T03:24:19.1435963Z Current runner version: '2.332.0'
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1461134Z ##[group]Runner Image Provisioner
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1461870Z Hosted Compute Agent
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1462409Z Version: 20260213.493
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1463011Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1463616Z Build Date: 2026-02-13T00:28:41Z
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1464193Z Worker ID: {134181d0-26cc-4ec5-909f-5c8e3e2b117f}
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1464809Z Azure Region: westus3
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1465306Z ##[endgroup]
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1466542Z ##[group]Operating System
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1467107Z Ubuntu
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1467510Z 24.04.3
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1467928Z LTS
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1468365Z ##[endgroup]
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1468785Z ##[group]Runner Image
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1469418Z Image: ubuntu-24.04
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1469830Z Version: 20260302.42.1
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1470752Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260302.42/images/ubuntu/Ubuntu2404-Readme.md
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1472196Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260302.42
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1473018Z ##[endgroup]
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1473914Z ##[group]GITHUB_TOKEN Permissions
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1475804Z Contents: write
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1476294Z Metadata: read
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1476706Z ##[endgroup]
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1478638Z Secret source: Actions
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1479473Z Prepare workflow directory
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1791008Z Prepare all required actions
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.1831316Z Getting action download info
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.6220200Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:19.7066809Z Download action repository 'dtolnay/rust-toolchain@stable' (SHA:631a55b12751854ce901bb631d5902ceb48146f7)
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:20.1663331Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:20.2407878Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+Build on ubuntu-latest	Set up job	2026-03-12T03:24:20.4709371Z Complete job name: Build on ubuntu-latest
+Build on ubuntu-latest	Run actions/checkout@v4	﻿2026-03-12T03:24:20.5470085Z ##[group]Run actions/checkout@v4
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5470982Z with:
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5471446Z   repository: lprior-repo/centralized-docs
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5472282Z   token: ***
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5472696Z   ssh-strict: true
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5473105Z   ssh-user: git
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5473546Z   persist-credentials: true
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5474037Z   clean: true
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5474472Z   sparse-checkout-cone-mode: true
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5474993Z   fetch-depth: 1
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5475418Z   fetch-tags: false
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5475840Z   show-progress: true
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5476277Z   lfs: false
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5476678Z   submodules: false
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5477129Z   set-safe-directory: true
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.5477798Z ##[endgroup]
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6491220Z Syncing repository: lprior-repo/centralized-docs
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6493144Z ##[group]Getting Git version info
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6494048Z Working directory is '/home/runner/work/centralized-docs/centralized-docs'
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6495292Z [command]/usr/bin/git version
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6537608Z git version 2.53.0
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6560481Z ##[endgroup]
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6574254Z Temporarily overriding HOME='/home/runner/work/_temp/3da7594e-ae26-436e-a3c6-da68f26a116d' before making global git config changes
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6576316Z Adding repository directory to the temporary git global config as a safe directory
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6579395Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/centralized-docs/centralized-docs
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6613468Z Deleting the contents of '/home/runner/work/centralized-docs/centralized-docs'
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6616834Z ##[group]Initializing the repository
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6620907Z [command]/usr/bin/git init /home/runner/work/centralized-docs/centralized-docs
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6699176Z hint: Using 'master' as the name for the initial branch. This default branch name
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6700940Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6702560Z hint: to use in all of your new repositories, which will suppress this warning,
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6703924Z hint: call:
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6704549Z hint:
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6705048Z hint: 	git config --global init.defaultBranch <name>
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6705648Z hint:
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6706417Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6707732Z hint: 'development'. The just-created branch can be renamed via this command:
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6708476Z hint:
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6708847Z hint: 	git branch -m <name>
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6709649Z hint:
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6710260Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6711627Z Initialized empty Git repository in /home/runner/work/centralized-docs/centralized-docs/.git/
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6714103Z [command]/usr/bin/git remote add origin https://github.com/lprior-repo/centralized-docs
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6740163Z ##[endgroup]
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6740933Z ##[group]Disabling automatic garbage collection
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6743852Z [command]/usr/bin/git config --local gc.auto 0
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6766140Z ##[endgroup]
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6766845Z ##[group]Setting up auth
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6772537Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.6796390Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.7059489Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.7087855Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.7262455Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.7285965Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.7462847Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.7493171Z ##[endgroup]
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.7494542Z ##[group]Fetching the repository
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:20.7503400Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +70e2a4bbcc3cec22b6019dad5761a1b039961dfa:refs/remotes/origin/main
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:28.0503152Z From https://github.com/lprior-repo/centralized-docs
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:28.0504875Z  * [new ref]         70e2a4bbcc3cec22b6019dad5761a1b039961dfa -> origin/main
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:28.0527496Z ##[endgroup]
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:28.0527994Z ##[group]Determining the checkout info
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:28.0528900Z ##[endgroup]
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:28.0533939Z [command]/usr/bin/git sparse-checkout disable
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:28.0566189Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:28.0587525Z ##[group]Checking out the ref
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:28.0591048Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:29.1709749Z Updating files:  43% (1158/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:29.5778094Z Updating files:  44% (1167/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:29.7255220Z Updating files:  45% (1194/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:29.7659550Z Updating files:  46% (1220/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:29.7666816Z Updating files:  47% (1247/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:29.9962391Z Updating files:  48% (1273/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0151060Z Updating files:  49% (1300/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0351483Z Updating files:  50% (1326/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0387448Z Updating files:  51% (1353/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0427931Z Updating files:  52% (1380/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0648643Z Updating files:  53% (1406/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0656705Z Updating files:  54% (1433/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0667963Z Updating files:  54% (1442/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0707639Z Updating files:  55% (1459/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0872192Z Updating files:  56% (1486/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0898694Z Updating files:  57% (1512/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0924870Z Updating files:  58% (1539/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.0977544Z Updating files:  59% (1565/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1197325Z Updating files:  60% (1592/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1231263Z Updating files:  61% (1618/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1261885Z Updating files:  62% (1645/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1296577Z Updating files:  63% (1671/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1327607Z Updating files:  64% (1698/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1357979Z Updating files:  65% (1724/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1490111Z Updating files:  66% (1751/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1535206Z Updating files:  67% (1777/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1555196Z Updating files:  68% (1804/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1571026Z Updating files:  69% (1830/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1584915Z Updating files:  70% (1857/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1592626Z Updating files:  71% (1883/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1599709Z Updating files:  72% (1910/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1606013Z Updating files:  73% (1936/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1611920Z Updating files:  74% (1963/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1617914Z Updating files:  75% (1989/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1624514Z Updating files:  76% (2016/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1630310Z Updating files:  77% (2043/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.1952382Z Updating files:  78% (2069/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.2398030Z Updating files:  79% (2096/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.2772933Z Updating files:  80% (2122/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.2887461Z Updating files:  81% (2149/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.4087055Z Updating files:  82% (2175/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.4914503Z Updating files:  83% (2202/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.4947027Z Updating files:  84% (2228/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.4987902Z Updating files:  85% (2255/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.5136514Z Updating files:  86% (2281/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.5215220Z Updating files:  87% (2308/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.5251318Z Updating files:  88% (2334/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.5283813Z Updating files:  89% (2361/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.5558899Z Updating files:  90% (2387/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.5595816Z Updating files:  91% (2414/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.5628716Z Updating files:  92% (2440/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.5806565Z Updating files:  93% (2467/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.5833409Z Updating files:  94% (2493/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.5867575Z Updating files:  95% (2520/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6087927Z Updating files:  96% (2546/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6255278Z Updating files:  97% (2573/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6271972Z Updating files:  98% (2599/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6291093Z Updating files:  99% (2626/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6291523Z Updating files: 100% (2652/2652)
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6291866Z Updating files: 100% (2652/2652), done.
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6332732Z Switched to a new branch 'main'
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6334082Z branch 'main' set up to track 'origin/main'.
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6383371Z ##[endgroup]
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6417044Z [command]/usr/bin/git log -1 --format=%H
+Build on ubuntu-latest	Run actions/checkout@v4	2026-03-12T03:24:30.6437771Z 70e2a4bbcc3cec22b6019dad5761a1b039961dfa
+Build on ubuntu-latest	Install Rust	﻿2026-03-12T03:24:30.6693294Z ##[group]Run dtolnay/rust-toolchain@stable
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6693585Z with:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6693769Z   toolchain: stable
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6693962Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6818035Z ##[group]Run : parse toolchain version
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6818448Z [36;1m: parse toolchain version[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6818737Z [36;1mif [[ -z $toolchain ]]; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6819507Z [36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6820312Z [36;1m  echo "'toolchain' is a required input" >&2[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6820660Z [36;1m  exit 1[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6821030Z [36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6821475Z [36;1m  if [[ Linux == macOS ]]; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6822055Z [36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6822577Z [36;1m  else[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6822946Z [36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6823356Z [36;1m  fi[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6823636Z [36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6824106Z [36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6824535Z [36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6825018Z [36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6825450Z [36;1melse[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6825686Z [36;1m  echo "toolchain=$toolchain" >> $GITHUB_OUTPUT[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6825946Z [36;1mfi[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6859583Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6859925Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6860099Z   toolchain: stable
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6860296Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6996795Z ##[group]Run : construct rustup command line
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6997112Z [36;1m: construct rustup command line[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6997526Z [36;1mecho "targets=$(for t in ${targets//,/ }; do echo -n ' --target' $t; done)" >> $GITHUB_OUTPUT[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6998082Z [36;1mecho "components=$(for c in ${components//,/ }; do echo -n ' --component' $c; done)" >> $GITHUB_OUTPUT[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.6998535Z [36;1mecho "downgrade=" >> $GITHUB_OUTPUT[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7027397Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7027841Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7028082Z   targets: 
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7028330Z   components: 
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7028616Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7100993Z ##[group]Run : set $CARGO_HOME
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7101254Z [36;1m: set $CARGO_HOME[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7101547Z [36;1mecho CARGO_HOME=${CARGO_HOME:-"$HOME/.cargo"} >> $GITHUB_ENV[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7129027Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7129522Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7206607Z ##[group]Run : install rustup if needed
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7206901Z [36;1m: install rustup if needed[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7207170Z [36;1mif ! command -v rustup &>/dev/null; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7207877Z [36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://sh.rustup.rs | sh -s -- --default-toolchain none -y[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7208564Z [36;1m  echo "$CARGO_HOME/bin" >> $GITHUB_PATH[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7208823Z [36;1mfi[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7236108Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7236426Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7236612Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7236837Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7305321Z ##[group]Run rustup toolchain install stable --profile minimal --no-self-update
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7305954Z [36;1mrustup toolchain install stable --profile minimal --no-self-update[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7332825Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7333140Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7333325Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7333568Z   RUSTUP_PERMIT_COPY_RENAME: 1
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:30.7333780Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:32.1580945Z info: syncing channel updates for 'stable-x86_64-unknown-linux-gnu'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:32.3426807Z info: latest update on 2026-03-05, rust version 1.94.0 (4a4ef493e 2026-03-02)
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:32.3738825Z info: downloading component 'clippy'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:32.4668691Z info: downloading component 'rustfmt'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:32.5506304Z info: downloading component 'cargo'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:32.6960273Z info: downloading component 'rust-std'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:32.9319444Z info: downloading component 'rustc'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:33.6174937Z info: removing previous version of component 'clippy'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:33.6223217Z info: removing previous version of component 'rustfmt'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:33.6230963Z info: removing previous version of component 'cargo'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:33.6288632Z info: removing previous version of component 'rust-std'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:33.6306473Z info: removing previous version of component 'rustc'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:33.6377918Z info: installing component 'clippy'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:34.0439801Z info: installing component 'rustfmt'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:34.2893253Z info: installing component 'cargo'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:35.0739513Z info: installing component 'rust-std'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:37.6426413Z info: installing component 'rustc'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.7640985Z 
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.7732001Z   stable-x86_64-unknown-linux-gnu updated - rustc 1.94.0 (4a4ef493e 2026-03-02) (from rustc 1.93.1 (01f6ddf75 2026-02-11))
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.7732763Z 
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.7768556Z ##[group]Run rustup default stable
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.7768848Z [36;1mrustup default stable[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.7795303Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.7795615Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.7795812Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.7796033Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.7885538Z info: using existing install for 'stable-x86_64-unknown-linux-gnu'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8150900Z info: default toolchain set to 'stable-x86_64-unknown-linux-gnu'
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8151358Z 
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8225241Z   stable-x86_64-unknown-linux-gnu unchanged - rustc 1.94.0 (4a4ef493e 2026-03-02)
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8225885Z 
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8227930Z info: note that the toolchain '1.88-x86_64-unknown-linux-gnu' is currently in use (overridden by '/home/runner/work/centralized-docs/centralized-docs/rust-toolchain.toml')
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8256586Z ##[group]Run : create cachekey
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8256867Z [36;1m: create cachekey[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8257327Z [36;1mDATE=$(rustc +stable --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8257915Z [36;1mHASH=$(rustc +stable --version --verbose | sed -ne 's/^commit-hash: //p')[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8258364Z [36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8285202Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8285521Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8285709Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8285929Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8614555Z ##[group]Run : disable incremental compilation
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8614922Z [36;1m: disable incremental compilation[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8615215Z [36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8615511Z [36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8615793Z [36;1mfi[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8641721Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8642036Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8642227Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8642606Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8699320Z ##[group]Run : enable colors in Cargo output
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8699635Z [36;1m: enable colors in Cargo output[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8699909Z [36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8700210Z [36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8700466Z [36;1mfi[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8722582Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8722894Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8723199Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8723432Z   CARGO_INCREMENTAL: 0
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8723625Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8777953Z ##[group]Run : enable Cargo sparse registry
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8778255Z [36;1m: enable Cargo sparse registry[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8778584Z [36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8779399Z [36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol ]; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8780074Z [36;1m  if rustc +stable --version --verbose | grep -q '^release: 1\.6[89]\.'; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8780575Z [36;1m    touch "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8781056Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8781503Z [36;1m  elif rustc +stable --version --verbose | grep -q '^release: 1\.6[67]\.'; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8782012Z [36;1m    touch "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8782473Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8782777Z [36;1m  fi[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8782953Z [36;1mfi[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8804482Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8804785Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8804986Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8805219Z   CARGO_INCREMENTAL: 0
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8805429Z   CARGO_TERM_COLOR: always
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.8805626Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9116929Z ##[group]Run : work around spurious network errors in curl 8.0
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9117356Z [36;1m: work around spurious network errors in curl 8.0[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9117849Z [36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9118434Z [36;1mif rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9118851Z [36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9119313Z [36;1mfi[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9145384Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9145762Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9146094Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9146431Z   CARGO_INCREMENTAL: 0
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9221275Z   CARGO_TERM_COLOR: always
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9221537Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9408949Z ##[group]Run rustc +stable --version --verbose
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9409511Z [36;1mrustc +stable --version --verbose[0m
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9435288Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9435607Z env:
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9435794Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9436039Z   CARGO_INCREMENTAL: 0
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9436241Z   CARGO_TERM_COLOR: always
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9436464Z ##[endgroup]
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9585987Z rustc 1.94.0 (4a4ef493e 2026-03-02)
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9586722Z binary: rustc
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9587088Z commit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9587537Z commit-date: 2026-03-02
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9587864Z host: x86_64-unknown-linux-gnu
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9588192Z release: 1.94.0
+Build on ubuntu-latest	Install Rust	2026-03-12T03:24:42.9588478Z LLVM version: 21.1.8
+Build on ubuntu-latest	Setup Node (for moon)	﻿2026-03-12T03:24:42.9692732Z ##[group]Run actions/setup-node@v4
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:42.9692985Z with:
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:42.9693154Z   node-version: 20
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:42.9693348Z   always-auth: false
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:42.9693534Z   check-latest: false
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:42.9693874Z   token: ***
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:42.9694050Z env:
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:42.9694227Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:42.9694462Z   CARGO_INCREMENTAL: 0
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:42.9694653Z   CARGO_TERM_COLOR: always
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:42.9694856Z ##[endgroup]
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:43.1335516Z Found in cache @ /opt/hostedtoolcache/node/20.20.0/x64
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:43.1342880Z ##[group]Environment details
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:43.4285426Z node: v20.20.0
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:43.4285810Z npm: 10.8.2
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:43.4286067Z yarn: 1.22.22
+Build on ubuntu-latest	Setup Node (for moon)	2026-03-12T03:24:43.4287311Z ##[endgroup]
+Build on ubuntu-latest	Install Moon	﻿2026-03-12T03:24:43.4357323Z ##[group]Run npm install -g @moonrepo/cli
+Build on ubuntu-latest	Install Moon	2026-03-12T03:24:43.4357643Z [36;1mnpm install -g @moonrepo/cli[0m
+Build on ubuntu-latest	Install Moon	2026-03-12T03:24:43.4391579Z shell: /usr/bin/bash -e {0}
+Build on ubuntu-latest	Install Moon	2026-03-12T03:24:43.4391839Z env:
+Build on ubuntu-latest	Install Moon	2026-03-12T03:24:43.4392026Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Install Moon	2026-03-12T03:24:43.4392269Z   CARGO_INCREMENTAL: 0
+Build on ubuntu-latest	Install Moon	2026-03-12T03:24:43.4392474Z   CARGO_TERM_COLOR: always
+Build on ubuntu-latest	Install Moon	2026-03-12T03:24:43.4392682Z ##[endgroup]
+Build on ubuntu-latest	Install Moon	2026-03-12T03:24:46.0619020Z 
+Build on ubuntu-latest	Install Moon	2026-03-12T03:24:46.0627925Z added 3 packages in 3s
+Build on ubuntu-latest	Build Release Binaries	﻿2026-03-12T03:24:46.0704789Z ##[group]Run moon run :build
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:46.0705061Z [36;1mmoon run :build[0m
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:46.0731265Z shell: /usr/bin/bash -e {0}
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:46.0731517Z env:
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:46.0731701Z   CARGO_HOME: /home/runner/.cargo
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:46.0731955Z   CARGO_INCREMENTAL: 0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:46.0732153Z   CARGO_TERM_COLOR: always
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:46.0732357Z ##[endgroup]
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:46.1207929Z [ WARN 2026-03-12 03:24:46.120] moon_app::queries::changed_files  Detected a shallow checkout, unable to run Git commands to determine changed files. 
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:46.1210266Z [ WARN 03:24:46.120] moon_app::queries::changed_files  A full Git history is required for affected checks, falling back to an empty files list. 
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:49.3142819Z info: syncing channel updates for '1.88-x86_64-unknown-linux-gnu'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:49.3143552Z ▮▮▮▮ doc_transformer:build (7fc7e97d)
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:49.4143566Z info: latest update on 2025-06-26, rust version 1.88.0 (6b00bc388 2025-06-23)
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:49.4144123Z info: downloading component 'cargo'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:49.5143981Z info: downloading component 'clippy'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:49.6144597Z info: downloading component 'rust-analyzer'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:49.8145992Z info: downloading component 'rust-std'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:50.1148648Z info: downloading component 'rustc'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:51.0155814Z info: downloading component 'rustfmt'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:51.1156321Z info: installing component 'cargo'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:51.8162555Z info: installing component 'clippy'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:52.1165824Z info: installing component 'rust-analyzer'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:52.8172449Z info: installing component 'rust-std'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:24:54.9191436Z info: installing component 'rustc'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:00.0236013Z info: installing component 'rustfmt'
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:00.4240039Z [1m[32m    Updating[0m crates.io index
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.8260066Z [1m[32m Downloading[0m crates ...
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9261836Z [1m[32m  Downloaded[0m autocfg v1.5.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9262849Z [1m[32m  Downloaded[0m crunchy v0.2.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9263285Z [1m[32m  Downloaded[0m foreign-types v0.3.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9263741Z [1m[32m  Downloaded[0m bincode v1.3.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9264265Z [1m[32m  Downloaded[0m equivalent v1.0.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9264883Z [1m[32m  Downloaded[0m async-compression v0.4.41
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9265294Z [1m[32m  Downloaded[0m num_cpus v1.17.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9265637Z [1m[32m  Downloaded[0m once_cell v1.21.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9266025Z [1m[32m  Downloaded[0m new_debug_unreachable v1.0.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9266381Z [1m[32m  Downloaded[0m oneshot v0.1.13
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9266713Z [1m[32m  Downloaded[0m either v1.15.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9267059Z [1m[32m  Downloaded[0m derive_more v2.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9267468Z [1m[32m  Downloaded[0m num-traits v0.2.19
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9267850Z [1m[32m  Downloaded[0m foreign-types-shared v0.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9268208Z [1m[32m  Downloaded[0m nom v7.1.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9268549Z [1m[32m  Downloaded[0m nix v0.30.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9268886Z [1m[32m  Downloaded[0m getrandom v0.3.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9269397Z [1m[32m  Downloaded[0m alloc-stdlib v0.2.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9848051Z [1m[32m  Downloaded[0m aho-corasick v1.1.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9849294Z [1m[32m  Downloaded[0m downcast-rs v2.0.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9850109Z [1m[32m  Downloaded[0m adler2 v2.0.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9850921Z [1m[32m  Downloaded[0m compact_str v0.8.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9851670Z [1m[32m  Downloaded[0m chardetng v0.1.17
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9852334Z [1m[32m  Downloaded[0m bitflags v2.11.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9852804Z [1m[32m  Downloaded[0m anndists v0.1.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9853339Z [1m[32m  Downloaded[0m allocator-api2 v0.2.21
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9854008Z [1m[32m  Downloaded[0m bstr v1.12.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9854556Z [1m[32m  Downloaded[0m phf_codegen v0.11.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9855083Z [1m[32m  Downloaded[0m flate2 v1.1.9
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9855673Z [1m[32m  Downloaded[0m rand_chacha v0.3.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9856011Z [1m[32m  Downloaded[0m cmake v0.1.57
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9856345Z [1m[32m  Downloaded[0m auto_enums v0.8.8
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9856706Z [1m[32m  Downloaded[0m ppv-lite86 v0.2.21
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9857074Z [1m[32m  Downloaded[0m anstyle-parse v0.2.7
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9857440Z [1m[32m  Downloaded[0m darling_macro v0.23.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9857781Z [1m[32m  Downloaded[0m phf v0.10.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9858094Z [1m[32m  Downloaded[0m quote v1.0.45
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9858438Z [1m[32m  Downloaded[0m openssl-probe v0.1.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9858836Z [1m[32m  Downloaded[0m brotli-decompressor v5.0.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9859482Z [1m[32m  Downloaded[0m pin-project-lite v0.2.17
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9859875Z [1m[32m  Downloaded[0m quinn-udp v0.5.14
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:02.9860271Z [1m[32m  Downloaded[0m pulldown-cmark-to-cmark v22.0.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0261535Z [1m[32m  Downloaded[0m tinyvec_macros v0.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0262316Z [1m[32m  Downloaded[0m tantivy-query-grammar v0.25.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0262733Z [1m[32m  Downloaded[0m phf_codegen v0.10.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0263073Z [1m[32m  Downloaded[0m quinn v0.11.9
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0263405Z [1m[32m  Downloaded[0m shlex v1.3.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0263795Z [1m[32m  Downloaded[0m arc-swap v1.8.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0264172Z [1m[32m  Downloaded[0m signal-hook-registry v1.4.8
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0264560Z [1m[32m  Downloaded[0m serde_urlencoded v0.7.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0264902Z [1m[32m  Downloaded[0m servo_arc v0.4.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0265259Z [1m[32m  Downloaded[0m pulldown-cmark v0.13.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0265613Z [1m[32m  Downloaded[0m serde_core v1.0.228
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0265949Z [1m[32m  Downloaded[0m ruzstd v0.8.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0266282Z [1m[32m  Downloaded[0m siphasher v1.0.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0266620Z [1m[32m  Downloaded[0m simd-adler32 v0.3.8
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0266953Z [1m[32m  Downloaded[0m serde v1.0.228
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0949435Z [1m[32m  Downloaded[0m fast_html2md v0.0.58
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0950095Z [1m[32m  Downloaded[0m env_filter v1.0.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0950565Z [1m[32m  Downloaded[0m html5ever v0.36.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0951041Z [1m[32m  Downloaded[0m rustc-hash v1.1.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0951488Z [1m[32m  Downloaded[0m sitemap v0.4.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0952011Z [1m[32m  Downloaded[0m serde_yaml v0.9.34+deprecated
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0952465Z [1m[32m  Downloaded[0m rustversion v1.0.22
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0952815Z [1m[32m  Downloaded[0m async-trait v0.1.89
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0953163Z [1m[32m  Downloaded[0m serde_json v1.0.149
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0953496Z [1m[32m  Downloaded[0m reqwest v0.12.28
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0953855Z [1m[32m  Downloaded[0m stable_deref_trait v1.2.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0954216Z [1m[32m  Downloaded[0m markup5ever v0.36.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0954599Z [1m[32m  Downloaded[0m is_terminal_polyfill v1.70.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0954972Z [1m[32m  Downloaded[0m git2 v0.19.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0955287Z [1m[32m  Downloaded[0m dunce v1.0.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0955619Z [1m[32m  Downloaded[0m itertools v0.13.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0956201Z [1m[32m  Downloaded[0m hyper-tls v0.6.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0956524Z [1m[32m  Downloaded[0m strum v0.26.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0956854Z [1m[32m  Downloaded[0m base64 v0.22.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0957182Z [1m[32m  Downloaded[0m html5ever v0.27.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0957510Z [1m[32m  Downloaded[0m itoa v1.0.17
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0957854Z [1m[32m  Downloaded[0m tower-service v0.3.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.0958216Z [1m[32m  Downloaded[0m tantivy-stacker v0.6.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.1263050Z [1m[32m  Downloaded[0m strum v0.27.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.1264316Z [1m[32m  Downloaded[0m itertools v0.14.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.1265014Z [1m[32m  Downloaded[0m futures-io v0.3.32
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.1267726Z [1m[32m  Downloaded[0m zerovec-derive v0.11.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.1268602Z [1m[32m  Downloaded[0m unicode-xid v0.2.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.1270810Z [1m[32m  Downloaded[0m zstd v0.13.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.1271473Z [1m[32m  Downloaded[0m encoding_rs v0.8.35
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2263809Z [1m[32m  Downloaded[0m mac v0.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2264291Z [1m[32m  Downloaded[0m strsim v0.11.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2264645Z [1m[32m  Downloaded[0m lazy_static v1.5.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2264999Z [1m[32m  Downloaded[0m lock_api v0.4.14
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2265341Z [1m[32m  Downloaded[0m zerovec v0.11.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2265673Z [1m[32m  Downloaded[0m aws-lc-rs v1.16.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2266005Z [1m[32m  Downloaded[0m tinyvec v1.10.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2266321Z [1m[32m  Downloaded[0m zlib-rs v0.6.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2266653Z [1m[32m  Downloaded[0m twox-hash v2.1.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2267011Z [1m[32m  Downloaded[0m text-splitter v0.29.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2267357Z [1m[32m  Downloaded[0m fastdivide v0.4.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2267697Z [1m[32m  Downloaded[0m env_logger v0.11.9
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2268068Z [1m[32m  Downloaded[0m libgit2-sys v0.17.0+1.8.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.2268447Z [1m[32m  Downloaded[0m thiserror-impl v2.0.18
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3264419Z [1m[32m  Downloaded[0m httparse v1.10.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3264964Z [1m[32m  Downloaded[0m thiserror-impl v1.0.69
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3265353Z [1m[32m  Downloaded[0m markup5ever_rcdom v0.3.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3265722Z [1m[32m  Downloaded[0m tinystr v0.8.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3266085Z [1m[32m  Downloaded[0m spider_fingerprint v2.38.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3266464Z [1m[32m  Downloaded[0m markup5ever v0.12.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3266802Z [1m[32m  Downloaded[0m spider v2.39.21
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3267124Z [1m[32m  Downloaded[0m zerofrom v0.1.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3267474Z [1m[32m  Downloaded[0m tantivy-fst v0.5.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3267832Z [1m[32m  Downloaded[0m futures-macro v0.3.32
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3268181Z [1m[32m  Downloaded[0m measure_time v0.9.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3268530Z [1m[32m  Downloaded[0m socket2 v0.6.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3268861Z [1m[32m  Downloaded[0m time-macros v0.2.27
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3269374Z [1m[32m  Downloaded[0m idna v1.1.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3269731Z [1m[32m  Downloaded[0m sync_wrapper v1.0.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3270107Z [1m[32m  Downloaded[0m icu_properties_data v2.1.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3270462Z [1m[32m  Downloaded[0m h2 v0.4.13
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.3270785Z [1m[32m  Downloaded[0m libz-sys v1.1.25
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4265364Z [1m[32m  Downloaded[0m unicode-segmentation v1.12.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4265865Z [1m[32m  Downloaded[0m yoke-derive v0.8.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4266204Z [1m[32m  Downloaded[0m time v0.3.47
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4266588Z [1m[32m  Downloaded[0m string_concat v0.0.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4266954Z [1m[32m  Downloaded[0m zeroize_derive v1.4.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4267310Z [1m[32m  Downloaded[0m tracing-core v0.1.36
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4267662Z [1m[32m  Downloaded[0m icu_segmenter v2.1.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4268052Z [1m[32m  Downloaded[0m unicode-ident v1.0.24
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4268393Z [1m[32m  Downloaded[0m http-body v0.4.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4268723Z [1m[32m  Downloaded[0m utf-8 v0.7.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4269481Z [1m[32m  Downloaded[0m hyper-rustls v0.27.7
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4269817Z [1m[32m  Downloaded[0m vcpkg v0.2.15
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4270149Z [1m[32m  Downloaded[0m tower-http v0.6.8
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4270500Z [1m[32m  Downloaded[0m minimal-lexical v0.2.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4270878Z [1m[32m  Downloaded[0m tantivy-bitpacker v0.9.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4271249Z [1m[32m  Downloaded[0m markup5ever v0.13.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4271643Z [1m[32m  Downloaded[0m spider_transformations v2.37.114
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.4272048Z [1m[32m  Downloaded[0m futures-util v0.3.32
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5155857Z [1m[32m  Downloaded[0m strum_macros v0.26.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5156381Z [1m[32m  Downloaded[0m http v0.2.12
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5156777Z [1m[32m  Downloaded[0m fs_extra v1.3.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5157802Z [1m[32m  Downloaded[0m unicode-width v0.2.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5158337Z [1m[32m  Downloaded[0m lru-slab v0.1.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5158909Z [1m[32m  Downloaded[0m tracing-attributes v0.1.31
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5159700Z [1m[32m  Downloaded[0m futures-core v0.3.32
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5160217Z [1m[32m  Downloaded[0m version_check v0.9.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5160723Z [1m[32m  Downloaded[0m lz4_flex v0.11.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5161067Z [1m[32m  Downloaded[0m utf8-ranges v1.0.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5161409Z [1m[32m  Downloaded[0m hashbrown v0.16.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5161738Z [1m[32m  Downloaded[0m subtle v2.6.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5162063Z [1m[32m  Downloaded[0m litemap v0.8.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5162386Z [1m[32m  Downloaded[0m mime v0.3.17
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5162710Z [1m[32m  Downloaded[0m thiserror v2.0.18
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5163037Z [1m[32m  Downloaded[0m fs4 v0.13.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5163355Z [1m[32m  Downloaded[0m tokio v1.50.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5163692Z [1m[32m  Downloaded[0m ident_case v1.0.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5164023Z [1m[32m  Downloaded[0m tiktoken v3.1.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5164377Z [1m[32m  Downloaded[0m zerofrom-derive v0.1.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5164732Z [1m[32m  Downloaded[0m zerocopy v0.8.42
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5165079Z [1m[32m  Downloaded[0m icu_provider v2.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5165421Z [1m[32m  Downloaded[0m strum_macros v0.27.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5165793Z [1m[32m  Downloaded[0m markup5ever_rcdom v0.2.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5265904Z [1m[32m  Downloaded[0m markup5ever v0.11.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.5266290Z [1m[32m  Downloaded[0m tracing v0.1.44
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6267411Z [1m[32m  Downloaded[0m static_assertions v1.1.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6268248Z [1m[32m  Downloaded[0m log v0.4.29
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6268900Z [1m[32m  Downloaded[0m iri-string v0.7.10
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6269801Z [1m[32m  Downloaded[0m icu_properties v2.1.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6270480Z [1m[32m  Downloaded[0m hashbrown v0.12.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6271189Z [1m[32m  Downloaded[0m libssh2-sys v0.3.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6271852Z [1m[32m  Downloaded[0m indexmap v2.13.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6272544Z [1m[32m  Downloaded[0m tantivy-columnar v0.6.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6273205Z [1m[32m  Downloaded[0m http v1.4.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6273830Z [1m[32m  Downloaded[0m hyper v0.14.32
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6274452Z [1m[32m  Downloaded[0m indexmap v1.9.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6275125Z [1m[32m  Downloaded[0m icu_normalizer v2.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6275792Z [1m[32m  Downloaded[0m html5ever v0.26.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6276426Z [1m[32m  Downloaded[0m zstd-safe v7.2.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6277067Z [1m[32m  Downloaded[0m darling v0.23.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6277668Z [1m[32m  Downloaded[0m syn v2.0.117
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6278358Z [1m[32m  Downloaded[0m crossbeam-channel v0.5.15
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.6279210Z [1m[32m  Downloaded[0m linux-raw-sys v0.12.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7268522Z [1m[32m  Downloaded[0m tantivy v0.25.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7269525Z [1m[32m  Downloaded[0m errno v0.3.14
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7270129Z [1m[32m  Downloaded[0m dtoa v1.0.11
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7270765Z [1m[32m  Downloaded[0m thiserror v1.0.69
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7271987Z [1m[32m  Downloaded[0m string_cache_codegen v0.5.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7272659Z [1m[32m  Downloaded[0m lru v0.12.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7273262Z [1m[32m  Downloaded[0m hyper v1.8.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7273868Z [1m[32m  Downloaded[0m tower v0.5.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7274464Z [1m[32m  Downloaded[0m chrono v0.4.44
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7275178Z [1m[32m  Downloaded[0m icu_normalizer_data v2.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7275909Z [1m[32m  Downloaded[0m form_urlencoded v1.2.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7276581Z [1m[32m  Downloaded[0m tokio-util v0.7.18
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7277279Z [1m[32m  Downloaded[0m http-body v1.0.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7277891Z [1m[32m  Downloaded[0m fnv v1.0.7
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7278509Z [1m[32m  Downloaded[0m derive_more v1.0.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7279440Z [1m[32m  Downloaded[0m string-interner v0.19.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7280112Z [1m[32m  Downloaded[0m zerotrie v0.2.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7280747Z [1m[32m  Downloaded[0m try-lock v0.2.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7281410Z [1m[32m  Downloaded[0m miniz_oxide v0.8.9
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.7282063Z [1m[32m  Downloaded[0m tiktoken-rs v0.9.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8269726Z [1m[32m  Downloaded[0m url v2.5.8
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8270497Z [1m[32m  Downloaded[0m futf v0.1.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8271115Z [1m[32m  Downloaded[0m yoke v0.8.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8271739Z [1m[32m  Downloaded[0m libm v0.2.16
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8272395Z [1m[32m  Downloaded[0m synstructure v0.13.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8273035Z [1m[32m  Downloaded[0m syn v1.0.109
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8273633Z [1m[32m  Downloaded[0m heck v0.5.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8274244Z [1m[32m  Downloaded[0m hashbrown v0.15.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8274849Z [1m[32m  Downloaded[0m fs2 v0.4.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8275428Z [1m[32m  Downloaded[0m zeroize v1.8.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8276055Z [1m[32m  Downloaded[0m unicase v2.9.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8276675Z [1m[32m  Downloaded[0m httpdate v1.0.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:03.8277341Z [1m[32m  Downloaded[0m aws-lc-sys v0.38.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0271353Z [1m[32m  Downloaded[0m zerocopy-derive v0.8.42
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0271880Z [1m[32m  Downloaded[0m futures-sink v0.3.32
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0272242Z [1m[32m  Downloaded[0m zmij v1.0.21
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0272611Z [1m[32m  Downloaded[0m tantivy-common v0.10.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0272978Z [1m[32m  Downloaded[0m hyper-util v0.1.20
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0273324Z [1m[32m  Downloaded[0m hnsw_rs v0.3.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0273664Z [1m[32m  Downloaded[0m fxhash v0.2.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0273976Z [1m[32m  Downloaded[0m memchr v2.8.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0274317Z [1m[32m  Downloaded[0m rust-stemmers v1.2.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0274680Z [1m[32m  Downloaded[0m derive_more-impl v2.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0275082Z [1m[32m  Downloaded[0m futures-channel v0.3.32
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0275455Z [1m[32m  Downloaded[0m spider_scraper v0.1.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0275794Z [1m[32m  Downloaded[0m tendril v0.4.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0276128Z [1m[32m  Downloaded[0m ipnet v2.12.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0276456Z [1m[32m  Downloaded[0m cssparser v0.36.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0276776Z [1m[32m  Downloaded[0m h2 v0.3.27
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0277099Z [1m[32m  Downloaded[0m utf8_iter v1.0.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0277418Z [1m[32m  Downloaded[0m walkdir v2.5.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0277744Z [1m[32m  Downloaded[0m time-core v0.1.8
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.0278096Z [1m[32m  Downloaded[0m tantivy-sstable v0.6.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2055139Z [1m[32m  Downloaded[0m sync_wrapper v0.1.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2055774Z [1m[32m  Downloaded[0m ego-tree v0.10.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2056126Z [1m[32m  Downloaded[0m cpu-time v1.0.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2056461Z [1m[32m  Downloaded[0m smallvec v1.15.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2056829Z [1m[32m  Downloaded[0m lol_html v2.7.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2057187Z [1m[32m  Downloaded[0m find-msvc-tools v0.1.9
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2057562Z [1m[32m  Downloaded[0m compression-core v0.4.31
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2058225Z [1m[32m  Downloaded[0m atomic-waker v1.1.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2058587Z [1m[32m  Downloaded[0m llm_readability v0.0.13
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2058982Z [1m[32m  Downloaded[0m zstd-sys v2.0.16+zstd.1.5.7
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2059564Z [1m[32m  Downloaded[0m fast_html5ever v0.26.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2059900Z [1m[32m  Downloaded[0m brotli v8.0.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2060238Z [1m[32m  Downloaded[0m utf8parse v0.2.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2060560Z [1m[32m  Downloaded[0m mio v1.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2060876Z [1m[32m  Downloaded[0m writeable v0.6.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2061223Z [1m[32m  Downloaded[0m webpki-roots v1.0.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2061570Z [1m[32m  Downloaded[0m memmap2 v0.9.10
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2061918Z [1m[32m  Downloaded[0m icu_locale_data v2.1.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2062381Z [1m[32m  Downloaded[0m icu_locale_core v2.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2062718Z [1m[32m  Downloaded[0m bon-macros v3.9.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2063078Z [1m[32m  Downloaded[0m tokio-native-tls v0.3.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2063433Z [1m[32m  Downloaded[0m tempfile v3.26.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2063757Z [1m[32m  Downloaded[0m mmap-rs v0.7.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2271969Z [1m[32m  Downloaded[0m bit-set v0.5.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2272501Z [1m[32m  Downloaded[0m fancy-regex v0.13.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2272863Z [1m[32m  Downloaded[0m hyperloglogplus v0.4.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2273207Z [1m[32m  Downloaded[0m xml-rs v1.0.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2273528Z [1m[32m  Downloaded[0m fastrand v2.3.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2273882Z [1m[32m  Downloaded[0m crossbeam-utils v0.8.21
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2274240Z [1m[32m  Downloaded[0m string_cache v0.8.9
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2274571Z [1m[32m  Downloaded[0m getrandom v0.2.17
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2274902Z [1m[32m  Downloaded[0m socket2 v0.5.10
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2275238Z [1m[32m  Downloaded[0m slab v0.4.12
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2275575Z [1m[32m  Downloaded[0m native-tls v0.2.18
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2275921Z [1m[32m  Downloaded[0m murmurhash32 v0.3.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2276307Z [1m[32m  Downloaded[0m levenshtein_automata v0.2.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2276667Z [1m[32m  Downloaded[0m jobserver v0.1.34
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2277026Z [1m[32m  Downloaded[0m iana-time-zone v0.1.65
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2277372Z [1m[32m  Downloaded[0m htmlescape v0.3.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2277706Z [1m[32m  Downloaded[0m getopts v0.2.24
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2278026Z [1m[32m  Downloaded[0m xml5ever v0.18.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2846868Z [1m[32m  Downloaded[0m web_atoms v0.2.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2847642Z [1m[32m  Downloaded[0m want v0.3.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2848111Z [1m[32m  Downloaded[0m untrusted v0.9.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2848653Z [1m[32m  Downloaded[0m unsafe-libyaml v0.2.11
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2849374Z [1m[32m  Downloaded[0m hyper-tls v0.5.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2849938Z [1m[32m  Downloaded[0m futures-task v0.3.32
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2850472Z [1m[32m  Downloaded[0m foldhash v0.1.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2850992Z [1m[32m  Downloaded[0m derive_more v0.99.20
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2851515Z [1m[32m  Downloaded[0m deranged v0.5.8
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2852037Z [1m[32m  Downloaded[0m crc32fast v1.5.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2852420Z [1m[32m  Downloaded[0m compression-codecs v0.4.37
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2852810Z [1m[32m  Downloaded[0m chrono_utils v0.1.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2853212Z [1m[32m  Downloaded[0m case_insensitive_string v0.2.10
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2853594Z [1m[32m  Downloaded[0m auto_encoder v0.1.10
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2853953Z [1m[32m  Downloaded[0m anstyle-query v1.1.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2854322Z [1m[32m  Downloaded[0m string_cache_codegen v0.6.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2854685Z [1m[32m  Downloaded[0m icu_locale v2.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2855013Z [1m[32m  Downloaded[0m uuid v1.22.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2855346Z [1m[32m  Downloaded[0m tokio-macros v2.6.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2855694Z [1m[32m  Downloaded[0m sysctl v0.6.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2856018Z [1m[32m  Downloaded[0m libc v0.2.183
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2856328Z [1m[32m  Downloaded[0m jiff v0.2.23
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.2856915Z [1m[32m  Downloaded[0m enum-as-inner v0.6.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3273192Z [1m[32m  Downloaded[0m displaydoc v0.2.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3273654Z [1m[32m  Downloaded[0m colorchoice v1.0.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3273999Z [1m[32m  Downloaded[0m cfg-if v1.0.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3274332Z [1m[32m  Downloaded[0m census v0.4.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3274685Z [1m[32m  Downloaded[0m derive_more-impl v1.0.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3275071Z [1m[32m  Downloaded[0m cssparser-macros v0.6.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3275442Z [1m[32m  Downloaded[0m tokio-stream v0.1.18
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3275770Z [1m[32m  Downloaded[0m tap v1.0.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3276076Z [1m[32m  Downloaded[0m xml v1.2.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3276403Z [1m[32m  Downloaded[0m string_cache v0.9.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3276965Z [1m[32m  Downloaded[0m bit-vec v0.6.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3277333Z [1m[32m  Downloaded[0m sketches-ddsketch v0.3.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3277705Z [1m[32m  Downloaded[0m icu_collections v2.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3278062Z [1m[32m  Downloaded[0m xml5ever v0.17.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3278449Z [1m[32m  Downloaded[0m tantivy-tokenizer-api v0.6.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3278805Z [1m[32m  Downloaded[0m foldhash v0.2.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3279368Z [1m[32m  Downloaded[0m combine v4.6.7
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3279718Z [1m[32m  Downloaded[0m tower-layer v0.3.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3280061Z [1m[32m  Downloaded[0m tokio-rustls v0.26.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3280416Z [1m[32m  Downloaded[0m clap_builder v4.5.60
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3280745Z [1m[32m  Downloaded[0m getrandom v0.4.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.3281071Z [1m[32m  Downloaded[0m ring v0.17.14
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4104423Z [1m[32m  Downloaded[0m clap v4.5.60
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4105270Z [1m[32m  Downloaded[0m cfg_aliases v0.2.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4105986Z [1m[32m  Downloaded[0m byteorder v1.5.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4106654Z [1m[32m  Downloaded[0m idna_adapter v1.2.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4107383Z [1m[32m  Downloaded[0m http-body-util v0.1.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4108118Z [1m[32m  Downloaded[0m rustls-webpki v0.103.9
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4108785Z [1m[32m  Downloaded[0m rustix v1.1.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4109645Z [1m[32m  Downloaded[0m anstyle v1.0.13
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4110302Z [1m[32m  Downloaded[0m rayon-core v1.13.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4110989Z [1m[32m  Downloaded[0m rustc_version v0.4.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4111648Z [1m[32m  Downloaded[0m reqwest v0.11.27
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4112320Z [1m[32m  Downloaded[0m regex-syntax v0.8.10
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4112975Z [1m[32m  Downloaded[0m rand_core v0.9.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4113607Z [1m[32m  Downloaded[0m cssparser v0.31.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4114334Z [1m[32m  Downloaded[0m rustls-pki-types v1.14.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4115015Z [1m[32m  Downloaded[0m rayon v1.11.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4115633Z [1m[32m  Downloaded[0m rand_distr v0.4.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4116239Z [1m[32m  Downloaded[0m scraper v0.25.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4116827Z [1m[32m  Downloaded[0m rustc-hash v2.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4117444Z [1m[32m  Downloaded[0m regex-automata v0.4.14
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4118023Z [1m[32m  Downloaded[0m rand_core v0.6.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4118565Z [1m[32m  Downloaded[0m readability v0.3.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4119329Z [1m[32m  Downloaded[0m fixedbitset v0.5.7
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4274338Z [1m[32m  Downloaded[0m siphasher v0.3.11
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4275121Z [1m[32m  Downloaded[0m semver v1.0.27
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4275796Z [1m[32m  Downloaded[0m rustls v0.23.37
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4276439Z [1m[32m  Downloaded[0m regex v1.12.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4277068Z [1m[32m  Downloaded[0m petgraph v0.8.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4694195Z [1m[32m  Downloaded[0m dtoa-short v0.3.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4695070Z [1m[32m  Downloaded[0m servo_arc v0.3.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4695906Z [1m[32m  Downloaded[0m selectors v0.25.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4696736Z [1m[32m  Downloaded[0m rustls-pemfile v1.0.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4697418Z [1m[32m  Downloaded[0m core_maths v0.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4698339Z [1m[32m  Downloaded[0m anstream v0.6.21
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4699024Z [1m[32m  Downloaded[0m quinn-proto v0.11.14
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4699955Z [1m[32m  Downloaded[0m prettyplease v0.2.37
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4700616Z [1m[32m  Downloaded[0m ryu v1.0.23
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4701211Z [1m[32m  Downloaded[0m rand v0.9.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4701870Z [1m[32m  Downloaded[0m clap_derive v4.5.55
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4702560Z [1m[32m  Downloaded[0m phf_shared v0.13.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4703263Z [1m[32m  Downloaded[0m fast_markup5ever v0.11.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4703952Z [1m[32m  Downloaded[0m bitpacking v0.9.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4704615Z [1m[32m  Downloaded[0m serde_regex v1.1.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4705427Z [1m[32m  Downloaded[0m same-file v1.0.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4706085Z [1m[32m  Downloaded[0m rand_chacha v0.9.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4706710Z [1m[32m  Downloaded[0m phf v0.13.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4707355Z [1m[32m  Downloaded[0m selectors v0.33.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4707982Z [1m[32m  Downloaded[0m rand v0.8.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4708590Z [1m[32m  Downloaded[0m pin-utils v0.1.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4709399Z [1m[32m  Downloaded[0m phf_shared v0.10.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4710082Z [1m[32m  Downloaded[0m scopeguard v1.2.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.4710758Z [1m[32m  Downloaded[0m proc-macro2 v1.0.106
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5044869Z [1m[32m  Downloaded[0m phf_shared v0.11.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5045709Z [1m[32m  Downloaded[0m phf_codegen v0.13.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5046425Z [1m[32m  Downloaded[0m openssl-sys v0.9.111
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5047101Z [1m[32m  Downloaded[0m openssl v0.10.75
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5047756Z [1m[32m  Downloaded[0m quick-xml v0.38.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5048495Z [1m[32m  Downloaded[0m pulldown-cmark-escape v0.11.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5049483Z [1m[32m  Downloaded[0m potential_utf v0.1.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5050176Z [1m[32m  Downloaded[0m pkg-config v0.3.32
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5050857Z [1m[32m  Downloaded[0m phf_generator v0.11.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5051503Z [1m[32m  Downloaded[0m phf v0.11.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5052127Z [1m[32m  Downloaded[0m base64 v0.21.7
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5052769Z [1m[32m  Downloaded[0m ownedbytes v0.9.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5053460Z [1m[32m  Downloaded[0m ordered-float v5.1.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5054164Z [1m[32m  Downloaded[0m crossbeam-deque v0.8.6
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5054829Z [1m[32m  Downloaded[0m ahash v0.8.12
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5055496Z [1m[32m  Downloaded[0m serde_derive v1.0.228
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5056209Z [1m[32m  Downloaded[0m alloc-no-stdlib v2.0.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5056926Z [1m[32m  Downloaded[0m phf_generator v0.10.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5057569Z [1m[32m  Downloaded[0m bytes v1.11.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5058284Z [1m[32m  Downloaded[0m precomputed-hash v0.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5058937Z [1m[32m  Downloaded[0m powerfmt v0.2.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5059701Z [1m[32m  Downloaded[0m phf_macros v0.13.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5060343Z [1m[32m  Downloaded[0m parking_lot_core v0.9.12
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5275416Z [1m[32m  Downloaded[0m openssl-probe v0.2.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5276281Z [1m[32m  Downloaded[0m openssl-macros v0.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5277041Z [1m[32m  Downloaded[0m crossbeam-epoch v0.9.18
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5277715Z [1m[32m  Downloaded[0m castaway v0.2.4
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5278391Z [1m[32m  Downloaded[0m phf_macros v0.11.3
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.5279248Z [1m[32m  Downloaded[0m icu_segmenter_data v2.1.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6276511Z [1m[32m  Downloaded[0m parking_lot v0.12.5
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6277357Z [1m[32m  Downloaded[0m percent-encoding v2.3.2
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6277992Z [1m[32m  Downloaded[0m derive_utils v0.15.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6278352Z [1m[32m  Downloaded[0m clap_lex v1.0.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6278721Z [1m[32m  Downloaded[0m anyhow v1.0.102
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6279250Z [1m[32m  Downloaded[0m phf_generator v0.13.1
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6279614Z [1m[32m  Downloaded[0m cc v1.2.56
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6280363Z [1m[32m  Downloaded[0m darling_core v0.23.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6280725Z [1m[32m  Downloaded[0m num-conv v0.2.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6281056Z [1m[32m  Downloaded[0m bon v3.9.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6820110Z [1m[31merror[0m[1m:[0m rustc 1.88.0 is not supported by the following package:
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6820806Z ▮▮▮▮ doc_transformer:build (15s 424ms, 7fc7e97d)
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6821139Z   tiktoken@3.1.2 requires rustc 1.94
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6821527Z Either upgrade rustc or select compatible dependency versions with
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6822006Z `cargo update <name>@<current-ver> --precise <compatible-ver>`
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6822473Z where `<compatible-ver>` is the latest version supporting rustc 1.88.0
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.6822969Z 
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.7282552Z Error: task_runner::run_failed
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.7282932Z 
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.7283691Z   × Task doc_transformer:build failed to run.
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.7284851Z   ╰─▶ Process cargo failed: exit code 101
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.7285387Z 
+Build on ubuntu-latest	Build Release Binaries	2026-03-12T03:25:04.7348983Z ##[error]Process completed with exit code 1.
+Build on ubuntu-latest	Post Run actions/checkout@v4	﻿2026-03-12T03:25:04.7437186Z Post job cleanup.
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8311341Z [command]/usr/bin/git version
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8344266Z git version 2.53.0
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8384476Z Temporarily overriding HOME='/home/runner/work/_temp/d987b469-2c4e-4814-b1cd-11d6f469ce8e' before making global git config changes
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8385914Z Adding repository directory to the temporary git global config as a safe directory
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8391166Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/centralized-docs/centralized-docs
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8424301Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8452258Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8639340Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8656690Z http.https://github.com/.extraheader
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8667887Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8694575Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8879419Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Build on ubuntu-latest	Post Run actions/checkout@v4	2026-03-12T03:25:04.8906682Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Build on ubuntu-latest	Complete job	﻿2026-03-12T03:25:04.9180541Z Cleaning up orphan processes
+Build on ubuntu-latest	Complete job	2026-03-12T03:25:04.9434274Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/setup-node@v4. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
