@@ -31,13 +31,6 @@ jobs:
             validator_name: llms_txt_validator
             is_windows: false
 
-          # Add Mac Intel support explicitly via cross-compilation on the latest macos runner
-          - os: macos-latest
-            target_arch: x86_64-apple-darwin
-            artifact_name: doc_transformer-${{ github.ref_name }}-macos-x86_64.tar.gz
-            binary_name: doc_transformer
-            validator_name: llms_txt_validator
-            is_windows: false
 
           - os: windows-latest
             target_arch: x86_64-pc-windows-msvc

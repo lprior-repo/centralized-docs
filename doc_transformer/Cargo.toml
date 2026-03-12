@@ -44,7 +44,7 @@ unicode-segmentation = "1.12"
 # Web scraping (spider-rs ecosystem)
 # Note: sync feature enables tokio synchronization primitives
 # Using 2.39 to avoid cache_mem compilation issues in 2.40+
-spider = { version = "=2.39", default-features = false, features = ["sitemap", "sync"] }
+spider = { version = "=2.39", default-features = false, features = ["sitemap", "sync", "reqwest_native_tls_vendored"] }
 spider_transformations = "2.37"
 
 # URL handling
@@ -69,7 +69,8 @@ thiserror = "1.0"
 
 # Embedding providers (OpenAI, Cohere)
 async-trait = "0.1"
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+tungstenite = { version = "*", features = ["rustls-tls-webpki-roots"], default-features = false }
 pulldown-cmark-to-cmark = "22.0.0"
 
 # File locking for concurrent access control
