@@ -69,8 +69,6 @@ prof.mem
 # Added by cargo
 
 /target
-Cargo.lock
-Cargo.toml
 doc_transformer/target/
 node_modules/
 package-lock.json
