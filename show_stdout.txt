@@ -1,7 +1,0 @@
-○ doc-4il [BUG] · Long Regex Not Rejected in CLI   [● P1 · OPEN]
-Owner: Test User · Type: bug
-Created: 2026-03-10 · Updated: 2026-03-10
-
-DESCRIPTION
-validate_filter_regex function checks pattern.len() > 500, but patterns >500 chars are accepted without error. File: main.rs:434-438
-

@@ -14,21 +14,31 @@ It provides tools to parse, index, and search documentation using BM25, semantic
 
 ### 1. Installation
 
-**For macOS and Linux (Recommended):**
+**Release binary (Linux x86_64 and macOS Apple Silicon):**
 ```bash
 curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/scripts/install.sh | bash
 ```
 
+This installs `doc_transformer` to `~/.local/bin` by default.
+
+**Homebrew (builds from source):**
+```bash
+brew install --formula https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/Formula/doc-transformer.rb
+```
+
 **From source:**
 ```bash
-cargo install --path .
+cargo install --path doc_transformer
 ```
 
 ### 2. Basic Usage
 
 ```bash
-# Search indexed documentation
-doc_transformer search "your query"
+# Index a directory of markdown files
+doc_transformer index ./docs --output ./output
+
+# Search the generated index
+doc_transformer search "your query" --index-dir ./output
 ```
 
 ## Documentation
