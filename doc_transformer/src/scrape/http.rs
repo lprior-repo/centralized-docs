@@ -12,6 +12,7 @@
 //! Provides spider-rs website building and HTTP request configuration.
 
 use super::validation::{RobotsPolicy, ScrapeConfig, StealthMode};
+use rayon::prelude::*;
 use std::time::Duration;
 use thiserror::Error;
 use url::Url;
@@ -24,6 +25,7 @@ pub enum HttpError {
     #[error("Configuration overflow: {0}")]
     ConfigOverflow(&'static str),
     #[error("Execution failed: {0}")]
+    #[allow(dead_code)]
     ExecutionFailed(String),
     #[error("Scrape failed: {0}")]
     ScrapeFailed(String),
@@ -89,8 +91,9 @@ pub enum HaltReason {
 }
 
 /// Extraction status for state machine.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum ExtractionStatus {
+    #[default]
     Active,
     Halted(HaltReason),
 }
@@ -189,6 +192,7 @@ fn apply_policy_and_limits(
     website.configuration.with_limit(page_limit);
 
     website.configuration.normalize = true;
+    website.configuration.depth = 10000; // Large depth
 
     Ok(())
 }
@@ -241,13 +245,34 @@ pub async fn execute_scrape_with_website(
 }
 
 /// State used during the functional fold of scraped pages.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 struct ExtractionState {
     pages: Vec<super::validation::ScrapedPage>,
     errors: Vec<ScrapeError>,
     seen_urls: UrlSet,
     total_content_size: u64,
     status: ExtractionStatus,
+}
+
+/// Merge two extraction states into a new state without mutation.
+fn merge_extraction_states(a: ExtractionState, b: ExtractionState) -> ExtractionState {
+    let merged_seen = b
+        .pages
+        .iter()
+        .fold(a.seen_urls, |acc, p| acc.insert(p.url.clone()));
+
+    ExtractionState {
+        pages: a.pages.into_iter().chain(b.pages).collect(),
+        errors: a.errors.into_iter().chain(b.errors).collect(),
+        seen_urls: merged_seen,
+        total_content_size: a.total_content_size.saturating_add(b.total_content_size),
+        status: match (a.status, b.status) {
+            (ExtractionStatus::Halted(r), _) | (_, ExtractionStatus::Halted(r)) => {
+                ExtractionStatus::Halted(r)
+            }
+            _ => ExtractionStatus::Active,
+        },
+    }
 }
 
 /// Initial extraction state factory.
@@ -277,31 +302,6 @@ fn check_page_size_limit(page: &spider::page::Page, limit: u64) -> Option<String
         format!(
             "Page exceeds max-page-bytes limit ({} bytes > {} bytes)",
             html_size, limit
-        )
-    })
-}
-
-/// Check if page limit is reached.
-fn check_page_limit(current_count: usize, max_pages: usize, remaining: usize) -> Option<String> {
-    (current_count >= max_pages).then(|| {
-        format!(
-            "Reached page limit ({}), stopping scrape. {} URLs remain.",
-            max_pages, remaining
-        )
-    })
-}
-
-/// Check if total size limit is exceeded.
-fn check_total_size_limit(current_size: u64, page_size: u64, max_total: u64) -> Option<String> {
-    // Check for overflow first
-    if current_size > u64::MAX - page_size {
-        return Some("Integer overflow: total content size would exceed u64::MAX".to_string());
-    }
-    let new_size = current_size + page_size;
-    (new_size > max_total).then(|| {
-        format!(
-            "Total content size ({} bytes) exceeds limit ({} bytes), stopping scrape",
-            new_size, max_total
         )
     })
 }
@@ -516,14 +516,15 @@ fn process_pages_with_fold(
     spider_pages: &[spider::page::Page],
     config: &ScrapeConfig,
 ) -> ExtractionState {
-    let initial = initial_extraction_state();
-    spider_pages.iter().fold(initial, |state, page| {
-        // Stop if halted
-        if matches!(state.status, ExtractionStatus::Halted(_)) {
-            return state;
-        }
-        transform_and_accumulate_page(state, page, config, config.max_pages)
-    })
+    spider_pages
+        .into_par_iter()
+        .fold(initial_extraction_state, |state, page| {
+            if matches!(state.status, ExtractionStatus::Halted(_)) {
+                return state;
+            }
+            transform_and_accumulate_page(state, page, config, config.max_pages)
+        })
+        .reduce(|| initial_extraction_state(), merge_extraction_states)
 }
 
 /// Extract the total URL count from website pages.
@@ -670,36 +671,6 @@ mod tests {
 
         let result = append_error(result, "url2".to_string(), "msg2".to_string());
         assert_eq!(result.len(), 2);
-    }
-
-    #[test]
-    fn test_check_page_limit_exceeded() {
-        let msg = check_page_limit(10, 10, 5);
-        assert!(msg.is_some());
-    }
-
-    #[test]
-    fn test_check_page_limit_not_exceeded() {
-        let msg = check_page_limit(5, 10, 10);
-        assert!(msg.is_none());
-    }
-
-    #[test]
-    fn test_check_total_size_limit_exceeded() {
-        let msg = check_total_size_limit(100, 50, 100);
-        assert!(msg.is_some());
-    }
-
-    #[test]
-    fn test_check_total_size_limit_not_exceeded() {
-        let msg = check_total_size_limit(50, 30, 100);
-        assert!(msg.is_none());
-    }
-
-    #[test]
-    fn test_check_total_size_limit_overflow() {
-        let msg = check_total_size_limit(u64::MAX, 1, u64::MAX);
-        assert!(msg.is_some());
     }
 
     #[test]

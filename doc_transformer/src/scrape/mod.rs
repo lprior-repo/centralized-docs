@@ -65,10 +65,16 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
             (http::ScrapeStrategy::Sitemap, config.max_pages)
         } else {
             println!("[SCRAPE] No URLs found in sitemap, falling back to crawling...");
-            // Cap at 100 pages for fallback crawl to avoid infinite crawls on SPA sites
-            let capped = config.max_pages.min(100);
-            if config.max_pages > 100 {
-                println!("[SCRAPE] Limiting to {capped} pages for sitemap fallback crawl");
+            // Cap at 100 pages for fallback crawl to avoid infinite crawls on SPA sites,
+            // unless the user explicitly requested no sitemap
+            let capped = if config.sitemap_strategy == SitemapStrategy::CrawlOnly {
+                config.max_pages
+            } else {
+                config.max_pages.min(100)
+            };
+
+            if config.max_pages > 100 && config.sitemap_strategy != SitemapStrategy::CrawlOnly {
+                println!("[SCRAPE] Limiting to {capped} pages for sitemap fallback crawl (Use --no-sitemap to uncap)");
             }
             (http::ScrapeStrategy::Standard, capped)
         }

@@ -8,8 +8,8 @@ pub mod common;
 
 // Capability-based test modules
 pub mod document_indexing;
+pub mod e2e;
 pub mod full_pipeline;
 pub mod markdown_transform;
 pub mod proptests;
 pub mod semantic_search;
-pub mod e2e;

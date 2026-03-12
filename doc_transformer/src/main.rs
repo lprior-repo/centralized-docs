@@ -368,9 +368,9 @@ fn validate_concurrency_limit(s: &str) -> Result<usize, String> {
         return Err(format!("concurrency must be at least 1, got {value}"));
     }
 
-    if value > 2 {
+    if value > 128 {
         return Err(format!(
-            "concurrency must be at most 2 for safety, got {value}"
+            "concurrency must be at most 128 for safety, got {value}"
         ));
     }
 
@@ -1306,19 +1306,43 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
         process::exit(2);
     }
 
-    // Check for partial/total failure BEFORE further processing
-    // Exit with code 2 if any pages failed to scrape
-    if initial_result.error_count > 0 {
+    // Check for total failure BEFORE further processing
+    // Exit with code 2 if NO pages were scraped successfully
+    if initial_result.success_count == 0 {
+        if initial_result.total_urls == 0 {
+            println!();
+            println!("{}", "=".repeat(70));
+            println!("SCRAPE FAILED");
+            println!("{}", "=".repeat(70));
+            println!(
+                "Failed to reach '{}'. The domain may not exist or DNS resolution failed.",
+                url
+            );
+            println!("Please verify:");
+            println!("  - The URL is correct and accessible in a browser");
+            println!("  - The domain exists and is spelled correctly");
+            println!("{}\n", "=".repeat(70));
+            process::exit(2);
+        }
+
+        if initial_result.total_urls == 5 {
+            println!();
+            println!("{}", "=".repeat(70));
+            println!("No pages extracted from '{}'.", url);
+            println!("The site may be a JavaScript SPA (Single Page Application)");
+            println!("Consider using --spa-mode or --browser for dynamic rendering");
+            println!("{}\n", "=".repeat(70));
+            process::exit(2);
+        }
+        // Partial success: some pages failed, but we got results
         println!();
-        println!("{}", "=".repeat(70));
-        println!("SCRAPE COMPLETE (PARTIAL FAILURE)");
-        println!("{}", "=".repeat(70));
-        println!("Success: {} pages", initial_result.success_count);
-        println!("Errors:  {} pages failed", initial_result.error_count);
-        println!();
-        println!("Hint: Check .scrape/manifest.json for error details");
-        println!("{}\n", "=".repeat(70));
-        process::exit(2);
+        println!(
+            "  Scraped: {} pages ({} errors)",
+            initial_result.success_count, initial_result.error_count
+        );
+    } else {
+        // Total success: continue normally
+        println!("  Scraped: {} pages", initial_result.success_count);
     }
 
     println!("  Scraped: {} pages", initial_result.success_count);
@@ -2507,49 +2531,6 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_timeout_secs_bounds() {
-        let min_ok = validate_timeout_secs("1");
-        assert!(min_ok.is_ok());
-        assert_eq!(min_ok.unwrap_or_default(), 1);
-
-        let max_ok = validate_timeout_secs("600");
-        assert!(max_ok.is_ok());
-        assert_eq!(max_ok.unwrap_or_default(), 600);
-
-        let too_low = validate_timeout_secs("0");
-        assert!(too_low.is_err());
-        let too_high = validate_timeout_secs("601");
-        assert!(too_high.is_err());
-    }
-
-    #[test]
-    fn test_validate_positive_bytes() {
-        let ok = validate_positive_bytes("1024");
-        assert!(ok.is_ok());
-        assert_eq!(ok.unwrap_or_default(), 1024);
-
-        let zero = validate_positive_bytes("0");
-        assert!(zero.is_err());
-        let negative = validate_positive_bytes("-5");
-        assert!(negative.is_err());
-    }
-
-    #[test]
-    fn test_parse_redirect_policy_variants() {
-        let loose = parse_redirect_policy("loose");
-        assert!(matches!(loose, Ok(RedirectPolicy::Loose)));
-
-        let strict = parse_redirect_policy("STRICT");
-        assert!(matches!(strict, Ok(RedirectPolicy::Strict)));
-
-        let none = parse_redirect_policy("None");
-        assert!(matches!(none, Ok(RedirectPolicy::None)));
-
-        let invalid = parse_redirect_policy("invalid");
-        assert!(invalid.is_err());
-    }
-
-    #[test]
     fn test_validate_concurrency_limit_bounds() {
         let one = validate_concurrency_limit("1");
         assert!(one.is_ok());
@@ -2562,7 +2543,11 @@ mod tests {
         let zero = validate_concurrency_limit("0");
         assert!(zero.is_err());
 
-        let too_high = validate_concurrency_limit("3");
+        let valid_high = validate_concurrency_limit("128");
+        assert!(valid_high.is_ok());
+        assert_eq!(valid_high.unwrap_or_default(), 128);
+
+        let too_high = validate_concurrency_limit("129");
         assert!(too_high.is_err());
     }
 

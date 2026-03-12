@@ -372,13 +372,15 @@ fn test_document_with_duplicate_document_ids() {
         .output()
         .unwrap();
 
-    let _args2 = ["doc_transformer",
+    let _args2 = [
+        "doc_transformer",
         "document",
         "duplicate.md",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
         "--content",
-        "title: Test"];
+        "title: Test",
+    ];
 
     let output = std::process::Command::new("doc_transformer")
         .args(&args)

@@ -1512,17 +1512,17 @@ fn test_scrape_invalid_concurrency() {
         "--output",
         output_dir.to_str().unwrap(),
         "--concurrency",
-        "5",
+        "129",
     ]);
 
     assert!(
         !result.status.success(),
-        "Scrape with concurrency > 2 should fail"
+        "Scrape with concurrency > 128 should fail"
     );
 
     let stderr = String::from_utf8_lossy(&result.stderr);
     assert!(
-        stderr.contains("concurrency") || stderr.contains("at most 2"),
+        stderr.contains("concurrency") || stderr.contains("at most 128"),
         "Error should mention concurrency limit. Got: {stderr}"
     );
 }

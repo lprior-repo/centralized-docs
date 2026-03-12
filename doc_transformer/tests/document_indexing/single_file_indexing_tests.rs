@@ -482,8 +482,8 @@ Content B.
     fs::write(&md_file, content).expect("Failed to write test file");
 
     // Full pipeline: discover
-    let (files, _manifest) =
-        doc_transformer::discover::discover_files(&md_file, None).expect("discover_files should succeed");
+    let (files, _manifest) = doc_transformer::discover::discover_files(&md_file, None)
+        .expect("discover_files should succeed");
 
     // Analyze
     let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None)
@@ -634,8 +634,8 @@ Finally, we have a conclusion section that wraps up the document.
     fs::write(&md_file, content).expect("Failed to write test file");
 
     // Full pipeline
-    let (files, _manifest) =
-        doc_transformer::discover::discover_files(&md_file, None).expect("discover_files should succeed");
+    let (files, _manifest) = doc_transformer::discover::discover_files(&md_file, None)
+        .expect("discover_files should succeed");
 
     let analyze_result = doc_transformer::analyze::analyze_files(&files, source_dir, None)
         .expect("analyze_files should succeed");

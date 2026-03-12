@@ -87,17 +87,20 @@ pub struct LlmsTxt {
 
 impl LlmsTxt {
     /// Get section by title
+    #[must_use]
     pub fn get_section(&self, title: &str) -> Option<&Section> {
         self.sections.iter().find(|s| s.title == title)
     }
 
     /// Check if required sections exist
+    #[must_use]
     pub fn has_required_sections(&self) -> bool {
         let required = ["Getting Started", "Core Concepts", "API Reference"];
         required.iter().all(|&r| self.get_section(r).is_some())
     }
 
     /// Get index reference from frontmatter or Machine-Readable Index section
+    #[must_use]
     pub fn get_index_reference(&self) -> Option<String> {
         if let Some(fm) = &self.frontmatter {
             if let Some(index) = &fm.index {
@@ -119,6 +122,9 @@ impl LlmsTxt {
 }
 
 /// Parse llms.txt from a file
+///
+/// # Errors
+/// Returns an error if the file cannot be read or parsed.
 pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<LlmsTxt> {
     let content = fs::read_to_string(path.as_ref())
         .with_context(|| format!("Failed to read {}", path.as_ref().display()))?;
@@ -127,6 +133,9 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<LlmsTxt> {
 }
 
 /// Parse llms.txt from string content
+///
+/// # Errors
+/// Returns an error if the content is not a valid llms.txt.
 pub fn parse_content(content: &str) -> Result<LlmsTxt> {
     let (frontmatter, body) = extract_frontmatter(content)?;
 
