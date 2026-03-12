@@ -33,7 +33,6 @@ fn test_cli_invalid_flags() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -62,7 +61,6 @@ fn test_cli_missing_required_args() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -85,7 +83,6 @@ fn test_cli_wrong_data_type_for_limit() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -110,7 +107,6 @@ fn test_cli_negative_limit() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -139,7 +135,6 @@ fn test_cli_zero_limit() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -171,7 +166,6 @@ fn test_cli_negative_threshold() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "scrape",
         "https://example.com",
         "--output",
@@ -204,7 +198,6 @@ fn test_cli_threshold_greater_than_ten() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "scrape",
         "https://example.com",
         "--output",
@@ -234,7 +227,6 @@ fn test_cli_negative_delay() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "scrape",
         "https://example.com",
         "--output",
@@ -267,7 +259,6 @@ fn test_cli_delay_greater_than_sixty_seconds() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "scrape",
         "https://example.com",
         "--output",
@@ -297,7 +288,6 @@ fn test_cli_extremely_large_limit() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -329,7 +319,6 @@ fn test_cli_invalid_output_format() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "index",
         "some_file.md",
         "--index-dir",
@@ -357,7 +346,6 @@ fn test_cli_empty_search_query() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -380,7 +368,6 @@ fn test_cli_pattern_rejection() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "scrape",
         "https://example.com",
         "--output",
@@ -413,7 +400,6 @@ fn test_cli_project_name_with_special_characters() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "scrape",
         "https://example.com",
         "--output",
@@ -440,12 +426,7 @@ fn test_cli_project_name_with_special_characters() {
 
 #[test]
 fn test_cli_nonexistent_index_directory() {
-    let args = vec![
-        "doc_transformer",
-        "search",
-        "--index-dir",
-        "/nonexistent/path/to/index",
-    ];
+    let args = vec!["search", "--index-dir", "/nonexistent/path/to/index"];
 
     let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
@@ -463,7 +444,6 @@ fn test_cli_index_directory_is_file() {
     let _ = std::fs::write(&index_path, "test");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -510,7 +490,6 @@ fn test_cli_document_invalid_file() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "document",
         "/nonexistent/file.md",
         "--index-dir",
@@ -534,7 +513,6 @@ fn test_cli_output_to_nonexistent_directory() {
 
     let output_dir = temp_dir.path().join("nonexistent_output");
     let args = vec![
-        "doc_transformer",
         "index",
         "some_nonexistent_dir",
         "--output",
@@ -561,7 +539,6 @@ fn test_cli_multiple_search_queries() {
     write_test_document(&index_path, "test2", "# Test 2\n\nContent 2");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -595,7 +572,6 @@ fn test_cli_invalid_boolean_flag() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -623,7 +599,6 @@ fn test_cli_empty_string_for_project() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "scrape",
         "https://example.com",
         "--output",
@@ -656,7 +631,6 @@ fn test_cli_whitespace_only_query() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),

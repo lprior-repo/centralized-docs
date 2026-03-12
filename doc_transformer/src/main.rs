@@ -474,7 +474,6 @@ USAGE:
   doc_transformer scrape <URL> --output <DIR>    # Scrape a documentation site
   doc_transformer index <SOURCE> --output <DIR>  # Index local markdown files
   doc_transformer ingest <URL> --output <DIR>    # Scrape + index in one step
-  doc_transformer <SOURCE> <OUTPUT>              # Legacy mode (same as index)
 
 OUTPUT:
   llms.txt      - AI entry point (read this first)
@@ -489,15 +488,7 @@ OUTPUT:
 )]
 struct Cli {
     #[command(subcommand)]
-    command: Option<Commands>,
-
-    /// Legacy: Source directory (use 'index' subcommand instead)
-    #[arg(value_name = "SOURCE", required = false)]
-    source_dir: Option<PathBuf>,
-
-    /// Legacy: Output directory (use 'index' subcommand instead)
-    #[arg(value_name = "OUTPUT", required = false)]
-    output_dir: Option<PathBuf>,
+    command: Commands,
 }
 
 #[derive(Subcommand, Debug)]
@@ -782,18 +773,18 @@ async fn main() -> Result<()> {
     };
 
     let (result, search_context) = match cli.command {
-        Some(Commands::Search {
+        Commands::Search {
             query,
             index_dir,
             limit,
             no_color,
             json,
-        }) => {
+        } => {
             let ctx = Some((json, query.clone()));
             (run_search(&query, &index_dir, limit, !no_color, json), ctx)
         }
 
-        Some(Commands::Scrape {
+        Commands::Scrape {
             url,
             output,
             no_sitemap,
@@ -807,7 +798,7 @@ async fn main() -> Result<()> {
             max_page_bytes,
             max_total_bytes,
             concurrency,
-        }) => {
+        } => {
             let config = ScrapeCommandConfig {
                 sitemap_strategy: if no_sitemap {
                     SitemapStrategy::CrawlOnly
@@ -828,7 +819,7 @@ async fn main() -> Result<()> {
             (run_scrape(&url, &output, &config).await, None)
         }
 
-        Some(Commands::Index {
+        Commands::Index {
             source,
             output,
             llms_txt,
@@ -840,7 +831,7 @@ async fn main() -> Result<()> {
             hnsw_m,
             hnsw_ef_construction,
             max_document_bytes,
-        }) => {
+        } => {
             let config = IndexConfig {
                 generate_llms: llms_txt,
                 project_name,
@@ -856,14 +847,14 @@ async fn main() -> Result<()> {
             (run_index(&source, &output, &config), None)
         }
 
-        Some(Commands::IngestGit {
+        Commands::IngestGit {
             repo_url,
             output,
             branch,
             depth: _, // git2-rs doesn't easily support shallow clones natively
             project_name,
             filter,
-        }) => {
+        } => {
             // Git ingestion using git2 with functional principles
             let temp_dir = output.join(".git-clone");
             std::fs::create_dir_all(&temp_dir)?;
@@ -947,7 +938,7 @@ async fn main() -> Result<()> {
             (Ok(()), None)
         }
 
-        Some(Commands::Ingest {
+        Commands::Ingest {
             url,
             output,
             filter,
@@ -961,7 +952,7 @@ async fn main() -> Result<()> {
             query,
             threshold,
             project_name,
-        }) => {
+        } => {
             let config = IngestConfig {
                 filter,
                 delay,
@@ -976,17 +967,6 @@ async fn main() -> Result<()> {
                 project_name,
             };
             (run_ingest(&url, &output, &config).await, None)
-        }
-
-        None => {
-            // Legacy mode: two positional arguments
-            if let (Some(source), Some(output)) = (cli.source_dir, cli.output_dir) {
-                (run_index(&source, &output, &IndexConfig::default()), None)
-            } else {
-                anyhow::bail!(
-                    "Usage: doc_transformer <SOURCE> <OUTPUT>\n   or: doc_transformer scrape <URL> --output <DIR>\n   or: doc_transformer index <SOURCE> --output <DIR>\n   or: doc_transformer ingest <URL> --output <DIR>\n\nRun 'doc_transformer --help' for more information."
-                );
-            }
         }
     };
 
