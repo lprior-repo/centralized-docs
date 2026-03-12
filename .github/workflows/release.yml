@@ -22,11 +22,6 @@ jobs:
             binary_name: doc_transformer
             validator_name: llms_txt_validator
             is_windows: false
-          - os: macos-13
-            artifact_name: doc_transformer-${{ github.ref_name }}-macos-x86_64.tar.gz
-            binary_name: doc_transformer
-            validator_name: llms_txt_validator
-            is_windows: false
           - os: macos-latest
             artifact_name: doc_transformer-${{ github.ref_name }}-macos-aarch64.tar.gz
             binary_name: doc_transformer
