@@ -1,0 +1,843 @@
+Build on macos-latest (x86_64-apple-darwin)	Set up job	﻿2026-03-12T03:58:35.4705240Z Current runner version: '2.332.0'
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4719950Z ##[group]Runner Image Provisioner
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4720450Z Hosted Compute Agent
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4720810Z Version: 20260213.493
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4721200Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4721640Z Build Date: 2026-02-13T00:28:41Z
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4722070Z Worker ID: {bb2eb1f6-fbc6-4d13-ad80-03aeae32c317}
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4722500Z Azure Region: westus
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4722840Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4723640Z ##[group]Operating System
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4724000Z macOS
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4724290Z 15.7.4
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4724560Z 24G517
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4724860Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4725170Z ##[group]Runner Image
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4725500Z Image: macos-15-arm64
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4725830Z Version: 20260303.0188.2
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4726520Z Included Software: https://github.com/actions/runner-images/blob/macos-15-arm64/20260303.0188/images/macos/macos-15-arm64-Readme.md
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4727570Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-15-arm64%2F20260303.0188
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4728160Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4728790Z ##[group]GITHUB_TOKEN Permissions
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4729700Z Contents: write
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4730030Z Metadata: read
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4730340Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4731560Z Secret source: Actions
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4731970Z Prepare workflow directory
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4968600Z Prepare all required actions
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.4997440Z Getting action download info
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.7140860Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:35.8902750Z Download action repository 'dtolnay/rust-toolchain@stable' (SHA:631a55b12751854ce901bb631d5902ceb48146f7)
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:36.8257280Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:36.9100720Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+Build on macos-latest (x86_64-apple-darwin)	Set up job	2026-03-12T03:58:37.0927300Z Complete job name: Build on macos-latest (x86_64-apple-darwin)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	﻿2026-03-12T03:58:37.1315560Z ##[group]Run actions/checkout@v4
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1316170Z with:
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1317310Z   repository: lprior-repo/centralized-docs
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1317980Z   token: ***
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1318340Z   ssh-strict: true
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1318720Z   ssh-user: git
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1319060Z   persist-credentials: true
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1319460Z   clean: true
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1319800Z   sparse-checkout-cone-mode: true
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1320210Z   fetch-depth: 1
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1334240Z   fetch-tags: false
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1334650Z   show-progress: true
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1335020Z   lfs: false
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1335340Z   submodules: false
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1335680Z   set-safe-directory: true
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.1336440Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3285910Z Syncing repository: lprior-repo/centralized-docs
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3287410Z ##[group]Getting Git version info
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3288050Z Working directory is '/Users/runner/work/centralized-docs/centralized-docs'
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3288960Z [command]/opt/homebrew/bin/git version
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3541320Z git version 2.53.0
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3562950Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3568640Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/cd8d92f6-6be3-4055-80a3-bbf6bf8a7207/.gitconfig'
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3578600Z Temporarily overriding HOME='/Users/runner/work/_temp/cd8d92f6-6be3-4055-80a3-bbf6bf8a7207' before making global git config changes
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3579710Z Adding repository directory to the temporary git global config as a safe directory
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3581980Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/centralized-docs/centralized-docs
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3668480Z Deleting the contents of '/Users/runner/work/centralized-docs/centralized-docs'
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3671000Z ##[group]Initializing the repository
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3674740Z [command]/opt/homebrew/bin/git init /Users/runner/work/centralized-docs/centralized-docs
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3814430Z hint: Using 'master' as the name for the initial branch. This default branch name
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3815550Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3816300Z hint: to use in all of your new repositories, which will suppress this warning,
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3816920Z hint: call:
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3817310Z hint:
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3817730Z hint: 	git config --global init.defaultBranch <name>
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3818280Z hint:
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3818750Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3819490Z hint: 'development'. The just-created branch can be renamed via this command:
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3820070Z hint:
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3820400Z hint: 	git branch -m <name>
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3820840Z hint:
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3821330Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3822200Z Initialized empty Git repository in /Users/runner/work/centralized-docs/centralized-docs/.git/
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3824490Z [command]/opt/homebrew/bin/git remote add origin https://github.com/lprior-repo/centralized-docs
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3883470Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3884140Z ##[group]Disabling automatic garbage collection
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3885800Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3936230Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3936870Z ##[group]Setting up auth
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3940650Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.3987410Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.4637760Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.4683070Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.5307610Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.5362220Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.5999300Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.6157560Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.6158510Z ##[group]Fetching the repository
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:37.6162900Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +78eeeea2b74fbadfda0d4e4e99dc01ada6ffd27d:refs/remotes/origin/main
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:46.7822670Z From https://github.com/lprior-repo/centralized-docs
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:46.7824080Z  * [new ref]         78eeeea2b74fbadfda0d4e4e99dc01ada6ffd27d -> origin/main
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:46.7900720Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:46.7901450Z ##[group]Determining the checkout info
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:46.7902210Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:46.7904670Z [command]/opt/homebrew/bin/git sparse-checkout disable
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:46.7974570Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:46.8033840Z ##[group]Checking out the ref
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:46.8035590Z [command]/opt/homebrew/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.0650620Z Updating files:  44% (1173/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.1667830Z Updating files:  45% (1195/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.1824710Z Updating files:  46% (1221/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.1844590Z Updating files:  47% (1248/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3112710Z Updating files:  48% (1274/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3235880Z Updating files:  49% (1301/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3358590Z Updating files:  50% (1327/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3402450Z Updating files:  51% (1354/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3443670Z Updating files:  52% (1381/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3627020Z Updating files:  53% (1407/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3655120Z Updating files:  54% (1434/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3694810Z Updating files:  55% (1460/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3813950Z Updating files:  56% (1487/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3849150Z Updating files:  57% (1513/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3889340Z Updating files:  58% (1540/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.3946040Z Updating files:  59% (1566/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4187510Z Updating files:  60% (1593/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4228420Z Updating files:  61% (1619/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4262020Z Updating files:  62% (1646/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4303950Z Updating files:  63% (1673/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4355570Z Updating files:  64% (1699/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4390880Z Updating files:  65% (1726/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4552090Z Updating files:  66% (1752/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4607730Z Updating files:  67% (1779/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4639200Z Updating files:  68% (1805/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4671540Z Updating files:  69% (1832/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4694280Z Updating files:  70% (1858/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4710360Z Updating files:  71% (1885/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4729980Z Updating files:  72% (1911/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4747410Z Updating files:  73% (1938/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4767970Z Updating files:  74% (1964/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4787200Z Updating files:  75% (1991/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4809740Z Updating files:  76% (2018/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.4828260Z Updating files:  77% (2044/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.5013420Z Updating files:  78% (2071/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.5344730Z Updating files:  79% (2097/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.5640930Z Updating files:  80% (2124/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.5791230Z Updating files:  81% (2150/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.6615300Z Updating files:  82% (2177/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7119680Z Updating files:  83% (2203/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7185260Z Updating files:  84% (2230/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7228330Z Updating files:  85% (2256/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7331190Z Updating files:  86% (2283/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7385870Z Updating files:  87% (2309/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7426280Z Updating files:  88% (2336/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7455260Z Updating files:  89% (2363/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7629860Z Updating files:  90% (2389/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7669450Z Updating files:  91% (2416/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7713090Z Updating files:  92% (2442/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7827660Z Updating files:  93% (2469/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7862710Z Updating files:  94% (2495/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.7893900Z Updating files:  95% (2522/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8033800Z Updating files:  96% (2548/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8129630Z Updating files:  97% (2575/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8136050Z Updating files:  98% (2601/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8164270Z Updating files:  98% (2608/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8190520Z Updating files:  99% (2628/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8190850Z Updating files: 100% (2654/2654)
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8191150Z Updating files: 100% (2654/2654), done.
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8240750Z Switched to a new branch 'main'
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8244910Z branch 'main' set up to track 'origin/main'.
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8283700Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8386460Z [command]/opt/homebrew/bin/git log -1 --format=%H
+Build on macos-latest (x86_64-apple-darwin)	Run actions/checkout@v4	2026-03-12T03:58:48.8443200Z 78eeeea2b74fbadfda0d4e4e99dc01ada6ffd27d
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	﻿2026-03-12T03:58:48.8711390Z ##[group]Run dtolnay/rust-toolchain@stable
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8711640Z with:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8711760Z   targets: x86_64-apple-darwin
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8711950Z   toolchain: stable
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8712110Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8789610Z ##[group]Run : parse toolchain version
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8791590Z [36;1m: parse toolchain version[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8791790Z [36;1mif [[ -z $toolchain ]]; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8792220Z [36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8792630Z [36;1m  echo "'toolchain' is a required input" >&2[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8792810Z [36;1m  exit 1[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8793070Z [36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8793400Z [36;1m  if [[ macOS == macOS ]]; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8793770Z [36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8794160Z [36;1m  else[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8794430Z [36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8794740Z [36;1m  fi[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8794940Z [36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8795330Z [36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8795650Z [36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8796040Z [36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8796380Z [36;1melse[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8796540Z [36;1m  echo "toolchain=$toolchain" >> $GITHUB_OUTPUT[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8796740Z [36;1mfi[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8831850Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8832100Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8832230Z   toolchain: stable
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.8832370Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9111720Z ##[group]Run : construct rustup command line
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9112050Z [36;1m: construct rustup command line[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9112400Z [36;1mecho "targets=$(for t in ${targets//,/ }; do echo -n ' --target' $t; done)" >> $GITHUB_OUTPUT[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9112860Z [36;1mecho "components=$(for c in ${components//,/ }; do echo -n ' --component' $c; done)" >> $GITHUB_OUTPUT[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9113220Z [36;1mecho "downgrade=" >> $GITHUB_OUTPUT[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9139190Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9139420Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9139550Z   targets: x86_64-apple-darwin
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9139710Z   components: 
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9139830Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9346400Z ##[group]Run : set $CARGO_HOME
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9346660Z [36;1m: set $CARGO_HOME[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9346930Z [36;1mecho CARGO_HOME=${CARGO_HOME:-"$HOME/.cargo"} >> $GITHUB_ENV[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9373260Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9373490Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9586050Z ##[group]Run : install rustup if needed
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9586290Z [36;1m: install rustup if needed[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9586510Z [36;1mif ! command -v rustup &>/dev/null; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9587080Z [36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://sh.rustup.rs | sh -s -- --default-toolchain none -y[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9587610Z [36;1m  echo "$CARGO_HOME/bin" >> $GITHUB_PATH[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9587810Z [36;1mfi[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9615540Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9615770Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9615900Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9616060Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9830890Z ##[group]Run rustup toolchain install stable --target x86_64-apple-darwin --profile minimal --no-self-update
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9831560Z [36;1mrustup toolchain install stable --target x86_64-apple-darwin --profile minimal --no-self-update[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9862050Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9862310Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9862450Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9862650Z   RUSTUP_PERMIT_COPY_RENAME: 1
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:48.9862820Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:49.3044770Z info: syncing channel updates for 'stable-aarch64-apple-darwin'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:49.3835110Z info: latest update on 2026-03-05, rust version 1.94.0 (4a4ef493e 2026-03-02)
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:49.4027470Z info: downloading component 'rust-std' for 'x86_64-apple-darwin'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:49.5903750Z info: downloading component 'clippy'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:49.6222170Z info: downloading component 'rustfmt'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:49.6472840Z info: downloading component 'cargo'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:49.7138680Z info: downloading component 'rust-std'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:49.8874820Z info: downloading component 'rustc'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:50.3258730Z info: removing previous version of component 'clippy'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:50.3292610Z info: removing previous version of component 'rustfmt'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:50.3302810Z info: removing previous version of component 'cargo'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:50.3370140Z info: removing previous version of component 'rust-std'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:50.3422450Z info: removing previous version of component 'rustc'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:50.3478330Z info: installing component 'rust-std' for 'x86_64-apple-darwin'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:51.8580870Z info: installing component 'clippy'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:52.1105130Z info: installing component 'rustfmt'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:52.3642670Z info: installing component 'cargo'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:52.9263240Z info: installing component 'rust-std'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:54.3590980Z info: installing component 'rustc'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.8306560Z 
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9259480Z   stable-aarch64-apple-darwin updated - rustc 1.94.0 (4a4ef493e 2026-03-02) (from rustc 1.93.1 (01f6ddf75 2026-02-11))
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9265750Z info: self-update is disabled for this build of rustup
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9266010Z 
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9266570Z info: any updates to rustup will need to be fetched with your system package manager
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9354350Z ##[group]Run rustup default stable
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9354610Z [36;1mrustup default stable[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9384630Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9384920Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9385090Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9385300Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:57.9982290Z info: using existing install for 'stable-aarch64-apple-darwin'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0139330Z info: default toolchain set to 'stable-aarch64-apple-darwin'
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0139590Z 
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0240600Z   stable-aarch64-apple-darwin unchanged - rustc 1.94.0 (4a4ef493e 2026-03-02)
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0241070Z 
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0299440Z info: note that the toolchain '1.94-aarch64-apple-darwin' is currently in use (overridden by '/Users/runner/work/centralized-docs/centralized-docs/rust-toolchain.toml')
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0386780Z ##[group]Run : create cachekey
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0387020Z [36;1m: create cachekey[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0387460Z [36;1mDATE=$(rustc +stable --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0388070Z [36;1mHASH=$(rustc +stable --version --verbose | sed -ne 's/^commit-hash: //p')[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0388470Z [36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0418660Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0418970Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0419160Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.0419340Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1235210Z ##[group]Run : disable incremental compilation
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1240190Z [36;1m: disable incremental compilation[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1240420Z [36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1240670Z [36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1241380Z [36;1mfi[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1273420Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1273650Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1273790Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1273980Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1533720Z ##[group]Run : enable colors in Cargo output
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1534140Z [36;1m: enable colors in Cargo output[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1534500Z [36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1534760Z [36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1534980Z [36;1mfi[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1565110Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1565440Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1565600Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1565950Z   CARGO_INCREMENTAL: 0
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1566130Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1807080Z ##[group]Run : enable Cargo sparse registry
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1807390Z [36;1m: enable Cargo sparse registry[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1807700Z [36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1808360Z [36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "/Users/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol ]; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1808930Z [36;1m  if rustc +stable --version --verbose | grep -q '^release: 1\.6[89]\.'; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1809380Z [36;1m    touch "/Users/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1809810Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1810200Z [36;1m  elif rustc +stable --version --verbose | grep -q '^release: 1\.6[67]\.'; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1810660Z [36;1m    touch "/Users/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1811070Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1811340Z [36;1m  fi[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1811460Z [36;1mfi[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1840460Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1840710Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1840860Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1841050Z   CARGO_INCREMENTAL: 0
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1841310Z   CARGO_TERM_COLOR: always
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.1841520Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2465140Z ##[group]Run : work around spurious network errors in curl 8.0
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2465540Z [36;1m: work around spurious network errors in curl 8.0[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2465990Z [36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2466560Z [36;1mif rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2466950Z [36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2467180Z [36;1mfi[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2496930Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2497210Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2497360Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2497540Z   CARGO_INCREMENTAL: 0
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2497700Z   CARGO_TERM_COLOR: always
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2497860Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2915120Z ##[group]Run rustc +stable --version --verbose
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2915450Z [36;1mrustc +stable --version --verbose[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2947110Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2947370Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2947520Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2947710Z   CARGO_INCREMENTAL: 0
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2947880Z   CARGO_TERM_COLOR: always
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.2948040Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.3427150Z rustc 1.94.0 (4a4ef493e 2026-03-02)
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.3427990Z binary: rustc
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.3428310Z commit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.3428560Z commit-date: 2026-03-02
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.3428960Z host: aarch64-apple-darwin
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.3429130Z release: 1.94.0
+Build on macos-latest (x86_64-apple-darwin)	Install Rust	2026-03-12T03:58:58.3429280Z LLVM version: 21.1.8
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	﻿2026-03-12T03:58:58.3506330Z ##[group]Run actions/setup-node@v4
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.3506550Z with:
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.3506670Z   node-version: 20
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.3506830Z   always-auth: false
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.3506980Z   check-latest: false
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.3507230Z   token: ***
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.3507370Z env:
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.3507510Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.3507700Z   CARGO_INCREMENTAL: 0
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.3507850Z   CARGO_TERM_COLOR: always
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.3508040Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.4977660Z Found in cache @ /Users/runner/hostedtoolcache/node/20.20.0/arm64
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.4982060Z ##[group]Environment details
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.8859200Z node: v20.20.0
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.8861340Z npm: 10.8.2
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.8861900Z yarn: 1.22.22
+Build on macos-latest (x86_64-apple-darwin)	Setup Node (for moon)	2026-03-12T03:58:58.8862710Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Moon	﻿2026-03-12T03:58:58.8930460Z ##[group]Run npm install -g @moonrepo/cli
+Build on macos-latest (x86_64-apple-darwin)	Install Moon	2026-03-12T03:58:58.8930760Z [36;1mnpm install -g @moonrepo/cli[0m
+Build on macos-latest (x86_64-apple-darwin)	Install Moon	2026-03-12T03:58:58.8961700Z shell: /bin/bash -e {0}
+Build on macos-latest (x86_64-apple-darwin)	Install Moon	2026-03-12T03:58:58.8961880Z env:
+Build on macos-latest (x86_64-apple-darwin)	Install Moon	2026-03-12T03:58:58.8962030Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Install Moon	2026-03-12T03:58:58.8962220Z   CARGO_INCREMENTAL: 0
+Build on macos-latest (x86_64-apple-darwin)	Install Moon	2026-03-12T03:58:58.8962380Z   CARGO_TERM_COLOR: always
+Build on macos-latest (x86_64-apple-darwin)	Install Moon	2026-03-12T03:58:58.8962540Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Install Moon	2026-03-12T03:59:00.4110800Z 
+Build on macos-latest (x86_64-apple-darwin)	Install Moon	2026-03-12T03:59:00.4117010Z added 3 packages in 1s
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	﻿2026-03-12T03:59:00.4191890Z ##[group]Run moon run :build
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:00.4192090Z [36;1mmoon run :build[0m
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:00.4218880Z shell: /bin/bash -e {0}
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:00.4219070Z env:
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:00.4219210Z   CARGO_HOME: /Users/runner/.cargo
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:00.4219390Z   CARGO_INCREMENTAL: 0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:00.4219540Z   CARGO_TERM_COLOR: always
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:00.4219700Z   CARGO_BUILD_TARGET: x86_64-apple-darwin
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:00.4219930Z ##[endgroup]
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:00.5173880Z [ WARN 2026-03-12 03:59:00.517] moon_app::queries::changed_files  Detected a shallow checkout, unable to run Git commands to determine changed files. 
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:00.5174980Z [ WARN 03:59:00.517] moon_app::queries::changed_files  A full Git history is required for affected checks, falling back to an empty files list. 
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:05.2535320Z ▮▮▮▮ doc_transformer:build (7fc7e97d)
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:05.2552850Z info: syncing channel updates for '1.94-aarch64-apple-darwin'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:05.4250930Z info: latest update on 2026-03-05, rust version 1.94.0 (4a4ef493e 2026-03-02)
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:05.4251560Z info: downloading component 'cargo'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:05.4251960Z info: downloading component 'clippy'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:05.4252300Z info: downloading component 'rust-analyzer'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:05.5861310Z info: downloading component 'rust-std'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:05.7034500Z info: downloading component 'rust-std' for 'x86_64-unknown-linux-gnu'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:05.9601050Z info: downloading component 'rustc'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:06.2724030Z info: downloading component 'rustfmt'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:06.4469940Z info: installing component 'cargo'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:06.9079310Z info: installing component 'clippy'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:07.1917260Z info: installing component 'rust-analyzer'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:07.6286220Z info: installing component 'rust-std'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:09.0691990Z info: installing component 'rust-std' for 'x86_64-unknown-linux-gnu'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:10.6701270Z info: installing component 'rustc'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:13.9857130Z info: installing component 'rustfmt'
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:14.3065000Z [1m[92m    Updating[0m crates.io index
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.4603900Z [1m[92m Downloading[0m crates ...
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6336460Z [1m[92m  Downloaded[0m cssparser v0.31.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6337040Z [1m[92m  Downloaded[0m servo_arc v0.4.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6337460Z [1m[92m  Downloaded[0m new_debug_unreachable v1.0.6
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6338260Z [1m[92m  Downloaded[0m bytes v1.11.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6339060Z [1m[92m  Downloaded[0m proc-macro2 v1.0.106
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6342940Z [1m[92m  Downloaded[0m siphasher v1.0.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6344440Z [1m[92m  Downloaded[0m rustc-hash v1.1.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6344900Z [1m[92m  Downloaded[0m rustc-hash v2.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6345350Z [1m[92m  Downloaded[0m fixedbitset v0.5.7
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6345740Z [1m[92m  Downloaded[0m ident_case v1.0.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6346280Z [1m[92m  Downloaded[0m mac v0.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6346680Z [1m[92m  Downloaded[0m unicode-xid v0.2.6
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6347030Z [1m[92m  Downloaded[0m tinystr v0.8.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.6347760Z [1m[92m  Downloaded[0m tokio-stream v0.1.18
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8077270Z [1m[92m  Downloaded[0m version_check v0.9.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8078030Z [1m[92m  Downloaded[0m heck v0.5.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8078500Z [1m[92m  Downloaded[0m http-body v1.0.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8079120Z [1m[92m  Downloaded[0m http-body-util v0.1.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8079620Z [1m[92m  Downloaded[0m getrandom v0.4.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8080040Z [1m[92m  Downloaded[0m html5ever v0.27.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8080450Z [1m[92m  Downloaded[0m html5ever v0.26.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8081170Z [1m[92m  Downloaded[0m zerocopy v0.8.42
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8081890Z [1m[92m  Downloaded[0m tower-http v0.6.8
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8082370Z [1m[92m  Downloaded[0m hashbrown v0.16.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8082810Z [1m[92m  Downloaded[0m hashbrown v0.15.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8083100Z [1m[92m  Downloaded[0m h2 v0.4.13
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8083800Z [1m[92m  Downloaded[0m h2 v0.3.27
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.8084230Z [1m[92m  Downloaded[0m git2 v0.19.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.9615660Z [1m[92m  Downloaded[0m webpki-roots v1.0.6
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.9616180Z [1m[92m  Downloaded[0m brotli v8.0.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.9616570Z [1m[92m  Downloaded[0m futures-util v0.3.32
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:17.9616880Z [1m[92m  Downloaded[0m vcpkg v0.2.15
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.1339560Z [1m[92m  Downloaded[0m regex-automata v0.4.14
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.1340130Z [1m[92m  Downloaded[0m zstd-sys v2.0.16+zstd.1.5.7
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.1340600Z [1m[92m  Downloaded[0m spider_fingerprint v2.38.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.1341020Z [1m[92m  Downloaded[0m markup5ever_rcdom v0.2.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.1341400Z [1m[92m  Downloaded[0m time v0.3.47
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.1341720Z [1m[92m  Downloaded[0m tracing v0.1.44
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.3013520Z [1m[92m  Downloaded[0m libssh2-sys v0.3.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.3015220Z [1m[92m  Downloaded[0m spider v2.39.21
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.3015660Z [1m[92m  Downloaded[0m syn v2.0.117
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.3016120Z [1m[92m  Downloaded[0m jiff v0.2.23
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.3016480Z [1m[92m  Downloaded[0m rustix v1.1.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.3019380Z [1m[92m  Downloaded[0m unicode-width v0.2.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.3019850Z [1m[92m  Downloaded[0m petgraph v0.8.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4763730Z [1m[92m  Downloaded[0m hnsw_rs v0.3.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4765170Z [1m[92m  Downloaded[0m hashbrown v0.12.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4765580Z [1m[92m  Downloaded[0m encoding_rs v0.8.35
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4765990Z [1m[92m  Downloaded[0m xml v1.2.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4766750Z [1m[92m  Downloaded[0m hyper v1.8.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4767150Z [1m[92m  Downloaded[0m tokio-util v0.7.18
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4767560Z [1m[92m  Downloaded[0m hyper v0.14.32
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4767870Z [1m[92m  Downloaded[0m syn v1.0.109
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4768380Z [1m[92m  Downloaded[0m rustls v0.23.37
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4768760Z [1m[92m  Downloaded[0m regex-syntax v0.8.10
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.4769090Z [1m[92m  Downloaded[0m libc v0.2.183
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.6515170Z [1m[92m  Downloaded[0m tokio v1.50.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.6515660Z [1m[92m  Downloaded[0m libz-sys v1.1.25
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.6516100Z [1m[92m  Downloaded[0m nix v0.30.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.6516430Z [1m[92m  Downloaded[0m getrandom v0.3.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.6516780Z [1m[92m  Downloaded[0m xml5ever v0.18.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.6517500Z [1m[92m  Downloaded[0m url v2.5.8
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8191210Z [1m[92m  Downloaded[0m unicode-segmentation v1.12.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8191690Z [1m[92m  Downloaded[0m mio v1.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8192040Z [1m[92m  Downloaded[0m icu_properties_data v2.1.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8192380Z [1m[92m  Downloaded[0m getrandom v0.2.17
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8192840Z [1m[92m  Downloaded[0m futures-channel v0.3.32
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8193240Z [1m[92m  Downloaded[0m fs_extra v1.3.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8193640Z [1m[92m  Downloaded[0m fs4 v0.13.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8194060Z [1m[92m  Downloaded[0m tracing-core v0.1.36
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8195180Z [1m[92m  Downloaded[0m tower v0.5.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8195590Z [1m[92m  Downloaded[0m minimal-lexical v0.2.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8195970Z [1m[92m  Downloaded[0m icu_locale_data v2.1.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8196390Z [1m[92m  Downloaded[0m hyper-util v0.1.20
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8196730Z [1m[92m  Downloaded[0m getopts v0.2.24
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8197120Z [1m[92m  Downloaded[0m fxhash v0.2.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8197430Z [1m[92m  Downloaded[0m futures-task v0.3.32
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8197820Z [1m[92m  Downloaded[0m futures-sink v0.3.32
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8198140Z [1m[92m  Downloaded[0m futures-macro v0.3.32
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8198600Z [1m[92m  Downloaded[0m futures-io v0.3.32
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8199010Z [1m[92m  Downloaded[0m futures-core v0.3.32
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.8200050Z [1m[92m  Downloaded[0m ring v0.17.14
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9898440Z [1m[92m  Downloaded[0m futf v0.1.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9899820Z [1m[92m  Downloaded[0m zmij v1.0.21
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9900430Z [1m[92m  Downloaded[0m yoke v0.8.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9901290Z [1m[92m  Downloaded[0m xml5ever v0.17.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9902020Z [1m[92m  Downloaded[0m tantivy v0.25.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9902530Z [1m[92m  Downloaded[0m tantivy-fst v0.5.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9903360Z [1m[92m  Downloaded[0m icu_segmenter v2.1.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9904480Z [1m[92m  Downloaded[0m xml-rs v1.0.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9905960Z [1m[92m  Downloaded[0m writeable v0.6.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9906410Z [1m[92m  Downloaded[0m uuid v1.22.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9906830Z [1m[92m  Downloaded[0m unicode-ident v1.0.24
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9907160Z [1m[92m  Downloaded[0m miniz_oxide v0.8.9
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:18.9907510Z [1m[92m  Downloaded[0m memchr v2.8.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0926510Z [1m[92m  Downloaded[0m libm v0.2.16
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0926950Z [1m[92m  Downloaded[0m walkdir v2.5.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0927330Z [1m[92m  Downloaded[0m unicase v2.9.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0927700Z [1m[92m  Downloaded[0m twox-hash v2.1.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0928110Z [1m[92m  Downloaded[0m tracing-attributes v0.1.31
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0928520Z [1m[92m  Downloaded[0m tokio-rustls v0.26.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0928920Z [1m[92m  Downloaded[0m spider_transformations v2.37.114
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0929260Z [1m[92m  Downloaded[0m socket2 v0.6.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0929640Z [1m[92m  Downloaded[0m socket2 v0.5.10
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0930020Z [1m[92m  Downloaded[0m icu_locale_core v2.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.0930370Z [1m[92m  Downloaded[0m libgit2-sys v0.17.0+1.8.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.4322090Z [1m[92m  Downloaded[0m icu_locale v2.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.4322860Z [1m[92m  Downloaded[0m icu_collections v2.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5629400Z [1m[92m  Downloaded[0m hyperloglogplus v0.4.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5631630Z [1m[92m  Downloaded[0m zlib-rs v0.6.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5632060Z [1m[92m  Downloaded[0m zerovec v0.11.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5632460Z [1m[92m  Downloaded[0m iri-string v0.7.10
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5632910Z [1m[92m  Downloaded[0m utf8parse v0.2.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5633220Z [1m[92m  Downloaded[0m utf8_iter v1.0.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5633530Z [1m[92m  Downloaded[0m utf8-ranges v1.0.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5633840Z [1m[92m  Downloaded[0m utf-8 v0.7.6
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5634130Z [1m[92m  Downloaded[0m untrusted v0.9.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5634700Z [1m[92m  Downloaded[0m try-lock v0.2.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5635030Z [1m[92m  Downloaded[0m tower-service v0.3.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5635410Z [1m[92m  Downloaded[0m tower-layer v0.3.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5635830Z [1m[92m  Downloaded[0m tokio-native-tls v0.3.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5636170Z [1m[92m  Downloaded[0m tokio-macros v2.6.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5637070Z [1m[92m  Downloaded[0m tinyvec_macros v0.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5637570Z [1m[92m  Downloaded[0m tinyvec v1.10.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.5637970Z [1m[92m  Downloaded[0m rust-stemmers v1.2.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.6846420Z [1m[92m  Downloaded[0m time-macros v0.2.27
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.6849110Z [1m[92m  Downloaded[0m time-core v0.1.8
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.6849890Z [1m[92m  Downloaded[0m string_cache_codegen v0.5.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.6850520Z [1m[92m  Downloaded[0m string_cache v0.8.9
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8251020Z [1m[92m  Downloaded[0m string-interner v0.19.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8251550Z [1m[92m  Downloaded[0m stable_deref_trait v1.2.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8252020Z [1m[92m  Downloaded[0m spider_scraper v0.1.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8252360Z [1m[92m  Downloaded[0m mmap-rs v0.7.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8252660Z [1m[92m  Downloaded[0m memmap2 v0.9.10
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8252990Z [1m[92m  Downloaded[0m markup5ever_rcdom v0.3.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8253410Z [1m[92m  Downloaded[0m icu_provider v2.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8253740Z [1m[92m  Downloaded[0m icu_properties v2.1.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8254090Z [1m[92m  Downloaded[0m icu_normalizer_data v2.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8254700Z [1m[92m  Downloaded[0m lol_html v2.7.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:19.8255030Z [1m[92m  Downloaded[0m tantivy-columnar v0.6.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.1075060Z [1m[92m  Downloaded[0m itertools v0.14.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.1075510Z [1m[92m  Downloaded[0m rayon v1.11.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.1075830Z [1m[92m  Downloaded[0m string_cache v0.9.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.1076240Z [1m[92m  Downloaded[0m static_assertions v1.1.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.1076760Z [1m[92m  Downloaded[0m smallvec v1.15.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.1077060Z [1m[92m  Downloaded[0m slab v0.4.12
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.1077460Z [1m[92m  Downloaded[0m sketches-ddsketch v0.3.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.2181650Z [1m[92m  Downloaded[0m mime v0.3.17
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.2182040Z [1m[92m  Downloaded[0m markup5ever v0.36.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.2182510Z [1m[92m  Downloaded[0m levenshtein_automata v0.2.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.2182860Z [1m[92m  Downloaded[0m lazy_static v1.5.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.2183200Z [1m[92m  Downloaded[0m iana-time-zone v0.1.65
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.3310150Z [1m[92m  Downloaded[0m hyper-tls v0.6.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.3310710Z [1m[92m  Downloaded[0m hyper-tls v0.5.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.4469340Z [1m[92m  Downloaded[0m httpdate v1.0.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6054710Z [1m[92m  Downloaded[0m httparse v1.10.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6055590Z [1m[92m  Downloaded[0m zerotrie v0.2.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6055950Z [1m[92m  Downloaded[0m zerocopy-derive v0.8.42
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6056480Z [1m[92m  Downloaded[0m indexmap v2.13.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6056840Z [1m[92m  Downloaded[0m http v1.4.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6057230Z [1m[92m  Downloaded[0m serde_json v1.0.149
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6057800Z [1m[92m  Downloaded[0m reqwest v0.12.28
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6058190Z [1m[92m  Downloaded[0m reqwest v0.11.27
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6058470Z [1m[92m  Downloaded[0m regex v1.12.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6058760Z [1m[92m  Downloaded[0m nom v7.1.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6059140Z [1m[92m  Downloaded[0m measure_time v0.9.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.6059550Z [1m[92m  Downloaded[0m hyper-rustls v0.27.7
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.7601860Z [1m[92m  Downloaded[0m zerovec-derive v0.11.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.7602490Z [1m[92m  Downloaded[0m zeroize_derive v1.4.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.8830020Z [1m[92m  Downloaded[0m zerofrom v0.1.6
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.8830900Z [1m[92m  Downloaded[0m yoke-derive v0.8.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.8831540Z [1m[92m  Downloaded[0m web_atoms v0.2.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.8832330Z [1m[92m  Downloaded[0m want v0.3.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.8832770Z [1m[92m  Downloaded[0m unsafe-libyaml v0.2.11
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.8833420Z [1m[92m  Downloaded[0m markup5ever v0.13.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.8835030Z [1m[92m  Downloaded[0m markup5ever v0.12.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.8835570Z [1m[92m  Downloaded[0m markup5ever v0.11.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.8836120Z [1m[92m  Downloaded[0m mach2 v0.4.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:20.8836590Z [1m[92m  Downloaded[0m lz4_flex v0.11.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0010530Z [1m[92m  Downloaded[0m lru-slab v0.1.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0011020Z [1m[92m  Downloaded[0m lru v0.12.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0026000Z [1m[92m  Downloaded[0m log v0.4.29
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0027290Z [1m[92m  Downloaded[0m litemap v0.8.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0028100Z [1m[92m  Downloaded[0m thiserror-impl v1.0.69
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0028470Z [1m[92m  Downloaded[0m thiserror v2.0.18
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0028790Z [1m[92m  Downloaded[0m thiserror v1.0.69
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0029130Z [1m[92m  Downloaded[0m text-splitter v0.29.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0029650Z [1m[92m  Downloaded[0m tendril v0.4.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0030510Z [1m[92m  Downloaded[0m icu_segmenter_data v2.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0030850Z [1m[92m  Downloaded[0m tempfile v3.26.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0031630Z [1m[92m  Downloaded[0m tantivy-stacker v0.6.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0032020Z [1m[92m  Downloaded[0m tantivy-sstable v0.6.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0033540Z [1m[92m  Downloaded[0m tantivy-query-grammar v0.25.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0034910Z [1m[92m  Downloaded[0m tantivy-common v0.10.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0035350Z [1m[92m  Downloaded[0m sysctl v0.6.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0035840Z [1m[92m  Downloaded[0m synstructure v0.13.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0036170Z [1m[92m  Downloaded[0m subtle v2.6.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0036540Z [1m[92m  Downloaded[0m strum_macros v0.27.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0037160Z [1m[92m  Downloaded[0m strum_macros v0.26.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0037590Z [1m[92m  Downloaded[0m string_concat v0.0.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0037950Z [1m[92m  Downloaded[0m string_cache_codegen v0.6.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0038250Z [1m[92m  Downloaded[0m itoa v1.0.17
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0419700Z [1m[92m  Downloaded[0m ipnet v2.12.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0420170Z [1m[92m  Downloaded[0m indexmap v1.9.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0420460Z [1m[92m  Downloaded[0m http v0.2.12
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0420750Z [1m[92m  Downloaded[0m htmlescape v0.3.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0421150Z [1m[92m  Downloaded[0m serde_derive v1.0.228
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0421520Z [1m[92m  Downloaded[0m serde v1.0.228
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0421910Z [1m[92m  Downloaded[0m selectors v0.33.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0422340Z [1m[92m  Downloaded[0m selectors v0.25.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.0422750Z [1m[92m  Downloaded[0m security-framework v3.7.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1591610Z [1m[92m  Downloaded[0m ruzstd v0.8.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1591990Z [1m[92m  Downloaded[0m rustls-webpki v0.103.9
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1592310Z [1m[92m  Downloaded[0m rayon-core v1.13.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1592640Z [1m[92m  Downloaded[0m rand_distr v0.4.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1592970Z [1m[92m  Downloaded[0m rand v0.8.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1593440Z [1m[92m  Downloaded[0m tiktoken-rs v0.9.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1593750Z [1m[92m  Downloaded[0m quinn-proto v0.11.14
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1594030Z [1m[92m  Downloaded[0m quinn v0.11.9
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1594330Z [1m[92m  Downloaded[0m openssl-sys v0.9.111
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1594630Z [1m[92m  Downloaded[0m lock_api v0.4.14
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1594940Z [1m[92m  Downloaded[0m llm_readability v0.0.13
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1595280Z [1m[92m  Downloaded[0m tantivy-bitpacker v0.9.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1595650Z [1m[92m  Downloaded[0m system-configuration-sys v0.6.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1596340Z [1m[92m  Downloaded[0m system-configuration-sys v0.5.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1596740Z [1m[92m  Downloaded[0m system-configuration v0.7.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1597100Z [1m[92m  Downloaded[0m system-configuration v0.5.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1597700Z [1m[92m  Downloaded[0m sync_wrapper v1.0.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.1598000Z [1m[92m  Downloaded[0m sync_wrapper v0.1.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2367310Z [1m[92m  Downloaded[0m strum v0.27.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2367670Z [1m[92m  Downloaded[0m strsim v0.11.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2367960Z [1m[92m  Downloaded[0m jobserver v0.1.34
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2368310Z [1m[92m  Downloaded[0m itertools v0.13.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2368810Z [1m[92m  Downloaded[0m is_terminal_polyfill v1.70.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2369200Z [1m[92m  Downloaded[0m idna_adapter v1.2.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2369550Z [1m[92m  Downloaded[0m idna v1.1.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2369970Z [1m[92m  Downloaded[0m signal-hook-registry v1.4.8
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2370390Z [1m[92m  Downloaded[0m shlex v1.3.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2370880Z [1m[92m  Downloaded[0m serde_yaml v0.9.34+deprecated
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2371550Z [1m[92m  Downloaded[0m serde_core v1.0.228
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2371940Z [1m[92m  Downloaded[0m scraper v0.25.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2372550Z [1m[92m  Downloaded[0m rand_core v0.9.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2373130Z [1m[92m  Downloaded[0m rand_core v0.6.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2373430Z [1m[92m  Downloaded[0m rand v0.9.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2373800Z [1m[92m  Downloaded[0m quinn-udp v0.5.14
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2374170Z [1m[92m  Downloaded[0m pulldown-cmark-to-cmark v22.0.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2374520Z [1m[92m  Downloaded[0m prettyplease v0.2.37
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2374920Z [1m[92m  Downloaded[0m ppv-lite86 v0.2.21
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2375550Z [1m[92m  Downloaded[0m pin-project-lite v0.2.17
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2375920Z [1m[92m  Downloaded[0m phf_shared v0.10.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2376220Z [1m[92m  Downloaded[0m phf_macros v0.11.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.2376530Z [1m[92m  Downloaded[0m phf v0.11.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3314320Z [1m[92m  Downloaded[0m phf v0.10.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3314790Z [1m[92m  Downloaded[0m parking_lot_core v0.9.12
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3315130Z [1m[92m  Downloaded[0m parking_lot v0.12.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3315460Z [1m[92m  Downloaded[0m ordered-float v5.1.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3315850Z [1m[92m  Downloaded[0m once_cell v1.21.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3316180Z [1m[92m  Downloaded[0m num_cpus v1.17.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3316500Z [1m[92m  Downloaded[0m num-traits v0.2.19
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3316900Z [1m[92m  Downloaded[0m derive_more-impl v2.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3317280Z [1m[92m  Downloaded[0m combine v4.6.7
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3317560Z [1m[92m  Downloaded[0m base64 v0.22.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3317840Z [1m[92m  Downloaded[0m base64 v0.21.7
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3318120Z [1m[92m  Downloaded[0m aws-lc-rs v1.16.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3318650Z [1m[92m  Downloaded[0m async-compression v0.4.41
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3318990Z [1m[92m  Downloaded[0m thiserror-impl v2.0.18
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3319330Z [1m[92m  Downloaded[0m tap v1.0.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3319650Z [1m[92m  Downloaded[0m tantivy-tokenizer-api v0.6.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3319960Z [1m[92m  Downloaded[0m strum v0.26.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3320300Z [1m[92m  Downloaded[0m icu_normalizer v2.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3320620Z [1m[92m  Downloaded[0m http-body v0.4.6
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3940960Z [1m[92m  Downloaded[0m html5ever v0.36.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3941340Z [1m[92m  Downloaded[0m fs2 v0.4.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3941660Z [1m[92m  Downloaded[0m form_urlencoded v1.2.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3941960Z [1m[92m  Downloaded[0m foldhash v0.2.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3942280Z [1m[92m  Downloaded[0m foldhash v0.1.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3942740Z [1m[92m  Downloaded[0m zstd-safe v7.2.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3943180Z [1m[92m  Downloaded[0m zstd v0.13.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3943460Z [1m[92m  Downloaded[0m zeroize v1.8.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3943740Z [1m[92m  Downloaded[0m sitemap v0.4.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3944030Z [1m[92m  Downloaded[0m siphasher v0.3.11
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3944330Z [1m[92m  Downloaded[0m simd-adler32 v0.3.8
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3944710Z [1m[92m  Downloaded[0m serde_urlencoded v0.7.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3945300Z [1m[92m  Downloaded[0m serde_regex v1.1.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3946520Z [1m[92m  Downloaded[0m security-framework-sys v2.17.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3947020Z [1m[92m  Downloaded[0m scopeguard v1.2.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3947320Z [1m[92m  Downloaded[0m same-file v1.0.6
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3947600Z [1m[92m  Downloaded[0m ryu v1.0.23
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3947900Z [1m[92m  Downloaded[0m rustversion v1.0.22
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3948220Z [1m[92m  Downloaded[0m rustc_version v0.4.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3948530Z [1m[92m  Downloaded[0m powerfmt v0.2.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3948820Z [1m[92m  Downloaded[0m pin-utils v0.1.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3949110Z [1m[92m  Downloaded[0m phf_shared v0.13.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3949410Z [1m[92m  Downloaded[0m phf_macros v0.13.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.3949770Z [1m[92m  Downloaded[0m phf_codegen v0.13.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4417730Z [1m[92m  Downloaded[0m phf_codegen v0.11.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4418730Z [1m[92m  Downloaded[0m phf v0.13.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4419270Z [1m[92m  Downloaded[0m percent-encoding v2.3.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4419680Z [1m[92m  Downloaded[0m num-conv v0.2.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4420180Z [1m[92m  Downloaded[0m find-msvc-tools v0.1.9
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4421550Z [1m[92m  Downloaded[0m fast_markup5ever v0.11.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4421970Z [1m[92m  Downloaded[0m fast_html2md v0.0.58
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4422490Z [1m[92m  Downloaded[0m env_logger v0.11.9
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4422840Z [1m[92m  Downloaded[0m displaydoc v0.2.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4423580Z [1m[92m  Downloaded[0m derive_utils v0.15.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4423930Z [1m[92m  Downloaded[0m derive_more v1.0.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.4424430Z [1m[92m  Downloaded[0m derive_more v0.99.20
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.5714320Z [1m[92m  Downloaded[0m darling_core v0.23.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6152690Z [1m[92m  Downloaded[0m cssparser v0.36.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6153230Z [1m[92m  Downloaded[0m crossbeam-utils v0.8.21
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6153600Z [1m[92m  Downloaded[0m crossbeam-epoch v0.9.18
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6153930Z [1m[92m  Downloaded[0m crossbeam-deque v0.8.6
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6154270Z [1m[92m  Downloaded[0m crossbeam-channel v0.5.15
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6154580Z [1m[92m  Downloaded[0m crc32fast v1.5.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6154910Z [1m[92m  Downloaded[0m core-foundation-sys v0.8.7
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6155250Z [1m[92m  Downloaded[0m core-foundation v0.10.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6155570Z [1m[92m  Downloaded[0m core-foundation v0.9.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6155900Z [1m[92m  Downloaded[0m compression-codecs v0.4.37
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6156220Z [1m[92m  Downloaded[0m compact_str v0.8.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6156490Z [1m[92m  Downloaded[0m bon v3.9.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6156840Z [1m[92m  Downloaded[0m bitflags v2.11.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6157120Z [1m[92m  Downloaded[0m bit-vec v0.6.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6157420Z [1m[92m  Downloaded[0m autocfg v1.5.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6157700Z [1m[92m  Downloaded[0m auto_enums v0.8.8
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6157990Z [1m[92m  Downloaded[0m anyhow v1.0.102
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6158290Z [1m[92m  Downloaded[0m anstyle-parse v0.2.7
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6158570Z [1m[92m  Downloaded[0m fnv v1.0.7
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6158870Z [1m[92m  Downloaded[0m zerofrom-derive v0.1.6
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6159160Z [1m[92m  Downloaded[0m servo_arc v0.3.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6159450Z [1m[92m  Downloaded[0m env_filter v1.0.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6159720Z [1m[92m  Downloaded[0m either v1.15.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6160010Z [1m[92m  Downloaded[0m cpu-time v1.0.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6160300Z [1m[92m  Downloaded[0m core_maths v0.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6160570Z [1m[92m  Downloaded[0m clap_lex v1.0.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6160850Z [1m[92m  Downloaded[0m crunchy v0.2.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6161150Z [1m[92m  Downloaded[0m pulldown-cmark v0.13.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6161450Z [1m[92m  Downloaded[0m fastdivide v0.4.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6161790Z [1m[92m  Downloaded[0m pulldown-cmark-escape v0.11.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6162560Z [1m[92m  Downloaded[0m precomputed-hash v0.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6162870Z [1m[92m  Downloaded[0m pkg-config v0.3.32
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6163170Z [1m[92m  Downloaded[0m phf_shared v0.11.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6163470Z [1m[92m  Downloaded[0m phf_generator v0.11.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6163780Z [1m[92m  Downloaded[0m phf_codegen v0.10.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6164060Z [1m[92m  Downloaded[0m ownedbytes v0.9.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6164340Z [1m[92m  Downloaded[0m oneshot v0.1.13
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6164660Z [1m[92m  Downloaded[0m darling_macro v0.23.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6165000Z [1m[92m  Downloaded[0m cssparser-macros v0.6.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6165290Z [1m[92m  Downloaded[0m bit-set v0.5.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.6165570Z [1m[92m  Downloaded[0m tiktoken v3.1.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7166400Z [1m[92m  Downloaded[0m bincode v1.3.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7166840Z [1m[92m  Downloaded[0m auto_encoder v0.1.10
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7167190Z [1m[92m  Downloaded[0m atomic-waker v1.1.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7167510Z [1m[92m  Downloaded[0m anstyle-query v1.1.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7167810Z [1m[92m  Downloaded[0m anstyle v1.0.13
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7168370Z [1m[92m  Downloaded[0m semver v1.0.27
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7168790Z [1m[92m  Downloaded[0m rustls-pki-types v1.14.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7169140Z [1m[92m  Downloaded[0m rustls-pemfile v1.0.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7169460Z [1m[92m  Downloaded[0m readability v0.3.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7169750Z [1m[92m  Downloaded[0m rand_chacha v0.9.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7170300Z [1m[92m  Downloaded[0m rand_chacha v0.3.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7170590Z [1m[92m  Downloaded[0m quick-xml v0.38.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7170890Z [1m[92m  Downloaded[0m potential_utf v0.1.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7171210Z [1m[92m  Downloaded[0m phf_generator v0.10.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7171520Z [1m[92m  Downloaded[0m fancy-regex v0.13.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7171830Z [1m[92m  Downloaded[0m errno v0.3.14
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7172720Z [1m[92m  Downloaded[0m equivalent v1.0.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7173080Z [1m[92m  Downloaded[0m ego-tree v0.10.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7173360Z [1m[92m  Downloaded[0m dtoa v1.0.11
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7173640Z [1m[92m  Downloaded[0m deranged v0.5.8
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7173910Z [1m[92m  Downloaded[0m darling v0.23.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7174230Z [1m[92m  Downloaded[0m compression-core v0.4.31
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7174540Z [1m[92m  Downloaded[0m colorchoice v1.0.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7606500Z [1m[92m  Downloaded[0m cmake v0.1.57
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.7606860Z [1m[92m  Downloaded[0m clap v4.5.60
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8752690Z [1m[92m  Downloaded[0m chrono v0.4.44
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8753050Z [1m[92m  Downloaded[0m chardetng v0.1.17
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8753950Z [1m[92m  Downloaded[0m bstr v1.12.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8754290Z [1m[92m  Downloaded[0m brotli-decompressor v5.0.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8754620Z [1m[92m  Downloaded[0m bon-macros v3.9.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8754940Z [1m[92m  Downloaded[0m bitpacking v0.9.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8755230Z [1m[92m  Downloaded[0m bitflags v1.3.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8755530Z [1m[92m  Downloaded[0m async-trait v0.1.89
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8755820Z [1m[92m  Downloaded[0m arc-swap v1.8.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8756100Z [1m[92m  Downloaded[0m anndists v0.1.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8756400Z [1m[92m  Downloaded[0m allocator-api2 v0.2.21
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8757340Z [1m[92m  Downloaded[0m alloc-stdlib v0.2.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8757780Z [1m[92m  Downloaded[0m aho-corasick v1.1.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8758110Z [1m[92m  Downloaded[0m adler2 v2.0.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8758420Z [1m[92m  Downloaded[0m phf_generator v0.13.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8758720Z [1m[92m  Downloaded[0m fastrand v2.3.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8759030Z [1m[92m  Downloaded[0m fast_html5ever v0.26.6
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8759350Z [1m[92m  Downloaded[0m enum-as-inner v0.6.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8759630Z [1m[92m  Downloaded[0m dunce v1.0.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8760160Z [1m[92m  Downloaded[0m dtoa-short v0.3.5
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8760450Z [1m[92m  Downloaded[0m downcast-rs v2.0.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8760750Z [1m[92m  Downloaded[0m derive_more v2.1.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8761050Z [1m[92m  Downloaded[0m clap_derive v4.5.55
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8761350Z [1m[92m  Downloaded[0m chrono_utils v0.1.3
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8761620Z [1m[92m  Downloaded[0m census v0.4.2
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8762110Z [1m[92m  Downloaded[0m anstream v0.6.21
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.8762420Z [1m[92m  Downloaded[0m alloc-no-stdlib v2.0.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9229090Z [1m[92m  Downloaded[0m ahash v0.8.12
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9229570Z [1m[92m  Downloaded[0m native-tls v0.2.18
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9229900Z [1m[92m  Downloaded[0m murmurhash32 v0.3.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9230330Z [1m[92m  Downloaded[0m flate2 v1.1.9
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9230880Z [1m[92m  Downloaded[0m cfg_aliases v0.2.1
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9231190Z [1m[92m  Downloaded[0m quote v1.0.45
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9232640Z [1m[92m  Downloaded[0m derive_more-impl v1.0.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9233070Z [1m[92m  Downloaded[0m cfg-if v1.0.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9233350Z [1m[92m  Downloaded[0m cc v1.2.56
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9233940Z [1m[92m  Downloaded[0m castaway v0.2.4
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9234370Z [1m[92m  Downloaded[0m case_insensitive_string v0.2.10
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9234760Z [1m[92m  Downloaded[0m byteorder v1.5.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:21.9235140Z [1m[92m  Downloaded[0m clap_builder v4.5.60
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:22.0429040Z [1m[92m  Downloaded[0m aws-lc-sys v0.38.0
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:22.4337440Z [1m[92m   Compiling[0m proc-macro2 v1.0.106
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:22.4337930Z [1m[92m   Compiling[0m quote v1.0.45
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:22.4338380Z [1m[92m   Compiling[0m unicode-ident v1.0.24
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:22.9233710Z [1m[92m   Compiling[0m libc v0.2.183
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.0834310Z [1m[92m   Compiling[0m serde_core v1.0.228
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.2556930Z [1m[91merror[E0463][0m[1m: can't find crate for `core`[0m
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.2557350Z   [1m[94m|[0m
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.2557690Z   [1m[94m= [0m[1mnote[0m: the `x86_64-apple-darwin` target may not be installed
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.2558260Z   [1m[94m= [0m[1mhelp[0m: consider downloading the target with `rustup target add x86_64-apple-darwin`
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.2558560Z 
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.2558870Z [1mFor more information about this error, try `rustc --explain E0463`.[0m
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.2559410Z [1m[91merror[0m: could not compile `libc` (lib) due to 1 previous error
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.2559920Z [1m[33mwarning[0m: build failed, waiting for other jobs to finish...
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.2714090Z ▮▮▮▮ doc_transformer:build (20s 55ms, 7fc7e97d)
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.3679630Z Error: task_runner::run_failed
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.3707430Z 
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.3710190Z   × Task doc_transformer:build failed to run.
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.3713150Z   ╰─▶ Process cargo failed: exit code 101
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.3716930Z 
+Build on macos-latest (x86_64-apple-darwin)	Build Release Binaries	2026-03-12T03:59:25.3840510Z ##[error]Process completed with exit code 1.
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	﻿2026-03-12T03:59:25.3968330Z Post job cleanup.
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.6594850Z [command]/opt/homebrew/bin/git version
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.6701370Z git version 2.53.0
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.6733770Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/3e18101a-8578-4cf0-8119-f9e2268c0c4e/.gitconfig'
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.6740520Z Temporarily overriding HOME='/Users/runner/work/_temp/3e18101a-8578-4cf0-8119-f9e2268c0c4e' before making global git config changes
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.6741250Z Adding repository directory to the temporary git global config as a safe directory
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.6743910Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/centralized-docs/centralized-docs
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.6806600Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.6857880Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.7674640Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.7787810Z http.https://github.com/.extraheader
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.7796700Z [command]/opt/homebrew/bin/git config --local --unset-all http.https://github.com/.extraheader
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.7863960Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.8629970Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Build on macos-latest (x86_64-apple-darwin)	Post Run actions/checkout@v4	2026-03-12T03:59:25.8682390Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Build on macos-latest (x86_64-apple-darwin)	Complete job	﻿2026-03-12T03:59:25.9516660Z Cleaning up orphan processes
+Build on macos-latest (x86_64-apple-darwin)	Complete job	2026-03-12T03:59:26.0249570Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/setup-node@v4. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
