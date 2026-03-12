@@ -11,23 +11,36 @@ permissions:
 
 jobs:
   build-and-release:
-    name: Build on ${{ matrix.os }}
+    name: Build on ${{ matrix.os }} (${{ matrix.target_arch }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
+            target_arch: x86_64-unknown-linux-gnu
             artifact_name: doc_transformer-${{ github.ref_name }}-linux-x86_64.tar.gz
             binary_name: doc_transformer
             validator_name: llms_txt_validator
             is_windows: false
+
           - os: macos-latest
+            target_arch: aarch64-apple-darwin
             artifact_name: doc_transformer-${{ github.ref_name }}-macos-aarch64.tar.gz
             binary_name: doc_transformer
             validator_name: llms_txt_validator
             is_windows: false
+
+          # Add Mac Intel support explicitly via cross-compilation on the latest macos runner
+          - os: macos-latest
+            target_arch: x86_64-apple-darwin
+            artifact_name: doc_transformer-${{ github.ref_name }}-macos-x86_64.tar.gz
+            binary_name: doc_transformer
+            validator_name: llms_txt_validator
+            is_windows: false
+
           - os: windows-latest
+            target_arch: x86_64-pc-windows-msvc
             artifact_name: doc_transformer-${{ github.ref_name }}-windows-x86_64.zip
             binary_name: doc_transformer.exe
             validator_name: llms_txt_validator.exe
@@ -38,6 +51,8 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target_arch }}
 
       - name: Setup Node (for moon)
         uses: actions/setup-node@v4
@@ -47,7 +62,10 @@ jobs:
       - name: Install Moon
         run: npm install -g @moonrepo/cli
 
+      # We pass the CARGO_BUILD_TARGET to ensure cargo respects the target architecture
       - name: Build Release Binaries
+        env:
+          CARGO_BUILD_TARGET: ${{ matrix.target_arch }}
         run: moon run :build
 
       - name: Prepare Artifact (Linux/Mac)
@@ -55,8 +73,14 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          cp target/release/${{ matrix.binary_name }} dist/
-          cp target/release/${{ matrix.validator_name }} dist/ 2>/dev/null || true
+          # Copy binaries from the target-specific release folder
+          cp target/${{ matrix.target_arch }}/release/${{ matrix.binary_name }} dist/
+          cp target/${{ matrix.target_arch }}/release/${{ matrix.validator_name }} dist/ 2>/dev/null || true
+          
+          # Include documentation and licensing
+          cp README.md dist/ 2>/dev/null || true
+          cp LICENSE dist/ 2>/dev/null || true
+          
           cd dist
           tar -czvf ../${{ matrix.artifact_name }} *
 
@@ -65,10 +89,13 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist
-          Copy-Item target/release/${{ matrix.binary_name }} -Destination dist/
-          if (Test-Path target/release/${{ matrix.validator_name }}) {
-            Copy-Item target/release/${{ matrix.validator_name }} -Destination dist/
+          Copy-Item target/${{ matrix.target_arch }}/release/${{ matrix.binary_name }} -Destination dist/
+          if (Test-Path target/${{ matrix.target_arch }}/release/${{ matrix.validator_name }}) {
+            Copy-Item target/${{ matrix.target_arch }}/release/${{ matrix.validator_name }} -Destination dist/
           }
+          if (Test-Path README.md) { Copy-Item README.md -Destination dist/ }
+          if (Test-Path LICENSE) { Copy-Item LICENSE -Destination dist/ }
+          
           Compress-Archive -Path dist\* -DestinationPath ${{ matrix.artifact_name }}
 
       - name: Upload Artifact
@@ -89,8 +116,14 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: Generate Checksums
+        run: |
+          cd artifacts
+          sha256sum * > SHA256SUMS.txt
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/*
+          files: |
+            artifacts/*
           generate_release_notes: true
