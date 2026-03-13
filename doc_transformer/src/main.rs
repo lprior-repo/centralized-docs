@@ -1805,8 +1805,7 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
 
     let initial_scrape_result = scrape::scrape_site(&scrape_config).await?;
 
-    // Check for partial/total failure BEFORE further processing
-    // Exit with code 2 if any pages failed to scrape
+    // Log partial failures but continue processing with successful pages
     if initial_scrape_result.error_count > 0 {
         println!();
         println!("{}", "=".repeat(70));
@@ -1817,10 +1816,9 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
             "Errors:  {} pages failed",
             initial_scrape_result.error_count
         );
-        println!();
         println!("Hint: Check .scrape/manifest.json for error details");
         println!("{}\n", "=".repeat(70));
-        process::exit(2);
+        // Continue with successful pages instead of exiting
     }
 
     println!(
