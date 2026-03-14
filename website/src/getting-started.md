@@ -26,7 +26,7 @@ cargo install --path centralized-docs
 ```bash
 ctd --version
 ctd --help
-llms_txt_validator --version
+llms_txt_validator -V
 ```
 
 ## Index Local Documentation
@@ -38,8 +38,10 @@ ctd index ./docs --output ./output --project-name "My Docs"
 Expected outputs:
 
 - `llms.txt`
+- `llms-full.txt`
 - `INDEX.json`
 - `COMPASS.md`
+- `AGENTS.md`
 - `docs/`
 - `chunks/`
 
@@ -57,3 +59,10 @@ llms_txt_validator --index ./output/INDEX.json
 ```
 
 ## Documentation Site
+
+To preview it locally:
+
+```bash
+cd website
+mdbook serve --open
+```

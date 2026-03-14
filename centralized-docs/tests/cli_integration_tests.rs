@@ -46,31 +46,7 @@ fn create_test_docs(dir: &Path) {
 
 /// Get the path to the compiled binary
 fn binary_path() -> std::path::PathBuf {
-    // Check workspace target directory first (where cargo builds in a workspace)
-    // Try relative to current dir
-    let workspace_release = Path::new("target/release/ctd");
-    if workspace_release.exists() {
-        return workspace_release.to_path_buf();
-    }
-
-    let workspace_debug = Path::new("target/debug/ctd");
-    if workspace_debug.exists() {
-        return workspace_debug.to_path_buf();
-    }
-
-    // Try relative to parent (workspace root when running from crate dir)
-    let parent_workspace_release = Path::new("../target/release/ctd");
-    if parent_workspace_release.exists() {
-        return parent_workspace_release.to_path_buf();
-    }
-
-    let parent_workspace_debug = Path::new("../target/debug/ctd");
-    if parent_workspace_debug.exists() {
-        return parent_workspace_debug.to_path_buf();
-    }
-
-    // Fall back to cargo run
-    Path::new("cargo").to_path_buf()
+    Path::new(env!("CARGO_BIN_EXE_ctd")).to_path_buf()
 }
 
 /// Run the CLI with given arguments
@@ -80,23 +56,26 @@ fn run_cli(args: &[&str]) -> std::process::Output {
     println!("Binary: {:?}", binary);
     println!("Args: {:?}", args);
 
-    if binary.file_name().unwrap_or_default() == "cargo" {
-        // Use cargo run
-        Command::new("cargo")
-            .arg("run")
-            .arg("--bin")
-            .arg("ctd")
-            .arg("--")
-            .args(args)
-            .output()
-            .expect("Failed to execute cargo run")
-    } else {
-        // Use compiled binary directly
-        Command::new(&binary)
-            .args(args)
-            .output()
-            .unwrap_or_else(|_| panic!("Failed to execute binary: {}", binary.display()))
-    }
+    Command::new(&binary)
+        .args(args)
+        .output()
+        .unwrap_or_else(|_| panic!("Failed to execute binary: {}", binary.display()))
+}
+
+fn validator_binary_path() -> std::path::PathBuf {
+    Path::new(env!("CARGO_BIN_EXE_llms_txt_validator")).to_path_buf()
+}
+
+fn run_validator_cli(args: &[&str]) -> std::process::Output {
+    let binary = validator_binary_path();
+
+    println!("Validator binary: {:?}", binary);
+    println!("Validator args: {:?}", args);
+
+    Command::new(&binary)
+        .args(args)
+        .output()
+        .unwrap_or_else(|_| panic!("Failed to execute validator binary: {}", binary.display()))
 }
 
 // =============================================================================
@@ -1741,6 +1720,114 @@ fn test_ingest_git_with_project_name() {
 
     // Should fail due to invalid repo, but should accept project name
     assert!(!result.status.success(), "Should fail due to invalid repo");
+}
+
+#[test]
+fn test_scrape_help_does_not_claim_hidden_fallback_cap() {
+    let result = run_cli(&["scrape", "--help"]);
+    let output = String::from_utf8_lossy(&result.stdout).to_string()
+        + &String::from_utf8_lossy(&result.stderr);
+
+    assert!(result.status.success(), "scrape --help should succeed");
+    assert!(
+        !output.contains("100 pages") && !output.contains("uncap"),
+        "scrape help should not describe a hidden 100-page fallback cap. Output: {output}"
+    );
+}
+
+#[test]
+fn test_cli_help_reports_full_ai_artifact_set() {
+    let result = run_cli(&["--help"]);
+    let output = String::from_utf8_lossy(&result.stdout).to_string()
+        + &String::from_utf8_lossy(&result.stderr);
+
+    assert!(result.status.success(), "Help flag should succeed");
+    assert!(
+        output.contains("llms-full.txt"),
+        "Help output should mention llms-full.txt. Output: {output}"
+    );
+    assert!(
+        output.contains("AGENTS.md"),
+        "Help output should mention AGENTS.md. Output: {output}"
+    );
+}
+
+#[test]
+fn test_index_success_creates_agents_and_llms_full() {
+    let temp = TempDir::new().unwrap();
+    let source = temp.path().join("source");
+    let output_dir = temp.path().join("output");
+
+    fs::create_dir_all(&source).unwrap();
+    fs::write(source.join("test.md"), "# Test\n\nContent").unwrap();
+
+    let result = run_cli(&[
+        "index",
+        source.to_str().unwrap(),
+        "--output",
+        output_dir.to_str().unwrap(),
+    ]);
+
+    assert!(
+        result.status.success(),
+        "Index command should succeed. stderr: {}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+
+    assert!(
+        output_dir.join("AGENTS.md").exists(),
+        "AGENTS.md should be created"
+    );
+    assert!(
+        output_dir.join("llms-full.txt").exists(),
+        "llms-full.txt should be created"
+    );
+
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    assert!(
+        stdout.contains("Created llms.txt, llms-full.txt, and AGENTS.md"),
+        "Index output should report generated AI artifacts. stdout: {stdout}"
+    );
+}
+
+#[test]
+fn test_validator_version_flags_both_succeed() {
+    let short = run_validator_cli(&["-V"]);
+    let long = run_validator_cli(&["--version"]);
+
+    assert!(
+        short.status.success(),
+        "llms_txt_validator -V should succeed"
+    );
+    assert!(
+        long.status.success(),
+        "llms_txt_validator --version should succeed"
+    );
+
+    let short_output = String::from_utf8_lossy(&short.stderr);
+    let long_output = String::from_utf8_lossy(&long.stderr);
+
+    assert!(
+        short_output.contains("llms_txt_validator v0.6.1"),
+        "short version output should include version. Output: {short_output}"
+    );
+    assert_eq!(
+        short_output, long_output,
+        "short and long version flags should produce identical output"
+    );
+}
+
+#[test]
+fn test_getting_started_docs_mirrors_match() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let docs_guide = fs::read_to_string(repo_root.join("docs/GETTING_STARTED.md")).unwrap();
+    let website_guide =
+        fs::read_to_string(repo_root.join("website/src/getting-started.md")).unwrap();
+
+    assert_eq!(
+        docs_guide, website_guide,
+        "Getting Started guides should stay in sync"
+    );
 }
 
 // =============================================================================

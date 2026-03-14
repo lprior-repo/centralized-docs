@@ -479,8 +479,10 @@ USAGE:
 
 OUTPUT:
   llms.txt      - AI entry point (read this first)
+  llms-full.txt - Full corpus for large-context models
   INDEX.json    - Machine-readable index with chunks and DAG
   COMPASS.md    - Human-readable navigation
+  AGENTS.md     - AI coding instructions and workflow context
   docs/         - Transformed documents with frontmatter
   chunks/       - Semantic chunks with context prefix
 "

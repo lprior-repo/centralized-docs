@@ -38,6 +38,25 @@ pub use validation::{
     ScrapedPage, SitemapStrategy, StealthMode,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ScrapePlan {
+    strategy: http::ScrapeStrategy,
+    max_pages: usize,
+}
+
+fn derive_scrape_plan(config: &ScrapeConfig, sitemap_found: bool) -> ScrapePlan {
+    match (config.sitemap_strategy, sitemap_found) {
+        (SitemapStrategy::UseSitemap, true) => ScrapePlan {
+            strategy: http::ScrapeStrategy::Sitemap,
+            max_pages: config.max_pages,
+        },
+        (SitemapStrategy::UseSitemap, false) | (SitemapStrategy::CrawlOnly, _) => ScrapePlan {
+            strategy: http::ScrapeStrategy::Standard,
+            max_pages: config.max_pages,
+        },
+    }
+}
+
 /// Scrape a documentation site with exponential backoff retry on rate limits
 ///
 /// # Errors
@@ -50,8 +69,7 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
 
     // Quick sitemap check - try sitemap first with a small page limit (5 pages max)
     // This quickly determines if sitemap exists before doing a full crawl
-    let (strategy, effective_max_pages) = if config.sitemap_strategy == SitemapStrategy::UseSitemap
-    {
+    let plan = if config.sitemap_strategy == SitemapStrategy::UseSitemap {
         let quick_config = validation::ScrapeConfig {
             max_pages: 5,
             ..config.clone()
@@ -62,36 +80,24 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
 
         if pages_found {
             println!("[SCRAPE] Sitemap found, using sitemap strategy...");
-            (http::ScrapeStrategy::Sitemap, config.max_pages)
         } else {
             println!("[SCRAPE] No URLs found in sitemap, falling back to crawling...");
-            // Cap at 100 pages for fallback crawl to avoid infinite crawls on SPA sites,
-            // unless the user explicitly requested no sitemap
-            let capped = if config.sitemap_strategy == SitemapStrategy::CrawlOnly {
-                config.max_pages
-            } else {
-                config.max_pages.min(100)
-            };
-
-            if config.max_pages > 100 && config.sitemap_strategy != SitemapStrategy::CrawlOnly {
-                println!("[SCRAPE] Limiting to {capped} pages for sitemap fallback crawl (Use --no-sitemap to uncap)");
-            }
-            (http::ScrapeStrategy::Standard, capped)
         }
+        derive_scrape_plan(config, pages_found)
     } else {
-        (http::ScrapeStrategy::Standard, config.max_pages)
+        derive_scrape_plan(config, false)
     };
 
     // Create config with effective page limit for the actual scrape
     let effective_config = validation::ScrapeConfig {
-        max_pages: effective_max_pages,
+        max_pages: plan.max_pages,
         ..config.clone()
     };
 
     loop {
         attempt = attempt.saturating_add(1);
 
-        match scrape_single_attempt(&effective_config, strategy).await {
+        match scrape_single_attempt(&effective_config, plan.strategy).await {
             Ok(result) => {
                 if config.retry_strategy == RetryStrategy::Fixed {
                     return Ok(result);
@@ -141,6 +147,53 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                 return Err(e);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{derive_scrape_plan, http, ScrapeConfig, SitemapStrategy};
+
+    #[test]
+    fn sitemap_success_uses_sitemap_strategy_with_requested_budget() {
+        let config = ScrapeConfig {
+            sitemap_strategy: SitemapStrategy::UseSitemap,
+            max_pages: 500,
+            ..Default::default()
+        };
+
+        let plan = derive_scrape_plan(&config, true);
+
+        assert_eq!(plan.strategy, http::ScrapeStrategy::Sitemap);
+        assert_eq!(plan.max_pages, 500);
+    }
+
+    #[test]
+    fn sitemap_fallback_preserves_requested_budget() {
+        let config = ScrapeConfig {
+            sitemap_strategy: SitemapStrategy::UseSitemap,
+            max_pages: 500,
+            ..Default::default()
+        };
+
+        let plan = derive_scrape_plan(&config, false);
+
+        assert_eq!(plan.strategy, http::ScrapeStrategy::Standard);
+        assert_eq!(plan.max_pages, 500);
+    }
+
+    #[test]
+    fn crawl_only_preserves_requested_budget() {
+        let config = ScrapeConfig {
+            sitemap_strategy: SitemapStrategy::CrawlOnly,
+            max_pages: 37,
+            ..Default::default()
+        };
+
+        let plan = derive_scrape_plan(&config, false);
+
+        assert_eq!(plan.strategy, http::ScrapeStrategy::Standard);
+        assert_eq!(plan.max_pages, 37);
     }
 }
 
