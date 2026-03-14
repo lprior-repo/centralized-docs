@@ -21,9 +21,10 @@ curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/sc
 
 This installs `ctd` to `~/.local/bin` by default.
 
-**Homebrew (builds from source):**
+**Homebrew (recommended):**
 ```bash
-brew install --formula https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/Formula/doc-transformer.rb
+brew tap lprior-repo/centralized-docs
+brew install ctd
 ```
 
 **From source:**
