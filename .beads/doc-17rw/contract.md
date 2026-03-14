@@ -29,7 +29,7 @@ When a source file is unreadable (permission denied), the CLI reports the error 
 mkdir /tmp/unreadable_test
 echo "# Test" > /tmp/unreadable_test/secret.md
 chmod 000 /tmp/unreadable_test/secret.md
-doc_transformer index /tmp/unreadable_test --output /tmp/out
+ctd index /tmp/unreadable_test --output /tmp/out
 echo $?
 ```
 Expected: non-zero exit code

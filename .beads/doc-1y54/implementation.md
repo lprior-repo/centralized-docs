@@ -6,7 +6,7 @@ The current `should_reclaim_stale_lock` function has a bug: when a lock file exi
 ## Fix Applied
 
 ### File Changed
-- `doc_transformer/src/main.rs`
+- `ctd/src/main.rs`
 
 ### Change Details
 

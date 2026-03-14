@@ -13,7 +13,7 @@ When limit value exceeds maximum (1000), the CLI returns exit code 0 (success) i
 
 ## Preconditions
 
-- User runs `doc_transformer search` with --limit value > 1000
+- User runs `ctd search` with --limit value > 1000
 
 ## Postconditions
 
@@ -31,5 +31,5 @@ When limit value exceeds maximum (1000), the CLI returns exit code 0 (success) i
 
 ## Verification
 
-Test: `doc_transformer search test --index-dir /tmp/index -n 1000000000; echo $?`
+Test: `ctd search test --index-dir /tmp/index -n 1000000000; echo $?`
 Expected: exit code 1

@@ -14,7 +14,7 @@ Manual CLI verification of contract requirements against current implementation.
 Binary tested:
 
 ```bash
-/home/lewis/src/centralized-docs/target/debug/doc_transformer
+/home/lewis/src/centralized-docs/target/debug/ctd
 ```
 
 Test workspace:
@@ -32,7 +32,7 @@ Test workspace:
 Command:
 
 ```bash
-/home/lewis/src/centralized-docs/target/debug/doc_transformer index /tmp/doc-3nx3-qa-manual/all_unreadable --output /tmp/doc-3nx3-qa-manual/out/all
+/home/lewis/src/centralized-docs/target/debug/ctd index /tmp/doc-3nx3-qa-manual/all_unreadable --output /tmp/doc-3nx3-qa-manual/out/all
 ```
 
 Exit code:
@@ -68,7 +68,7 @@ Expected vs actual:
 Command:
 
 ```bash
-/home/lewis/src/centralized-docs/target/debug/doc_transformer index /tmp/doc-3nx3-qa-manual/mixed --output /tmp/doc-3nx3-qa-manual/out/mixed
+/home/lewis/src/centralized-docs/target/debug/ctd index /tmp/doc-3nx3-qa-manual/mixed --output /tmp/doc-3nx3-qa-manual/out/mixed
 ```
 
 Exit code:
@@ -104,7 +104,7 @@ Expected vs actual:
 Command:
 
 ```bash
-/home/lewis/src/centralized-docs/target/debug/doc_transformer index /tmp/doc-3nx3-qa-manual/mixed_dir --output /tmp/doc-3nx3-qa-manual/out/mixed_dir
+/home/lewis/src/centralized-docs/target/debug/ctd index /tmp/doc-3nx3-qa-manual/mixed_dir --output /tmp/doc-3nx3-qa-manual/out/mixed_dir
 ```
 
 Exit code:
@@ -138,7 +138,7 @@ Expected vs actual:
 Command:
 
 ```bash
-/home/lewis/src/centralized-docs/target/debug/doc_transformer index /tmp/doc-3nx3-qa-manual/happy --output /tmp/doc-3nx3-qa-manual/out/happy
+/home/lewis/src/centralized-docs/target/debug/ctd index /tmp/doc-3nx3-qa-manual/happy --output /tmp/doc-3nx3-qa-manual/out/happy
 ```
 
 Exit code:
@@ -188,7 +188,7 @@ Expected vs actual:
 - MAJOR: Partial unreadable input currently aborts indexing (`exit 1`) instead of warning and continuing with readable files.
 - Reproduction:
   1) Create one readable markdown file and one chmod `000` markdown file in same source directory.
-  2) Run `doc_transformer index <dir> --output <out>`.
+  2) Run `ctd index <dir> --output <out>`.
   3) Observe `exit 1` and `analysis failed: ... Permission denied`.
 
 ---

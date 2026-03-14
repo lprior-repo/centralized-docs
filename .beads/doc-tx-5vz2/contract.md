@@ -12,7 +12,7 @@ The CLI commands need comprehensive integration tests to verify end-to-end funct
 ## Requirements
 1. Write integration tests for all CLI commands
 2. Cover happy path and error path cases
-3. Use existing test patterns in doc_transformer/tests/
+3. Use existing test patterns in ctd/tests/
 
 ## Anti-Hallucination
 - READ files before modifying them

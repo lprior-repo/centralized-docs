@@ -6,7 +6,7 @@ Fixed a bug in the knowledge DAG construction where bidirectional edges could be
 
 ## Problem
 
-The original code in `doc_transformer/src/index.rs` (lines 788-834) added related edges from HNSW similarity without checking if a reverse edge already existed. This caused:
+The original code in `ctd/src/index.rs` (lines 788-834) added related edges from HNSW similarity without checking if a reverse edge already existed. This caused:
 
 1. When querying neighbors for chunk A → finds chunk B as neighbor → adds edge A→B
 2. When querying neighbors for chunk B → finds chunk A as neighbor → adds edge B→A
@@ -52,7 +52,7 @@ if !reverse_exists {
 
 ## Changes Made
 
-### File: `/home/lewis/src/centralized-docs/doc_transformer/src/index.rs`
+### File: `/home/lewis/src/centralized-docs/ctd/src/index.rs`
 
 **Lines 788-847**: Added edge tracking logic
 
@@ -92,7 +92,7 @@ if !reverse_exists {
 
 ### Quality Gates
 
-- ✅ `moon run doc_transformer:check` - passes
-- ✅ `moon run doc_transformer:fmt` - passes  
-- ✅ `moon run doc_transformer:clippy` - passes
-- ✅ `moon run doc_transformer:test` - all tests pass
+- ✅ `moon run ctd:check` - passes
+- ✅ `moon run ctd:fmt` - passes  
+- ✅ `moon run ctd:clippy` - passes
+- ✅ `moon run ctd:test` - all tests pass

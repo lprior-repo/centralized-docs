@@ -1,7 +1,7 @@
 # Contract Specification
 
 ## Context
-- Feature: Replace custom O(N^2) tokenizing and chunking in `contextual-chunker` with `text-splitter::MarkdownSplitter`. Delete `pseudo_bm25` and use a persistent `tantivy` index to calculate true BM25 scores in `doc_transformer`.
+- Feature: Replace custom O(N^2) tokenizing and chunking in `contextual-chunker` with `text-splitter::MarkdownSplitter`. Delete `pseudo_bm25` and use a persistent `tantivy` index to calculate true BM25 scores in `ctd`.
 - Domain terms: Chunking, MarkdownSplitter, BM25, Tantivy Index, Persistent Index.
 - Assumptions: The `tantivy` index is persisted on disk. The document text is valid Markdown.
 - Open questions: Where is the default path for the persistent tantivy index? What is the maximum chunk size limit configured for the MarkdownSplitter?
@@ -14,7 +14,7 @@
 
 ## Postconditions
 - [Q1] `contextual-chunker` outputs a list of chunks where no chunk exceeds the maximum chunk capacity (unless a single token/word is strictly larger than capacity).
-- [Q2] `doc_transformer` returns documents sorted by their true BM25 score in strictly descending order.
+- [Q2] `ctd` returns documents sorted by their true BM25 score in strictly descending order.
 - [Q3] `tantivy` index writer must successfully commit the added documents before they can be searched.
 
 ## Invariants

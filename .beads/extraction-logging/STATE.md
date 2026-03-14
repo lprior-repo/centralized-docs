@@ -17,9 +17,9 @@ Added explicit `eprintln!` logging to `prune_html` function in filter.rs:
 
 ## Verification
 
-- Build: ✅ PASSED (`moon run doc_transformer:build`)
+- Build: ✅ PASSED (`moon run ctd:build`)
 - Filter library tests: ✅ PASSED (7 tests)
-- Code compiles cleanly with `cargo check -p doc_transformer --lib`
+- Code compiles cleanly with `cargo check -p ctd --lib`
 
 ## Landing
 

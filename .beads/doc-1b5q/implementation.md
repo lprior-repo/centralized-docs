@@ -1,5 +1,5 @@
 bead_id: doc-1b5q
-bead_title: doc_transformer: Fix category-config file content leak
+bead_title: ctd: Fix category-config file content leak
 phase: p2
 updated_at: 2026-03-01T13:55:00Z
 
@@ -9,11 +9,11 @@ updated_at: 2026-03-01T13:55:00Z
 When `--category-config` points to a file with YAML parse errors (e.g., `/etc/passwd`), the error message echoes the sensitive file contents instead of showing a generic "invalid config" message.
 
 ## Root Cause
-In `doc_transformer/src/config.rs`, the `CategoryConfig::load_from_file` function at line 141-176 calls `serde_yaml::from_str(&content)` which returns an error that includes the problematic content in its error message. This leaks sensitive file contents to the user.
+In `ctd/src/config.rs`, the `CategoryConfig::load_from_file` function at line 141-176 calls `serde_yaml::from_str(&content)` which returns an error that includes the problematic content in its error message. This leaks sensitive file contents to the user.
 
 ## Files Modified
 
-### 1. `doc_transformer/src/config.rs`
+### 1. `ctd/src/config.rs`
 
 **Change:** Modify `CategoryConfig::load_from_file` to catch YAML parse errors and transform them into generic error messages that don't include file contents.
 
@@ -105,7 +105,7 @@ pub fn load_from_file(path: &Path) -> Result<Self> {
 }
 ```
 
-### 2. `doc_transformer/src/main.rs`
+### 2. `ctd/src/main.rs`
 
 **Change:** Add "invalid config" to user_input_patterns to ensure exit code 1 for category config errors.
 
@@ -130,7 +130,7 @@ pub fn load_from_file(path: &Path) -> Result<Self> {
 
 After implementing the fix, run:
 ```bash
-doc_transformer index <source> --output /tmp/test --category-config /etc/passwd
+ctd index <source> --output /tmp/test --category-config /etc/passwd
 ```
 
 Expected behavior:

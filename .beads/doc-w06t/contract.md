@@ -2,11 +2,11 @@
 
 ## Overview
 
-This contract specifies behavior changes to the `doc_transformer scrape` command to properly handle and report partial scrape failures. When pages fail to scrape but some succeed, the CLI must exit with a non-zero status code and provide actionable diagnostics.
+This contract specifies behavior changes to the `ctd scrape` command to properly handle and report partial scrape failures. When pages fail to scrape but some succeed, the CLI must exit with a non-zero status code and provide actionable diagnostics.
 
 ## Problem Statement
 
-Currently, the `doc_transformer scrape` command exits with code 0 even when some pages fail to scrape, as long as at least one page succeeds. This violates the principle that CI/scripts interpret zero as complete success.
+Currently, the `ctd scrape` command exits with code 0 even when some pages fail to scrape, as long as at least one page succeeds. This violates the principle that CI/scripts interpret zero as complete success.
 
 ## Ubiquitous Requirements (Must Hold Always)
 
@@ -62,9 +62,9 @@ Hint: Check .scrape/manifest.json for error details
 ## Research Notes
 
 ### Files Examined
-- `doc_transformer/src/main.rs` - Entry point, run_scrape function (lines 1018-1106)
-- `doc_transformer/src/scrape/validation.rs` - ScrapeResult structure (lines 198-206)
-- `doc_transformer/src/scrape/mod.rs` - scrape_site function
+- `ctd/src/main.rs` - Entry point, run_scrape function (lines 1018-1106)
+- `ctd/src/scrape/validation.rs` - ScrapeResult structure (lines 198-206)
+- `ctd/src/scrape/mod.rs` - scrape_site function
 
 ### Existing Patterns
 - Uses `anyhow::Result<()>` for fallible operations

@@ -7,8 +7,8 @@
 
 ## Acceptance Criteria
 
-1. ✅ Running `doc_transformer index` on a directory with permission-denied subdirectories shows "Warning:" not "Error:"
-2. ✅ Running `doc_transformer index` on a directory with permission-denied subdirectories prints a summary at the end indicating how many paths couldn't be accessed
+1. ✅ Running `ctd index` on a directory with permission-denied subdirectories shows "Warning:" not "Error:"
+2. ✅ Running `ctd index` on a directory with permission-denied subdirectories prints a summary at the end indicating how many paths couldn't be accessed
 3. ✅ The fix does not break existing functionality (existing tests pass)
 
 ## Verification Steps Performed
@@ -23,7 +23,7 @@ cargo build --release  # ✅ Compiles successfully
 mkdir -p /tmp/perm-test/subdir
 echo "# Test" > /tmp/perm-test/subdir/test.md
 chmod 000 /tmp/perm-test/subdir
-./doc_transformer index /tmp/perm-test --output /tmp/out
+./ctd index /tmp/perm-test --output /tmp/out
 ```
 
 **Output:**

@@ -9,7 +9,7 @@
 
 ## Problem Statement
 
-When a source directory contains broken symlinks, `doc_transformer index` silently ignores them and returns exit code 0, even though some content was skipped.
+When a source directory contains broken symlinks, `ctd index` silently ignores them and returns exit code 0, even though some content was skipped.
 
 ## Expected Behavior
 
@@ -26,7 +26,7 @@ P0 - Data integrity issue
 ## Reproduction
 
 1. Create a directory with a broken symlink
-2. Run `doc_transformer index <dir> --output <output>`
+2. Run `ctd index <dir> --output <output>`
 3. Observe: Exit code 0, no indication of broken symlinks
 
 ---

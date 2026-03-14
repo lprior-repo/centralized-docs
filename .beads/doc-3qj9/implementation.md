@@ -59,24 +59,24 @@ Updated `cli_integration_tests.rs` to expect exit code 1 for:
 ### Manual Testing
 ```bash
 # Empty directory - returns exit code 1
-$ mkdir /tmp/empty && doc_transformer index /tmp/empty --output /tmp/out
+$ mkdir /tmp/empty && ctd index /tmp/empty --output /tmp/out
 Error: No markdown files found...
 Exit code: 1
 
 # Non-directory file - returns exit code 1  
-$ doc_transformer index /etc/passwd --output /tmp/out
+$ ctd index /etc/passwd --output /tmp/out
 Error: No markdown files found...
 Exit code: 1
 
 # Directory with no markdown files - returns exit code 1
 $ mkdir /tmp/no_md && echo "{}" > /tmp/no_md/file.json
-$ doc_transformer index /tmp/no_md --output /tmp/out
+$ ctd index /tmp/no_md --output /tmp/out
 Error: No markdown files found...
 Exit code: 1
 
 # Valid directory with markdown - returns exit code 0
 $ echo "# Test" > /tmp/test.md
-$ doc_transformer index /tmp --output /tmp/out
+$ ctd index /tmp --output /tmp/out
 Exit code: 0
 ```
 
@@ -86,8 +86,8 @@ Exit code: 0
 - Added `test_index_directory_with_no_markdown_files`
 
 ## Files Changed
-1. `doc_transformer/src/main.rs` - Changed warning to error, exit code 1 for empty sources
-2. `doc_transformer/tests/cli_integration_tests.rs` - Updated tests to expect exit code 1
+1. `ctd/src/main.rs` - Changed warning to error, exit code 1 for empty sources
+2. `ctd/tests/cli_integration_tests.rs` - Updated tests to expect exit code 1
 
 ## Verification
 All three contract requirements are met:

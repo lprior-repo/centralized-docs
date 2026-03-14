@@ -36,8 +36,8 @@ When `analyze` command encounters malformed markdown files, they are silently dr
 4. Run moon run :ci
 
 ## Related Files
-- `doc_transformer/src/analyze.rs:110` - Related implementation
-- `doc_transformer/src/main.rs:1183` - Related implementation
+- `ctd/src/analyze.rs:110` - Related implementation
+- `ctd/src/main.rs:1183` - Related implementation
 
 ## Constraints
 - Use functional patterns: map, and_then, ?

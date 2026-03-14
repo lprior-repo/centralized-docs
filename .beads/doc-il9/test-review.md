@@ -3,7 +3,7 @@
 ## Test Plan Review for doc-il9
 
 ### Existing Tests Analysis
-The codebase already has tests for `extract_title` in `/doc_transformer/src/scrape/validation.rs`:
+The codebase already has tests for `extract_title` in `/ctd/src/scrape/validation.rs`:
 
 ```rust
 #[test]

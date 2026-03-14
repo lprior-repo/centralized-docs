@@ -1,4 +1,4 @@
-# Defects Found: doc_transformer/src/scrape/http.rs (FINAL REVIEW)
+# Defects Found: ctd/src/scrape/http.rs (FINAL REVIEW)
 
 ## PHASE 1: Contract Parity ✅ PASS
 

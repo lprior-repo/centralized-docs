@@ -15,14 +15,14 @@ The search command returns exit code 1 when no results are found, but this is se
 
 ### Expected Behavior
 ```
-$ doc_transformer search 'nonexistent' --index-dir /tmp/test_index
+$ ctd search 'nonexistent' --index-dir /tmp/test_index
 No results found for 'nonexistent'
 Exit: 0
 ```
 
 ### Reproduction Case
 ```
-$ doc_transformer search 'nonexistent' --index-dir /tmp/test_index
+$ ctd search 'nonexistent' --index-dir /tmp/test_index
 No results found for 'nonexistent'
 Error: No results found for 'nonexistent'
 Exit: 1  ❌ WRONG - should be 0

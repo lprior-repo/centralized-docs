@@ -2,7 +2,7 @@
 
 ## Summary
 
-Added comprehensive CLI integration tests for all doc_transformer commands (scrape, index, search, ingest, ingest-git) in `doc_transformer/tests/cli_integration_tests.rs`.
+Added comprehensive CLI integration tests for all ctd commands (scrape, index, search, ingest, ingest-git) in `ctd/tests/cli_integration_tests.rs`.
 
 ## Changes Made
 

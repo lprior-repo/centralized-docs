@@ -18,7 +18,7 @@ Fix index command to either fail atomically (no artifacts written) or clearly in
 ## Preconditions
 
 - Source directory contains files that will fail validation
-- User runs `doc_transformer index <dir> --output <output>`
+- User runs `ctd index <dir> --output <output>`
 
 ---
 

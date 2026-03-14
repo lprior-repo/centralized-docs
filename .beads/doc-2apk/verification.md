@@ -19,7 +19,7 @@ Command:
 cargo build --release
 ```
 
-Workdir: `doc_transformer`
+Workdir: `ctd`
 
 Observed output (stdout/stderr excerpt):
 ```text
@@ -35,7 +35,7 @@ Exit code: `0`
 
 Command:
 ```bash
-./target/release/doc_transformer index /tmp/testdir --output /tmp/doc-2apk-out-101 --max-related-chunks 101
+./target/release/ctd index /tmp/testdir --output /tmp/doc-2apk-out-101 --max-related-chunks 101
 ```
 
 Observed output:
@@ -61,7 +61,7 @@ Reproduction steps:
 
 Command:
 ```bash
-./target/release/doc_transformer index /tmp/testdir --output /tmp/doc-2apk-out-0 --max-related-chunks 0
+./target/release/ctd index /tmp/testdir --output /tmp/doc-2apk-out-0 --max-related-chunks 0
 ```
 
 Observed output:
@@ -87,7 +87,7 @@ Reproduction steps:
 
 Command:
 ```bash
-./target/release/doc_transformer index /tmp/testdir --output /tmp/doc-2apk-out-50 --max-related-chunks 50
+./target/release/ctd index /tmp/testdir --output /tmp/doc-2apk-out-50 --max-related-chunks 50
 ```
 
 Observed output (stdout excerpt):
@@ -116,7 +116,7 @@ Reproduction steps:
 
 Command:
 ```bash
-./target/release/doc_transformer index --help
+./target/release/ctd index --help
 ```
 
 Observed output excerpt:
@@ -146,11 +146,11 @@ Reproduction steps:
 
 3. What is the recommended fix?
 - No code fix is needed for this contract in the tested binary.
-- If another environment still reports exit code `1`, verify the exact executable and invocation path first (for example, wrapper scripts or stale binaries), then re-run the same commands against `./target/release/doc_transformer`.
+- If another environment still reports exit code `1`, verify the exact executable and invocation path first (for example, wrapper scripts or stale binaries), then re-run the same commands against `./target/release/ctd`.
 
 ## Notes
 
 - Additional cross-check performed:
-  - `cargo run --release --bin doc_transformer -- index /tmp/testdir --output /tmp/doc-2apk-out-cargo --max-related-chunks 101`
+  - `cargo run --release --bin ctd -- index /tmp/testdir --output /tmp/doc-2apk-out-cargo --max-related-chunks 101`
   - Observed exit code: `2`
   - Confirms behavior is consistent via Cargo-run invocation when targeting the correct binary.

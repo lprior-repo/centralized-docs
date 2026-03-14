@@ -68,7 +68,7 @@
 ## Given-When-Then Scenarios
 
 ### Scenario 1: User provides dangerous nested quantifier
-Given: User runs `doc_transformer scrape https://example.com/ --filter "(a+)+" --no-sitemap`
+Given: User runs `ctd scrape https://example.com/ --filter "(a+)+" --no-sitemap`
 When: System validates the filter regex
 Then: 
 - Returns error with message containing "ReDoS"
@@ -76,7 +76,7 @@ Then:
 - Does NOT compile the dangerous regex
 
 ### Scenario 2: User provides valid regex filter
-Given: User runs `doc_transformer scrape https://example.com/ --filter "^/docs/.*" --no-sitemap`
+Given: User runs `ctd scrape https://example.com/ --filter "^/docs/.*" --no-sitemap`
 When: System validates the filter regex
 Then:
 - Returns Ok (validation passes)

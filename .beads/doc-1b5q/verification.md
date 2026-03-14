@@ -1,5 +1,5 @@
 bead_id: doc-1b5q
-bead_title: doc_transformer: Fix category-config file content leak
+bead_title: ctd: Fix category-config file content leak
 phase: p2
 updated_at: 2026-03-01T13:55:00Z
 

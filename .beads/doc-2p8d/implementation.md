@@ -7,7 +7,7 @@
 
 ## Changes Made
 
-### File: `doc_transformer/src/discover.rs`
+### File: `ctd/src/discover.rs`
 
 1. **Added counter for I/O errors** (line 46):
    ```rust
@@ -41,7 +41,7 @@ Test case from bug report:
 mkdir /tmp/perm-test
 echo "# Test" > /tmp/perm-test/test.md
 chmod 000 /tmp/perm-test/test.md
-./doc_transformer index /tmp/perm-test --output /tmp/out
+./ctd index /tmp/perm-test --output /tmp/out
 ```
 
 **Before fix:**

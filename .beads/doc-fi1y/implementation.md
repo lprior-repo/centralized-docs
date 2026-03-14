@@ -6,7 +6,7 @@ The `llms_txt_validator` was returning exit code 0 (success) even when validatio
 ## Changes Made
 
 ### 1. Exit Code Logic (`main` function)
-Modified `doc_transformer/src/bin/llms_txt_validator.rs`:
+Modified `ctd/src/bin/llms_txt_validator.rs`:
 
 - **File not found**: Exit code 5
 - **Parse errors (invalid JSON)**: Exit code 4  
@@ -51,7 +51,7 @@ Added comprehensive tests to verify exit code behavior:
 
 ## Files Modified
 
-1. `doc_transformer/src/bin/llms_txt_validator.rs` - Main implementation
+1. `ctd/src/bin/llms_txt_validator.rs` - Main implementation
 
 ## Notes
 

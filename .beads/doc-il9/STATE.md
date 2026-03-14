@@ -17,8 +17,8 @@
 - [ ] STATE_7: Landing and cleanup
 
 ### Verification Results
-- `cargo test --package doc_transformer --lib -- scrape::validation` - **22 tests passed**
-- `cargo build --package doc_transformer` - **Build successful**
+- `cargo test --package ctd --lib -- scrape::validation` - **22 tests passed**
+- `cargo build --package ctd` - **Build successful**
 - Black Hat Review - **PASSED**
 
 ### Changes Made
@@ -27,4 +27,4 @@
 - Modified `extract_title` to use static regex instead of compiling on each call
 
 ### Files Modified
-- `/doc_transformer/src/scrape/validation.rs`
+- `/ctd/src/scrape/validation.rs`

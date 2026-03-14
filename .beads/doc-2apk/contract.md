@@ -1,7 +1,7 @@
-# Contract: doc_transformer CLI constraint validation
+# Contract: ctd CLI constraint validation
 
 ## bead_id: doc-2apk
-## bead_title: doc_transformer: Fix CLI constraint validation for --max-related-chunks
+## bead_title: ctd: Fix CLI constraint validation for --max-related-chunks
 ## phase: p0
 ## updated_at: 2026-03-01T13:56:35Z
 
@@ -19,10 +19,10 @@
 - Constraint validation occurs at CLI parsing time, not runtime
 
 ### Acceptance Tests
-1. `doc_transformer index dir --output /tmp/test --max-related-chunks 101` exits with code 2
-2. `doc_transformer index dir --output /tmp/test --max-related-chunks 0` exits with code 2
-3. `doc_transformer index dir --output /tmp/test --max-related-chunks 50` exits with code 0
+1. `ctd index dir --output /tmp/test --max-related-chunks 101` exits with code 2
+2. `ctd index dir --output /tmp/test --max-related-chunks 0` exits with code 2
+3. `ctd index dir --output /tmp/test --max-related-chunks 50` exits with code 0
 4. Help text shows valid range as 1-100
 
 ## Related Files
-- doc_transformer/src/main.rs (CLI argument parsing)
+- ctd/src/main.rs (CLI argument parsing)

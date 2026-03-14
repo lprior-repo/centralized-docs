@@ -5,12 +5,12 @@ Added configurable maximum document size limit for the indexing chunking phase v
 
 ## Files Changed
 
-### 1. `doc_transformer/src/main.rs`
+### 1. `ctd/src/main.rs`
 - Added `max_document_bytes: u64` field to `IndexConfig` struct (default: 10MB)
 - Added `--max-document-bytes` CLI argument to `Index` command
 - Passed `max_document_bytes` from config to `chunking_adapter::chunk_all()`
 
-### 2. `doc_transformer/src/chunking_adapter.rs`
+### 2. `ctd/src/chunking_adapter.rs`
 - Modified `chunk_all()` function signature to accept `max_document_bytes: u64` parameter
 - Updated size check logic to use configurable limit instead of hardcoded `MAX_CHUNKING_SIZE_BYTES`
 - Updated warning threshold to be 50% of max (instead of hardcoded 5MB)
@@ -18,11 +18,11 @@ Added configurable maximum document size limit for the indexing chunking phase v
 - Removed unused constants `MAX_CHUNKING_SIZE_BYTES` and `CHUNKING_SIZE_WARNING_THRESHOLD_BYTES`
 
 ### 3. Test Files Updated
-- `doc_transformer/tests/document_indexing/single_file_indexing_tests.rs`
-- `doc_transformer/tests/common/mod.rs`
-- `doc_transformer/tests/full_pipeline/scenario_tests.rs`
-- `doc_transformer/tests/full_pipeline/full_pipeline_integration.rs`
-- `doc_transformer/tests/document_indexing/empty_directory_tests.rs`
+- `ctd/tests/document_indexing/single_file_indexing_tests.rs`
+- `ctd/tests/common/mod.rs`
+- `ctd/tests/full_pipeline/scenario_tests.rs`
+- `ctd/tests/full_pipeline/full_pipeline_integration.rs`
+- `ctd/tests/document_indexing/empty_directory_tests.rs`
 
 All test files updated to pass `10 * 1024 * 1024` (10MB) as the `max_document_bytes` parameter.
 
@@ -57,13 +57,13 @@ All test files updated to pass `10 * 1024 * 1024` (10MB) as the `max_document_by
 
 ```bash
 # Use default 10MB limit
-doc_transformer index ./docs --output ./index
+ctd index ./docs --output ./index
 
 # Set custom limit (e.g., 50MB)
-doc_transformer index ./docs --output ./index --max-document-bytes 52428800
+ctd index ./docs --output ./index --max-document-bytes 52428800
 
 # View help
-doc_transformer index --help
+ctd index --help
 ```
 
 ## Testing

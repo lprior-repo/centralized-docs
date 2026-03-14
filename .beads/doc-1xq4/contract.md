@@ -69,6 +69,6 @@ Provide actionable diagnostics when limits are exceeded:
 - Lock cleanup: No orphan locks after any abort path
 
 ## Research Notes
-- Read `doc_transformer/src/main.rs` for CLI patterns
-- Read `doc_transformer/src/chunking_adapter.rs` for existing size checks
-- Read `doc_transformer/src/discover.rs` for file size handling
+- Read `ctd/src/main.rs` for CLI patterns
+- Read `ctd/src/chunking_adapter.rs` for existing size checks
+- Read `ctd/src/discover.rs` for file size handling

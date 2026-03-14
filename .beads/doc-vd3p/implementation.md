@@ -6,7 +6,7 @@ The bug has already been fixed in the source code. The fix ensures that CLI para
 
 ## Root Cause Analysis
 
-The issue was in `doc_transformer/src/main.rs` where clap's error handling needed to be customized to return exit code 1 for validation errors.
+The issue was in `ctd/src/main.rs` where clap's error handling needed to be customized to return exit code 1 for validation errors.
 
 **Before Fix:**
 - Clap's default behavior returns exit code 2 for most validation errors
@@ -18,7 +18,7 @@ The issue was in `doc_transformer/src/main.rs` where clap's error handling neede
 
 ## Location of Fix
 
-**File:** `doc_transformer/src/main.rs`  
+**File:** `ctd/src/main.rs`  
 **Lines:** 724-740
 
 ```rust
@@ -59,9 +59,9 @@ let cli = match cmd.try_get_matches() {
 
 Build and test with:
 ```bash
-cd /home/lewis/src/centralized-docs/doc_transformer
+cd /home/lewis/src/centralized-docs/ctd
 cargo build
-./target/debug/doc_transformer index /tmp/src --output /tmp/out --hnsw-m 100
+./target/debug/ctd index /tmp/src --output /tmp/out --hnsw-m 100
 # Should print error message and exit with code 1
 ```
 

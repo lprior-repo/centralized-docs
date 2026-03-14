@@ -9,7 +9,7 @@
 
 ## Problem Statement
 
-When source files have no read permissions (chmod 000), doc_transformer index silently skips them and returns exit code 0.
+When source files have no read permissions (chmod 000), ctd index silently skips them and returns exit code 0.
 
 **Expected:** Non-zero exit OR warning about unreadable files
 **Actual:** Exit code 0, file silently skipped
@@ -21,7 +21,7 @@ When source files have no read permissions (chmod 000), doc_transformer index si
 ## Preconditions
 
 - Source directory contains files with no read permissions (chmod 000)
-- User runs `doc_transformer index <dir> --output <output>`
+- User runs `ctd index <dir> --output <output>`
 
 ---
 
@@ -52,7 +52,7 @@ When source files have no read permissions (chmod 000), doc_transformer index si
 
 ## Implementation Notes
 
-- File discovery happens in `doc_transformer/src/discover.rs` or similar
+- File discovery happens in `ctd/src/discover.rs` or similar
 - Need to check file permissions before processing
 - Handle PermissionDenied errors appropriately
 
@@ -60,5 +60,5 @@ When source files have no read permissions (chmod 000), doc_transformer index si
 
 ## Verification
 
-Test: `chmod 000 test.md && doc_transformer index . --output /tmp/out && echo "Exit: $?"`
+Test: `chmod 000 test.md && ctd index . --output /tmp/out && echo "Exit: $?"`
 Expected: Non-zero exit code OR warning about unreadable files

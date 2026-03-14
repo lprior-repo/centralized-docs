@@ -22,7 +22,7 @@ Users may not realize files were skipped and assume the source directory is empt
 
 ## Implementation Plan
 
-### File: `doc_transformer/src/discover.rs`
+### File: `ctd/src/discover.rs`
 
 1. Add a counter `skipped_io_error` to track paths skipped due to I/O errors
 2. Change the message from "Error: Skipping path due to I/O error" to "Warning: Skipping path due to I/O error"  
@@ -31,6 +31,6 @@ Users may not realize files were skipped and assume the source directory is empt
 
 ## Acceptance Criteria
 
-1. ✅ Running `doc_transformer index` on a directory with permission-denied subdirectories shows "Warning:" not "Error:"
-2. ✅ Running `doc_transformer index` on a directory with permission-denied subdirectories prints a summary at the end indicating how many paths couldn't be accessed
+1. ✅ Running `ctd index` on a directory with permission-denied subdirectories shows "Warning:" not "Error:"
+2. ✅ Running `ctd index` on a directory with permission-denied subdirectories prints a summary at the end indicating how many paths couldn't be accessed
 3. ✅ The fix does not break existing functionality (existing tests pass)

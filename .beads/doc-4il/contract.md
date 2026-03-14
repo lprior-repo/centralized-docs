@@ -11,7 +11,7 @@
   - The validation should be fast (not itself cause catastrophic backtracking)
   - Both `validate_filter_regex` (main.rs) and `compile_safe_regex` (scrape/validation.rs) must be tested
 - **Open questions**:
-  - Is there an existing CLI binary name? (Assuming `doc_transformer`)
+  - Is there an existing CLI binary name? (Assuming `ctd`)
 
 ## Preconditions
 - [P1] Pattern is a valid string provided by caller

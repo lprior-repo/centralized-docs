@@ -9,7 +9,7 @@
 ## Implementation
 
 ### Files Modified
-1. `doc_transformer/src/main.rs` - Added exit code mapping function and error handling
+1. `ctd/src/main.rs` - Added exit code mapping function and error handling
 
 ### Changes Made
 

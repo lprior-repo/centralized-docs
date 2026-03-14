@@ -2,13 +2,13 @@
 
 ## Files Modified
 
-1. `doc_transformer/src/main.rs` - Modified `run_scrape()` function
+1. `ctd/src/main.rs` - Modified `run_scrape()` function
 
 ## Implementation Details
 
 ### Changes to `run_scrape()` function
 
-**Location**: `doc_transformer/src/main.rs`, lines 1018-1106
+**Location**: `ctd/src/main.rs`, lines 1018-1106
 
 **Changes Made**:
 

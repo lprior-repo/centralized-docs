@@ -2,14 +2,14 @@
 
 ## Summary
 
-This fix standardizes exit codes between `llms_txt_validator` and `doc_transformer` to ensure consistent CLI behavior. Both binaries now use:
+This fix standardizes exit codes between `llms_txt_validator` and `ctd` to ensure consistent CLI behavior. Both binaries now use:
 - Exit 0: Success
 - Exit 1: User error (bad arguments, missing files, invalid input)
 - Exit 2: Pipeline error (internal failures)
 
 ## Changes Made
 
-### File: `doc_transformer/src/bin/llms_txt_validator.rs`
+### File: `ctd/src/bin/llms_txt_validator.rs`
 
 #### 1. File Not Found (Line 568-571)
 **Before:**
@@ -72,7 +72,7 @@ if error_count > 0 {
 ```rust
 if error_count > 0 {
     // All validation errors are user input issues (invalid content)
-    // Consistent with doc_transformer: exit 1 for user errors
+    // Consistent with ctd: exit 1 for user errors
     std::process::exit(1);
 }
 ```
@@ -111,7 +111,7 @@ echo "Exit code: $?"  # Should be 1
 
 Both binaries now use the same exit code scheme:
 
-| Exit Code | Meaning | llms_txt_validator | doc_transformer |
+| Exit Code | Meaning | llms_txt_validator | ctd |
 |-----------|---------|-------------------|-----------------|
 | 0 | Success | ✅ | ✅ |
 | 1 | User error | ✅ (fixed) | ✅ |

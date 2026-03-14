@@ -1,12 +1,12 @@
 # Implementation: Fix CLI constraint validation for --max-related-chunks
 
 ## bead_id: doc-2apk
-## bead_title: doc_transformer: Fix CLI constraint validation for --max-related-chunks
+## bead_title: ctd: Fix CLI constraint validation for --max-related-chunks
 
 ## Files Read
 
 1. `.beads/doc-2apk/contract.md` - Contract specification
-2. `doc_transformer/src/main.rs` - CLI argument parsing implementation
+2. `ctd/src/main.rs` - CLI argument parsing implementation
 
 ## Contract Requirements
 
@@ -17,9 +17,9 @@
   - Valid values (1-100) are accepted
 - **Invariants**: Constraint validation occurs at CLI parsing time, not runtime
 - **Acceptance Tests**:
-  1. `doc_transformer index dir --output /tmp/test --max-related-chunks 101` exits with code 2
-  2. `doc_transformer index dir --output /tmp/test --max-related-chunks 0` exits with code 2
-  3. `doc_transformer index dir --output /tmp/test --max-related-chunks 50` exits with code 0
+  1. `ctd index dir --output /tmp/test --max-related-chunks 101` exits with code 2
+  2. `ctd index dir --output /tmp/test --max-related-chunks 0` exits with code 2
+  3. `ctd index dir --output /tmp/test --max-related-chunks 50` exits with code 0
   4. Help text shows valid range as 1-100
 
 ## Changes Made
@@ -73,22 +73,22 @@ All acceptance tests pass:
 
 ```bash
 # Test 1: Invalid value 101 - exits with code 2
-$ doc_transformer index /tmp/testdir --output /tmp/test --max-related-chunks 101
+$ ctd index /tmp/testdir --output /tmp/test --max-related-chunks 101
 error: invalid value '101' for '--max-related-chunks <N>': max_related_chunks must be at most 100, got '101'
 Exit code: 2  # ✓ PASS
 
 # Test 2: Invalid value 0 - exits with code 2
-$ doc_transformer index /tmp/testdir --output /tmp/test --max-related-chunks 0
+$ ctd index /tmp/testdir --output /tmp/test --max-related-chunks 0
 error: invalid value '0' for '--max-related-chunks <N>': max_related_chunks must be at least 1, got '0'
 Exit code: 2  # ✓ PASS
 
 # Test 3: Valid value 50 - exits with code 0
-$ doc_transformer index /tmp/testdir --output /tmp/test --max-related-chunks 50
+$ ctd index /tmp/testdir --output /tmp/test --max-related-chunks 50
 # ... successful output ...
 Exit code: 0  # ✓ PASS
 
 # Test 4: Help text shows valid range
-$ doc_transformer index --help | grep "max-related-chunks"
+$ ctd index --help | grep "max-related-chunks"
 --max-related-chunks <N>
         Maximum number of related chunks per document (1-100, default: 20) [default: 20]  # ✓ PASS
 ```

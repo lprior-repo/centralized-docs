@@ -15,7 +15,7 @@ Fixed the P0 bug where unreadable source files (chmod 000 or non-readable direct
 
 ## Files Modified
 
-### doc_transformer/src/discover.rs
+### ctd/src/discover.rs
 
 **Lines 235-244** (permission denied check):
 ```rust
@@ -86,7 +86,7 @@ echo "# Test" > /tmp/test-perm/readable.md
 mkdir /tmp/test-perm/restricted
 echo "# Hidden" > /tmp/test-perm/restricted/hidden.md
 chmod 000 /tmp/test-perm/restricted
-doc_transformer index /tmp/test-perm --output /tmp/out
+ctd index /tmp/test-perm --output /tmp/out
 echo "Exit code: $?"
 # Expected: exit code 1, error message about permission denied
 ```

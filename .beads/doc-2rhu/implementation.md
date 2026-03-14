@@ -10,7 +10,7 @@ Move the validation step to run BEFORE artifact writing (steps 6 and 7). This en
 
 ## Files Changed
 
-### 1. `doc_transformer/src/main.rs`
+### 1. `ctd/src/main.rs`
 
 **Summary of changes:**
 - Moved validation from STEP 8 to STEP 6 (between CHUNK and INDEX)
@@ -46,7 +46,7 @@ index::build_and_write_index(...);  // Writes INDEX.json
 index::build_and_write_compass(...); // Writes COMPASS.md
 ```
 
-### 2. Test File: `doc_transformer/tests/validation_atomicity_tests.rs`
+### 2. Test File: `ctd/tests/validation_atomicity_tests.rs`
 
 Created new test file with two tests:
 
@@ -66,7 +66,7 @@ Created new test file with two tests:
 
 ### Step 2: Add Test
 
-Created `doc_transformer/tests/validation_atomicity_tests.rs` with:
+Created `ctd/tests/validation_atomicity_tests.rs` with:
 - Test that validates failure prevents artifacts (by manually adding invalid file)
 - Test that validation success allows artifacts
 
@@ -74,7 +74,7 @@ Created `doc_transformer/tests/validation_atomicity_tests.rs` with:
 
 Run the new tests:
 ```bash
-cd doc_transformer
+cd ctd
 cargo test --test validation_atomicity_tests
 ```
 

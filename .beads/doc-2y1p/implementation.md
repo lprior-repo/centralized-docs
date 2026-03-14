@@ -6,7 +6,7 @@
 
 ## Changes Made
 
-### 1. Core Logic Fix (`doc_transformer/src/main.rs`)
+### 1. Core Logic Fix (`ctd/src/main.rs`)
 
 Changed the exit code for "no results found" from 1 to 0 in the `map_error_to_exit_code` function:
 
@@ -31,7 +31,7 @@ if error_string_lower.contains("no results found") {
 }
 ```
 
-### 2. Test Fix (`doc_transformer/tests/cli_integration_tests.rs`)
+### 2. Test Fix (`ctd/tests/cli_integration_tests.rs`)
 
 Updated `test_search_no_results` to expect exit code 0 (success) instead of exit code 1:
 

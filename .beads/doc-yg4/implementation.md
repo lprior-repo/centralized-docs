@@ -4,7 +4,7 @@
 ## Title: transform_content result unchecked
 
 ## Files Changed
-- `doc_transformer/src/scrape/transformers.rs` (lines 297-302 added)
+- `ctd/src/scrape/transformers.rs` (lines 297-302 added)
 
 ## Change Description
 Added validation after `transform_content` call to check if extraction succeeded:

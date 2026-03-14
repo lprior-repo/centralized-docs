@@ -39,5 +39,5 @@ When the crawler discovers URLs like `/docs?page=1` and `/docs?page=2`, these sh
 
 ## Research Required
 
-- Read `doc_transformer/src/scrape/transformers.rs` for existing slug generation patterns
-- Read `doc_transformer/src/scrape/http.rs` for URL handling patterns
+- Read `ctd/src/scrape/transformers.rs` for existing slug generation patterns
+- Read `ctd/src/scrape/http.rs` for URL handling patterns

@@ -1,5 +1,5 @@
 bead_id: doc-1b5q
-bead_title: doc_transformer: Fix category-config file content leak
+bead_title: ctd: Fix category-config file content leak
 phase: p0
 updated_at: 2026-03-01T13:55:00Z
 
@@ -17,7 +17,7 @@ When --category-config points to a file with YAML parse errors (e.g., /etc/passw
 3. Exit code shall be non-zero for user input errors
 
 ## Acceptance Criteria
-- Test: `doc_transformer index qa-fixtures/basic --output /tmp/test --category-config /etc/passwd`
+- Test: `ctd index qa-fixtures/basic --output /tmp/test --category-config /etc/passwd`
 - Expected: Shows 'invalid config' message, NOT file contents
 - Exit code: non-zero (user error)
 

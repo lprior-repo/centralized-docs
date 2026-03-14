@@ -8,14 +8,14 @@ Status: FAIL
 
 Verified requested implementation exists in source:
 
-1. `doc_transformer/src/config.rs`
+1. `ctd/src/config.rs`
    - `CategoryConfig::load_from_file` wraps YAML parse errors with sanitized message:
      - `invalid config: failed to parse YAML at '<path>'`
-   - Location: `doc_transformer/src/config.rs:147`
+   - Location: `ctd/src/config.rs:147`
 
-2. `doc_transformer/src/main.rs`
+2. `ctd/src/main.rs`
    - `map_error_to_exit_code` user input patterns include `"invalid config"`.
-   - Location: `doc_transformer/src/main.rs:1034`
+   - Location: `ctd/src/main.rs:1034`
 
 ## Acceptance Test Execution
 
@@ -24,7 +24,7 @@ Verified requested implementation exists in source:
 Command:
 
 ```bash
-doc_transformer index qa-fixtures/basic --output /tmp/test --category-config /etc/passwd
+ctd index qa-fixtures/basic --output /tmp/test --category-config /etc/passwd
 ```
 
 Actual output:
@@ -55,7 +55,7 @@ Expected vs actual:
 Command:
 
 ```bash
-doc_transformer index docs --output /tmp/test-doc-1b5q --category-config /etc/passwd
+ctd index docs --output /tmp/test-doc-1b5q --category-config /etc/passwd
 ```
 
 Actual output:
@@ -96,9 +96,9 @@ Expected vs actual:
 ## Reproduction Steps
 
 1. Run exact acceptance command:
-   - `doc_transformer index qa-fixtures/basic --output /tmp/test --category-config /etc/passwd`
+   - `ctd index qa-fixtures/basic --output /tmp/test --category-config /etc/passwd`
 2. In this workspace, fixture path is missing, so run equivalent command with valid source:
-   - `doc_transformer index docs --output /tmp/test-doc-1b5q --category-config /etc/passwd`
+   - `ctd index docs --output /tmp/test-doc-1b5q --category-config /etc/passwd`
 3. Observe leaked passwd-style line content in the error text and exit code `2`.
 
 ## Severity Assessment

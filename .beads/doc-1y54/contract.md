@@ -60,7 +60,7 @@ The lock file should contain:
 
 ## Verification Checkpoints
 
-1. **Research Gate**: Understand existing patterns in doc_transformer/src/main.rs
+1. **Research Gate**: Understand existing patterns in ctd/src/main.rs
 2. **Test Gate**: Write failing tests before implementation
 3. **Implementation Gate**: Make tests pass
 4. **Integration Gate**: Full pipeline test passes

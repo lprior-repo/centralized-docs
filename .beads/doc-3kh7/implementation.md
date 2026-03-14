@@ -2,11 +2,11 @@
 
 ## Summary
 
-The fix for broken symlinks in the source directory is **already implemented** in `doc_transformer/src/discover.rs`. The implementation prints warnings to stderr when broken symlinks are encountered, satisfying the contract requirement.
+The fix for broken symlinks in the source directory is **already implemented** in `ctd/src/discover.rs`. The implementation prints warnings to stderr when broken symlinks are encountered, satisfying the contract requirement.
 
 ## Current Implementation
 
-### File: `doc_transformer/src/discover.rs`
+### File: `ctd/src/discover.rs`
 
 **Changes Made:**
 

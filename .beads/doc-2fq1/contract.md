@@ -25,7 +25,7 @@ When --query with --threshold is provided to scrape or ingest, the threshold is 
 - Reported kept count equals number of retained pages after filter logic.
 
 ## Research Requirements
-- Read: doc_transformer/src/main.rs, doc_transformer/src/filter.rs
+- Read: ctd/src/main.rs, ctd/src/filter.rs
 
 ## Anti-Hallucination
 - READ files before modifying them

@@ -13,7 +13,7 @@ When the crawler discovers URLs like `/docs?page=1` and `/docs?page=2`, these sh
 
 ## Solution
 
-Modified the `url_to_slug` function in `doc_transformer/src/scrape/transformers.rs` to include a hash of query parameters and fragments in the generated slug. This ensures:
+Modified the `url_to_slug` function in `ctd/src/scrape/transformers.rs` to include a hash of query parameters and fragments in the generated slug. This ensures:
 
 1. `/docs?page=1` and `/docs?page=2` produce different slugs
 2. `/docs#section1` and `/docs#section2` produce different slugs
@@ -21,7 +21,7 @@ Modified the `url_to_slug` function in `doc_transformer/src/scrape/transformers.
 
 ## Changes Made
 
-### File: `doc_transformer/src/scrape/transformers.rs`
+### File: `ctd/src/scrape/transformers.rs`
 
 1. **Added import**: `use std::hash::Hasher;`
 
@@ -54,7 +54,7 @@ test result: ok. 278 passed; 0 failed; 0 ignored; 0 measured
 ## Verification
 
 ```bash
-cd doc_transformer
+cd ctd
 cargo test --lib -- scrape::transformers::tests::test_url_to_slug
 # All 6 tests pass
 ```

@@ -201,7 +201,7 @@ fn generate_safe_regex() -> String {
 ## Integration/E2E Tests (Testing Trophy)
 
 - `given_user_runs_cli_with_redos_filter_when_invoked_then_terminates_quickly_with_error`
-  - Given: CLI installed at target/release/doc_transformer
+  - Given: CLI installed at target/release/ctd
   - When: process spawns with args ["scrape", "--filter", "(a+)+", "https://example.com/"]
   - Then: 
     - Process exits with non-zero code
@@ -209,20 +209,20 @@ fn generate_safe_regex() -> String {
     - Execution completes in < 100ms
 
 - `given_user_runs_cli_with_valid_filter_when_invoked_then_succeeds`
-  - Given: CLI installed at target/release/doc_transformer
+  - Given: CLI installed at target/release/ctd
   - When: process spawns with args ["scrape", "--filter", "^/docs/.*", "https://example.com/"]
   - Then:
     - Process exits with zero code OR continues execution (filter accepted)
 
 - `given_user_runs_cli_with_too_long_filter_when_invoked_then_shows_length_error`
-  - Given: CLI installed at target/release/doc_transformer
+  - Given: CLI installed at target/release/ctd
   - When: process spawns with args ["scrape", "--filter", "a".repeat(600), "https://example.com/"]
   - Then:
     - Process exits with non-zero code
     - stderr contains "too long" or "500"
 
 - `given_user_runs_cli_with_invalid_syntax_filter_when_invoked_then_shows_syntax_error`
-  - Given: CLI installed at target/release/doc_transformer
+  - Given: CLI installed at target/release/ctd
   - When: process spawns with args ["scrape", "--filter", "[", "https://example.com/"]
   - Then:
     - Process exits with non-zero code
@@ -275,7 +275,7 @@ fn generate_safe_regex() -> String {
 ## Given-When-Then Scenarios (Full E2E)
 
 ### Scenario 1: User provides dangerous nested quantifier via CLI
-Given: User runs `doc_transformer scrape https://example.com/ --filter "(a+)+" --no-sitemap`
+Given: User runs `ctd scrape https://example.com/ --filter "(a+)+" --no-sitemap`
 When: System validates the filter regex before using it
 Then: 
 - CLI terminates within 100ms
@@ -284,7 +284,7 @@ Then:
 - Does NOT compile the dangerous regex
 
 ### Scenario 2: User provides valid regex filter via CLI
-Given: User runs `doc_transformer scrape https://example.com/ --filter "^/docs/.*" --no-sitemap`
+Given: User runs `ctd scrape https://example.com/ --filter "^/docs/.*" --no-sitemap`
 When: System validates the filter regex
 Then:
 - Validation passes (returns Ok)

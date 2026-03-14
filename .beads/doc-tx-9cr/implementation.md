@@ -1,7 +1,7 @@
 # Implementation Summary: HTTP Scrape Module Refactoring
 
 ## Contract Implementation
-The contract for `doc_transformer/src/scrape/http.rs` has been successfully implemented with strict adherence to the Functional Rust constraints (Data -> Calc -> Actions, Zero Mutability, Zero Panics, and Explicit Limit Checking).
+The contract for `ctd/src/scrape/http.rs` has been successfully implemented with strict adherence to the Functional Rust constraints (Data -> Calc -> Actions, Zero Mutability, Zero Panics, and Explicit Limit Checking).
 
 ### Constraint Adherence
 
@@ -25,9 +25,9 @@ The contract for `doc_transformer/src/scrape/http.rs` has been successfully impl
    - `execute_scrape_with_website` is bounded correctly as an exclusive borrow (`&mut`) explicitly required for executing I/O through `spider-rs`.
 
 ## Changed Files
-- Modified: `/home/lewis/src/doc-tx-9cr/doc_transformer/src/scrape/http.rs`
-- Modified: `/home/lewis/src/doc-tx-9cr/doc_transformer/src/scrape/mod.rs` (Updated to conform to the new method signatures in `http.rs`)
-- Modified: `/home/lewis/src/doc-tx-9cr/doc_transformer/tests/spider_local_fixtures.rs` (Updated test calls to pass `ValidatedUrl`)
+- Modified: `/home/lewis/src/doc-tx-9cr/ctd/src/scrape/http.rs`
+- Modified: `/home/lewis/src/doc-tx-9cr/ctd/src/scrape/mod.rs` (Updated to conform to the new method signatures in `http.rs`)
+- Modified: `/home/lewis/src/doc-tx-9cr/ctd/tests/spider_local_fixtures.rs` (Updated test calls to pass `ValidatedUrl`)
 
 ## Testing
 - Unit tests validating the bounds and configuration overflows (e.g., `test_p2_violation_max_retries_returns_config_overflow`, `test_p3_violation_returns_config_overflow`) have been successfully added and verify the exact `martin-fowler-tests.md` boundary constraints.
