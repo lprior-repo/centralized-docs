@@ -1,10 +1,10 @@
 [package]
-name = "doc_transformer"
-version = "0.6.0"
+name = "centralized-docs"
+version = "0.6.1"
 edition = "2021"
 
 [[bin]]
-name = "doc_transformer"
+name = "ctd"
 path = "src/main.rs"
 
 [[bin]]
@@ -12,7 +12,7 @@ name = "llms_txt_validator"
 path = "src/bin/llms_txt_validator.rs"
 
 [lib]
-name = "doc_transformer"
+name = "centralized_docs"
 path = "src/lib.rs"
 
 [dependencies]

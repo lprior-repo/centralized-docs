@@ -1,6 +1,6 @@
-//! `doc_transformer` v6.0 — AI-Optimized Documentation Indexer
+//! `ctd` v0.6.1 — AI-Optimized Documentation Indexer
 //!
-//! CLI entry point for the `doc_transformer` pipeline. Exposes four sub-commands
+//! CLI entry point for the `ctd` pipeline. Exposes four sub-commands
 //! that can be composed to go from a raw documentation source (local files **or**
 //! a live website) to a fully indexed, AI-queryable knowledge base.
 //!
@@ -464,16 +464,16 @@ fn validate_filter_regex(pattern: &str) -> Result<(), String> {
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "doc_transformer",
-    version = "5.0",
+    name = "ctd",
+    version = "0.6.1",
     about = "Transform documentation into AI-optimized knowledge structures",
     long_about = "
-doc_transformer v5.0 - The AI-Optimized Documentation Indexer
+ctd v0.6.1 - The AI-Optimized Documentation Indexer
 
 USAGE:
-  doc_transformer scrape <URL> --output <DIR>    # Scrape a documentation site
-  doc_transformer index <SOURCE> --output <DIR>  # Index local markdown files
-  doc_transformer ingest <URL> --output <DIR>    # Scrape + index in one step
+  ctd scrape <URL> --output <DIR>    # Scrape a documentation site
+  ctd index <SOURCE> --output <DIR>  # Index local markdown files
+  ctd ingest <URL> --output <DIR>    # Scrape + index in one step
 
 OUTPUT:
   llms.txt      - AI entry point (read this first)
@@ -1970,12 +1970,12 @@ fn run_search(
         anyhow::bail!("INDEX.json not found in {}", index_dir.display());
     }
 
-    let index = match doc_transformer::search::open_existing_index(index_dir)? {
+    let index = match centralized_docs::search::open_existing_index(index_dir)? {
         Some(index) => index,
         None => anyhow::bail!("Advanced index unavailable or corrupted."),
     };
 
-    let results = doc_transformer::search::search_index(&index, query, limit)?;
+    let results = centralized_docs::search::search_index(&index, query, limit)?;
 
     let cli_results: Vec<CliSearchResult> = results
         .iter()

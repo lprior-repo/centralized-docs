@@ -1,15 +1,15 @@
 # Indexer Implementation Guide
 
-Technical details on `doc_transformer` indexer.
+Technical details on `ctd` indexer.
 
 ## Commands
 
 ```bash
 # Build
-cargo build --release
+cargo build -p centralized-docs --release
 
 # Index local docs
-./target/release/doc_transformer index ./docs_source --output ./indexed_output
+ctd index ./docs_source --output ./indexed_output
 ```
 
 ## Outputs

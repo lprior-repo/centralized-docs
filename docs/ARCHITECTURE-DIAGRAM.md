@@ -1,6 +1,6 @@
 # Architecture Diagrams
 
-Visual representations of the hexagonal architecture and data flow in `doc_transformer`.
+Visual representations of the hexagonal architecture and data flow in `ctd`.
 
 ## System Overview
 

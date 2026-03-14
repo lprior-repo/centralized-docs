@@ -1,6 +1,6 @@
 # Integrating AI Agents with Centralized Docs
 
-The primary goal of `centralized-docs` (`doc_transformer`) is to dramatically reduce the token footprint required to give AI agents (like Claude, GPT-4, or autonomous developer agents) deep contextual understanding of a codebase.
+The primary goal of `centralized-docs` (`ctd`) is to dramatically reduce the token footprint required to give AI agents (like Claude, GPT-4, or autonomous developer agents) deep contextual understanding of a codebase.
 
 Instead of pasting entire documentation sites into a prompt, you integrate the agent with the generated structures.
 
@@ -12,7 +12,7 @@ When AI agents read thousands of lines of raw Markdown, they suffer from two maj
 
 ## The Solution: The `llms.txt` Entry Point
 
-When you run `doc_transformer index` or `ingest-git`, the CLI generates an `llms.txt` file at the root of the output directory.
+When you run `ctd index` or `ingest-git`, the CLI generates an `llms.txt` file at the root of the output directory.
 
 **This is the only file your agent needs to read initially.**
 
@@ -27,16 +27,16 @@ The `llms.txt` file contains less than 300 words. It provides:
 
 ### Step 2: Agent Tooling (Retrieval)
 
-To make your agent effective, it needs access to two tools (functions) that interact with the `doc_transformer` output.
+To make your agent effective, it needs access to two tools (functions) that interact with the `ctd` output.
 
 #### Tool 1: `search_docs(query)`
-Instead of blindly reading files, the agent should be programmed to use the `doc_transformer search` CLI command.
+Instead of blindly reading files, the agent should be programmed to use the `ctd search` CLI command.
 
 ```bash
-doc_transformer search "how to configure oauth" --index-dir ./output --limit 3 --json
+ctd search "how to configure oauth" --index-dir ./output --limit 3 --json
 ```
 
-Because `doc_transformer` uses BM25 semantic indexing on the full body text, this will instantly return the 3 most relevant documents in a structured JSON payload.
+Because `ctd` uses BM25 semantic indexing on the full body text, this will instantly return the 3 most relevant documents in a structured JSON payload.
 
 #### Tool 2: `read_chunk(chunk_id)`
 When the agent finds a relevant document via search, it can read the specific `chunk` instead of the whole file. 

@@ -1,4 +1,4 @@
-# Centralized Docs (`doc_transformer`)
+# Centralized Docs (`ctd`)
 
 A pure Rust CLI tool that transforms raw markdown documentation into AI-optimized, searchable structures. 
 
@@ -19,7 +19,7 @@ It provides tools to parse, index, and search documentation using BM25, semantic
 curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/scripts/install.sh | bash
 ```
 
-This installs `doc_transformer` to `~/.local/bin` by default.
+This installs `ctd` to `~/.local/bin` by default.
 
 **Homebrew (builds from source):**
 ```bash
@@ -28,17 +28,17 @@ brew install --formula https://raw.githubusercontent.com/lprior-repo/centralized
 
 **From source:**
 ```bash
-cargo install --path doc_transformer
+cargo install --path centralized-docs
 ```
 
 ### 2. Basic Usage
 
 ```bash
 # Index a directory of markdown files
-doc_transformer index ./docs --output ./output
+ctd index ./docs --output ./output
 
 # Search the generated index
-doc_transformer search "your query" --index-dir ./output
+ctd search "your query" --index-dir ./output
 ```
 
 ## Documentation

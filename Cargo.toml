@@ -1,9 +1,9 @@
 [workspace]
-members = ["doc_transformer", "contextual-chunker", "llms-txt-parser", "evaluations", "benchmark_server"]
+members = ["centralized-docs", "contextual-chunker", "llms-txt-parser", "evaluations", "benchmark_server"]
 resolver = "2"
 
 [workspace.package]
-version = "0.6.0"
+version = "0.6.1"
 edition = "2021"
 rust-version = "1.94"
 authors = ["centralized-docs Contributors"]

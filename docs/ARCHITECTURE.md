@@ -1,6 +1,6 @@
 # Architecture
 
-**doc_transformer** uses a **Hexagonal Architecture** (Ports and Adapters) combined with functional Rust.
+**ctd** uses a **Hexagonal Architecture** (Ports and Adapters) combined with functional Rust.
 
 ## Core Principles
 

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${DOC_TRANSFORMER_REPO:-lprior-repo/centralized-docs}"
-INSTALL_DIR="${DOC_TRANSFORMER_INSTALL_DIR:-$HOME/.local/bin}"
-VERSION="${DOC_TRANSFORMER_VERSION:-latest}"
+REPO="${CTD_REPO:-lprior-repo/centralized-docs}"
+INSTALL_DIR="${CTD_INSTALL_DIR:-$HOME/.local/bin}"
+VERSION="${CTD_VERSION:-latest}"
 TMP_ARCHIVE="$(mktemp)"
 TMP_DIR="$(mktemp -d)"
 
 cleanup() {
 	rm -f "$TMP_ARCHIVE"
-	rm -f "$TMP_DIR/doc_transformer" "$TMP_DIR/llms_txt_validator" "$TMP_DIR/README.md" "$TMP_DIR/LICENSE"
+	rm -f "$TMP_DIR/ctd" "$TMP_DIR/llms_txt_validator" "$TMP_DIR/README.md" "$TMP_DIR/LICENSE"
 	rmdir "$TMP_DIR" 2>/dev/null || true
 }
 
@@ -67,8 +67,8 @@ asset_name_for() {
 	local version="$3"
 
 	case "$os-$arch" in
-	linux-x86_64) printf 'doc_transformer-%s-linux-x86_64.tar.gz\n' "$version" ;;
-	macos-aarch64) printf 'doc_transformer-%s-macos-aarch64.tar.gz\n' "$version" ;;
+	linux-x86_64) printf 'ctd-%s-linux-x86_64.tar.gz\n' "$version" ;;
+	macos-aarch64) printf 'ctd-%s-macos-aarch64.tar.gz\n' "$version" ;;
 	*) printf '\n' ;;
 	esac
 }
@@ -119,18 +119,18 @@ RESOLVED_VERSION="$(resolve_version)"
 ASSET_NAME="$(asset_name_for "$OS" "$ARCH" "$RESOLVED_VERSION")"
 
 if [ -z "$ASSET_NAME" ]; then
-	fail "no prebuilt release is available for $OS/$ARCH. Use Homebrew or build from source with: cargo install --path doc_transformer"
+	fail "no prebuilt release is available for $OS/$ARCH. Use Homebrew or build from source with: cargo install --path centralized-docs"
 fi
 
 ASSET_URL="https://github.com/$REPO/releases/download/$RESOLVED_VERSION/$ASSET_NAME"
 
-say "Installing doc_transformer $RESOLVED_VERSION for $OS/$ARCH"
+say "Installing ctd $RESOLVED_VERSION for $OS/$ARCH"
 mkdir -p "$INSTALL_DIR"
 curl -fsSL "$ASSET_URL" -o "$TMP_ARCHIVE"
 verify_checksum "$ASSET_NAME" "$RESOLVED_VERSION"
 tar -xzf "$TMP_ARCHIVE" -C "$TMP_DIR"
 
-install_binary "$TMP_DIR/doc_transformer" "$INSTALL_DIR/doc_transformer"
+install_binary "$TMP_DIR/ctd" "$INSTALL_DIR/ctd"
 
 if [ -f "$TMP_DIR/llms_txt_validator" ]; then
 	install_binary "$TMP_DIR/llms_txt_validator" "$INSTALL_DIR/llms_txt_validator"
@@ -146,4 +146,4 @@ case ":$PATH:" in
 	;;
 esac
 
-say "Run 'doc_transformer --help' to get started"
+say "Run 'ctd --help' to get started"
