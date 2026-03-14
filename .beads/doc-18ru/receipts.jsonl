@@ -1,7 +1,0 @@
-{"bead_id": "doc-18ru", "actor": "orchestrator", "phase": "p0", "label": "contract resolved", "command": "contract file exists at .beads/doc-18ru/contract.md", "exit_code": 0, "timestamp": "2026-03-01T13:53:00Z"}
-{"bead_id": "doc-18ru", "actor": "orchestrator", "phase": "p0", "label": "workspace isolated", "command": "jj workspace add ../doc-18ru", "exit_code": 0, "timestamp": "2026-03-01T13:53:00Z"}
-{"bead_id": "doc-18ru", "actor": "orchestrator", "phase": "p2", "label": "moon fmt", "command": "cargo fmt --check", "exit_code": 0, "timestamp": "2026-03-01T14:00:00Z"}
-{"bead_id": "doc-18ru", "actor": "orchestrator", "phase": "p2", "label": "moon clippy", "command": "cargo clippy -p doc_transformer -- -D warnings", "exit_code": 0, "timestamp": "2026-03-01T14:00:00Z"}
-{"bead_id": "doc-18ru", "actor": "orchestrator", "phase": "p2", "label": "moon test", "command": "cargo test -p doc_transformer --lib", "exit_code": 0, "timestamp": "2026-03-01T14:05:00Z"}
-{"bead_id": "doc-18ru", "actor": "qa-enforcer", "phase": "p3", "label": "qa verification", "command": "cargo test -p doc_transformer cycle --lib", "exit_code": 0, "timestamp": "2026-03-01T14:10:00Z"}
-{"bead_id": "doc-18ru", "actor": "orchestrator", "phase": "p4", "label": "pushed to origin", "command": "git push origin main", "exit_code": 0, "timestamp": "2026-03-01T14:18:00Z"}
