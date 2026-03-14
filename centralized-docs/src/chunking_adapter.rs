@@ -1,8 +1,8 @@
-//! Adapter layer between `doc_transformer` and `contextual-chunker`
+//! Adapter layer between `ctd` and `contextual-chunker`
 //!
-//! This module provides conversion functions between `doc_transformer`'s types
+//! This module provides conversion functions between `ctd`'s types
 //! and `contextual-chunker`'s types, enabling clean separation of concerns while
-//! maintaining all `doc_transformer`-specific functionality.
+//! maintaining all `ctd`-specific functionality.
 
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
@@ -36,9 +36,9 @@ fn create_dir_with_context(path: &Path, context: &str) -> Result<()> {
     })
 }
 
-/// Extended chunk type for `doc_transformer` with knowledge graph relationships
+/// Extended chunk type for `ctd` with knowledge graph relationships
 ///
-/// This extends `contextual_chunker::Chunk` with `doc_transformer`-specific fields
+/// This extends `contextual_chunker::Chunk` with `ctd`-specific fields
 /// like `related_chunk_ids` for the knowledge graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
@@ -62,7 +62,7 @@ pub struct Chunk {
     pub context_prefix: Option<String>,
 }
 
-/// Extended chunking result for `doc_transformer`
+/// Extended chunking result for `ctd`
 #[derive(Debug)]
 pub struct ChunksResult {
     pub total_chunks: usize,
@@ -75,7 +75,7 @@ pub struct ChunksResult {
 
 /// Convert Analysis to `contextual_chunker::Document`
 ///
-/// Maps `doc_transformer`'s Analysis type to the simpler Document type
+/// Maps `ctd`'s Analysis type to the simpler Document type
 /// used by `contextual-chunker`. Uses `link_map` to get the assigned doc ID,
 /// falling back to a deterministic slugified ID if missing.
 fn analysis_to_document(analysis: &Analysis, link_map: &HashMap<String, IdMapping>) -> Document {
@@ -179,9 +179,9 @@ fn escape_frontmatter(s: &str) -> String {
 
 /// Chunk all analyses using `contextual-chunker`
 ///
-/// This is the main entry point for chunking in `doc_transformer`.
+/// This is the main entry point for chunking in `ctd`.
 /// It converts Analysis types to Documents, calls `contextual-chunker`,
-/// converts the results back to `doc_transformer` types, and writes
+/// converts the results back to `ctd` types, and writes
 /// chunk files to disk.
 ///
 /// # Errors
@@ -235,7 +235,7 @@ pub fn chunk_all(
     // Call contextual-chunker
     let result = contextual_chunker::chunk_all(&documents)?;
 
-    // Convert result back to doc_transformer types
+    // Convert result back to ctd types
     let chunks_result = convert_chunking_result(result, analyses.len());
 
     // Write chunks to disk

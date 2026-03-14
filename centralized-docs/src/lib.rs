@@ -1,4 +1,4 @@
-//! `centralized_docs` — AI-Optimized Documentation Transformation Library
+//! `ctd` — AI-Optimized Documentation Transformation Library
 //!
 //! Transforms raw documentation (local markdown files or live websites) into
 //! AI-friendly knowledge structures: semantic chunks, a searchable Tantivy index,

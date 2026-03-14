@@ -7,9 +7,9 @@
 //! Validates llms.txt files and INDEX.json against RFC specification.
 //!
 //! Usage:
-//!   llms-txt-validator <path>           # Validate llms.txt file
-//!   llms-txt-validator --index <path>   # Validate INDEX.json file
-//!   llms-txt-validator --url <url>      # Validate remote llms.txt
+//!   llms_txt_validator <path>           # Validate llms.txt file
+//!   llms_txt_validator --index <path>   # Validate INDEX.json file
+//!   llms_txt_validator --url <url>      # Validate remote llms.txt
 
 use anyhow::{Context, Result};
 use regex::Regex;
@@ -520,7 +520,10 @@ fn print_results(result: &ValidationResult, path: &Path) -> usize {
 }
 
 fn print_usage(program: &str) {
-    eprintln!("llms-txt-validator v1.0 - Validate llms.txt and INDEX.json files");
+    eprintln!(
+        "llms_txt_validator v{} - Validate llms.txt and INDEX.json files",
+        env!("CARGO_PKG_VERSION")
+    );
     eprintln!();
     eprintln!("Usage:");
     eprintln!("  {program} <llms.txt>              # Validate llms.txt file");
@@ -536,7 +539,7 @@ fn main() -> Result<()> {
     let program = args
         .first()
         .map(|s| s.as_str())
-        .unwrap_or("llms-txt-validator");
+        .unwrap_or("llms_txt_validator");
 
     // Handle --help and --version flags first
     if args.iter().any(|a| a == "--help" || a == "-h") {
@@ -545,7 +548,7 @@ fn main() -> Result<()> {
     }
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
-        eprintln!("llms-txt-validator v1.0");
+        eprintln!("llms_txt_validator v{}", env!("CARGO_PKG_VERSION"));
         std::process::exit(0);
     }
 
@@ -597,7 +600,7 @@ fn main() -> Result<()> {
     let error_count = print_results(&result, &path);
 
     // Exit with code 1 for validation errors (user input error)
-    // Consistent with doc_transformer: exit 1 for user errors
+    // Consistent with ctd: exit 1 for user errors
     if error_count > 0 {
         std::process::exit(1);
     }

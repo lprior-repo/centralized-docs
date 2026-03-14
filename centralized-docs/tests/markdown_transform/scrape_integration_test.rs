@@ -30,8 +30,8 @@ fn test_scrape_pipeline_simulation() {
     );
 
     // Verify the binary has scrape command
-    // Note: Tests run from doc_transformer/ directory, binary is in target/debug/
-    let bin_path = "../target/debug/doc_transformer";
+    // Note: Tests run from ctd/ directory, binary is in target/debug/
+    let bin_path = "../target/debug/ctd";
     let output = std::process::Command::new(bin_path)
         .arg("scrape")
         .arg("--help")
@@ -133,11 +133,9 @@ fn test_filter_functions_exist() {
         "Pruning function must exist"
     );
 
-    // Verify BM25 function exists
-    assert!(
-        filter_src.contains("bm25") || filter_src.contains("score_bm25"),
-        "BM25 scoring function must exist"
-    );
+    // Verify BM25 support exists
+    let filter_src_lower = filter_src.to_lowercase();
+    assert!(filter_src_lower.contains("bm25"), "BM25 support must exist");
 
     // Verify FilterStrategy enum exists
     assert!(
@@ -169,8 +167,8 @@ fn test_scrape_to_index_pipeline() {
     .unwrap();
 
     // Run index command on the simulated scraped content
-    // Note: Tests run from doc_transformer/ directory, binary is in target/debug/
-    let bin_path = "../target/debug/doc_transformer";
+    // Note: Tests run from ctd/ directory, binary is in target/debug/
+    let bin_path = "../target/debug/ctd";
     let output = std::process::Command::new(bin_path)
         .arg("index")
         .arg(temp_dir.path().join("scraped"))

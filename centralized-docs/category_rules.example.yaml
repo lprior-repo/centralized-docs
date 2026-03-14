@@ -1,6 +1,6 @@
 # Example Category Detection Rules Configuration
 # Copy this file to category_rules.yaml and customize as needed
-# Usage: doc_transformer index <SOURCE> --output <DIR> --category-config category_rules.yaml
+# Usage: ctd index <SOURCE> --output <DIR> --category-config category_rules.yaml
 
 # Default category to use if no rules match
 default_category: concept

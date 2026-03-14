@@ -1,4 +1,4 @@
-//! Integration test suite for doc_transformer
+//! Integration test suite for ctd
 //!
 //! This is the root of the integration test module tree. Tests are organized
 //! by capability rather than by mechanism.

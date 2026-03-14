@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
-const DOC_TRANSFORMER_BIN: &str = env!("CARGO_BIN_EXE_doc_transformer");
+const DOC_TRANSFORMER_BIN: &str = env!("CARGO_BIN_EXE_ctd");
 
 fn create_test_index(temp_dir: &TempDir) -> PathBuf {
     let index_path = temp_dir.path().join("test_index");
@@ -460,7 +460,7 @@ fn test_cli_index_directory_is_file() {
 
 #[test]
 fn test_cli_search_without_index() {
-    let args = vec!["doc_transformer", "search", "--query", "test"];
+    let args = vec!["ctd", "search", "--query", "test"];
 
     let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)
@@ -472,7 +472,7 @@ fn test_cli_search_without_index() {
 
 #[test]
 fn test_cli_document_without_index() {
-    let args = vec!["doc_transformer", "document", "some_file.md"];
+    let args = vec!["ctd", "document", "some_file.md"];
 
     let output = std::process::Command::new(DOC_TRANSFORMER_BIN)
         .args(&args)

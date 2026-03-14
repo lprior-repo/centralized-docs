@@ -465,10 +465,12 @@ fn validate_filter_regex(pattern: &str) -> Result<(), String> {
 #[derive(Parser, Debug)]
 #[command(
     name = "ctd",
-    version = "0.6.1",
+    version = env!("CARGO_PKG_VERSION"),
     about = "Transform documentation into AI-optimized knowledge structures",
-    long_about = "
-ctd v0.6.1 - The AI-Optimized Documentation Indexer
+    long_about = concat!(
+        "\nctd v",
+        env!("CARGO_PKG_VERSION"),
+        " - The AI-Optimized Documentation Indexer
 
 USAGE:
   ctd scrape <URL> --output <DIR>    # Scrape a documentation site
@@ -481,7 +483,8 @@ OUTPUT:
   COMPASS.md    - Human-readable navigation
   docs/         - Transformed documents with frontmatter
   chunks/       - Semantic chunks with context prefix
-",
+"
+    ),
     // Disable automatic exit on error so we can return exit code 1 for validation errors
     // instead of clap's default exit code 2
     disable_help_subcommand = true,
@@ -1970,12 +1973,12 @@ fn run_search(
         anyhow::bail!("INDEX.json not found in {}", index_dir.display());
     }
 
-    let index = match centralized_docs::search::open_existing_index(index_dir)? {
+    let index = match doc_transformer::search::open_existing_index(index_dir)? {
         Some(index) => index,
         None => anyhow::bail!("Advanced index unavailable or corrupted."),
     };
 
-    let results = centralized_docs::search::search_index(&index, query, limit)?;
+    let results = doc_transformer::search::search_index(&index, query, limit)?;
 
     let cli_results: Vec<CliSearchResult> = results
         .iter()

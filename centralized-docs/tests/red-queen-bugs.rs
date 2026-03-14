@@ -3,13 +3,13 @@ use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
 use tempfile::TempDir;
 
-fn doc_transformer_bin() -> &'static str {
-    env!("CARGO_BIN_EXE_doc_transformer")
+fn ctd_bin() -> &'static str {
+    env!("CARGO_BIN_EXE_ctd")
 }
 
 #[test]
 fn test_permission_denied_returns_nonzero() {
-    let temp_dir = std::env::temp_dir().join("doc_transformer_test_protected");
+    let temp_dir = std::env::temp_dir().join("ctd_test_protected");
     fs::create_dir_all(&temp_dir).expect("Failed to create temp dir");
 
     let protected_dir = temp_dir.join("protected");
@@ -25,7 +25,7 @@ fn test_permission_denied_returns_nonzero() {
     perms.set_mode(0o000);
     fs::set_permissions(&output_dir, perms).expect("Failed to set permissions");
 
-    let result = Command::new(doc_transformer_bin())
+    let result = Command::new(ctd_bin())
         .arg("index")
         .arg(temp_dir.join("test-input"))
         .arg("--output")
@@ -61,7 +61,7 @@ fn test_corrupted_index_returns_error() {
     let corrupted_file = index_dir.join("INDEX.json");
     fs::write(&corrupted_file, "{invalid json").expect("Failed to write corrupted file");
 
-    let result = Command::new(doc_transformer_bin())
+    let result = Command::new(ctd_bin())
         .arg("search")
         .arg("test")
         .arg("--index-dir")
@@ -88,7 +88,7 @@ fn test_corrupted_index_returns_error() {
 
 #[test]
 fn test_empty_parent_path_shows_full_path() {
-    let temp_dir = std::env::temp_dir().join("doc_transformer_test_parent");
+    let temp_dir = std::env::temp_dir().join("ctd_test_parent");
 
     let input_dir = temp_dir.join("input");
     fs::create_dir_all(&input_dir).expect("Failed to create input dir");
@@ -98,7 +98,7 @@ fn test_empty_parent_path_shows_full_path() {
 
     let nonexistent_output = temp_dir.join("nonexistent").join("output");
 
-    let result = Command::new(doc_transformer_bin())
+    let result = Command::new(ctd_bin())
         .arg("index")
         .arg(&input_dir)
         .arg("--output")

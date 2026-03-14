@@ -119,7 +119,7 @@ RESOLVED_VERSION="$(resolve_version)"
 ASSET_NAME="$(asset_name_for "$OS" "$ARCH" "$RESOLVED_VERSION")"
 
 if [ -z "$ASSET_NAME" ]; then
-	fail "no prebuilt release is available for $OS/$ARCH. Use Homebrew or build from source with: cargo install --path centralized-docs"
+	fail "no prebuilt release is available for $OS/$ARCH. Build from source with: cargo install --path centralized-docs"
 fi
 
 ASSET_URL="https://github.com/$REPO/releases/download/$RESOLVED_VERSION/$ASSET_NAME"

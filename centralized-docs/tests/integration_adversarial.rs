@@ -2,6 +2,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
+fn ctd_bin() -> &'static str {
+    env!("CARGO_BIN_EXE_ctd")
+}
+
 fn create_test_index(temp_dir: &TempDir) -> PathBuf {
     let index_path = temp_dir.path().join("test_index");
     let _ = std::fs::create_dir_all(&index_path);
@@ -21,6 +25,7 @@ fn create_invalid_index(temp_dir: &TempDir) -> PathBuf {
     std::thread::spawn(move || {
         let file = std::fs::OpenOptions::new()
             .write(true)
+            .create(true)
             .open(index_path_clone.join("INDEX.json"));
         let _ = file.unwrap().write_all(b"invalid json content");
     });
@@ -38,7 +43,7 @@ fn test_search_with_corrupt_index_file() {
     let corrupt_index_path = create_invalid_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "search",
         "--index-dir",
         corrupt_index_path.to_str().expect("path should exist"),
@@ -46,9 +51,7 @@ fn test_search_with_corrupt_index_file() {
         "test",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -69,7 +72,7 @@ fn test_search_with_malformed_index_json() {
     });
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -77,9 +80,7 @@ fn test_search_with_malformed_index_json() {
         "test",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -92,7 +93,7 @@ fn test_search_with_empty_index_directory() {
     let _ = std::fs::create_dir_all(&index_path);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -100,9 +101,7 @@ fn test_search_with_empty_index_directory() {
         "test",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -113,7 +112,7 @@ fn test_search_with_index_no_documents() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -121,9 +120,7 @@ fn test_search_with_index_no_documents() {
         "nonexistent",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -136,7 +133,7 @@ fn test_document_with_invalid_yaml_frontmatter() {
     let invalid_yaml = "invalid: yaml: frontmatter: content\n\nDocument content here";
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "invalid.md",
         "--index-dir",
@@ -145,9 +142,7 @@ fn test_document_with_invalid_yaml_frontmatter() {
         invalid_yaml,
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -160,7 +155,7 @@ fn test_document_with_empty_frontmatter() {
     let empty_frontmatter = "Document content here";
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "empty.md",
         "--index-dir",
@@ -169,9 +164,7 @@ fn test_document_with_empty_frontmatter() {
         empty_frontmatter,
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -182,7 +175,7 @@ fn test_document_with_only_frontmatter() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "empty.md",
         "--index-dir",
@@ -191,9 +184,7 @@ fn test_document_with_only_frontmatter() {
         "title: Empty Document",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -204,7 +195,7 @@ fn test_document_with_invalid_title() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "invalid_title.md",
         "--index-dir",
@@ -213,9 +204,7 @@ fn test_document_with_invalid_title() {
         "title: ",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -226,7 +215,7 @@ fn test_document_with_invalid_project_name() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "invalid_project.md",
         "--index-dir",
@@ -235,9 +224,7 @@ fn test_document_with_invalid_project_name() {
         "title: Test\nproject_name: /pattern/",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -248,7 +235,7 @@ fn test_document_with_invalid_tags() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "invalid_tags.md",
         "--index-dir",
@@ -257,9 +244,7 @@ fn test_document_with_invalid_tags() {
         "title: Test\ntags: [pattern]",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -270,7 +255,7 @@ fn test_document_with_invalid_status() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "invalid_status.md",
         "--index-dir",
@@ -279,9 +264,7 @@ fn test_document_with_invalid_status() {
         "title: Test\nstatus: invalid_status",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -292,7 +275,7 @@ fn test_document_with_invalid_date() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "invalid_date.md",
         "--index-dir",
@@ -301,9 +284,7 @@ fn test_document_with_invalid_date() {
         "title: Test\ndate: invalid-date",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -314,7 +295,7 @@ fn test_document_with_invalid_priority() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "invalid_priority.md",
         "--index-dir",
@@ -323,9 +304,7 @@ fn test_document_with_invalid_priority() {
         "title: Test\npriority: invalid",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -336,7 +315,7 @@ fn test_document_with_invalid_knowledge_dag() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "invalid_dag.md",
         "--index-dir",
@@ -345,9 +324,7 @@ fn test_document_with_invalid_knowledge_dag() {
         "title: Test\nknowledge_dag: [invalid_dag_format]",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -358,7 +335,7 @@ fn test_document_with_duplicate_document_ids() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "duplicate.md",
         "--index-dir",
@@ -367,13 +344,13 @@ fn test_document_with_duplicate_document_ids() {
         "title: Test",
     ];
 
-    let _ = std::process::Command::new("doc_transformer")
+    let _ = std::process::Command::new(ctd_bin())
         .args(&args)
         .output()
         .unwrap();
 
     let _args2 = [
-        "doc_transformer",
+        "ctd",
         "document",
         "duplicate.md",
         "--index-dir",
@@ -382,9 +359,7 @@ fn test_document_with_duplicate_document_ids() {
         "title: Test",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     match output {
         Ok(out) => {
@@ -408,7 +383,7 @@ fn test_search_with_nonexistent_project() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -418,9 +393,7 @@ fn test_search_with_nonexistent_project() {
         "nonexistent_project",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -433,7 +406,7 @@ fn test_search_with_empty_tags() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -442,9 +415,7 @@ fn test_search_with_empty_tags() {
         "--tags",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -457,7 +428,7 @@ fn test_search_with_invalid_tags_format() {
     write_test_document(&index_path, "test", "# Test\n\nTest content");
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "search",
         "--index-dir",
         index_path.to_str().expect("path should exist"),
@@ -467,9 +438,7 @@ fn test_search_with_invalid_tags_format() {
         "invalid,tag,format",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -483,7 +452,7 @@ fn test_document_with_special_characters_in_content() {
         "Content with \x00 null byte, \x1f control char, and unicode \u{1F4A9} emoji";
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "special.md",
         "--index-dir",
@@ -492,9 +461,7 @@ fn test_document_with_special_characters_in_content() {
         special_content,
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     match output {
         Ok(out) => {
@@ -518,7 +485,7 @@ fn test_document_with_extremely_long_content() {
     let long_content = "x".repeat(10_000_000);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "long.md",
         "--index-dir",
@@ -527,9 +494,7 @@ fn test_document_with_extremely_long_content() {
         &long_content,
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     match output {
         Ok(out) => {
@@ -553,7 +518,7 @@ fn test_document_with_unicode_bom() {
     let bom_content = "\u{FEFF}title: Test\n\nDocument content";
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "bom.md",
         "--index-dir",
@@ -562,9 +527,7 @@ fn test_document_with_unicode_bom() {
         bom_content,
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -577,7 +540,7 @@ fn test_document_with_windows_line_endings() {
     let windows_content = "title: Test\r\n\r\nDocument content";
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "windows.md",
         "--index-dir",
@@ -586,9 +549,7 @@ fn test_document_with_windows_line_endings() {
         windows_content,
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -601,7 +562,7 @@ fn test_document_with_tabs_in_frontmatter() {
     let tab_content = "title:\tTest\n\nDocument content";
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "tabs.md",
         "--index-dir",
@@ -610,9 +571,7 @@ fn test_document_with_tabs_in_frontmatter() {
         tab_content,
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }
@@ -623,7 +582,7 @@ fn test_document_with_invalid_encoding() {
     let index_path = create_test_index(&temp_dir);
 
     let args = vec![
-        "doc_transformer",
+        "ctd",
         "document",
         "encoding.md",
         "--index-dir",
@@ -632,9 +591,7 @@ fn test_document_with_invalid_encoding() {
         "title: Invalid encoding \\u{FF}\\u{FE}",
     ];
 
-    let output = std::process::Command::new("doc_transformer")
-        .args(&args)
-        .output();
+    let output = std::process::Command::new(ctd_bin()).args(&args).output();
 
     assert!(output.unwrap().status.code() != Some(0), "Expected error");
 }

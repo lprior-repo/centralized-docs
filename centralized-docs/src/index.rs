@@ -621,8 +621,6 @@ mod tests {
     use super::*;
     use crate::chunking_adapter::Chunk;
     use contextual_chunker::ChunkLevel;
-    use std::collections::HashMap;
-
     /// Test that chunk metadata has no duplicate `chunk_ids`
     /// This verifies the fix for BEAD-012
     #[test]

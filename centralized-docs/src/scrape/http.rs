@@ -87,6 +87,7 @@ pub enum ScrapeStrategy {
 pub enum HaltReason {
     PageLimitReached,
     TotalSizeExceeded,
+    #[allow(dead_code)]
     IntegerOverflow,
 }
 
@@ -117,6 +118,7 @@ impl UrlSet {
     }
 
     /// Check if a URL is present in the set.
+    #[allow(dead_code)]
     pub fn contains(&self, url: &str) -> bool {
         self.0.contains(url)
     }

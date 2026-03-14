@@ -2,6 +2,12 @@
 
 The `ctd` CLI provides tools to scrape, index, and search documentation.
 
+## Version
+
+- Production release: `v0.6.1`
+- Primary binary: `ctd`
+- Helper binary: `llms_txt_validator`
+
 ## `ctd`
 
 **Usage:**
@@ -63,3 +69,13 @@ Scrape and index in one step.
 - `URL`: URL of the documentation site.
 - `--output`, `-o <DIR>`: Output directory for final indexed content.
 - All scrape and index options available.
+
+## `llms_txt_validator`
+
+Validate generated `llms.txt` and `INDEX.json` outputs.
+
+```bash
+llms_txt_validator ./output/llms.txt
+llms_txt_validator --index ./output/INDEX.json
+llms_txt_validator --version
+```

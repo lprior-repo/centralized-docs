@@ -1,8 +1,8 @@
 # Centralized Docs (`ctd`)
 
-A pure Rust CLI tool that transforms raw markdown documentation into AI-optimized, searchable structures. 
+A pure Rust CLI tool that transforms raw markdown documentation into AI-optimized, searchable structures.
 
-It provides tools to parse, index, and search documentation using BM25, semantic chunking, and contextual retrieval patterns.
+It provides tools to scrape, index, and search documentation using BM25, semantic chunking, and contextual retrieval patterns.
 
 ## Features
 
@@ -19,13 +19,7 @@ It provides tools to parse, index, and search documentation using BM25, semantic
 curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/scripts/install.sh | bash
 ```
 
-This installs `ctd` to `~/.local/bin` by default.
-
-**Homebrew (recommended):**
-```bash
-brew tap lprior-repo/centralized-docs
-brew install ctd
-```
+This installs `ctd` to `~/.local/bin` by default and verifies the downloaded archive against `SHA256SUMS.txt`.
 
 **From source:**
 ```bash
@@ -40,7 +34,22 @@ ctd index ./docs --output ./output
 
 # Search the generated index
 ctd search "your query" --index-dir ./output
+
+# Validate generated metadata
+llms_txt_validator ./output/llms.txt
 ```
+
+## Production Release
+
+- Canonical release version: `0.6.1`
+- Canonical release tag: `v0.6.1`
+- Primary CLI: `ctd`
+- Helper CLI: `llms_txt_validator`
+- Release assets: Linux x86_64, macOS Apple Silicon, Windows x86_64
+
+## Documentation Site
+
+The published docs site lives at `https://lprior-repo.github.io/centralized-docs/`.
 
 ## Documentation
 

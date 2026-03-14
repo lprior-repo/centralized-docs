@@ -1,4 +1,4 @@
-//! Common test helpers for doc_transformer integration tests
+//! Common test helpers for ctd integration tests
 //!
 //! This module provides reusable test utilities that all integration tests can use.
 //! It encapsulates common patterns for:

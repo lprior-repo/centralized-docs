@@ -3,22 +3,22 @@ language: rust
 tasks:
   build:
     command: cargo
-    args: ["build", "--release", "-p", "doc_transformer"]
+    args: ["build", "--release", "-p", "centralized-docs"]
     description: Build release binary
 
   test:
     command: cargo
-    args: ["test", "-p", "doc_transformer", "--no-fail-fast"]
+    args: ["test", "-p", "centralized-docs", "--no-fail-fast"]
     description: Run all tests
 
   check:
     command: cargo
-    args: ["check", "-p", "doc_transformer"]
+    args: ["check", "-p", "centralized-docs"]
     description: Type check
 
   clippy:
     command: cargo
-    args: ["clippy", "-p", "doc_transformer", "--no-deps", "--", "-D", "warnings"]
+    args: ["clippy", "-p", "centralized-docs", "--no-deps", "--", "-D", "warnings"]
     description: Lint
 
   fmt:

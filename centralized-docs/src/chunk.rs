@@ -4,7 +4,7 @@
 //! from the `chunking_adapter` module, which wraps the contextual-chunker crate.
 //!
 //! All chunking logic now lives in the contextual-chunker workspace crate,
-//! with `doc_transformer`-specific extensions in `chunking_adapter`.
+//! with `ctd`-specific extensions in `chunking_adapter`.
 
 // Re-export types for backwards compatibility
 // Note: These are used by tests, benchmarks, and lib code, not the binary

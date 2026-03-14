@@ -1,4 +1,4 @@
-//! CLI Integration Tests for doc_transformer
+//! CLI Integration Tests for ctd
 //!
 //! This module tests the CLI interface by spawning the binary as a subprocess
 //! and verifying behavior through exit codes and output. Tests cover all
@@ -48,23 +48,23 @@ fn create_test_docs(dir: &Path) {
 fn binary_path() -> std::path::PathBuf {
     // Check workspace target directory first (where cargo builds in a workspace)
     // Try relative to current dir
-    let workspace_release = Path::new("target/release/doc_transformer");
+    let workspace_release = Path::new("target/release/ctd");
     if workspace_release.exists() {
         return workspace_release.to_path_buf();
     }
 
-    let workspace_debug = Path::new("target/debug/doc_transformer");
+    let workspace_debug = Path::new("target/debug/ctd");
     if workspace_debug.exists() {
         return workspace_debug.to_path_buf();
     }
 
     // Try relative to parent (workspace root when running from crate dir)
-    let parent_workspace_release = Path::new("../target/release/doc_transformer");
+    let parent_workspace_release = Path::new("../target/release/ctd");
     if parent_workspace_release.exists() {
         return parent_workspace_release.to_path_buf();
     }
 
-    let parent_workspace_debug = Path::new("../target/debug/doc_transformer");
+    let parent_workspace_debug = Path::new("../target/debug/ctd");
     if parent_workspace_debug.exists() {
         return parent_workspace_debug.to_path_buf();
     }
@@ -85,7 +85,7 @@ fn run_cli(args: &[&str]) -> std::process::Output {
         Command::new("cargo")
             .arg("run")
             .arg("--bin")
-            .arg("doc_transformer")
+            .arg("ctd")
             .arg("--")
             .args(args)
             .output()
@@ -474,7 +474,7 @@ fn test_cli_version() {
     let output = String::from_utf8_lossy(&result.stdout).to_string()
         + &String::from_utf8_lossy(&result.stderr);
     assert!(
-        output.contains("doc_transformer") || output.chars().any(|c| c.is_ascii_digit()),
+        output.contains("ctd") || output.chars().any(|c| c.is_ascii_digit()),
         "Version should show program name or version number. Got: {output}"
     );
 }
@@ -1793,7 +1793,7 @@ fn test_exit_code_for_invalid_url() {
 // =============================================================================
 
 #[test]
-fn test_legacy_mode_two_args() {
+fn test_legacy_mode_two_args_rejected() {
     let temp = TempDir::new().unwrap();
     let source = temp.path().join("source");
     let output_dir = temp.path().join("output");
@@ -1801,19 +1801,17 @@ fn test_legacy_mode_two_args() {
     fs::create_dir_all(&source).unwrap();
     fs::write(source.join("test.md"), "# Test\n\nContent").unwrap();
 
-    // Use legacy mode (two positional args instead of subcommand)
+    // Legacy mode was intentionally removed; two positional args should now fail.
     let result = run_cli(&[source.to_str().unwrap(), output_dir.to_str().unwrap()]);
 
     assert!(
-        result.status.success(),
-        "Legacy mode should work. stderr: {}",
+        !result.status.success(),
+        "Legacy mode should be rejected. stderr: {}",
         String::from_utf8_lossy(&result.stderr)
     );
-
-    // Verify INDEX.json was created
     assert!(
-        output_dir.join("INDEX.json").exists(),
-        "INDEX.json should be created in legacy mode"
+        String::from_utf8_lossy(&result.stderr).contains("unrecognized subcommand"),
+        "Expected clap to reject the legacy invocation"
     );
 }
 

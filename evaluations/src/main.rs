@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Get 500 sites dynamically from crates.io
     let mut sites = Vec::new();
     let client = reqwest::Client::builder()
-        .user_agent("doc_transformer_benchmark/1.0")
+        .user_agent("ctd_benchmark/1.0")
         .build()?;
 
     println!("Fetching top crates from crates.io...");
@@ -51,12 +51,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     sites.truncate(500);
     println!("Found {} sites to benchmark.", sites.len());
 
-    let cli_path = if PathBuf::from("target/release/doc_transformer").exists() {
-        PathBuf::from("target/release/doc_transformer")
-    } else if PathBuf::from("../target/release/doc_transformer").exists() {
-        PathBuf::from("../target/release/doc_transformer")
+    let cli_path = if PathBuf::from("target/release/ctd").exists() {
+        PathBuf::from("target/release/ctd")
+    } else if PathBuf::from("../target/release/ctd").exists() {
+        PathBuf::from("../target/release/ctd")
     } else {
-        println!("Error: Could not find target/release/doc_transformer. Please run 'cargo build --release' from the root workspace first.");
+        println!("Error: Could not find target/release/ctd. Please run 'moon run :build' from the root workspace first.");
         return Ok(());
     };
 

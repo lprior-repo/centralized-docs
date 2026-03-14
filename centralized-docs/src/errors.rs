@@ -4,7 +4,7 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
-//! Unified error type hierarchy for the `doc_transformer` library.
+//! Unified error type hierarchy for the `ctd` library.
 //!
 //! This module provides a comprehensive error taxonomy that covers all error conditions
 //! across the entire codebase. All errors implement `thiserror::Error` for ergonomic
@@ -19,7 +19,7 @@ pub use crate::types::{
     ChunkIdError, ConfigError as TypesConfigError, DocumentIdError, KeywordError, TagError,
 };
 
-/// The primary error type for the `doc_transformer` library.
+/// The primary error type for the `ctd` library.
 #[derive(Debug, Error)]
 #[allow(clippy::large_enum_variant)]
 #[allow(dead_code)]

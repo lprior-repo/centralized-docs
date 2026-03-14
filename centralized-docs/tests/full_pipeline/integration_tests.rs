@@ -1,4 +1,4 @@
-//! Integration tests for doc_transformer core pipeline
+//! Integration tests for ctd core pipeline
 //!
 //! This module tests the complete end-to-end pipeline:
 //! 1. DISCOVER: Find and collect markdown files

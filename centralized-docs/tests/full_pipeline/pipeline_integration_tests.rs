@@ -1,4 +1,4 @@
-//! Comprehensive Integration Tests for doc_transformer Pipeline
+//! Comprehensive Integration Tests for ctd Pipeline
 //!
 //! Tests the core pipeline functions in isolation with carefully designed test cases
 //! covering edge cases and real-world scenarios.

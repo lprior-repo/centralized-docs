@@ -16,8 +16,8 @@ use tempfile::TempDir;
 
 fn binary_path() -> std::path::PathBuf {
     let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let debug_path = workspace_root.join("target/debug/doc_transformer");
-    let release_path = workspace_root.join("target/release/doc_transformer");
+    let debug_path = workspace_root.join("target/debug/ctd");
+    let release_path = workspace_root.join("target/release/ctd");
 
     if release_path.exists() {
         release_path
@@ -25,7 +25,7 @@ fn binary_path() -> std::path::PathBuf {
         debug_path
     } else {
         panic!(
-            "doc_transformer binary not found at {:?} or {:?}",
+            "ctd binary not found at {:?} or {:?}",
             debug_path, release_path
         );
     }

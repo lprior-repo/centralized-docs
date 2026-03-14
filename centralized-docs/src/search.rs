@@ -356,6 +356,7 @@ pub fn open_existing_index(index_path: &Path) -> Result<Option<Index>> {
 }
 
 /// Index a batch of documents into Tantivy (used by tests)
+#[allow(dead_code)]
 pub fn index_documents(
     writer: &mut tantivy::IndexWriter,
     documents: &[crate::index::IndexDocument],

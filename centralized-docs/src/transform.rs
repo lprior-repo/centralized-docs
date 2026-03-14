@@ -69,7 +69,9 @@ use unicode_segmentation::UnicodeSegmentation;
 /// Error type for transform operations with full context
 #[derive(Debug, Clone)]
 pub struct TransformError {
+    #[allow(dead_code)]
     pub source_path: String,
+    #[allow(dead_code)]
     pub error: String,
 }
 

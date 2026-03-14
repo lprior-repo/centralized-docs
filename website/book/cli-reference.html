@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c9577f8.js";
+            window.path_to_searchindex_js = "searchindex-e440c19d.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-9eac19eb.js"></script>
+        <script src="toc-dd1c0e9f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -175,17 +175,23 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="cli-reference"><a class="header" href="#cli-reference">CLI Reference</a></h1>
-<p>The <code>doc_transformer</code> CLI provides tools to scrape, index, and search documentation.</p>
-<h2 id="doc_transformer"><a class="header" href="#doc_transformer"><code>doc_transformer</code></a></h2>
+<p>The <code>ctd</code> CLI provides tools to scrape, index, and search documentation.</p>
+<h2 id="version"><a class="header" href="#version">Version</a></h2>
+<ul>
+<li>Production release: <code>v0.6.1</code></li>
+<li>Primary binary: <code>ctd</code></li>
+<li>Helper binary: <code>llms_txt_validator</code></li>
+</ul>
+<h2 id="ctd"><a class="header" href="#ctd"><code>ctd</code></a></h2>
 <p><strong>Usage:</strong></p>
-<pre><code class="language-bash">doc_transformer &lt;COMMAND&gt; [OPTIONS]
+<pre><code class="language-bash">ctd &lt;COMMAND&gt; [OPTIONS]
 </code></pre>
 <h3 id="commands"><a class="header" href="#commands">Commands</a></h3>
 <h4 id="search"><a class="header" href="#search"><code>search</code></a></h4>
 <p>Search indexed documentation using BM25.</p>
 <ul>
 <li><code>QUERY</code>: Query string to search for.</li>
-<li><code>--index-dir</code>, <code>-d &lt;DIR&gt;</code>: Directory containing <code>INDEX.json</code>.</li>
+<li><code>--index-dir</code>, <code>-i &lt;DIR&gt;</code>: Directory containing <code>INDEX.json</code>.</li>
 <li><code>--limit</code>, <code>-n &lt;N&gt;</code>: Maximum number of results to return (default: 10).</li>
 <li><code>--no-color</code>: Disable colored output.</li>
 <li><code>--json</code>: Output structured JSON for machine parsing.</li>
@@ -197,13 +203,13 @@
 <li><code>--output</code>, <code>-o &lt;DIR&gt;</code>: Output directory for scraped content.</li>
 <li><code>--no-sitemap</code>: Disable sitemap.xml discovery (use crawling instead).</li>
 <li><code>--filter</code>, <code>-f &lt;REGEX&gt;</code>: Regex pattern to filter URLs by path.</li>
-<li><code>--delay</code>, <code>-d &lt;MS&gt;</code>: Delay between requests in milliseconds (0-60000, default: 250).</li>
+<li><code>--delay</code>, <code>-d &lt;MS&gt;</code>: Delay between requests in milliseconds (0-60000, default: 0).</li>
 <li><code>--request-timeout-secs &lt;SECS&gt;</code>: Request timeout in seconds (1-600, default: 30).</li>
 <li><code>--max-retries &lt;N&gt;</code>: Max spider retries (0 disables spider retry, default: 3).</li>
 <li><code>--redirect-policy &lt;POLICY&gt;</code>: Redirect policy (loose, strict, none, default: loose).</li>
 <li><code>--max-page-bytes &lt;BYTES&gt;</code>: Max bytes per page.</li>
 <li><code>--max-total-bytes &lt;BYTES&gt;</code>: Max total bytes across crawl.</li>
-<li><code>--concurrency &lt;N&gt;</code>: Concurrency (1-2, default: 1).</li>
+<li><code>--concurrency &lt;N&gt;</code>: Concurrency (default: 4).</li>
 <li><code>--query</code>, <code>-q &lt;QUERY&gt;</code>: Filter pages by BM25 relevance to query.</li>
 <li><code>--threshold &lt;SCORE&gt;</code>: Minimum BM25 score to keep a page (0.0-10.0, default: 0.1).</li>
 </ul>
@@ -215,18 +221,19 @@
 <li><code>--branch &lt;BRANCH&gt;</code>: Git branch to checkout (default: main).</li>
 <li><code>--depth &lt;N&gt;</code>: Clone depth (0 = full, 1 = shallow/faster, default: 1).</li>
 <li><code>--project-name &lt;NAME&gt;</code>: Project name for llms.txt header.</li>
+<li><code>--filter</code>, <code>-f &lt;REGEX&gt;</code>: Regex pattern to filter file paths.</li>
 </ul>
 <h4 id="index"><a class="header" href="#index"><code>index</code></a></h4>
 <p>Index local markdown files into an AI-optimized structure.</p>
 <ul>
 <li><code>SOURCE</code>: Source directory containing markdown files.</li>
 <li><code>--output</code>, <code>-o &lt;DIR&gt;</code>: Output directory for indexed content.</li>
-<li><code>--llms-txt</code>: Generate <code>llms.txt</code> entry point files (default: true).</li>
-<li><code>--project-name &lt;NAME&gt;</code>: Project name for <code>llms.txt</code> header (default: “Documentation”).</li>
-<li><code>--project-desc &lt;DESC&gt;</code>: Project description for <code>llms.txt</code> (default: “AI-optimized documentation index”).</li>
+<li><code>--llms-txt</code>: Generate llms.txt entry point files (default: true).</li>
+<li><code>--project-name &lt;NAME&gt;</code>: Project name for llms.txt header (default: Documentation).</li>
+<li><code>--project-desc &lt;DESC&gt;</code>: Project description for llms.txt.</li>
 <li><code>--category-config &lt;FILE&gt;</code>: Path to category rules config file.</li>
 <li><code>--max-related-chunks &lt;N&gt;</code>: Maximum number of related chunks per document (1-100, default: 20).</li>
-<li><code>--max-chunk-keywords &lt;N&gt;</code>: Maximum number of chunk keywords to include in similarity (0-50, default: 12).</li>
+<li><code>--max-chunk-keywords &lt;N&gt;</code>: Maximum number of chunk keywords (0-50, default: 12).</li>
 <li><code>--hnsw-m &lt;M&gt;</code>: HNSW graph connectivity parameter (4-64, default: 16).</li>
 <li><code>--hnsw-ef-construction &lt;EF&gt;</code>: HNSW graph construction effort (50-1000, default: 200).</li>
 <li><code>--max-document-bytes &lt;BYTES&gt;</code>: Maximum document size in bytes (default: 10MB).</li>
@@ -234,18 +241,26 @@
 <h4 id="ingest"><a class="header" href="#ingest"><code>ingest</code></a></h4>
 <p>Scrape and index in one step.</p>
 <ul>
-<li>Combines the options from <code>scrape</code> and <code>index</code>.</li>
+<li><code>URL</code>: URL of the documentation site.</li>
+<li><code>--output</code>, <code>-o &lt;DIR&gt;</code>: Output directory for final indexed content.</li>
+<li>All scrape and index options available.</li>
 </ul>
+<h2 id="llms_txt_validator"><a class="header" href="#llms_txt_validator"><code>llms_txt_validator</code></a></h2>
+<p>Validate generated <code>llms.txt</code> and <code>INDEX.json</code> outputs.</p>
+<pre><code class="language-bash">llms_txt_validator ./output/llms.txt
+llms_txt_validator --index ./output/INDEX.json
+llms_txt_validator --version
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="indexer-implementation-guide.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="architecture.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="contributing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="ai-usage-guide.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -255,11 +270,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="indexer-implementation-guide.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="architecture.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="contributing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="ai-usage-guide.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

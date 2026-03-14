@@ -6,13 +6,13 @@ use std::path::PathBuf;
 use std::process::Command;
 use tempfile::TempDir;
 
-/// Helper function to get the path to the doc_transformer binary
+/// Helper function to get the path to the ctd binary
 fn binary_path() -> PathBuf {
     let paths = vec![
-        "../target/release/doc_transformer",
-        "../target/debug/doc_transformer",
-        "target/release/doc_transformer",
-        "target/debug/doc_transformer",
+        "../target/release/ctd",
+        "../target/debug/ctd",
+        "target/release/ctd",
+        "target/debug/ctd",
     ];
 
     for path in paths {
@@ -21,7 +21,7 @@ fn binary_path() -> PathBuf {
         }
     }
 
-    PathBuf::from("../target/release/doc_transformer")
+    PathBuf::from("../target/release/ctd")
 }
 
 /// Test helper: Run scrape command with filter and check for expected output

@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c9577f8.js";
+            window.path_to_searchindex_js = "searchindex-e440c19d.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-9eac19eb.js"></script>
+        <script src="toc-dd1c0e9f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -174,27 +174,42 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="best-practices-for-llmstxt"><a class="header" href="#best-practices-for-llmstxt">Best Practices for llms.txt</a></h1>
-<p>Create effective <code>llms.txt</code> files for AI agents:</p>
+                        <h1 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h1>
+<p>To get the most out of <code>ctd</code> and its generated structures today, follow these best practices for indexing and utilizing the CLI.</p>
+<h2 id="1-local-indexing-first"><a class="header" href="#1-local-indexing-first">1. Local Indexing First</a></h2>
+<p>Always test your indexing locally before running it against large repositories or scraping remote websites.</p>
+<pre><code class="language-bash">ctd index ./my-local-docs -o ./output --llms-txt
+</code></pre>
+<p>This lets you verify that your documents are chunked and categorized effectively.</p>
+<h2 id="2-optimize-chunk-parameters"><a class="header" href="#2-optimize-chunk-parameters">2. Optimize Chunk Parameters</a></h2>
+<p>Depending on the size of your AI context windows, you may want to adjust chunking properties.</p>
+<ul>
+<li>Use <code>--max-related-chunks</code> to limit how many connections the knowledge graph builds.</li>
+<li>Keep <code>--max-chunk-keywords</code> focused. Over-populating keywords can lead to BM25 search noise.</li>
+</ul>
+<h2 id="3-leverage-contextual-chunking"><a class="header" href="#3-leverage-contextual-chunking">3. Leverage Contextual Chunking</a></h2>
+<p>Anthropic’s contextual retrieval works best when documents have clear, hierarchical headers. Make sure your raw markdown files use <code>H1</code>, <code>H2</code>, and <code>H3</code> logically so that the chunker can accurately preserve the context of the sections it splits.</p>
+<h2 id="4-llmstxt-curation"><a class="header" href="#4-llmstxt-curation">4. <code>llms.txt</code> Curation</a></h2>
+<p>When generating <code>llms.txt</code> files for AI agents:</p>
 <ol>
-<li><strong>Short Descriptions:</strong> One sentence per link.</li>
-<li><strong>Logical Sections:</strong> Group by <code>Getting Started</code>, <code>Core Concepts</code>, <code>API Reference</code>.</li>
-<li><strong>Progressive Complexity:</strong> Simple to complex order.</li>
-<li><strong>Metadata:</strong> Always include <code>llms_version</code>, <code>project</code>, <code>url</code>, <code>updated</code>.</li>
-<li><strong>Curation:</strong> Don’t put everything in <code>llms.txt</code>. Link to smaller files instead.</li>
+<li><strong>Short Descriptions:</strong> Provide a concise <code>--project-desc</code> during the <code>index</code> step so agents know exactly what your project is.</li>
+<li><strong>Logical Output Directories:</strong> Group your markdown output into sensible directories (<code>Getting Started</code>, <code>Core Concepts</code>, <code>API Reference</code>) so the generated <code>llms.txt</code> maps these cleanly.</li>
+<li><strong>Progressive Complexity:</strong> Structure your source directories from simple to complex order.</li>
 </ol>
+<h2 id="5-using-the-bm25-search"><a class="header" href="#5-using-the-bm25-search">5. Using the BM25 Search</a></h2>
+<p>Instead of blindly feeding a giant project into an LLM context, use the <code>search</code> command to extract only the top hits:</p>
+<pre><code class="language-bash">ctd search "how to configure caching" --index-dir ./output --limit 5 --json
+</code></pre>
+<p>Use the <code>--json</code> output so your AI agent or application can parse the resulting document references programmatically without hallucinating paths.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="contributing.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="ai-usage-guide.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="announcement.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -202,13 +217,10 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="contributing.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="ai-usage-guide.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="announcement.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
-                    </a>
             </nav>
 
         </div>

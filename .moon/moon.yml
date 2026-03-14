@@ -5,35 +5,31 @@ workspace:
   root: .
 
 projects:
-  release-gate:
-    root: release-gate
-    language: rust
-
-  docmgr:
-    root: doc_transformer
+  ctd:
+    root: centralized-docs
     language: rust
 
 # Workspace-level tasks that run on the whole workspace
 tasks:
   build:
     command: cargo
-    args: ["build", "--release", "-p", "doc_transformer"]
-    description: Build doc_transformer release
+    args: ["build", "--release", "-p", "centralized-docs"]
+    description: Build ctd release
 
   test:
     command: cargo
-    args: ["test", "-p", "doc_transformer"]
-    description: Test doc_transformer
+    args: ["test", "-p", "centralized-docs"]
+    description: Test ctd package
 
   check:
     command: cargo
-    args: ["check", "-p", "doc_transformer"]
-    description: Type check doc_transformer
+    args: ["check", "-p", "centralized-docs"]
+    description: Type check ctd package
 
   clippy:
     command: cargo
-    args: ["clippy", "-p", "doc_transformer", "--", "-D", "warnings"]
-    description: Lint doc_transformer
+    args: ["clippy", "-p", "centralized-docs", "--", "-D", "warnings"]
+    description: Lint ctd package
 
   fmt:
     command: cargo
@@ -42,19 +38,19 @@ tasks:
 
   :build:
     command: cargo
-    args: ["build", "--release", "-p", "doc_transformer"]
+    args: ["build", "--release", "-p", "centralized-docs"]
 
   :test:
     command: cargo
-    args: ["test", "-p", "doc_transformer"]
+    args: ["test", "-p", "centralized-docs"]
 
   :check:
     command: cargo
-    args: ["check", "-p", "doc_transformer"]
+    args: ["check", "-p", "centralized-docs"]
 
   :clippy:
     command: cargo
-    args: ["clippy", "-p", "doc_transformer", "--", "-D", "warnings"]
+    args: ["clippy", "-p", "centralized-docs", "--", "-D", "warnings"]
 
   :fmt:
     command: cargo

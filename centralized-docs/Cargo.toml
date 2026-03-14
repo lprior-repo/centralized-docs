@@ -12,7 +12,7 @@ name = "llms_txt_validator"
 path = "src/bin/llms_txt_validator.rs"
 
 [lib]
-name = "centralized_docs"
+name = "doc_transformer"
 path = "src/lib.rs"
 
 [dependencies]

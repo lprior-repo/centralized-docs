@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Vision - Centralized Docs</title>
+        <title>Introduction &amp; Features - Centralized Docs</title>
 
 
         <!-- Custom HTML head -->
@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7c9577f8.js";
+            window.path_to_searchindex_js = "searchindex-e440c19d.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-9eac19eb.js"></script>
+        <script src="toc-dd1c0e9f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -174,23 +174,31 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="vision"><a class="header" href="#vision">Vision</a></h1>
-<p><strong>centralized-docs</strong> is a pure Rust CLI tool that transforms raw documentation into AI-optimized, searchable knowledge structures. It implements Anthropic’s Contextual Retrieval pattern, semantic chunking, and hexagonal architecture to deliver the most effective documentation system for both human developers and AI agents.</p>
-<h2 id="why-this-project-exists"><a class="header" href="#why-this-project-exists">Why This Project Exists</a></h2>
-<p>Current documentation systems fail AI agents because of context loss, isolation, and search friction. <strong>centralized-docs</strong> solves this through:</p>
+                        <h1 id="introduction--features"><a class="header" href="#introduction--features">Introduction &amp; Features</a></h1>
+<p><strong>Centralized Docs</strong> (<code>ctd</code>) is a pure Rust CLI tool that transforms raw documentation and static sites into AI-optimized, searchable knowledge structures.</p>
+<h2 id="the-origin-problem"><a class="header" href="#the-origin-problem">The Origin Problem</a></h2>
+<p>This project stemmed from the frustration of trying to get AI agents to understand modern software libraries. The standard workflows suck:</p>
 <ul>
-<li><strong>Contextual Chunking</strong>: Each chunk carries surrounding context.</li>
-<li><strong>Knowledge Graphs</strong>: DAG-based relationship detection between documents.</li>
-<li><strong>Semantic Indexing</strong>: Full-text search optimized for AI.</li>
-<li><strong>Navigation Guides</strong>: Clear mapping for both humans (COMPASS.md) and AI (INDEX.json).</li>
+<li>Blindly copy/pasting massive chunks of documentation into prompts.</li>
+<li>Wasting time manually curating custom “skills” or context files for every new library.</li>
+<li>Watching AI agents hallucinate because they downloaded a massive, unstructured documentation site and lost the context in the noise.</li>
+</ul>
+<p>Instead of fighting the docs, <strong>Centralized Docs</strong> acts as a bridge. You can scrape any static documentation site or read local markdown files, and the CLI will output an <code>llms.txt</code> entry point alongside a DAG (Directed Acyclic Graph) of the knowledge.</p>
+<p>You simply point your AI at the <code>llms.txt</code>, and it can intelligently traverse the DAG and search the index rather than blindly reading everything.</p>
+<h2 id="core-features--benefits"><a class="header" href="#core-features--benefits">Core Features &amp; Benefits</a></h2>
+<ul>
+<li><strong>Scrapes Static Sites:</strong> Point the CLI at a documentation URL, and it will crawl the site, extract the content, and convert it to clean markdown.</li>
+<li><strong>Contextual Chunking:</strong> Each chunk carries surrounding context, solving the typical “lost in the middle” problem when AI reads isolated pieces of text.</li>
+<li><strong>Knowledge Graphs (DAG):</strong> Detects and maps relationships between documents, making it easy for an agent to traverse related concepts systematically.</li>
+<li><strong>llms.txt Generation:</strong> Automatically builds <code>llms.txt</code> files, acting as a <code>robots.txt</code> equivalent for AI agents.</li>
+<li><strong>Semantic Indexing:</strong> Fast, full-text search optimized for AI using BM25, allowing agents to query exactly what they need.</li>
 </ul>
 <h2 id="core-philosophy"><a class="header" href="#core-philosophy">Core Philosophy</a></h2>
 <ol>
-<li><strong>Version Control as Source of Truth</strong>: All docs live in Git.</li>
+<li><strong>Version Control as Source of Truth</strong>: All generated docs can live in Git.</li>
 <li><strong>Search as Exploration</strong>: Find things easily via graphs and indexes.</li>
 <li><strong>Portability Above All</strong>: Framework-agnostic JSON and Markdown outputs.</li>
 <li><strong>Complete Traceability</strong>: Understand exactly how docs were transformed.</li>
-<li><strong>Testable by Default</strong>: High coverage unit tests ensure transformations never fail.</li>
 </ol>
 
                     </main>
@@ -198,7 +206,7 @@
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
 
-                            <a rel="next prefetch" href="architecture.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="getting-started.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -209,7 +217,7 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
 
-                    <a rel="next prefetch" href="architecture.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="getting-started.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
