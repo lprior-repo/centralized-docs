@@ -2,7 +2,7 @@
 
 ## Overview
 
-This directory contains comprehensive integration tests for the `doc_transformer` core pipeline. The tests follow the **Architect Protocol** for contract-first development with exhaustive edge case coverage.
+This directory contains comprehensive integration tests for the `ctd` core pipeline. The tests follow the **Architect Protocol** for contract-first development with exhaustive edge case coverage.
 
 ## Execution Protocol
 

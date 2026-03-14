@@ -386,7 +386,7 @@ fn assemble_index_json(ctx: &IndexAssemblyContext<'_>) -> serde_json::Value {
         "updated": timestamp,
         "metadata": {
             "generated_at": timestamp,
-            "generator": "doc_transformer",
+            "generator": "ctd",
             "schema": "index-v5"
         },
         "stats": {

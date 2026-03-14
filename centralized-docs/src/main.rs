@@ -17,17 +17,17 @@
 //!
 //! ```text
 //! # Option A — local docs
-//! doc_transformer index ./my-docs --output ./output
+//! ctd index ./my-docs --output ./output
 //!
 //! # Option B — remote docs
-//! doc_transformer scrape https://docs.example.com --output ./scraped
-//! doc_transformer index ./scraped --output ./output
+//! ctd scrape https://docs.example.com --output ./scraped
+//! ctd index ./scraped --output ./output
 //!
 //! # Option C — one-shot ingest
-//! doc_transformer ingest https://docs.example.com --output ./output
+//! ctd ingest https://docs.example.com --output ./output
 //!
 //! # Search
-//! doc_transformer search "how does authentication work" --index ./output
+//! ctd search "how does authentication work" --index ./output
 //! ```
 //!
 //! # Configuration
@@ -1455,7 +1455,7 @@ impl Drop for OutputLock {
 
 fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
     std::fs::create_dir_all(output)?;
-    let lock_path = output.join(".doc_transformer.lock");
+    let lock_path = output.join(".ctd.lock");
 
     fn try_acquire(
         lock_path: &Path,
@@ -2054,7 +2054,7 @@ mod tests {
         let create_dir_result = std::fs::create_dir_all(&temp_dir);
         assert!(create_dir_result.is_ok());
 
-        let lock_path = temp_dir.join(".doc_transformer.lock");
+        let lock_path = temp_dir.join(".ctd.lock");
         let metadata = OutputLockMetadata {
             pid: u32::MAX,
             start_time: 0,
@@ -2074,7 +2074,7 @@ mod tests {
         let create_dir_result = std::fs::create_dir_all(&temp_dir);
         assert!(create_dir_result.is_ok());
 
-        let lock_path = temp_dir.join(".doc_transformer.lock");
+        let lock_path = temp_dir.join(".ctd.lock");
         let current_start_time = get_process_start_time(process::id()).unwrap_or(0);
         let metadata = OutputLockMetadata {
             pid: process::id(),
@@ -2095,7 +2095,7 @@ mod tests {
         let create_dir_result = std::fs::create_dir_all(&temp_dir);
         assert!(create_dir_result.is_ok());
 
-        let lock_path = temp_dir.join(".doc_transformer.lock");
+        let lock_path = temp_dir.join(".ctd.lock");
         let current_start_time = get_process_start_time(process::id()).unwrap_or(0);
         let metadata = OutputLockMetadata {
             pid: process::id(),
@@ -2116,7 +2116,7 @@ mod tests {
         let create_dir_result = std::fs::create_dir_all(&temp_dir);
         assert!(create_dir_result.is_ok());
 
-        let lock_path = temp_dir.join(".doc_transformer.lock");
+        let lock_path = temp_dir.join(".ctd.lock");
 
         let current_start_time = get_process_start_time(process::id()).unwrap_or(0);
         let wrong_start_time = current_start_time.wrapping_add(1000);
@@ -2140,7 +2140,7 @@ mod tests {
         let create_dir_result = std::fs::create_dir_all(&temp_dir);
         assert!(create_dir_result.is_ok());
 
-        let lock_path = temp_dir.join(".doc_transformer.lock");
+        let lock_path = temp_dir.join(".ctd.lock");
 
         // Create empty lock file
         let file_result = std::fs::File::create(&lock_path);
@@ -2158,7 +2158,7 @@ mod tests {
         let create_dir_result = std::fs::create_dir_all(&temp_dir);
         assert!(create_dir_result.is_ok());
 
-        let lock_path = temp_dir.join(".doc_transformer.lock");
+        let lock_path = temp_dir.join(".ctd.lock");
 
         // Create lock file with malformed JSON
         let write_result = std::fs::write(&lock_path, "{not valid json");

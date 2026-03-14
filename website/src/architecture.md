@@ -1,6 +1,6 @@
 # How It Works (Architecture)
 
-The `doc_transformer` CLI is designed to take unstructured or semi-structured documentation and turn it into highly optimized data structures for AI agents. 
+The `ctd` CLI is designed to take unstructured or semi-structured documentation and turn it into highly optimized data structures for AI agents. 
 
 Here is the high-level flow of how the architecture processes data.
 

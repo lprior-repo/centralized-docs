@@ -1,6 +1,6 @@
 # Integrating AI Agents with Centralized Docs
 
-The primary goal of `centralized-docs` (`doc_transformer`) is to dramatically reduce the token footprint required to give AI agents (like Claude, GPT-4, or autonomous developer agents) deep contextual understanding of a codebase.
+The primary goal of `centralized-docs` (`ctd`) is to dramatically reduce the token footprint required to give AI agents (like Claude, GPT-4, or autonomous developer agents) deep contextual understanding of a codebase.
 
 Instead of pasting entire documentation sites into a prompt, you integrate the agent with the generated structures.
 
@@ -12,7 +12,7 @@ When AI agents read thousands of lines of raw Markdown, they suffer from two maj
 
 ## The Solution: The `llms.txt` Entry Point
 
-When you run `doc_transformer index` or `ingest-git`, the CLI generates an `llms.txt` file at the root of the output directory.
+When you run `ctd index` or `ingest-git`, the CLI generates an `llms.txt` file at the root of the output directory.
 
 **This is the only file your agent needs to read initially.**
 
@@ -24,9 +24,9 @@ Copy and paste this snippet directly into your `AGENTS.md`, `.clinerules`, or sy
 
 ```markdown
 # Documentation Retrieval
-This project uses `doc_transformer` for documentation. 
+This project uses `ctd` for documentation. 
 1. START by reading `llms.txt` in the docs output directory. Do NOT read raw markdown files.
-2. SEARCH for concepts using: `doc_transformer search "query" -d <output-dir> --limit 3 --json`
+2. SEARCH for concepts using: `ctd search "query" --index-dir <output-dir> --limit 3 --json`
 3. READ specific chunks by using `jq` to extract the `content` field from the JSON output of your search, or by navigating the `INDEX.json` DAG.
 ```
 
@@ -34,16 +34,16 @@ This project uses `doc_transformer` for documentation.
 
 ## Step-by-Step: How Agents Use the CLI
 
-To make your agent effective, it needs access to a terminal where it can execute `doc_transformer` commands natively. Here is the exact workflow an autonomous agent should follow to keep its token usage minimal.
+To make your agent effective, it needs access to a terminal where it can execute `ctd` commands natively. Here is the exact workflow an autonomous agent should follow to keep its token usage minimal.
 
 ### 1. The Initial Search
 Instead of blindly reading files, the agent runs the `search` CLI command.
 
 ```bash
-doc_transformer search "how to configure oauth" --index-dir ./output --limit 3 --json
+ctd search "how to configure oauth" --index-dir ./output --limit 3 --json
 ```
 
-Because `doc_transformer` uses BM25 semantic indexing on the full body text, this instantly returns the 3 most relevant documents in a structured JSON payload.
+Because `ctd` uses BM25 semantic indexing on the full body text, this instantly returns the 3 most relevant documents in a structured JSON payload.
 
 ### 2. Reading the Chunk Context
 When the agent receives the JSON payload, it can read the specific `content` instead of the whole file. 
@@ -58,16 +58,7 @@ The `INDEX.json` contains a Directed Acyclic Graph (DAG) of the documentation. E
 - `parent_chunk_id`
 - `child_chunk_ids`
 - `sibling_chunk_ids`
+- `next_chunk_id`
+- `previous_chunk_id`
 
-If an agent reads a Summary chunk and needs more detail, it doesn't need to do another fuzzy search. It simply looks at the `child_chunk_ids` array in the JSON and fetches the specific detailed chunk from the index. It navigates the documentation programmatically just like a human clicking "Next Page".
-
-## Token Efficiency Benchmarks
-
-By forcing agents to start at `llms.txt` and traverse the DAG via the `search` CLI, you achieve massive token efficiency.
-
-In our benchmarks of major open-source repositories:
-- **FastAPI:** 1,085,263 raw words ➔ 333 words in `llms.txt` (**99.9% reduction**)
-- **Kubernetes:** 1,009,290 raw words ➔ 261 words in `llms.txt` (**99.9% reduction**)
-- **Tokio:** 28,748 raw words ➔ 223 words in `llms.txt` (**99.2% reduction**)
-
-Your agent uses almost zero tokens until it finds the *exact* 500-token contextual chunk it needs to solve the user's problem.
+If an agent reads a Summary chunk and needs more detail, it doesn't need to do another fuzzy search. It simply looks at the `child_chunk_ids` array in the JSON and fetches the specific detailed chunk. It can navigate the documentation programmatically just like a human clicking "Next Page".

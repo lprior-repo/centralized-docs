@@ -1,6 +1,6 @@
 # Introduction & Features
 
-**Centralized Docs** (`doc_transformer`) is a pure Rust CLI tool that transforms raw documentation and static sites into AI-optimized, searchable knowledge structures. 
+**Centralized Docs** (`ctd`) is a pure Rust CLI tool that transforms raw documentation and static sites into AI-optimized, searchable knowledge structures. 
 
 ## The Origin Problem
 

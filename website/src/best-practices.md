@@ -1,11 +1,11 @@
 # Best Practices
 
-To get the most out of `doc_transformer` and its generated structures today, follow these best practices for indexing and utilizing the CLI.
+To get the most out of `ctd` and its generated structures today, follow these best practices for indexing and utilizing the CLI.
 
 ## 1. Local Indexing First
 Always test your indexing locally before running it against large repositories or scraping remote websites. 
 ```bash
-doc_transformer index ./my-local-docs -o ./output --llms-txt
+ctd index ./my-local-docs -o ./output --llms-txt
 ```
 This lets you verify that your documents are chunked and categorized effectively.
 
@@ -26,6 +26,6 @@ When generating `llms.txt` files for AI agents:
 ## 5. Using the BM25 Search
 Instead of blindly feeding a giant project into an LLM context, use the `search` command to extract only the top hits:
 ```bash
-doc_transformer search "how to configure caching" -d ./output --limit 5 --json
+ctd search "how to configure caching" --index-dir ./output --limit 5 --json
 ```
 Use the `--json` output so your AI agent or application can parse the resulting document references programmatically without hallucinating paths.
