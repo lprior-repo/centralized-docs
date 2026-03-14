@@ -20,7 +20,7 @@ When you run `ctd index` or `ingest-git`, the CLI generates an `llms.txt` file a
 
 ## ⚡ The Copy-Paste Agent Instructions (50 Tokens)
 
-Copy and paste this snippet directly into your `AGENTS.md`, `.clinerules`, or system prompt to instruct your agent on how to use Centralized Docs effectively:
+Copy and paste this snippet directly into your `AGENTS.md`, `CLAUDE.md`, or system prompt to instruct your agent on how to use Centralized Docs effectively:
 
 ```markdown
 # Documentation Retrieval

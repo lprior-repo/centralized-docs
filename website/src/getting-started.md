@@ -57,5 +57,3 @@ llms_txt_validator --index ./output/INDEX.json
 ```
 
 ## Documentation Site
-
-The published documentation site is available at `https://lprior-repo.github.io/centralized-docs/`.

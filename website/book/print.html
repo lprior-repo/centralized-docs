@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e440c19d.js";
+            window.path_to_searchindex_js = "searchindex-515e7419.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-dd1c0e9f.js"></script>
+        <script src="toc-2c123e3a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -241,7 +241,6 @@ llms_txt_validator --version
 llms_txt_validator --index ./output/INDEX.json
 </code></pre>
 <h2 id="documentation-site"><a class="header" href="#documentation-site">Documentation Site</a></h2>
-<p>The published documentation site is available at <code>https://lprior-repo.github.io/centralized-docs/</code>.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="how-it-works-architecture"><a class="header" href="#how-it-works-architecture">How It Works (Architecture)</a></h1>
 <p>The <code>ctd</code> CLI is designed to take unstructured or semi-structured documentation and turn it into highly optimized data structures for AI agents.</p>
@@ -277,14 +276,14 @@ llms_txt_validator --index ./output/INDEX.json
 </ul>
 <h2 id="ctd"><a class="header" href="#ctd"><code>ctd</code></a></h2>
 <p><strong>Usage:</strong></p>
-<pre><code class="language-bash">ctd &lt;COMMAND&gt; [OPTIONS]
+<pre><code class="language-bash">ctd &lt;COMMAND&gt;
 </code></pre>
 <h3 id="commands"><a class="header" href="#commands">Commands</a></h3>
 <h4 id="search"><a class="header" href="#search"><code>search</code></a></h4>
 <p>Search indexed documentation using BM25.</p>
 <ul>
 <li><code>QUERY</code>: Query string to search for.</li>
-<li><code>--index-dir</code>, <code>-i &lt;DIR&gt;</code>: Directory containing <code>INDEX.json</code>.</li>
+<li><code>--index-dir</code>, <code>-i &lt;DIR&gt;</code>: Directory containing <code>INDEX.json</code> (required).</li>
 <li><code>--limit</code>, <code>-n &lt;N&gt;</code>: Maximum number of results to return (default: 10).</li>
 <li><code>--no-color</code>: Disable colored output.</li>
 <li><code>--json</code>: Output structured JSON for machine parsing.</li>
@@ -296,13 +295,13 @@ llms_txt_validator --index ./output/INDEX.json
 <li><code>--output</code>, <code>-o &lt;DIR&gt;</code>: Output directory for scraped content.</li>
 <li><code>--no-sitemap</code>: Disable sitemap.xml discovery (use crawling instead).</li>
 <li><code>--filter</code>, <code>-f &lt;REGEX&gt;</code>: Regex pattern to filter URLs by path.</li>
-<li><code>--delay</code>, <code>-d &lt;MS&gt;</code>: Delay between requests in milliseconds (0-60000, default: 0).</li>
+<li><code>--delay</code>, <code>-d &lt;DELAY&gt;</code>: Delay between requests in milliseconds (0-60000, default: 250).</li>
 <li><code>--request-timeout-secs &lt;SECS&gt;</code>: Request timeout in seconds (1-600, default: 30).</li>
 <li><code>--max-retries &lt;N&gt;</code>: Max spider retries (0 disables spider retry, default: 3).</li>
 <li><code>--redirect-policy &lt;POLICY&gt;</code>: Redirect policy (loose, strict, none, default: loose).</li>
-<li><code>--max-page-bytes &lt;BYTES&gt;</code>: Max bytes per page.</li>
-<li><code>--max-total-bytes &lt;BYTES&gt;</code>: Max total bytes across crawl.</li>
-<li><code>--concurrency &lt;N&gt;</code>: Concurrency (default: 4).</li>
+<li><code>--max-page-bytes &lt;BYTES&gt;</code>: Max bytes per page (spider-level, before transform).</li>
+<li><code>--max-total-bytes &lt;BYTES&gt;</code>: Max total bytes across crawl (spider-level).</li>
+<li><code>--concurrency &lt;N&gt;</code>: Concurrency (1-2, default: 1) capped for politeness.</li>
 <li><code>--query</code>, <code>-q &lt;QUERY&gt;</code>: Filter pages by BM25 relevance to query.</li>
 <li><code>--threshold &lt;SCORE&gt;</code>: Minimum BM25 score to keep a page (0.0-10.0, default: 0.1).</li>
 </ul>
@@ -314,7 +313,7 @@ llms_txt_validator --index ./output/INDEX.json
 <li><code>--branch &lt;BRANCH&gt;</code>: Git branch to checkout (default: main).</li>
 <li><code>--depth &lt;N&gt;</code>: Clone depth (0 = full, 1 = shallow/faster, default: 1).</li>
 <li><code>--project-name &lt;NAME&gt;</code>: Project name for llms.txt header.</li>
-<li><code>--filter</code>, <code>-f &lt;REGEX&gt;</code>: Regex pattern to filter file paths.</li>
+<li><code>--filter</code>, <code>-f &lt;REGEX&gt;</code>: Regex pattern to filter file paths (for example <code>^docs/en/</code>).</li>
 </ul>
 <h4 id="index"><a class="header" href="#index"><code>index</code></a></h4>
 <p>Index local markdown files into an AI-optimized structure.</p>
@@ -323,26 +322,28 @@ llms_txt_validator --index ./output/INDEX.json
 <li><code>--output</code>, <code>-o &lt;DIR&gt;</code>: Output directory for indexed content.</li>
 <li><code>--llms-txt</code>: Generate llms.txt entry point files (default: true).</li>
 <li><code>--project-name &lt;NAME&gt;</code>: Project name for llms.txt header (default: Documentation).</li>
-<li><code>--project-desc &lt;DESC&gt;</code>: Project description for llms.txt.</li>
+<li><code>--project-desc &lt;DESC&gt;</code>: Project description for llms.txt (default: <code>AI-optimized documentation index</code>).</li>
 <li><code>--category-config &lt;FILE&gt;</code>: Path to category rules config file.</li>
 <li><code>--max-related-chunks &lt;N&gt;</code>: Maximum number of related chunks per document (1-100, default: 20).</li>
-<li><code>--max-chunk-keywords &lt;N&gt;</code>: Maximum number of chunk keywords (0-50, default: 12).</li>
+<li><code>--max-chunk-keywords &lt;N&gt;</code>: Maximum number of chunk keywords to include in similarity (0-50, default: 12).</li>
 <li><code>--hnsw-m &lt;M&gt;</code>: HNSW graph connectivity parameter (4-64, default: 16).</li>
 <li><code>--hnsw-ef-construction &lt;EF&gt;</code>: HNSW graph construction effort (50-1000, default: 200).</li>
-<li><code>--max-document-bytes &lt;BYTES&gt;</code>: Maximum document size in bytes (default: 10MB).</li>
+<li><code>--max-document-bytes &lt;BYTES&gt;</code>: Maximum document size in bytes (default: 10MB, warn at 5MB).</li>
 </ul>
 <h4 id="ingest"><a class="header" href="#ingest"><code>ingest</code></a></h4>
 <p>Scrape and index in one step.</p>
 <ul>
 <li><code>URL</code>: URL of the documentation site.</li>
 <li><code>--output</code>, <code>-o &lt;DIR&gt;</code>: Output directory for final indexed content.</li>
-<li>All scrape and index options available.</li>
+<li>Available scrape flags: <code>--filter</code>, <code>--delay</code>, <code>--request-timeout-secs</code>, <code>--max-retries</code>, <code>--redirect-policy</code>, <code>--max-page-bytes</code>, <code>--max-total-bytes</code>, <code>--concurrency</code>, <code>--query</code>, <code>--threshold</code>.</li>
+<li>Available ingest-only/index bridge flag: <code>--project-name</code>.</li>
+<li><code>ingest</code> does <strong>not</strong> expose the full <code>index</code> flag surface.</li>
 </ul>
 <h2 id="llms_txt_validator"><a class="header" href="#llms_txt_validator"><code>llms_txt_validator</code></a></h2>
 <p>Validate generated <code>llms.txt</code> and <code>INDEX.json</code> outputs.</p>
 <pre><code class="language-bash">llms_txt_validator ./output/llms.txt
 llms_txt_validator --index ./output/INDEX.json
-llms_txt_validator --version
+llms_txt_validator -V
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="integrating-ai-agents-with-centralized-docs"><a class="header" href="#integrating-ai-agents-with-centralized-docs">Integrating AI Agents with Centralized Docs</a></h1>
@@ -359,7 +360,7 @@ llms_txt_validator --version
 <p><strong>This is the only file your agent needs to read initially.</strong></p>
 <hr>
 <h2 id="-the-copy-paste-agent-instructions-50-tokens"><a class="header" href="#-the-copy-paste-agent-instructions-50-tokens">⚡ The Copy-Paste Agent Instructions (50 Tokens)</a></h2>
-<p>Copy and paste this snippet directly into your <code>AGENTS.md</code>, <code>.clinerules</code>, or system prompt to instruct your agent on how to use Centralized Docs effectively:</p>
+<p>Copy and paste this snippet directly into your <code>AGENTS.md</code>, <code>CLAUDE.md</code>, or system prompt to instruct your agent on how to use Centralized Docs effectively:</p>
 <pre><code class="language-markdown"># Documentation Retrieval
 This project uses `ctd` for documentation. 
 1. START by reading `llms.txt` in the docs output directory. Do NOT read raw markdown files.
@@ -389,34 +390,6 @@ This project uses `ctd` for documentation.
 <li><code>previous_chunk_id</code></li>
 </ul>
 <p>If an agent reads a Summary chunk and needs more detail, it doesn’t need to do another fuzzy search. It simply looks at the <code>child_chunk_ids</code> array in the JSON and fetches the specific detailed chunk. It can navigate the documentation programmatically just like a human clicking “Next Page”.</p>
-<div style="break-before: page; page-break-before: always;"></div>
-<h1 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h1>
-<p>To get the most out of <code>ctd</code> and its generated structures today, follow these best practices for indexing and utilizing the CLI.</p>
-<h2 id="1-local-indexing-first"><a class="header" href="#1-local-indexing-first">1. Local Indexing First</a></h2>
-<p>Always test your indexing locally before running it against large repositories or scraping remote websites.</p>
-<pre><code class="language-bash">ctd index ./my-local-docs -o ./output --llms-txt
-</code></pre>
-<p>This lets you verify that your documents are chunked and categorized effectively.</p>
-<h2 id="2-optimize-chunk-parameters"><a class="header" href="#2-optimize-chunk-parameters">2. Optimize Chunk Parameters</a></h2>
-<p>Depending on the size of your AI context windows, you may want to adjust chunking properties.</p>
-<ul>
-<li>Use <code>--max-related-chunks</code> to limit how many connections the knowledge graph builds.</li>
-<li>Keep <code>--max-chunk-keywords</code> focused. Over-populating keywords can lead to BM25 search noise.</li>
-</ul>
-<h2 id="3-leverage-contextual-chunking"><a class="header" href="#3-leverage-contextual-chunking">3. Leverage Contextual Chunking</a></h2>
-<p>Anthropic’s contextual retrieval works best when documents have clear, hierarchical headers. Make sure your raw markdown files use <code>H1</code>, <code>H2</code>, and <code>H3</code> logically so that the chunker can accurately preserve the context of the sections it splits.</p>
-<h2 id="4-llmstxt-curation"><a class="header" href="#4-llmstxt-curation">4. <code>llms.txt</code> Curation</a></h2>
-<p>When generating <code>llms.txt</code> files for AI agents:</p>
-<ol>
-<li><strong>Short Descriptions:</strong> Provide a concise <code>--project-desc</code> during the <code>index</code> step so agents know exactly what your project is.</li>
-<li><strong>Logical Output Directories:</strong> Group your markdown output into sensible directories (<code>Getting Started</code>, <code>Core Concepts</code>, <code>API Reference</code>) so the generated <code>llms.txt</code> maps these cleanly.</li>
-<li><strong>Progressive Complexity:</strong> Structure your source directories from simple to complex order.</li>
-</ol>
-<h2 id="5-using-the-bm25-search"><a class="header" href="#5-using-the-bm25-search">5. Using the BM25 Search</a></h2>
-<p>Instead of blindly feeding a giant project into an LLM context, use the <code>search</code> command to extract only the top hits:</p>
-<pre><code class="language-bash">ctd search "how to configure caching" --index-dir ./output --limit 5 --json
-</code></pre>
-<p>Use the <code>--json</code> output so your AI agent or application can parse the resulting document references programmatically without hallucinating paths.</p>
 
                     </main>
 
