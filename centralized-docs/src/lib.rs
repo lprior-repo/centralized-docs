@@ -106,6 +106,7 @@
 
 pub mod analyze;
 pub mod assign;
+pub mod cache;
 pub mod chunk;
 pub mod chunking_adapter;
 pub mod config;

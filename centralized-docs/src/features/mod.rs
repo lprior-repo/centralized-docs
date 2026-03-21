@@ -459,25 +459,86 @@ impl FeatureConfig {
 
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        #[allow(unused_mut)]
-        let mut empty = true;
-
         #[cfg(feature = "enhanced")]
-        {
-            empty = empty && self.cache.is_none() && self.filtering.is_none();
-        }
+        let enhanced_empty = self.cache.is_none() && self.filtering.is_none();
 
         #[cfg(feature = "javascript")]
-        {
-            empty = empty && self.javascript.is_none();
-        }
+        let js_empty = self.javascript.is_none();
 
         #[cfg(feature = "anti-detection")]
-        {
-            empty = empty && self.anti_detection.is_none();
-        }
+        let anti_empty = self.anti_detection.is_none();
 
-        empty
+        #[cfg(not(any(
+            feature = "enhanced",
+            feature = "javascript",
+            feature = "anti-detection"
+        )))]
+        let base_empty = true;
+
+        #[cfg(all(
+            feature = "enhanced",
+            feature = "javascript",
+            feature = "anti-detection"
+        ))]
+        {
+            enhanced_empty && js_empty && anti_empty
+        }
+        #[cfg(all(
+            feature = "enhanced",
+            feature = "javascript",
+            not(feature = "anti-detection")
+        ))]
+        {
+            enhanced_empty && js_empty
+        }
+        #[cfg(all(
+            feature = "enhanced",
+            not(feature = "javascript"),
+            feature = "anti-detection"
+        ))]
+        {
+            enhanced_empty && anti_empty
+        }
+        #[cfg(all(
+            feature = "enhanced",
+            not(feature = "javascript"),
+            not(feature = "anti-detection")
+        ))]
+        {
+            enhanced_empty
+        }
+        #[cfg(all(
+            not(feature = "enhanced"),
+            feature = "javascript",
+            feature = "anti-detection"
+        ))]
+        {
+            js_empty && anti_empty
+        }
+        #[cfg(all(
+            not(feature = "enhanced"),
+            feature = "javascript",
+            not(feature = "anti-detection")
+        ))]
+        {
+            js_empty
+        }
+        #[cfg(all(
+            not(feature = "enhanced"),
+            not(feature = "javascript"),
+            feature = "anti-detection"
+        ))]
+        {
+            anti_empty
+        }
+        #[cfg(not(any(
+            feature = "enhanced",
+            feature = "javascript",
+            feature = "anti-detection"
+        )))]
+        {
+            base_empty
+        }
     }
 }
 

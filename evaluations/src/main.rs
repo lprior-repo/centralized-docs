@@ -1,3 +1,8 @@
+#![allow(clippy::print_stdout)]
+#![allow(clippy::dbg_macro)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::print_debug)]
+
 use futures::stream::{self, StreamExt};
 use std::fs;
 use std::path::PathBuf;
@@ -5,12 +10,13 @@ use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
+use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("========================================================");
-    println!("Starting Comprehensive 500 Site Benchmark Evaluator...");
-    println!("========================================================");
+    info!("========================================================");
+    info!("Starting Comprehensive 500 Site Benchmark Evaluator...");
+    info!("========================================================");
 
     // 1. Get 500 sites dynamically from crates.io
     let mut sites = Vec::new();
@@ -18,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .user_agent("ctd_benchmark/1.0")
         .build()?;
 
-    println!("Fetching top crates from crates.io...");
+    info!("Fetching top crates from crates.io...");
     for page in 1..=6 {
         // 6 pages of 100 = 600, then truncate
         let url = format!(
@@ -41,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if sites.is_empty() {
-        println!("Failed to fetch from crates.io. Using fallback list.");
+        info!("Failed to fetch from crates.io. Using fallback list.");
         sites = vec![
             "https://doc.rust-lang.org/book/".to_string(),
             "https://docs.python.org/3/tutorial/".to_string(),
@@ -56,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if PathBuf::from("../target/release/ctd").exists() {
         PathBuf::from("../target/release/ctd")
     } else {
-        println!("Error: Could not find target/release/ctd. Please run 'moon run :build' from the root workspace first.");
+        info!("Error: Could not find target/release/ctd. Please run 'moon run :build' from the root workspace first.");
         return Ok(());
     };
 
@@ -72,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let total_start = Instant::now();
     let total_sites = sites.len();
 
-    println!("\nStarting parallel scrape (Concurrency: 10)...\n");
+    info!("\nStarting parallel scrape (Concurrency: 10)...\n");
 
     let fetches = stream::iter(sites.into_iter().map(|site| {
         let cli_path = cli_path.clone();
@@ -144,11 +150,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     _ => {
                         println!(
-                            "[{}/{}] ❌ Failed in {:.2}s (Code: {:?}): {}",
+                            "[{}/{}] Failed in {:.2}s: {}",
                             completed,
                             total_sites,
                             duration.as_secs_f64(),
-                            out.status.code(),
                             site
                         );
                         fail_count.fetch_add(1, Ordering::SeqCst);
@@ -173,9 +178,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let p = partial_count.load(Ordering::SeqCst);
     let f = fail_count.load(Ordering::SeqCst);
 
-    println!("\n========================================================");
-    println!("BENCHMARK COMPLETE");
-    println!("========================================================");
+    info!("\n========================================================");
+    info!("BENCHMARK COMPLETE");
+    info!("========================================================");
     println!(
         "Total Wall-Clock Time: {:.2}s",
         total_duration.as_secs_f64()
@@ -192,7 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ((s + p) as f64 / total_sites as f64) * 100.0
     );
     println!("Results Output Dir:  {}", out_dir.display());
-    println!("========================================================");
+    info!("========================================================");
 
     Ok(())
 }

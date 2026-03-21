@@ -118,13 +118,16 @@ pub struct CategoryRule {
 }
 
 /// Matching criteria for a rule (filename, content, or path patterns)
+///
+/// `filename` and `content` patterns are pre-lowered at config load time for
+/// zero-allocation matching. `path` patterns remain case-sensitive.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MatchCriteria {
-    /// Case-insensitive patterns to match against filename (without extension)
+    /// Pre-lowered patterns to match against lowercase filename stem (substring)
     pub filename: Option<Vec<String>>,
-    /// Case-insensitive patterns to match against content (substring match)
+    /// Pre-lowered patterns to match against lowercase content (substring)
     pub content: Option<Vec<String>>,
-    /// Patterns to match against file path (substring match)
+    /// Patterns to match against file path (case-sensitive substring)
     pub path: Option<Vec<String>>,
 }
 
@@ -165,22 +168,49 @@ impl CategoryConfig {
             );
         }
 
-        for rule in &config.rules {
-            if !is_valid_category_name(&rule.category) {
-                anyhow::bail!(
-                    "invalid config: category '{}' is not lowercase alphanumeric",
-                    rule.category
-                );
-            }
-
-            // Validate that rule has at least one non-empty criterion
-            if !Self::has_valid_criteria(&rule.criteria) {
-                anyhow::bail!(
-                    "invalid config: rule for category '{}' has no criteria (all are None or empty)",
-                    rule.category
-                );
-            }
+        if let Some(rule) = config
+            .rules
+            .iter()
+            .find(|rule| !is_valid_category_name(&rule.category))
+        {
+            anyhow::bail!(
+                "invalid config: category '{}' is not lowercase alphanumeric",
+                rule.category
+            );
         }
+
+        if let Some(rule) = config
+            .rules
+            .iter()
+            .find(|rule| !Self::has_valid_criteria(&rule.criteria))
+        {
+            anyhow::bail!(
+                "invalid config: rule for category '{}' has no criteria (all are None or empty)",
+                rule.category
+            );
+        }
+
+        let config = CategoryConfig {
+            default_category: config.default_category,
+            rules: config
+                .rules
+                .into_iter()
+                .map(|rule| CategoryRule {
+                    category: rule.category,
+                    criteria: MatchCriteria {
+                        filename: rule
+                            .criteria
+                            .filename
+                            .map(|v| v.into_iter().map(|s| s.to_lowercase()).collect()),
+                        content: rule
+                            .criteria
+                            .content
+                            .map(|v| v.into_iter().map(|s| s.to_lowercase()).collect()),
+                        path: rule.criteria.path,
+                    },
+                })
+                .collect(),
+        };
 
         Ok(config)
     }
@@ -212,14 +242,13 @@ impl CategoryConfig {
     /// Detect category for a document using these rules
     #[must_use]
     pub fn detect_category(&self, filename: &str, content: &str, path: &str) -> String {
-        // Evaluate rules in order
-        for rule in &self.rules {
-            if self.matches_rule(filename, content, path, &rule.criteria) {
-                return rule.category.clone();
-            }
-        }
-        // Return default if no rules match
-        self.default_category.clone()
+        self.rules
+            .iter()
+            .find_map(|rule| {
+                self.matches_rule(filename, content, path, &rule.criteria)
+                    .then(|| rule.category.clone())
+            })
+            .map_or_else(|| self.default_category.clone(), std::convert::identity)
     }
 
     /// Check if a document matches a rule's criteria
@@ -231,33 +260,23 @@ impl CategoryConfig {
         path: &str,
         criteria: &MatchCriteria,
     ) -> bool {
-        // Check filename patterns (case-insensitive)
+        // Check filename patterns (pre-lowered at config load)
         if let Some(patterns) = &criteria.filename {
-            let fname_lower = if let Some(stem) = Path::new(filename).file_stem() {
-                if stem.is_empty() {
-                    String::new()
-                } else {
-                    stem.to_string_lossy().to_lowercase()
-                }
-            } else {
-                String::new()
-            };
+            let fname_lower = Path::new(filename)
+                .file_stem()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string_lossy().to_lowercase())
+                .map_or_else(String::new, |s| s.to_lowercase());
 
-            if patterns
-                .iter()
-                .any(|p| fname_lower.contains(&p.to_lowercase()))
-            {
+            if patterns.iter().any(|p| fname_lower.contains(p)) {
                 return true;
             }
         }
 
-        // Check content patterns (case-insensitive, substring)
+        // Check content patterns (pre-lowered at config load)
         if let Some(patterns) = &criteria.content {
             let content_lower = content.to_lowercase();
-            if patterns
-                .iter()
-                .any(|p| content_lower.contains(&p.to_lowercase()))
-            {
+            if patterns.iter().any(|p| content_lower.contains(p)) {
                 return true;
             }
         }

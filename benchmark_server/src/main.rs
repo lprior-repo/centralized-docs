@@ -1,7 +1,13 @@
+#![allow(clippy::print_stdout)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
 use axum::{extract::Path, response::Html, routing::get, Router};
 use lazy_static::lazy_static;
 use std::time::Duration;
 use tokio::time::sleep;
+use tracing::info;
 
 // Load the heavy template at compile time or startup
 lazy_static! {
@@ -87,7 +93,7 @@ async fn generate_page(page_num: usize) -> Html<String> {
 async fn main() {
     // Ensure template is loaded
     lazy_static::initialize(&TEMPLATE_PARTS);
-    println!("Loaded template ({} bytes)", HEAVY_TEMPLATE.len());
+    info!("Loaded template ({} bytes)", HEAVY_TEMPLATE.len());
 
     // Build our application with a route
     let app = Router::new()
@@ -95,12 +101,14 @@ async fn main() {
         .route("/page_:path", get(handle_page));
 
     let port = 8081;
-    let addr = format!("0.0.0.0:{}", port);
-    println!("Starting heavy simulated Rust server on {}", addr);
-    println!("- 50ms simulated latency per request");
-    println!("- ~625 KB payload per request");
-    println!("- 10,000 total pages");
+    let addr = format!("0.0.0.0:{port}");
+    info!("Starting heavy simulated Rust server on {addr}");
+    info!("- 50ms simulated latency per request");
+    info!("- ~625 KB payload per request");
+    info!("- 10,000 total pages");
 
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(&addr).await
+        .unwrap();
+    axum::serve(listener, app).await
+        .unwrap();
 }

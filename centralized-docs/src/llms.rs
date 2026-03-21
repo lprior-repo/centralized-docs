@@ -66,39 +66,6 @@ pub fn generate_llms_txt<S: BuildHasher>(
     config: &LlmsConfig,
     output_dir: &Path,
 ) -> Result<()> {
-    let mut content = String::new();
-
-    // Optional YAML frontmatter with metadata
-    if config.include_frontmatter {
-        content.push_str("---\n");
-        content.push_str(&format!("version: \"{}\"\n", config.spec_version));
-        content.push_str(&format!("project: \"{}\"\n", config.project_name));
-        content.push_str(&format!(
-            "project_version: \"{}\"\n",
-            config.project_version
-        ));
-        content.push_str(&format!(
-            "updated: \"{}\"\n",
-            chrono::Utc::now().format("%Y-%m-%d")
-        ));
-        content.push_str(&format!("documents: {}\n", analyses.len()));
-        content.push_str("index: \"./INDEX.json\"\n");
-        content.push_str("---\n\n");
-    }
-
-    // H1: Project name (required)
-    content.push_str(&format!("# {}\n\n", config.project_name));
-
-    // Blockquote: Description
-    content.push_str(&format!("> {}\n\n", config.project_description));
-
-    // Key context for AI
-    content.push_str("Key context for AI:\n");
-    content.push_str(&format!("- Total documents: {}\n", analyses.len()));
-    content.push_str("- Format: Markdown with YAML frontmatter\n");
-    content.push_str("- Chunking: Semantic chunks with context prefix (~170 tokens)\n");
-    content.push_str("- Navigation: Knowledge DAG with Jaccard similarity\n\n");
-
     // Group by category using functional pattern
     let by_category: HashMap<&str, Vec<(&Analysis, &IdMapping)>> = analyses
         .iter()
@@ -115,13 +82,33 @@ pub fn generate_llms_txt<S: BuildHasher>(
         })
         .into_group_map();
 
-    let mut append_section = |title: &str, category: &str, include_desc: bool| {
-        if let Some(items) = by_category.get(category) {
-            if !items.is_empty() {
-                content.push_str(&format!("## {title}\n\n"));
-                let section_content: String = items
+    let frontmatter = if config.include_frontmatter {
+        format!(
+            "---\nversion: \"{}\"\nproject: \"{}\"\nproject_version: \"{}\"\nupdated: \"{}\"\ndocuments: {}\nindex: \"./INDEX.json\"\n---\n\n",
+            config.spec_version,
+            config.project_name,
+            config.project_version,
+            chrono::Utc::now().format("%Y-%m-%d"),
+            analyses.len()
+        )
+    } else {
+        String::new()
+    };
+
+    fn build_section(
+        by_category: &HashMap<&str, Vec<(&Analysis, &IdMapping)>>,
+        title: &str,
+        category: &str,
+        max_per_category: usize,
+        include_desc: bool,
+    ) -> String {
+        by_category
+            .get(category)
+            .filter(|items| !items.is_empty())
+            .map(|items| {
+                let links: String = items
                     .iter()
-                    .take(config.max_per_category)
+                    .take(max_per_category)
                     .map(|(analysis, mapping)| {
                         if include_desc {
                             let desc = truncate_summary(&analysis.first_paragraph, 60);
@@ -134,22 +121,56 @@ pub fn generate_llms_txt<S: BuildHasher>(
                         }
                     })
                     .collect();
-                content.push_str(&section_content);
-                content.push('\n');
-            }
-        }
-    };
+                format!("## {title}\n\n{links}\n")
+            })
+            .map_or_else(String::new, std::convert::identity)
+    }
 
-    append_section("Getting Started", "tutorial", true);
-    append_section("Core Concepts", "concept", true);
-    append_section("API Reference", "ref", true);
-    append_section("Operations", "ops", true);
-    append_section("Optional", "meta", false);
+    let sections: String = [
+        build_section(
+            &by_category,
+            "Getting Started",
+            "tutorial",
+            config.max_per_category,
+            true,
+        ),
+        build_section(
+            &by_category,
+            "Core Concepts",
+            "concept",
+            config.max_per_category,
+            true,
+        ),
+        build_section(
+            &by_category,
+            "API Reference",
+            "ref",
+            config.max_per_category,
+            true,
+        ),
+        build_section(
+            &by_category,
+            "Operations",
+            "ops",
+            config.max_per_category,
+            true,
+        ),
+        build_section(
+            &by_category,
+            "Optional",
+            "meta",
+            config.max_per_category,
+            false,
+        ),
+    ]
+    .join("");
 
-    // Machine-readable index reference
-    content.push_str("## Machine-Readable Index\n\n");
-    content.push_str("- [INDEX.json](./INDEX.json): Complete searchable index with keywords, chunks, and knowledge graph\n");
-    content.push_str("- [COMPASS.md](./COMPASS.md): Human-readable navigation guide\n");
+    let content = format!(
+        "{frontmatter}# {}\n\n> {}\n\nKey context for AI:\n- Total documents: {}\n- Format: Markdown with YAML frontmatter\n- Chunking: Semantic chunks with context prefix (~170 tokens)\n- Navigation: Knowledge DAG with Jaccard similarity\n\n{sections}## Machine-Readable Index\n\n- [INDEX.json](./INDEX.json): Complete searchable index with keywords, chunks, and knowledge graph\n- [COMPASS.md](./COMPASS.md): Human-readable navigation guide\n",
+        config.project_name,
+        config.project_description,
+        analyses.len()
+    );
 
     fs::write(output_dir.join("llms.txt"), content)?;
 
@@ -171,15 +192,10 @@ pub fn generate_llms_full_txt<S: BuildHasher>(
     link_map: &HashMap<String, IdMapping, S>,
     output_dir: &Path,
 ) -> Result<()> {
-    let docs_dir = output_dir.join("docs");
-    let mut content = String::new();
-
-    content.push_str("# Full Documentation\n\n");
-    content.push_str(&format!(
-        "> This file contains all {} documents concatenated for large context models.\n\n",
+    let header = format!(
+        "# Full Documentation\n\n> This file contains all {} documents concatenated for large context models.\n\n---\n\n",
         analyses.len()
-    ));
-    content.push_str("---\n\n");
+    );
 
     // Sort by category then title for consistent ordering using functional pattern
     let sorted: Vec<_> = analyses
@@ -202,25 +218,20 @@ pub fn generate_llms_full_txt<S: BuildHasher>(
         })
         .collect_vec();
 
-    use std::fmt::Write as _;
-    let full_content: String =
-        sorted
-            .into_iter()
-            .fold(String::new(), |mut s, (analysis, mapping)| {
-                let doc_path = docs_dir.join(&mapping.filename);
-                let body = fs::read_to_string(&doc_path)
-                    .map(|content| skip_frontmatter(&content).to_string())
-                    .unwrap_or_else(|_| analysis.first_paragraph.clone());
+    let full_content: String = sorted
+        .iter()
+        .fold(String::new(), |mut acc, (analysis, mapping)| {
+            let body = skip_frontmatter(&analysis.content).to_string();
+            use std::fmt::Write;
+            let _ = write!(
+                acc,
+                "## {} [{}]\n\n**Path**: docs/{}\n**ID**: {}\n\n{}\n\n---\n\n",
+                analysis.title, analysis.category, mapping.filename, mapping.id, body
+            );
+            acc
+        });
 
-                let _ = write!(
-                    s,
-                    "## {} [{}]\n\n**Path**: docs/{}\n**ID**: {}\n\n{}\n\n---\n\n",
-                    analysis.title, analysis.category, mapping.filename, mapping.id, body
-                );
-                s
-            });
-
-    content.push_str(&full_content);
+    let content = format!("{header}{full_content}");
 
     fs::write(output_dir.join("llms-full.txt"), content)?;
 
@@ -265,7 +276,7 @@ fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
             let byte_end = idx.saturating_add(c.len_utf8());
             text[..byte_end].to_string()
         })
-        .unwrap_or_default()
+        .map_or_else(String::new, std::convert::identity)
 }
 
 /// Skip YAML frontmatter from document content using functional pattern
@@ -277,7 +288,7 @@ fn skip_frontmatter(content: &str) -> &str {
                 .find("---")
                 .map(|end| stripped[end.saturating_add(3)..].trim_start())
         })
-        .unwrap_or(content)
+        .map_or(content, |s| s)
 }
 
 /// Generate AGENTS.md - coding instructions for AI assistants
@@ -300,22 +311,6 @@ pub fn generate_agents_md<S: BuildHasher>(
     config: &LlmsConfig,
     output_dir: &Path,
 ) -> Result<()> {
-    let mut content = String::new();
-
-    // Header
-    content.push_str(&format!(
-        "# {} - Agent Instructions\n\n",
-        config.project_name
-    ));
-    content.push_str(&format!("> {}\n\n", config.project_description));
-
-    // Project overview
-    content.push_str("## Project Overview\n\n");
-    content.push_str(&format!(
-        "This documentation index contains {} documents organized by category.\n\n",
-        analyses.len()
-    ));
-
     // Count categories using functional pattern
     let categories: Vec<_> = analyses
         .iter()
@@ -325,73 +320,63 @@ pub fn generate_agents_md<S: BuildHasher>(
         .map(|(cat, items)| (cat, items.len()))
         .collect();
 
-    content.push_str("### Document Categories\n\n");
-    use std::fmt::Write as _;
-    let category_content: String =
-        categories
-            .into_iter()
-            .fold(String::new(), |mut s, (cat, count)| {
-                let _ = writeln!(s, "- **{cat}**: {count} documents");
-                s
-            });
-    content.push_str(&category_content);
-    content.push('\n');
+    let category_content: String = categories
+        .iter()
+        .map(|(cat, count)| format!("- **{cat}**: {count} documents"))
+        .collect::<Vec<_>>()
+        .join("\n");
 
-    // Navigation instructions
-    content.push_str("## Navigation Guide\n\n");
-    content.push_str("When working with this documentation:\n\n");
-    content.push_str("1. **Start with llms.txt** - Read this first to understand the structure\n");
-    content.push_str("2. **Use INDEX.json** - For programmatic lookup of documents and chunks\n");
-    content.push_str("3. **Follow the DAG** - Use knowledge graph edges to find related content\n");
-    content.push_str(
-        "4. **Chunk navigation** - Each chunk has `previous_chunk_id` and `next_chunk_id`\n\n",
-    );
-
-    // File structure
-    content.push_str("## File Structure\n\n");
-    content.push_str("```\n");
-    content.push_str("./\n");
-    content.push_str("├── llms.txt           # AI entry point (read first)\n");
-    content.push_str("├── llms-full.txt      # Full content for large context models\n");
-    content.push_str("├── AGENTS.md          # This file - coding instructions\n");
-    content.push_str("├── INDEX.json         # Machine-readable index + knowledge graph\n");
-    content.push_str("├── COMPASS.md         # Human-readable navigation\n");
-    content.push_str("├── docs/              # Transformed documents with frontmatter\n");
-    content.push_str("└── chunks/            # Semantic chunks with context prefix\n");
-    content.push_str("```\n\n");
-
-    // Chunk format
-    content.push_str("## Chunk Format\n\n");
-    content.push_str("Each chunk file contains:\n");
-    content.push_str(
-        "- YAML frontmatter with `chunk_id`, `doc_id`, `token_count`, navigation pointers\n",
-    );
-    content.push_str("- Context prefix from previous chunk (~50-100 tokens)\n");
-    content.push_str("- Main content (~170 tokens average)\n\n");
-
-    // Index structure
-    content.push_str("## INDEX.json Structure\n\n");
-    content.push_str("```json\n");
-    content.push_str("{\n");
-    content.push_str("  \"documents\": [...],    // Document metadata\n");
-    content.push_str("  \"chunks\": [...],       // Chunk metadata with navigation\n");
-    content.push_str("  \"keywords\": {...},     // Term → doc_id lookup\n");
-    content.push_str("  \"graph\": {             // Knowledge DAG\n");
-    content.push_str("    \"nodes\": [...],      // Documents and chunks\n");
-    content.push_str("    \"edges\": [...]       // Relationships (Parent, Sequential, Related)\n");
-    content.push_str("  }\n");
-    content.push_str("}\n");
-    content.push_str("```\n\n");
-
-    // Best practices
-    content.push_str("## Best Practices\n\n");
-    content.push_str("- **Don't guess**: Use INDEX.json to find exact document/chunk IDs\n");
-    content.push_str(
-        "- **Read context**: When reading a chunk, consider reading previous/next chunks\n",
-    );
-    content.push_str("- **Follow relationships**: Use graph edges to find related content\n");
-    content.push_str(
-        "- **Check frontmatter**: Every document has `category`, `tags`, and `summary`\n",
+    let content = format!(
+        "# {} - Agent Instructions\n\n\
+         > {}\n\n\
+         ## Project Overview\n\n\
+         This documentation index contains {} documents organized by category.\n\n\
+         ### Document Categories\n\n\
+         {category_content}\n\n\
+         ## Navigation Guide\n\n\
+         When working with this documentation:\n\n\
+         1. **Start with llms.txt** - Read this first to understand the structure\n\
+         2. **Use INDEX.json** - For programmatic lookup of documents and chunks\n\
+         3. **Follow the DAG** - Use knowledge graph edges to find related content\n\
+         4. **Chunk navigation** - Each chunk has `previous_chunk_id` and `next_chunk_id`\n\n\
+         ## File Structure\n\n\
+         ```
+         ./\n\
+         ├── llms.txt           # AI entry point (read first)\n\
+         ├── llms-full.txt      # Full content for large context models\n\
+         ├── AGENTS.md          # This file - coding instructions\n\
+         ├── INDEX.json         # Machine-readable index + knowledge graph\n\
+         ├── COMPASS.md         # Human-readable navigation\n\
+         ├── docs/              # Transformed documents with frontmatter\n\
+         └── chunks/            # Semantic chunks with context prefix\n\
+         ```
+\n\n\
+         ## Chunk Format\n\n\
+         Each chunk file contains:\n\
+         - YAML frontmatter with `chunk_id`, `doc_id`, `token_count`, navigation pointers\n\
+         - Context prefix from previous chunk (~50-100 tokens)\n\
+         - Main content (~170 tokens average)\n\n\
+         ## INDEX.json Structure\n\n\
+         ```json\n\
+         {{\n\
+           \"documents\": [...],    // Document metadata\n\
+           \"chunks\": [...],       // Chunk metadata with navigation\n\
+           \"keywords\": {{...}},     // Term → doc_id lookup\n\
+           \"graph\": {{             // Knowledge DAG\n\
+             \"nodes\": [...],      // Documents and chunks\n\
+             \"edges\": [...]       // Relationships (Parent, Sequential, Related)\n\
+           }}\n\
+         }}\n\
+         ```
+\n\n\
+         ## Best Practices\n\n\
+         - **Don't guess**: Use INDEX.json to find exact document/chunk IDs\n\
+         - **Read context**: When reading a chunk, consider reading previous/next chunks\n\
+         - **Follow relationships**: Use graph edges to find related content\n\
+         - **Check frontmatter**: Every document has `category`, `tags`, and `summary`\n",
+        config.project_name,
+        config.project_description,
+        analyses.len()
     );
 
     fs::write(output_dir.join("AGENTS.md"), content)?;
@@ -400,8 +385,41 @@ pub fn generate_agents_md<S: BuildHasher>(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+
+    fn make_analysis(source_path: &str, category: &str, title: &str) -> Analysis {
+        Analysis {
+            source_path: source_path.to_string(),
+            title: title.to_string(),
+            frontmatter: None,
+            headings: vec![],
+            links: vec![],
+            first_paragraph: "A short summary for testing".to_string(),
+            word_count: 50,
+            has_code: false,
+            has_tables: false,
+            category: category.to_string(),
+            content: Arc::from("Some content here"),
+        }
+    }
+
+    fn make_link_map(pairs: &[(&str, &str)]) -> HashMap<String, IdMapping> {
+        pairs
+            .iter()
+            .map(|(path, filename)| {
+                let mapping = IdMapping {
+                    id: path.to_string(),
+                    filename: filename.to_string(),
+                    subcategory: "test".to_string(),
+                    slug: "test".to_string(),
+                };
+                (path.to_string(), mapping)
+            })
+            .collect()
+    }
 
     #[test]
     fn test_truncate_summary() {
@@ -416,11 +434,193 @@ mod tests {
     }
 
     #[test]
+    fn test_truncate_summary_empty_string() {
+        assert_eq!(truncate_summary("", 10), "");
+    }
+
+    #[test]
+    fn test_truncate_summary_zero_max_len() {
+        assert_eq!(truncate_summary("Hello", 0), "");
+    }
+
+    #[test]
+    fn test_truncate_summary_max_len_one() {
+        let result = truncate_summary("Hello", 1);
+        assert_eq!(result, "H");
+    }
+
+    #[test]
+    fn test_truncate_summary_max_len_two() {
+        let result = truncate_summary("Hello", 2);
+        assert_eq!(result, "He");
+    }
+
+    #[test]
+    fn test_truncate_summary_max_len_three() {
+        let result = truncate_summary("Hello", 3);
+        assert_eq!(result, "Hel");
+    }
+
+    #[test]
+    fn test_truncate_summary_newlines_stripped() {
+        assert_eq!(truncate_summary("Line1\nLine2", 20), "Line1 Line2");
+    }
+
+    #[test]
     fn test_skip_frontmatter() {
         let with_fm = "---\ntitle: Test\n---\n\nContent here";
         assert_eq!(skip_frontmatter(with_fm), "Content here");
 
         let without_fm = "Just content";
         assert_eq!(skip_frontmatter(without_fm), "Just content");
+    }
+
+    #[test]
+    fn test_skip_frontmatter_empty() {
+        assert_eq!(skip_frontmatter(""), "");
+    }
+
+    #[test]
+    fn test_skip_frontmatter_incomplete() {
+        let partial = "---\ntitle: Test\n";
+        assert_eq!(skip_frontmatter(partial), "---\ntitle: Test\n");
+    }
+
+    #[test]
+    fn test_llms_config_default() {
+        let config = LlmsConfig::default();
+        assert_eq!(config.project_name, "Documentation");
+        assert_eq!(config.max_per_category, 5);
+        assert!(config.generate_full);
+        assert!(config.include_frontmatter);
+        assert_eq!(config.spec_version, "1.0");
+        assert_eq!(config.project_version, "0.1.0");
+    }
+
+    #[test]
+    fn test_generate_llms_txt_basic() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let analyses = vec![
+            make_analysis(
+                "docs/getting-started/intro.md",
+                "tutorial",
+                "Getting Started",
+            ),
+            make_analysis("docs/api/ref.md", "ref", "API Reference"),
+        ];
+        let link_map = make_link_map(&[
+            (
+                "docs/getting-started/intro.md",
+                "tutorial-getting-started-intro.md",
+            ),
+            ("docs/api/ref.md", "ref-api-ref.md"),
+        ]);
+        let config = LlmsConfig::default();
+
+        generate_llms_txt(&analyses, &link_map, &config, dir.path()).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("llms.txt")).unwrap();
+        assert!(content.contains("# Documentation"));
+        assert!(content.contains("Getting Started"));
+        assert!(content.contains("API Reference"));
+        assert!(content.contains("docs/tutorial-getting-started-intro.md"));
+    }
+
+    #[test]
+    fn test_generate_llms_txt_no_frontmatter() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let analyses = vec![make_analysis("a.md", "tutorial", "Test")];
+        let link_map = make_link_map(&[("a.md", "a.md")]);
+        let config = LlmsConfig {
+            include_frontmatter: false,
+            ..Default::default()
+        };
+
+        generate_llms_txt(&analyses, &link_map, &config, dir.path()).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("llms.txt")).unwrap();
+        assert!(!content.contains("---"));
+        assert!(content.contains("# Documentation"));
+    }
+
+    #[test]
+    fn test_generate_llms_txt_empty_analyses() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let analyses: Vec<Analysis> = vec![];
+        let link_map: HashMap<String, IdMapping> = HashMap::new();
+        let config = LlmsConfig::default();
+
+        generate_llms_txt(&analyses, &link_map, &config, dir.path()).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("llms.txt")).unwrap();
+        assert!(content.contains("# Documentation"));
+        assert!(content.contains("Total documents: 0"));
+    }
+
+    #[test]
+    fn test_generate_llms_full_txt_basic() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let analyses = vec![make_analysis("a.md", "tutorial", "Test Doc")];
+        let link_map = make_link_map(&[("a.md", "tutorial-test.md")]);
+
+        generate_llms_full_txt(&analyses, &link_map, dir.path()).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("llms-full.txt")).unwrap();
+        assert!(content.contains("# Full Documentation"));
+        assert!(content.contains("Test Doc"));
+        assert!(content.contains("Some content here"));
+    }
+
+    #[test]
+    fn test_generate_llms_full_txt_with_frontmatter() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut analysis = make_analysis("a.md", "tutorial", "Doc");
+        analysis.content = Arc::from("---\ntitle: Test\n---\n\nReal content");
+        let link_map = make_link_map(&[("a.md", "a.md")]);
+
+        generate_llms_full_txt(&[analysis], &link_map, dir.path()).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("llms-full.txt")).unwrap();
+        assert!(content.contains("Real content"));
+        assert!(!content.contains("title: Test"));
+    }
+
+    #[test]
+    fn test_generate_llms_full_txt_empty() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let analyses: Vec<Analysis> = vec![];
+        let link_map: HashMap<String, IdMapping> = HashMap::new();
+
+        generate_llms_full_txt(&analyses, &link_map, dir.path()).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("llms-full.txt")).unwrap();
+        assert!(content.contains("0 documents"));
+    }
+
+    #[test]
+    fn test_generate_agents_md_basic() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let analyses = vec![
+            make_analysis("a.md", "tutorial", "Tutorial 1"),
+            make_analysis("b.md", "tutorial", "Tutorial 2"),
+            make_analysis("c.md", "concept", "Concept 1"),
+        ];
+        let link_map: HashMap<String, IdMapping> = HashMap::new();
+        let config = LlmsConfig::default();
+
+        generate_agents_md(&analyses, &link_map, &config, dir.path()).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("AGENTS.md")).unwrap();
+        assert!(content.contains("Agent Instructions"));
+        assert!(content.contains("3 documents"));
+        assert!(content.contains("tutorial"));
+        assert!(content.contains("concept"));
+    }
+
+    #[test]
+    fn test_safe_truncate_chars() {
+        assert_eq!(safe_truncate_chars("hello", 3), "hel");
+        assert_eq!(safe_truncate_chars("hello", 0), "");
+        assert_eq!(safe_truncate_chars("hello", 10), "hello");
     }
 }

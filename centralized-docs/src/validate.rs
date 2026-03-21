@@ -145,12 +145,26 @@ fn summarize_results(file_results: &[ValidationEntry]) -> ValidationSummary {
 }
 
 fn validate_file(content: &str) -> (Vec<String>, Vec<String>) {
-    let mut errors = Vec::new();
-    let mut warnings = Vec::new();
+    let errors: Vec<String> = check_h1_errors(content)
+        .into_iter()
+        .chain(check_frontmatter_error(content))
+        .chain(check_required_field_errors(content))
+        .collect();
 
-    // V001: single_h1 using AST parsing to ignore code blocks
-    let parser = pulldown_cmark::Parser::new(content);
-    let h1_count = parser
+    let warnings = [
+        check_tags_sufficient(content),
+        check_context_section(content),
+        check_see_also_section(content),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    (errors, warnings)
+}
+
+fn check_h1_errors(content: &str) -> Option<String> {
+    let h1_count = pulldown_cmark::Parser::new(content)
         .filter(|event| {
             matches!(
                 event,
@@ -162,48 +176,43 @@ fn validate_file(content: &str) -> (Vec<String>, Vec<String>) {
         })
         .count();
 
-    if h1_count == 0 {
-        errors.push("Missing H1 heading".to_string());
-    } else if h1_count > 1 {
-        errors.push(format!(
-            "Multiple H1 headings found ({h1_count}), should have exactly one"
-        ));
+    match h1_count {
+        0 => Some("Missing H1 heading".to_string()),
+        n if n > 1 => Some(format!(
+            "Multiple H1 headings found ({n}), should have exactly one"
+        )),
+        _ => None,
     }
+}
 
-    // V002: frontmatter_exists
-    if !content.starts_with("---") {
-        errors.push("Missing frontmatter (should start with ---)".to_string());
-    }
+fn check_frontmatter_error(content: &str) -> Option<String> {
+    (!content.starts_with("---")).then(|| "Missing frontmatter (should start with ---)".to_string())
+}
 
-    // V003: required_fields
+fn check_required_field_errors(content: &str) -> Vec<String> {
     let required = ["id:", "title:", "category:", "tags:"];
     let search_chars = std::cmp::min(500, content.chars().count());
     let search_portion: String = content.chars().take(search_chars).collect();
-    for field in &required {
-        if !search_portion.contains(field) {
-            errors.push(format!("Missing required field: {field}"));
-        }
-    }
+    required
+        .iter()
+        .filter(|field| !search_portion.contains(*field))
+        .map(|field| format!("Missing required field: {field}"))
+        .collect()
+}
 
-    // V006: min_tags
-    let has_sufficient_tags = tags_regex()
-        .map(|regex| regex.is_match(content))
-        .unwrap_or(false);
-    if !has_sufficient_tags {
-        warnings.push("Insufficient tags (should have at least 10 characters of tags)".to_string());
-    }
+fn check_tags_sufficient(content: &str) -> Option<String> {
+    let has_sufficient_tags = tags_regex().is_ok_and(|regex| regex.is_match(content));
+    (!has_sufficient_tags)
+        .then(|| "Insufficient tags (should have at least 10 characters of tags)".to_string())
+}
 
-    // V007: has_context
-    if !content.contains("> **Context**:") {
-        warnings.push("Missing context section (> **Context**:)".to_string());
-    }
+fn check_context_section(content: &str) -> Option<String> {
+    (!content.contains("> **Context**:"))
+        .then(|| "Missing context section (> **Context**:)".to_string())
+}
 
-    // V008: has_see_also
-    if !content.contains("## See Also") {
-        warnings.push("Missing 'See Also' section".to_string());
-    }
-
-    (errors, warnings)
+fn check_see_also_section(content: &str) -> Option<String> {
+    (!content.contains("## See Also")).then(|| "Missing 'See Also' section".to_string())
 }
 
 /// Validate query length for search operations
@@ -303,26 +312,22 @@ fn contains_regex_pattern(query: &str) -> bool {
     let chars: Vec<char> = query.chars().collect();
     let len = chars.len();
 
-    for i in 0..len {
-        if chars[i] == '/' {
-            let next_idx = i.saturating_add(1);
-            if next_idx < len && chars[next_idx] == '/' {
-                continue;
-            }
-            let start_idx = i.saturating_add(1);
-            for j in start_idx..len {
-                if chars[j] == '/' {
-                    let next_j = j.saturating_add(1);
-                    if next_j >= len || chars[next_j] != '/' {
-                        return true;
-                    }
-                    break;
-                }
-            }
+    (0..len).any(|i| {
+        if chars[i] != '/' {
+            return false;
         }
-    }
-
-    false
+        let next_idx = i.saturating_add(1);
+        if next_idx < len && chars[next_idx] == '/' {
+            return false;
+        }
+        let start_idx = i.saturating_add(1);
+        (start_idx..len).any(|j| {
+            chars[j] == '/' && {
+                let next_j = j.saturating_add(1);
+                next_j >= len || chars[next_j] != '/'
+            }
+        })
+    })
 }
 
 #[cfg(test)]

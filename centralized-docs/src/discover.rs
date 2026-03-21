@@ -102,12 +102,16 @@ pub fn discover_files_with_config(
         .chain(rst_exts.iter().copied())
         .collect();
     // Use config exclude_dirs (or default)
-    let exclude_dirs: Vec<&str> = config.exclude_dirs.iter().map(|s| s.as_str()).collect();
+    let exclude_dirs: Vec<&str> = config.exclude_dirs.iter().map(String::as_str).collect();
 
     // Handle single file case directly
     if canonical_path.is_file() {
         return discover_single_file(&canonical_path, &all_exts, config);
     }
+
+    // Compile regex once before the walk — avoids recompiling per file
+    let compiled_regex: Option<Result<regex::Regex, regex::Error>> =
+        path_filter.map(regex::Regex::new);
 
     enum DiscoveryEvent {
         File(DiscoveryFile),
@@ -128,13 +132,11 @@ pub fn discover_files_with_config(
                     // Check if the underlying IO error is a permission denied
                     let is_permission_denied = e
                         .io_error()
-                        .map(|io_err| io_err.kind() == std::io::ErrorKind::PermissionDenied)
-                        .unwrap_or(false);
+                        .is_some_and(|io_err| io_err.kind() == std::io::ErrorKind::PermissionDenied);
                     if is_permission_denied {
                         let path_str = e
                             .path()
-                            .map(|p| p.display().to_string())
-                            .unwrap_or_else(|| "<unknown>".to_string());
+                            .map_or_else(|| "<unknown>".to_string(), |p| p.display().to_string());
                         eprintln!("Error: Cannot read file '{path_str}': permission denied");
                         return DiscoveryEvent::PermissionDenied(path_str);
                     }
@@ -199,20 +201,18 @@ pub fn discover_files_with_config(
                             }
                         };
 
-                        // Apply path filter if provided
-                        if let Some(pattern_str) = path_filter {
-                            match regex::Regex::new(pattern_str) {
+                        // Apply pre-compiled path filter if provided
+                        if let Some(regex_result) = compiled_regex.as_ref() {
+                            match regex_result {
                                 Ok(regex) => {
                                     if !regex.is_match(&rel_path) {
                                         return DiscoveryEvent::None;
                                     }
                                 }
                                 Err(e) => {
-                                    // Invalid regex pattern - this is a user configuration error
-                                    // Warn and skip the filter (don't skip the file)
                                     eprintln!(
-                                        "Warning: Invalid regex pattern '{}': {}. Path filter ignored for this file.",
-                                        pattern_str,
+                                        "Warning: Invalid regex pattern '{}': {}. Path filter ignored.",
+                                        path_filter.map_or("", |s| s),
                                         e
                                     );
                                 }
@@ -400,8 +400,7 @@ fn discover_single_file(
     let files = if has_supported_ext {
         let ext_str = file_path
             .extension()
-            .map(|e| format!(".{}", e.to_string_lossy()))
-            .unwrap_or_default();
+            .map_or_else(String::new, |e| format!(".{}", e.to_string_lossy()));
 
         // Warn for non-markdown text files being processed as markdown
         if text_extensions.contains(&ext_str.as_str()) {

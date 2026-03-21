@@ -28,8 +28,11 @@ use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 
 /// Statically compiled H1 regex for extract_title
-static H1_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("valid regex"));
+static H1_REGEX: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"^#\s+(.+)$").ok());
+
+fn h1_regex() -> Option<&'static Regex> {
+    H1_REGEX.as_ref()
+}
 
 /// Safely compiles a user-provided regex pattern with ReDoS protection.
 ///
@@ -49,10 +52,7 @@ pub(crate) fn compile_safe_regex(pattern: &str) -> Result<Regex> {
     // Use character count, not byte count, for the 500 char limit
     let char_count = pattern.chars().count();
     if char_count > 500 {
-        anyhow::bail!(
-            "Regex pattern too long (max 500 characters, got {len})",
-            len = char_count
-        );
+        anyhow::bail!("Regex pattern too long (max 500 characters, got {char_count})");
     }
 
     // Detect nested quantifiers: any group followed by a quantifier
@@ -494,34 +494,39 @@ mod spa_detection_tests {
 /// Extract title from markdown content
 /// Uses statically compiled H1 regex for performance
 pub fn extract_title(markdown: &str, url: &str) -> String {
-    for line in markdown.lines() {
-        if let Some(caps) = H1_REGEX.captures(line.trim()) {
-            if let Some(title_match) = caps.get(1) {
-                return title_match.as_str().to_string();
-            }
-        }
-    }
+    let fallback_title = || {
+        url::Url::parse(url).map_or_else(
+            |_| "Untitled".to_string(),
+            |u| {
+                u.path()
+                    .trim_matches('/')
+                    .split('/')
+                    .next_back()
+                    .map_or_else(
+                        || "Untitled".to_string(),
+                        |s| {
+                            let decoded: String = url::form_urlencoded::parse(s.as_bytes())
+                                .map(|(key, _)| key.into_owned())
+                                .collect();
+                            decoded.replace(['-', '_'], " ")
+                        },
+                    )
+            },
+        )
+    };
 
-    url::Url::parse(url).map_or_else(
-        |_| "Untitled".to_string(),
-        |u| {
-            u.path()
-                .trim_matches('/')
-                .split('/')
-                .next_back()
-                .map_or_else(
-                    || "Untitled".to_string(),
-                    |s| {
-                        // Decode percent-encoded characters (e.g., %20 -> space, %3A -> :)
-                        // Using form_urlencoded which handles common URL encoding
-                        let decoded: String = url::form_urlencoded::parse(s.as_bytes())
-                            .map(|(key, _)| key.into_owned())
-                            .collect();
-                        decoded.replace(['-', '_'], " ")
-                    },
-                )
-        },
-    )
+    let Some(re) = h1_regex() else {
+        return fallback_title();
+    };
+
+    markdown
+        .lines()
+        .find_map(|line| {
+            re.captures(line.trim())
+                .and_then(|caps| caps.get(1))
+                .map(|m| m.as_str().to_string())
+        })
+        .unwrap_or_else(fallback_title)
 }
 
 #[cfg(test)]

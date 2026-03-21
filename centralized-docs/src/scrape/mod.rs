@@ -65,6 +65,7 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     const BASE_DELAY_MS: u64 = 2000;
 
     let max_retries = config.max_retries.min(10);
+    #[allow(unused_mut)] // I/O boundary: async retry loop requires mutable attempt counter
     let mut attempt: u32 = 0;
 
     // Quick sitemap check - try sitemap first with a small page limit (5 pages max)
@@ -151,6 +152,7 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::{derive_scrape_plan, http, ScrapeConfig, SitemapStrategy};
 
@@ -195,6 +197,42 @@ mod tests {
         assert_eq!(plan.strategy, http::ScrapeStrategy::Standard);
         assert_eq!(plan.max_pages, 37);
     }
+
+    #[test]
+    fn crawl_only_always_standard_even_with_sitemap() {
+        let config = ScrapeConfig {
+            sitemap_strategy: SitemapStrategy::CrawlOnly,
+            max_pages: 100,
+            ..Default::default()
+        };
+
+        let plan = derive_scrape_plan(&config, true);
+
+        assert_eq!(plan.strategy, http::ScrapeStrategy::Standard);
+    }
+
+    #[test]
+    fn scrape_plan_debug_clone() {
+        let plan = derive_scrape_plan(
+            &ScrapeConfig {
+                sitemap_strategy: SitemapStrategy::UseSitemap,
+                max_pages: 10,
+                ..Default::default()
+            },
+            true,
+        );
+        let plan2 = plan.clone();
+        assert_eq!(plan, plan2);
+        let dbg = format!("{:?}", plan);
+        assert!(dbg.contains("Sitemap"));
+    }
+
+    #[test]
+    fn derive_scrape_plan_default_config() {
+        let config = ScrapeConfig::default();
+        let plan = derive_scrape_plan(&config, false);
+        assert_eq!(plan.strategy, http::ScrapeStrategy::Standard);
+    }
 }
 
 /// Execute a single scrape attempt with explicit sitemap strategy
@@ -205,21 +243,22 @@ async fn scrape_single_attempt(
     let validated_url = validate_url(&config.base_url)?;
 
     let valid_url_wrapper = http::ValidatedUrl::try_new(validated_url.as_str())
-        .map_err(|e| anyhow::anyhow!("Invalid URL: {}", e))?;
-    let mut website = build_website_base(valid_url_wrapper, config)
-        .map_err(|e| anyhow::anyhow!("Config error: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Invalid URL: {e}"))?;
+    #[allow(unused_mut)] // I/O boundary: spider::Website requires &mut for scrape operations
+    let mut website = build_website_base(&valid_url_wrapper, config)
+        .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
 
     if let Some(ref pattern) = config.path_filter {
         validation::compile_safe_regex(pattern).context("Path filter regex validation failed")?;
 
         let base_domain = url::Url::parse(&config.base_url)
-            .map(|u| u.host_str().unwrap_or("").to_string())
+            .map(|u| u.host_str().map_or("", |h| h).to_string())
             .unwrap_or_default();
         let scheme = url::Url::parse(&config.base_url)
             .map_or_else(|_| "https".to_string(), |u| u.scheme().to_string());
 
         let domain_escaped = regex::escape(&base_domain);
-        let pattern_stripped = pattern.strip_prefix('^').unwrap_or(pattern);
+        let pattern_stripped = pattern.strip_prefix('^').map_or(pattern.as_str(), |s| s);
         let full_url_pattern = format!("^{scheme}://{domain_escaped}{pattern_stripped}");
         let _ = website
             .configuration
@@ -229,7 +268,7 @@ async fn scrape_single_attempt(
 
     execute_scrape_with_website(&mut website, strategy)
         .await
-        .map_err(|e| anyhow::anyhow!("Execution failed: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Execution failed: {e}"))?;
 
     Ok(extract_pages_from_website(&website, config))
 }

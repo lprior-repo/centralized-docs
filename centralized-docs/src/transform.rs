@@ -60,6 +60,7 @@ use crate::types::is_stopword;
 use anyhow::Result;
 use itertools::Itertools;
 use pulldown_cmark::{CowStr, Event, Options, Parser, Tag, TagEnd};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -108,7 +109,7 @@ fn create_dir_with_context(path: &Path, context: &str) -> Result<()> {
 
 /// Transform all analyses, returning errors aggregated into the result.
 ///
-/// Unlike the previous implementation which silently dropped errors via filter_map,
+/// Unlike the previous implementation which silently dropped errors via `filter_map`,
 /// this version collects all transformation errors and includes them in the result.
 pub fn transform_all(
     analyses: &[Analysis],
@@ -129,27 +130,22 @@ pub fn transform_all(
         })
         .collect();
 
-    let mut errors = Vec::new();
-    let mut success_count = 0;
-
-    for analysis in analyses {
-        if let Some(mapping) = link_map.get(&analysis.source_path) {
-            match transform_file(analysis, mapping, link_map, &docs_dir, &filename_map) {
-                Ok(()) => success_count += 1,
-                Err(e) => {
-                    errors.push(TransformError {
+    let (success_results, error_results): (Vec<_>, Vec<_>) = analyses
+        .par_iter()
+        .filter_map(|analysis| {
+            link_map.get(&analysis.source_path).map(|mapping| {
+                transform_file(analysis, mapping, link_map, &docs_dir, &filename_map).map_err(|e| {
+                    TransformError {
                         source_path: analysis.source_path.clone(),
                         error: e.to_string(),
-                    });
-                }
-            }
-        } else {
-            // Document without link_map entry is not an error - it's expected for
-            // documents that were not assigned IDs (e.g., excluded by filters)
-            // This is normal behavior, not an error condition
-        }
-    }
+                    }
+                })
+            })
+        })
+        .partition(Result::is_ok);
 
+    let success_count = success_results.len();
+    let errors: Vec<TransformError> = error_results.into_iter().filter_map(Result::err).collect();
     let error_count = errors.len();
 
     Ok(TransformResult {
@@ -170,52 +166,46 @@ fn transform_file(
     let doc_id = &mapping.id;
     let filename = &mapping.filename;
 
-    // Step 1: Fix heading structure using AST
-    let content = fix_headings_ast(&analysis.content);
+    let context_text = if analysis.first_paragraph.is_empty() {
+        analysis.title.clone()
+    } else {
+        let max_chars = std::cmp::min(150, analysis.first_paragraph.chars().count());
+        safe_truncate_chars(&analysis.first_paragraph, max_chars)
+    };
 
-    // Step 2: Rewrite internal links using AST (now uses O(1) filename lookup)
-    let (content, broken_links) =
-        rewrite_links_ast(&content, &analysis.source_path, link_map, filename_map);
+    let (content, broken_links) = transform_document_ast(
+        &analysis.content,
+        &analysis.source_path,
+        &analysis.title,
+        link_map,
+        filename_map,
+        &context_text,
+    );
 
-    // Log any broken links found
     if !broken_links.is_empty() {
         eprintln!(
             "Warning: {} broken link(s) in {}:",
             broken_links.len(),
             analysis.source_path
         );
-        for (idx, link) in broken_links.iter().enumerate().take(10) {
-            eprintln!("  {}: {}", idx.saturating_add(1), link);
-        }
+        broken_links
+            .iter()
+            .take(10)
+            .enumerate()
+            .for_each(|(idx, link)| {
+                eprintln!("  {}: {}", idx.saturating_add(1), link);
+            });
         if broken_links.len() > 10 {
             eprintln!("  ... and {} more", broken_links.len().saturating_sub(10));
         }
     }
 
-    // Step 3: Ensure single H1 using AST
-    let content = ensure_h1_ast(&content, &analysis.title);
-
-    // Step 4: Add context block if missing using AST
-    let content = if content_has_blockquote_context(&content) {
-        content
-    } else {
-        let context_text = if analysis.first_paragraph.is_empty() {
-            analysis.title.clone()
-        } else {
-            let max_chars = std::cmp::min(150, analysis.first_paragraph.chars().count());
-            safe_truncate_chars(&analysis.first_paragraph, max_chars)
-        };
-        inject_context_block_ast(&content, &context_text)
-    };
-
-    // Step 5: Add See Also section if missing using AST
     let content = if content_has_see_also(&content) {
         content
     } else {
         format!("{content}\n## See Also\n\n- [Documentation Index](./COMPASS.md)\n")
     };
 
-    // Generate frontmatter
     let tags = generate_tags(analysis);
     let tags_str = tags
         .iter()
@@ -228,16 +218,46 @@ fn transform_file(
         doc_id, analysis.title, analysis.category, tags_str
     );
 
-    // Assemble final content
     let final_content = format!("{frontmatter}\n\n{content}");
 
-    // Write file
     let output_file = docs_dir.join(filename);
 
     fs::write(&output_file, final_content)
         .map_err(|e| anyhow::anyhow!("Failed to write file '{}': {e}", output_file.display()))?;
 
     Ok(())
+}
+
+/// Combined AST transformation: parse once, transform events, serialize once.
+///
+/// Reduces parse→serialize roundtrips from 5 to 1 by operating on the
+/// pulldown-cmark event stream directly instead of converting to/from strings
+/// between each transformation step.
+#[allow(clippy::too_many_arguments)]
+fn transform_document_ast(
+    content: &str,
+    source_path: &str,
+    title: &str,
+    link_map: &HashMap<String, IdMapping>,
+    filename_map: &HashMap<String, &IdMapping>,
+    context_text: &str,
+) -> (String, Vec<String>) {
+    let events = parse_markdown(content);
+
+    let events = fix_headings_events(events);
+
+    let (events, broken_links) = rewrite_links_events(events, source_path, link_map, filename_map);
+
+    let events = ensure_h1_events(events, title);
+
+    let events = if events_have_blockquote_context(&events) {
+        events
+    } else {
+        inject_context_events(events, context_text)
+    };
+
+    let markdown = events_to_markdown(events);
+    (markdown, broken_links)
 }
 
 /// Parse markdown using pulldown-cmark with full `CommonMark` + GFM support
@@ -248,68 +268,61 @@ fn parse_markdown(content: &str) -> Vec<Event<'_>> {
 }
 
 /// Fix heading structure: no skipped levels, max level 4 (AST-based)
+#[allow(dead_code)]
 fn fix_headings_ast(content: &str) -> String {
-    let events = parse_markdown(content);
+    events_to_markdown(fix_headings_events(parse_markdown(content)))
+}
 
-    let (fixed_events, _, _) = events.into_iter().fold(
-        (Vec::new(), None::<u32>, false),
-        |(mut events, mut last_heading_level, mut in_code_block), event| {
-            match event {
-                // Track code block boundaries - never transform inside code
+/// Fix heading structure on event stream (no parse/serialize roundtrip)
+fn fix_headings_events(events: Vec<Event<'_>>) -> Vec<Event<'_>> {
+    events
+        .into_iter()
+        .scan((None::<u32>, false), |state, event| {
+            let in_code_block = state.1;
+            let last_heading_level = state.0;
+
+            let new_event = match event {
                 Event::Start(Tag::CodeBlock(kind)) => {
-                    in_code_block = true;
-                    events.push(Event::Start(Tag::CodeBlock(kind)));
+                    state.1 = true;
+                    Event::Start(Tag::CodeBlock(kind))
                 }
                 Event::End(TagEnd::CodeBlock) => {
-                    in_code_block = false;
-                    events.push(Event::End(TagEnd::CodeBlock));
+                    state.1 = false;
+                    Event::End(TagEnd::CodeBlock)
                 }
-
-                // Transform headings (unless in code block)
                 Event::Start(Tag::Heading {
                     level,
                     id,
                     classes,
                     attrs,
                 }) if !in_code_block => {
-                    let new_level = if let Some(last_level) = last_heading_level {
-                        // Prevent level skips: if current > last + 1, demote to last + 1
-                        let level_num = heading_level_to_u32(level);
-                        if level_num > last_level.saturating_add(1) {
-                            // Demote to last_level + 1
-                            from_u32_level(last_level.saturating_add(1))
-                        } else {
-                            level
+                    let new_level = match last_heading_level {
+                        Some(last) if heading_level_to_u32(level) > last.saturating_add(1) => {
+                            from_u32_level(last.saturating_add(1))
                         }
-                    } else {
-                        level
+                        _ => level,
                     };
 
-                    // Limit to max level 4
                     let final_level = if heading_level_to_u32(new_level) > 4 {
                         from_u32_level(4)
                     } else {
                         new_level
                     };
 
-                    last_heading_level = Some(heading_level_to_u32(final_level));
-                    events.push(Event::Start(Tag::Heading {
+                    state.0 = Some(heading_level_to_u32(final_level));
+                    Event::Start(Tag::Heading {
                         level: final_level,
                         id,
                         classes,
                         attrs,
-                    }));
+                    })
                 }
 
-                // Pass through all other events unchanged
-                other => events.push(other),
-            }
-            (events, last_heading_level, in_code_block)
-        },
-    );
-
-    // Convert back to markdown
-    events_to_markdown(fixed_events)
+                other => other,
+            };
+            Some(new_event)
+        })
+        .collect()
 }
 
 /// Convert heading level number to `pulldown_cmark` `HeadingLevel`
@@ -341,65 +354,78 @@ fn heading_level_to_u32(level: pulldown_cmark::HeadingLevel) -> u32 {
 
 /// Rewrite internal links to new filenames (AST-based).
 ///
-/// Uses filename_map for O(1) lookup instead of iterating the entire link_map.
+/// Uses `filename_map` for O(1) lookup instead of iterating the entire `link_map`.
 /// Returns the transformed content and a list of broken links.
+#[allow(dead_code)]
 fn rewrite_links_ast(
     content: &str,
     source_path: &str,
     _link_map: &HashMap<String, IdMapping>,
     filename_map: &HashMap<String, &IdMapping>,
 ) -> (String, Vec<String>) {
-    let events = parse_markdown(content);
+    let (events, broken) = rewrite_links_events(
+        parse_markdown(content),
+        source_path,
+        _link_map,
+        filename_map,
+    );
+    (events_to_markdown(events), broken)
+}
+
+/// Rewrite internal links on event stream (no parse/serialize roundtrip).
+///
+/// Returns transformed events and a list of broken link URLs.
+fn rewrite_links_events<'a>(
+    events: Vec<Event<'a>>,
+    source_path: &str,
+    _link_map: &HashMap<String, IdMapping>,
+    filename_map: &HashMap<String, &IdMapping>,
+) -> (Vec<Event<'a>>, Vec<String>) {
     let source_dir = Path::new(source_path)
         .parent()
-        .unwrap_or_else(|| Path::new(""));
+        .map_or_else(|| Path::new(""), std::convert::identity);
 
-    let (transformed_events, broken_links, _) = events.into_iter().fold(
-        (Vec::new(), Vec::new(), false),
-        |(mut transformed_events, mut broken_links, in_code_block), event| {
-            let (new_event, new_in_code_block, new_broken_link) = match event {
-                // Never transform links inside code blocks
+    let results: Vec<(Event<'_>, Option<String>)> = events
+        .into_iter()
+        .scan(false, |in_code_block, event| {
+            let icb = *in_code_block;
+
+            let (new_event, new_broken_link, new_icb) = match event {
                 Event::Start(Tag::CodeBlock(kind)) => {
-                    (Event::Start(Tag::CodeBlock(kind)), true, None)
+                    (Event::Start(Tag::CodeBlock(kind)), None, true)
                 }
-                Event::End(TagEnd::CodeBlock) => (Event::End(TagEnd::CodeBlock), false, None),
+                Event::End(TagEnd::CodeBlock) => (Event::End(TagEnd::CodeBlock), None, false),
 
-                // Transform Link events
                 Event::Start(Tag::Link {
                     link_type,
                     dest_url,
                     title,
                     id,
-                }) if !in_code_block => {
+                }) if !icb => {
                     let url_str = dest_url.to_string();
 
-                    // Keep external links and anchors unchanged
-                    let (new_url, new_broken_link) = if url_str.starts_with("http://")
+                    let (new_url, broken) = if url_str.starts_with("http://")
                         || url_str.starts_with("https://")
                         || url_str.starts_with("mailto:")
                         || url_str.starts_with('#')
                     {
                         (dest_url.clone(), None)
                     } else {
-                        // Try to resolve and map the link
                         let resolved_path = if url_str.starts_with("./") {
                             source_dir.join(url_str.trim_start_matches("./"))
                         } else {
                             source_dir.join(&url_str)
                         };
 
-                        // O(1) lookup using filename_map - much faster than iterating link_map
                         let mapped_filename = resolved_path
                             .file_name()
                             .and_then(|n| n.to_str())
                             .and_then(|name| filename_map.get(name))
                             .map(|m| m.filename.clone());
 
-                        if let Some(new_filename) = mapped_filename {
-                            // Format as ./filename without extra spaces
-                            (CowStr::from(format!("./{new_filename}")), None)
-                        } else {
-                            (dest_url.clone(), Some(url_str.clone()))
+                        match mapped_filename {
+                            Some(new_filename) => (CowStr::from(format!("./{new_filename}")), None),
+                            None => (dest_url.clone(), Some(url_str)),
                         }
                     };
 
@@ -410,30 +436,30 @@ fn rewrite_links_ast(
                             title,
                             id,
                         }),
-                        in_code_block,
-                        new_broken_link,
+                        broken,
+                        icb,
                     )
                 }
 
-                // Pass through all other events unchanged
-                other => (other, in_code_block, None),
+                other => (other, None, icb),
             };
 
-            transformed_events.push(new_event);
-            if let Some(link) = new_broken_link {
-                broken_links.push(link);
-            }
-            (transformed_events, broken_links, new_in_code_block)
-        },
-    );
+            *in_code_block = new_icb;
+            Some((new_event, new_broken_link))
+        })
+        .collect();
 
-    (events_to_markdown(transformed_events), broken_links)
+    let broken_links: Vec<String> = results.iter().filter_map(|(_, bl)| bl.clone()).collect();
+    let transformed_events: Vec<Event<'_>> = results.into_iter().map(|(e, _)| e).collect();
+
+    (transformed_events, broken_links)
 }
 
 /// Ensure document has exactly one H1 heading (AST-based).
 ///
 /// If missing, it adds an H1 at the top.
 /// If multiple exist, it adds an H1 at the top and bumps all existing headings down one level to preserve hierarchy.
+#[allow(dead_code)]
 fn ensure_h1_ast(content: &str, title: &str) -> String {
     let events = parse_markdown(content);
     let h1_count = events
@@ -451,6 +477,31 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
 
     if h1_count == 1 {
         return content.to_string();
+    }
+
+    events_to_markdown(ensure_h1_events(events, title))
+}
+
+/// Ensure document has exactly one H1 heading on event stream (no parse/serialize roundtrip).
+///
+/// If missing, it prepends an H1 at the top.
+/// If multiple exist, it prepends an H1 and bumps all existing headings down one level.
+fn ensure_h1_events<'a>(events: Vec<Event<'a>>, title: &str) -> Vec<Event<'a>> {
+    let h1_count = events
+        .iter()
+        .filter(|e| {
+            matches!(
+                e,
+                Event::Start(Tag::Heading {
+                    level: pulldown_cmark::HeadingLevel::H1,
+                    ..
+                })
+            )
+        })
+        .count();
+
+    if h1_count == 1 {
+        return events;
     }
 
     let bump_level = |level: pulldown_cmark::HeadingLevel| -> pulldown_cmark::HeadingLevel {
@@ -479,37 +530,38 @@ fn ensure_h1_ast(content: &str, title: &str) -> String {
         Event::SoftBreak,
     ];
 
-    let transformed_events = events.into_iter().fold(header_events, |mut acc, event| {
-        match event {
+    header_events
+        .into_iter()
+        .chain(events.into_iter().map(move |event| match event {
             Event::Start(Tag::Heading {
                 level,
                 id,
                 classes,
                 attrs,
-            }) if h1_count > 1 => {
-                acc.push(Event::Start(Tag::Heading {
-                    level: bump_level(level),
-                    id,
-                    classes,
-                    attrs,
-                }));
-            }
+            }) if h1_count > 1 => Event::Start(Tag::Heading {
+                level: bump_level(level),
+                id,
+                classes,
+                attrs,
+            }),
             Event::End(TagEnd::Heading(level)) if h1_count > 1 => {
-                acc.push(Event::End(TagEnd::Heading(bump_level(level))));
+                Event::End(TagEnd::Heading(bump_level(level)))
             }
-            other => acc.push(other),
-        }
-        acc
-    });
-
-    events_to_markdown(transformed_events)
+            other => other,
+        }))
+        .collect()
 }
 
 /// Check if content already has a context blockquote (AST-based)
+#[allow(dead_code)]
 fn content_has_blockquote_context(content: &str) -> bool {
-    let events = parse_markdown(content);
+    events_have_blockquote_context(&parse_markdown(content))
+}
+
+/// Check if events contain a context blockquote with "Context" text
+fn events_have_blockquote_context(events: &[Event<'_>]) -> bool {
     events
-        .into_iter()
+        .iter()
         .fold((false, false), |(in_blockquote, found), event| {
             if found {
                 (in_blockquote, true)
@@ -530,40 +582,86 @@ fn content_has_blockquote_context(content: &str) -> bool {
 /// Inject context block after H1 (AST-based).
 ///
 /// Returns the content with context block added.
+#[allow(dead_code)]
 fn inject_context_block_ast(content: &str, context_text: &str) -> String {
     let events = parse_markdown(content);
+    let h1_end_pos = events.iter().position(|e| {
+        matches!(
+            e,
+            Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1))
+        )
+    });
 
-    let (new_events, _) =
-        events
-            .into_iter()
-            .fold((Vec::new(), false), |(mut acc, inserted), event| {
-                let is_h1_end = matches!(
-                    event,
-                    Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1))
-                );
-                acc.push(event);
+    match h1_end_pos {
+        None => events_to_markdown(events),
+        Some(pos) => {
+            let (before, after) = events.split_at(pos.saturating_add(1));
+            let context_block: Vec<Event<'_>> = vec![
+                Event::SoftBreak,
+                Event::SoftBreak,
+                Event::Start(Tag::BlockQuote(None)),
+                Event::Start(Tag::Paragraph),
+                Event::Start(Tag::Strong),
+                Event::Text(CowStr::from("Context")),
+                Event::End(TagEnd::Strong),
+                Event::Text(CowStr::from(": ")),
+                Event::Text(CowStr::from(context_text.to_string())),
+                Event::End(TagEnd::Paragraph),
+                Event::End(TagEnd::BlockQuote(None)),
+                Event::SoftBreak,
+                Event::SoftBreak,
+            ];
 
-                if !inserted && is_h1_end {
-                    acc.push(Event::SoftBreak);
-                    acc.push(Event::SoftBreak);
-                    acc.push(Event::Start(Tag::BlockQuote(None)));
-                    acc.push(Event::Start(Tag::Paragraph));
-                    acc.push(Event::Start(Tag::Strong));
-                    acc.push(Event::Text(CowStr::from("Context")));
-                    acc.push(Event::End(TagEnd::Strong));
-                    acc.push(Event::Text(CowStr::from(": ")));
-                    acc.push(Event::Text(CowStr::from(context_text.to_string())));
-                    acc.push(Event::End(TagEnd::Paragraph));
-                    acc.push(Event::End(TagEnd::BlockQuote(None)));
-                    acc.push(Event::SoftBreak);
-                    acc.push(Event::SoftBreak);
-                    (acc, true)
-                } else {
-                    (acc, inserted)
-                }
-            });
+            let new_events: Vec<Event<'_>> = before
+                .iter()
+                .cloned()
+                .chain(context_block)
+                .chain(after.iter().cloned())
+                .collect();
+            events_to_markdown(new_events)
+        }
+    }
+}
 
-    events_to_markdown(new_events)
+/// Inject context blockquote after H1 on event stream (no parse/serialize roundtrip).
+///
+/// If no H1 end event is found, returns events unchanged.
+fn inject_context_events<'a>(events: Vec<Event<'a>>, context_text: &str) -> Vec<Event<'a>> {
+    let h1_end_pos = events.iter().position(|e| {
+        matches!(
+            e,
+            Event::End(TagEnd::Heading(pulldown_cmark::HeadingLevel::H1))
+        )
+    });
+
+    match h1_end_pos {
+        None => events,
+        Some(pos) => {
+            let (before, after) = events.split_at(pos.saturating_add(1));
+            let context_block: Vec<Event<'_>> = vec![
+                Event::SoftBreak,
+                Event::SoftBreak,
+                Event::Start(Tag::BlockQuote(None)),
+                Event::Start(Tag::Paragraph),
+                Event::Start(Tag::Strong),
+                Event::Text(CowStr::from("Context")),
+                Event::End(TagEnd::Strong),
+                Event::Text(CowStr::from(": ")),
+                Event::Text(CowStr::from(context_text.to_string())),
+                Event::End(TagEnd::Paragraph),
+                Event::End(TagEnd::BlockQuote(None)),
+                Event::SoftBreak,
+                Event::SoftBreak,
+            ];
+
+            before
+                .iter()
+                .cloned()
+                .chain(context_block)
+                .chain(after.iter().cloned())
+                .collect()
+        }
+    }
 }
 
 /// Check if content already has "## See Also" section (simple text check)
@@ -578,6 +676,8 @@ fn events_to_markdown<'a, I>(events: I) -> String
 where
     I: IntoIterator<Item = Event<'a>>,
 {
+    // I/O boundary: Write trait requires &mut self — no functional alternative.
+    #[allow(unused_mut)]
     let mut buf = String::new();
     if let Err(e) = pulldown_cmark_to_cmark::cmark(events.into_iter(), &mut buf) {
         // Log the error but don't crash - return whatever was written
@@ -598,7 +698,7 @@ fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
     }
 
     let opt_val: Option<usize> = Some(max_chars);
-    let _test = opt_val.unwrap_or(max_chars);
+    let _test = opt_val.map_or(max_chars, |v| v);
 
     text.graphemes(true).take(max_chars).collect::<String>()
 }

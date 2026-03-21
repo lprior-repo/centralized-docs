@@ -1,7 +1,11 @@
 use crate::config::CategoryConfig;
 use crate::discover::DiscoveryFile;
+use std::sync::Arc;
+
 use anyhow::Result;
+use itertools::Itertools;
 use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -39,7 +43,7 @@ pub struct Analysis {
     pub has_code: bool,
     pub has_tables: bool,
     pub category: String,
-    pub content: String,
+    pub content: Arc<str>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,11 +83,13 @@ impl std::ops::Deref for AnalyzeResult {
 
 #[must_use]
 pub fn count_categories(analyses: &[Analysis]) -> HashMap<String, usize> {
-    analyses.iter().fold(HashMap::new(), |mut acc, analysis| {
-        *acc.entry(analysis.category.clone()).or_insert(0) =
-            acc.get(&analysis.category).unwrap_or(&0).saturating_add(1);
-        acc
-    })
+    analyses
+        .iter()
+        .map(|a| (a.category.clone(), ()))
+        .into_group_map()
+        .into_iter()
+        .map(|(k, v)| (k, v.len()))
+        .collect()
 }
 
 pub fn analyze_files(
@@ -100,7 +106,7 @@ pub fn analyze_files(
     let input_count = files.len();
 
     let (analyses, failed_files): (Vec<_>, Vec<_>) = files
-        .iter()
+        .par_iter()
         .map(|file| {
             let file_path = source_dir.join(&file.source_path);
             analyze_single_file(&file.source_path, &file_path, config.as_ref()).map_err(|e| {
@@ -159,6 +165,10 @@ struct MetadataState {
     found_first_paragraph: bool,
 }
 
+// AST event accumulation: pulldown-cmark events require sequential stateful
+// traversal (heading/link text spans multiple events). Persistent structures
+// would add O(log n) overhead per event with no functional benefit.
+#[allow(unused_mut)]
 #[allow(clippy::too_many_lines)]
 fn extract_markdown_metadata(content: &str) -> MarkdownMetadata {
     let line_starts: Vec<usize> = std::iter::once(0)
@@ -269,8 +279,9 @@ fn analyze_single_file(
     let (frontmatter, clean_content) = extract_frontmatter(&content);
     let metadata = extract_markdown_metadata(&clean_content);
 
-    let title = metadata.title.unwrap_or_else(|| {
-        Path::new(source_path)
+    let title = match metadata.title {
+        Some(t) => t,
+        None => Path::new(source_path)
             .file_stem()
             .filter(|s| !s.is_empty())
             .map_or_else(
@@ -290,8 +301,8 @@ fn analyze_single_file(
                         .collect::<Vec<_>>()
                         .join(" ")
                 },
-            )
-    });
+            ),
+    };
 
     let word_count = clean_content.split_whitespace().count();
 
@@ -316,10 +327,12 @@ fn analyze_single_file(
         has_code: metadata.has_code,
         has_tables: metadata.has_tables,
         category,
-        content: clean_content,
+        content: clean_content.into(),
     })
 }
 
+// I/O boundary: std::hash::Hash requires &mut Hasher — no functional alternative exists.
+#[allow(unused_mut)]
 fn generate_untitled_id(path: &str, content: &str) -> String {
     use std::hash::{Hash, Hasher};
     let hash_val = [path, content]
@@ -361,7 +374,7 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
                 let key = line[..pos].trim().to_string();
                 let val = line
                     .get(pos.saturating_add(1)..)
-                    .unwrap_or("")
+                    .map_or("", |s| s)
                     .trim()
                     .to_string();
                 Some((key, val))
@@ -373,8 +386,7 @@ fn extract_frontmatter(content: &str) -> (Option<HashMap<String, String>>, Strin
 
     let remaining = lines
         .get(end_idx.saturating_add(1)..)
-        .map(|slice| slice.join("\n"))
-        .unwrap_or_default();
+        .map_or_else(String::new, |slice| slice.join("\n"));
     (Some(fm), remaining)
 }
 
@@ -382,8 +394,10 @@ fn detect_category(filename: &str, content: &str) -> String {
     let fname_lower = Path::new(filename)
         .file_stem()
         .filter(|s| !s.is_empty())
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_else(|| generate_untitled_id(filename, content))
+        .map_or_else(
+            || generate_untitled_id(filename, content),
+            |s| s.to_string_lossy().into_owned(),
+        )
         .to_lowercase();
 
     let (_, clean_content) = extract_frontmatter(content);
@@ -442,7 +456,7 @@ fn detect_category(filename: &str, content: &str) -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod frontmatter_tests {
     use super::*;
 
@@ -481,5 +495,748 @@ mod frontmatter_tests {
         let (fm_opt, body) = extract_frontmatter(content);
         assert!(fm_opt.is_none());
         assert_eq!(body.trim(), "---\ntitle: Test\n\n# Body");
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[allow(dead_code)]
+    fn make_heading(level: u32, text: &str) -> Heading {
+        Heading {
+            level,
+            text: text.to_string(),
+            line: 0,
+        }
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_title_from_h1() {
+        let md = "# My Title\n\nSome content here.";
+        let meta = extract_markdown_metadata(md);
+
+        assert_eq!(meta.title, Some("My Title".to_string()));
+        assert_eq!(meta.headings.len(), 1);
+        assert_eq!(meta.headings[0].text, "My Title");
+        assert_eq!(meta.headings[0].level, 1);
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_multiple_headings() {
+        let md = "# Top\n\n## Section A\n\n### Subsection\n\n## Section B";
+        let meta = extract_markdown_metadata(md);
+
+        assert_eq!(meta.headings.len(), 4);
+        assert_eq!(meta.headings[0].level, 1);
+        assert_eq!(meta.headings[0].text, "Top");
+        assert_eq!(meta.headings[1].level, 2);
+        assert_eq!(meta.headings[1].text, "Section A");
+        assert_eq!(meta.headings[2].level, 3);
+        assert_eq!(meta.headings[2].text, "Subsection");
+        assert_eq!(meta.headings[3].level, 2);
+        assert_eq!(meta.headings[3].text, "Section B");
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_heading_levels_h4_h5_h6() {
+        let md = "#### H4\n\n##### H5\n\n###### H6";
+        let meta = extract_markdown_metadata(md);
+
+        assert_eq!(meta.headings.len(), 3);
+        assert_eq!(meta.headings[0].level, 4);
+        assert_eq!(meta.headings[1].level, 5);
+        assert_eq!(meta.headings[2].level, 6);
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_no_headings() {
+        let md = "Just some plain text content.\n\nMultiple paragraphs.";
+        let meta = extract_markdown_metadata(md);
+
+        assert!(meta.title.is_none());
+        assert!(meta.headings.is_empty());
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_title_from_second_h1() {
+        let md = "# First\n\nContent\n\n# Second";
+        let meta = extract_markdown_metadata(md);
+
+        assert_eq!(meta.title, Some("First".to_string()));
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_links_internal() {
+        let md = "Check out [our guide](./guide.md) for more info.";
+        let meta = extract_markdown_metadata(md);
+
+        assert_eq!(meta.links.len(), 1);
+        assert_eq!(meta.links[0].text, "our guide");
+        assert_eq!(meta.links[0].target, "./guide.md");
+        assert_eq!(meta.links[0].kind, LinkKind::Internal);
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_links_external() {
+        let md = "Visit [Google](https://google.com) or [us](http://example.com).";
+        let meta = extract_markdown_metadata(md);
+
+        assert_eq!(meta.links.len(), 2);
+        assert_eq!(meta.links[0].kind, LinkKind::External);
+        assert_eq!(meta.links[1].kind, LinkKind::External);
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_links_mailto() {
+        let md = "Email [support](mailto:help@example.com).";
+        let meta = extract_markdown_metadata(md);
+
+        assert_eq!(meta.links.len(), 1);
+        assert_eq!(meta.links[0].kind, LinkKind::External);
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_first_paragraph() {
+        let md = "First paragraph with some text.\n\nSecond paragraph.";
+        let meta = extract_markdown_metadata(md);
+
+        assert!(meta.first_paragraph.contains("First paragraph"));
+        assert!(!meta.first_paragraph.contains("Second paragraph"));
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_first_paragraph_before_heading() {
+        let md = "Intro text before heading.\n\n# Title\n\nMore content.";
+        let meta = extract_markdown_metadata(md);
+
+        assert!(meta.first_paragraph.contains("Intro text before heading"));
+        assert!(meta.title.is_some());
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_code_block_detection() {
+        let md = "Some text.\n\n```rust\nfn main() {}\n```\n\nMore text.";
+        let meta = extract_markdown_metadata(md);
+
+        assert!(meta.has_code);
+        assert!(!meta.has_tables);
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_no_code_no_tables() {
+        let md = "Just plain text.\n\nWith paragraphs.";
+        let meta = extract_markdown_metadata(md);
+
+        assert!(!meta.has_code);
+        assert!(!meta.has_tables);
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_inline_code() {
+        let md = "Use `println!` for debugging.";
+        let meta = extract_markdown_metadata(md);
+
+        assert!(!meta.has_code, "Inline code should not set has_code");
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_heading_with_inline_formatting() {
+        let md = "# **Bold** and *italic* heading";
+        let meta = extract_markdown_metadata(md);
+
+        assert_eq!(meta.title, Some("Bold and italic heading".to_string()));
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_heading_trimmed() {
+        let md = "#   Spaced Title   ";
+        let meta = extract_markdown_metadata(md);
+
+        assert_eq!(meta.title, Some("Spaced Title".to_string()));
+    }
+
+    #[test]
+    fn test_detect_category_readme() {
+        assert_eq!(detect_category("README.md", "some content"), "meta");
+    }
+
+    #[test]
+    fn test_detect_category_changelog() {
+        assert_eq!(detect_category("CHANGELOG.md", "content"), "meta");
+    }
+
+    #[test]
+    fn test_detect_category_contributing() {
+        assert_eq!(detect_category("CONTRIBUTING.md", "content"), "meta");
+    }
+
+    #[test]
+    fn test_detect_category_license() {
+        assert_eq!(detect_category("LICENSE", "content"), "meta");
+    }
+
+    #[test]
+    fn test_detect_category_security() {
+        assert_eq!(detect_category("SECURITY.md", "content"), "meta");
+    }
+
+    #[test]
+    fn test_detect_category_code_of_conduct() {
+        assert_eq!(detect_category("CODE_OF_CONDUCT.md", "content"), "meta");
+    }
+
+    #[test]
+    fn test_detect_category_index_file() {
+        assert_eq!(detect_category("INDEX.md", "content"), "meta");
+    }
+
+    #[test]
+    fn test_detect_category_tutorial_content() {
+        assert_eq!(
+            detect_category("guide.md", "This is a tutorial on testing"),
+            "tutorial"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_getting_started() {
+        assert_eq!(
+            detect_category("start.md", "Getting started with our tool"),
+            "tutorial"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_quickstart_content() {
+        assert_eq!(
+            detect_category("intro.md", "Follow this quickstart guide"),
+            "tutorial"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_quickstart_filename() {
+        assert_eq!(
+            detect_category("quickstart.md", "random content"),
+            "tutorial"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_tutorial_filename() {
+        assert_eq!(detect_category("tutorial.md", "random content"), "tutorial");
+    }
+
+    #[test]
+    fn test_detect_category_ref_content() {
+        assert_eq!(
+            detect_category("docs.md", "The api provides HTTP endpoints"),
+            "ref"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_reference_content() {
+        assert_eq!(
+            detect_category("info.md", "See the reference documentation"),
+            "ref"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_function_content() {
+        assert_eq!(
+            detect_category("lib.md", "The function main() does things"),
+            "ref"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_class_content() {
+        assert_eq!(
+            detect_category("oop.md", "The class Animal has methods"),
+            "ref"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_api_filename() {
+        assert_eq!(detect_category("api.md", "random content"), "ref");
+    }
+
+    #[test]
+    fn test_detect_category_reference_filename() {
+        assert_eq!(detect_category("reference.md", "random content"), "ref");
+    }
+
+    #[test]
+    fn test_detect_category_ops_content() {
+        assert_eq!(
+            detect_category("deploy.md", "This is a how-to guide for deployment"),
+            "ops"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_how_to_content() {
+        assert_eq!(
+            detect_category("steps.md", "how to configure the system"),
+            "ops"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_guide_content() {
+        assert_eq!(
+            detect_category("setup.md", "Follow this guide to install"),
+            "ops"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_how_to_filename() {
+        assert_eq!(detect_category("how-to-deploy.md", "random"), "ops");
+    }
+
+    #[test]
+    fn test_detect_category_guide_filename() {
+        assert_eq!(detect_category("guide.md", "random"), "ops");
+    }
+
+    #[test]
+    fn test_detect_category_deployment_filename() {
+        assert_eq!(detect_category("deployment.md", "random"), "ops");
+    }
+
+    #[test]
+    fn test_detect_category_fallback_concept() {
+        assert_eq!(
+            detect_category("random-file.md", "Just some random content about things."),
+            "concept"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_meta_beats_tutorial() {
+        assert_eq!(
+            detect_category("readme.md", "This is a tutorial getting started guide"),
+            "meta"
+        );
+    }
+
+    #[test]
+    fn test_detect_category_tutorial_beats_ref() {
+        assert_eq!(
+            detect_category("guide.md", "api reference tutorial"),
+            "tutorial"
+        );
+    }
+
+    #[test]
+    fn test_extract_frontmatter_with_colon_in_value() {
+        let content = "---\ntitle: Hello: World\ndescription: A test: with colons\n---\nBody";
+        let (fm_opt, body) = extract_frontmatter(content);
+        assert!(fm_opt.is_some());
+        let fm = fm_opt.unwrap();
+        assert_eq!(fm.get("title").unwrap(), "Hello: World");
+        assert_eq!(fm.get("description").unwrap(), "A test: with colons");
+        assert_eq!(body.trim(), "Body");
+    }
+
+    #[test]
+    fn test_extract_frontmatter_no_colon_lines() {
+        let content = "---\njust a line without colon\n---\nBody";
+        let (fm_opt, _body) = extract_frontmatter(content);
+        assert!(fm_opt.is_some());
+        let fm = fm_opt.unwrap();
+        assert!(fm.is_empty());
+    }
+
+    #[test]
+    fn test_extract_frontmatter_crlf() {
+        let content = "---\r\ntitle: Test\r\n---\r\nBody";
+        let (fm_opt, _body) = extract_frontmatter(content);
+        assert!(fm_opt.is_some());
+        let fm = fm_opt.unwrap();
+        assert_eq!(fm.get("title").unwrap(), "Test");
+    }
+
+    #[test]
+    fn test_generate_untitled_id_deterministic() {
+        let id1 = generate_untitled_id("path/to/file.md", "content");
+        let id2 = generate_untitled_id("path/to/file.md", "content");
+        assert_eq!(id1, id2, "Same input should produce same hash");
+    }
+
+    #[test]
+    fn test_generate_untitled_id_different_paths() {
+        let id1 = generate_untitled_id("path/a.md", "content");
+        let id2 = generate_untitled_id("path/b.md", "content");
+        assert_ne!(id1, id2, "Different paths should produce different hashes");
+    }
+
+    #[test]
+    fn test_generate_untitled_id_starts_with_untitled() {
+        let id = generate_untitled_id("test.md", "content");
+        assert!(id.starts_with("Untitled-"));
+    }
+
+    #[test]
+    fn test_analyze_single_file_basic() -> Result<()> {
+        let dir = tempfile::TempDir::new()?;
+        let file_path = dir.path().join("test.md");
+        fs::write(
+            &file_path,
+            "# Test Document\n\nThis is a paragraph.\n\n## Section\n\nMore text.",
+        )?;
+
+        let analysis = analyze_single_file("test.md", &file_path, None)?;
+
+        assert_eq!(analysis.title, "Test Document");
+        assert_eq!(analysis.headings.len(), 2);
+        assert_eq!(analysis.word_count, 11);
+        assert_eq!(analysis.source_path, "test.md");
+        assert!(!analysis.first_paragraph.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_single_file_with_frontmatter() -> Result<()> {
+        let dir = tempfile::TempDir::new()?;
+        let file_path = dir.path().join("test.md");
+        fs::write(
+            &file_path,
+            "---\ntitle: Custom Title\ncategory: tutorial\n---\n\n# Custom Title\n\nContent without heading.",
+        )?;
+
+        let analysis = analyze_single_file("test.md", &file_path, None)?;
+
+        assert_eq!(analysis.title, "Custom Title");
+        assert!(analysis.frontmatter.is_some());
+        let fm = analysis.frontmatter.unwrap();
+        assert_eq!(fm.get("title").unwrap(), "Custom Title");
+        assert_eq!(fm.get("category").unwrap(), "tutorial");
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_single_file_title_from_filename() -> Result<()> {
+        let dir = tempfile::TempDir::new()?;
+        let file_path = dir.path().join("my-cool-guide.md");
+        fs::write(&file_path, "No heading here, just content.")?;
+
+        let analysis = analyze_single_file("my-cool-guide.md", &file_path, None)?;
+
+        assert_eq!(analysis.title, "My Cool Guide");
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_single_file_missing_file() {
+        let result = analyze_single_file("missing.md", Path::new("/nonexistent/path.md"), None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_analyze_single_file_code_detection() -> Result<()> {
+        let dir = tempfile::TempDir::new()?;
+        let file_path = dir.path().join("test.md");
+        fs::write(&file_path, "# Doc\n\n```\ncode block\n```\n\nMore text.")?;
+
+        let analysis = analyze_single_file("test.md", &file_path, None)?;
+
+        assert!(analysis.has_code);
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_files_empty() -> Result<()> {
+        let result = analyze_files(&[], Path::new("/tmp"), None)?;
+        assert!(result.analyses.is_empty());
+        assert!(result.failed_files.is_empty());
+        assert_eq!(result.total_discovered, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_files_basic() -> Result<()> {
+        let dir = tempfile::TempDir::new()?;
+        let file_path = dir.path().join("doc.md");
+        fs::write(&file_path, "# My Document\n\nContent paragraph.")?;
+
+        let files = vec![DiscoveryFile {
+            source_path: "doc.md".to_string(),
+            size_bytes: 10,
+        }];
+
+        let result = analyze_files(&files, dir.path(), None)?;
+
+        assert_eq!(result.analyses.len(), 1);
+        assert_eq!(result.analyses[0].title, "My Document");
+        assert_eq!(result.total_discovered, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_files_with_failed_file() {
+        let files = vec![DiscoveryFile {
+            source_path: "nonexistent.md".to_string(),
+            size_bytes: 10,
+        }];
+
+        let result = analyze_files(&files, Path::new("/nonexistent"), None);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Failed to analyze any"));
+    }
+
+    #[test]
+    fn test_analyze_files_mixed_success_failure() -> Result<()> {
+        let dir = tempfile::TempDir::new()?;
+        let good_file = dir.path().join("good.md");
+        fs::write(&good_file, "# Good Doc\n\nContent.")?;
+
+        let files = vec![
+            DiscoveryFile {
+                source_path: "good.md".to_string(),
+                size_bytes: 10,
+            },
+            DiscoveryFile {
+                source_path: "bad.md".to_string(),
+                size_bytes: 10,
+            },
+        ];
+
+        let result = analyze_files(&files, dir.path(), None)?;
+
+        assert_eq!(result.analyses.len(), 1);
+        assert_eq!(result.failed_files.len(), 1);
+        assert_eq!(result.total_discovered, 2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_analyze_result_len_and_empty() {
+        let empty = AnalyzeResult {
+            analyses: vec![],
+            failed_files: vec![],
+            total_discovered: 0,
+        };
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+
+        let nonempty = AnalyzeResult {
+            analyses: vec![Analysis {
+                source_path: "a.md".to_string(),
+                title: "A".to_string(),
+                frontmatter: None,
+                headings: vec![],
+                links: vec![],
+                first_paragraph: String::new(),
+                word_count: 0,
+                has_code: false,
+                has_tables: false,
+                category: "c".to_string(),
+                content: Arc::from(""),
+            }],
+            failed_files: vec![],
+            total_discovered: 1,
+        };
+        assert!(!nonempty.is_empty());
+        assert_eq!(nonempty.len(), 1);
+    }
+
+    #[test]
+    fn test_analyze_result_deref() {
+        let result = AnalyzeResult {
+            analyses: vec![
+                Analysis {
+                    source_path: "a.md".to_string(),
+                    title: "A".to_string(),
+                    frontmatter: None,
+                    headings: vec![],
+                    links: vec![],
+                    first_paragraph: String::new(),
+                    word_count: 0,
+                    has_code: false,
+                    has_tables: false,
+                    category: "c".to_string(),
+                    content: Arc::from(""),
+                },
+                Analysis {
+                    source_path: "b.md".to_string(),
+                    title: "B".to_string(),
+                    frontmatter: None,
+                    headings: vec![],
+                    links: vec![],
+                    first_paragraph: String::new(),
+                    word_count: 0,
+                    has_code: false,
+                    has_tables: false,
+                    category: "c".to_string(),
+                    content: Arc::from(""),
+                },
+            ],
+            failed_files: vec![],
+            total_discovered: 2,
+        };
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].title, "A");
+        assert_eq!(result[1].title, "B");
+    }
+
+    #[test]
+    fn test_count_categories() {
+        let analyses = vec![
+            Analysis {
+                source_path: "a.md".to_string(),
+                title: "A".to_string(),
+                frontmatter: None,
+                headings: vec![],
+                links: vec![],
+                first_paragraph: String::new(),
+                word_count: 0,
+                has_code: false,
+                has_tables: false,
+                category: "tutorial".to_string(),
+                content: Arc::from(""),
+            },
+            Analysis {
+                source_path: "b.md".to_string(),
+                title: "B".to_string(),
+                frontmatter: None,
+                headings: vec![],
+                links: vec![],
+                first_paragraph: String::new(),
+                word_count: 0,
+                has_code: false,
+                has_tables: false,
+                category: "tutorial".to_string(),
+                content: Arc::from(""),
+            },
+            Analysis {
+                source_path: "c.md".to_string(),
+                title: "C".to_string(),
+                frontmatter: None,
+                headings: vec![],
+                links: vec![],
+                first_paragraph: String::new(),
+                word_count: 0,
+                has_code: false,
+                has_tables: false,
+                category: "ref".to_string(),
+                content: Arc::from(""),
+            },
+        ];
+
+        let counts = count_categories(&analyses);
+        assert_eq!(counts.get("tutorial").unwrap(), &2);
+        assert_eq!(counts.get("ref").unwrap(), &1);
+        assert_eq!(counts.len(), 2);
+    }
+
+    #[test]
+    fn test_count_categories_empty() {
+        let counts = count_categories(&[]);
+        assert!(counts.is_empty());
+    }
+
+    #[test]
+    fn test_link_kind_enum() {
+        assert_eq!(LinkKind::Internal, LinkKind::Internal);
+        assert_eq!(LinkKind::External, LinkKind::External);
+        assert_ne!(LinkKind::Internal, LinkKind::External);
+    }
+
+    #[test]
+    fn test_heading_struct() {
+        let h = Heading {
+            level: 2,
+            text: "Test".to_string(),
+            line: 5,
+        };
+        let cloned = h.clone();
+        assert_eq!(h.level, cloned.level);
+        assert_eq!(h.text, cloned.text);
+    }
+
+    #[test]
+    fn test_failed_file_struct() {
+        let f = FailedFile {
+            source_path: "bad.md".to_string(),
+            error: "file not found".to_string(),
+        };
+        let cloned = f.clone();
+        assert_eq!(f.source_path, cloned.source_path);
+    }
+
+    #[test]
+    fn test_analyze_serialization() {
+        let analysis = Analysis {
+            source_path: "test.md".to_string(),
+            title: "Test".to_string(),
+            frontmatter: Some(HashMap::from([("key".to_string(), "val".to_string())])),
+            headings: vec![Heading {
+                level: 1,
+                text: "H1".to_string(),
+                line: 0,
+            }],
+            links: vec![Link {
+                text: "link".to_string(),
+                target: "url".to_string(),
+                kind: LinkKind::External,
+            }],
+            first_paragraph: "Para".to_string(),
+            word_count: 42,
+            has_code: true,
+            has_tables: false,
+            category: "tutorial".to_string(),
+            content: Arc::from("content"),
+        };
+
+        let json = serde_json::to_string(&analysis).unwrap();
+        let deserialized: Analysis = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.title, "Test");
+        assert_eq!(deserialized.word_count, 42);
+        assert!(deserialized.has_code);
+        assert_eq!(deserialized.links[0].kind, LinkKind::External);
+    }
+
+    #[test]
+    fn test_detect_category_case_insensitive_filename() {
+        assert_eq!(detect_category("README.MD", "content"), "meta");
+        assert_eq!(detect_category("Readme.md", "content"), "meta");
+    }
+
+    #[test]
+    fn test_detect_category_with_frontmatter() {
+        let content = "---\ntitle: My Tutorial\n---\n\nThis is getting started content.";
+        assert_eq!(detect_category("guide.md", content), "tutorial");
+    }
+
+    #[test]
+    fn test_extract_markdown_metadata_empty_content() {
+        let meta = extract_markdown_metadata("");
+        assert!(meta.title.is_none());
+        assert!(meta.headings.is_empty());
+        assert!(meta.links.is_empty());
+        assert!(meta.first_paragraph.is_empty());
+        assert!(!meta.has_code);
+        assert!(!meta.has_tables);
+    }
+
+    #[test]
+    fn test_analyze_files_discover_file_struct() {
+        let df = DiscoveryFile {
+            source_path: "path/to/file.md".to_string(),
+            size_bytes: 1024,
+        };
+        let cloned = df.clone();
+        assert_eq!(df.source_path, cloned.source_path);
+        assert_eq!(df.size_bytes, cloned.size_bytes);
     }
 }

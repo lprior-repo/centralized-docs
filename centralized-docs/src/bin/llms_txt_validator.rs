@@ -41,6 +41,7 @@ pub struct ValidationResult {
 }
 
 impl ValidationResult {
+    #[cfg(test)]
     fn new() -> Self {
         Self {
             valid: true,
@@ -48,6 +49,7 @@ impl ValidationResult {
         }
     }
 
+    #[cfg(test)]
     fn add_error(&mut self, field: &str, message: &str, severity: Severity) {
         if severity == Severity::Error {
             self.valid = false;
@@ -68,6 +70,147 @@ impl ValidationResult {
     fn has_warnings(&self) -> bool {
         self.errors.iter().any(|e| e.severity == Severity::Warning)
     }
+}
+
+fn validation_result(errors: Vec<ValidationError>) -> ValidationResult {
+    let valid = !errors.iter().any(|e| e.severity == Severity::Error);
+    ValidationResult { valid, errors }
+}
+
+fn error(field: &str, message: &str, severity: Severity) -> ValidationError {
+    ValidationError {
+        field: field.to_string(),
+        message: message.to_string(),
+        severity,
+    }
+}
+
+struct UrlValidation {
+    malformed: bool,
+    errors: Vec<ValidationError>,
+}
+
+fn validate_single_url(url: &str) -> UrlValidation {
+    if url.is_empty() {
+        return UrlValidation {
+            malformed: true,
+            errors: vec![error("links", "Found empty link URL", Severity::Warning)],
+        };
+    }
+
+    if url.starts_with('\n') || url.contains('\n') {
+        return UrlValidation {
+            malformed: true,
+            errors: vec![error(
+                "links",
+                &format!(
+                    "Malformed link: URL contains newline near '{}'",
+                    url.chars().take(20).collect::<String>()
+                ),
+                Severity::Warning,
+            )],
+        };
+    }
+
+    if url.starts_with("http://") || url.starts_with("https://") {
+        if !url.contains('.') || url.len() < 12 {
+            return UrlValidation {
+                malformed: false,
+                errors: vec![error(
+                    "links",
+                    &format!("Suspicious URL format: {url}"),
+                    Severity::Info,
+                )],
+            };
+        }
+        return UrlValidation {
+            malformed: false,
+            errors: vec![],
+        };
+    }
+
+    if url.starts_with('#') {
+        return UrlValidation {
+            malformed: false,
+            errors: vec![],
+        };
+    }
+
+    if url.starts_with('/') || url.starts_with("./") || url.starts_with("../") {
+        if url.contains("..") && url.matches("..").count() > 3 {
+            return UrlValidation {
+                malformed: false,
+                errors: vec![error(
+                    "links",
+                    &format!("Deeply nested relative path: {url}"),
+                    Severity::Info,
+                )],
+            };
+        }
+        return UrlValidation {
+            malformed: false,
+            errors: vec![],
+        };
+    }
+
+    if !url.starts_with("mailto:") && !url.starts_with("ftp:") {
+        return UrlValidation {
+            malformed: false,
+            errors: vec![error(
+                "links",
+                &format!("Unknown URL scheme or relative path: {url}"),
+                Severity::Info,
+            )],
+        };
+    }
+
+    UrlValidation {
+        malformed: false,
+        errors: vec![],
+    }
+}
+
+/// Extract and validate URLs from markdown content
+fn validate_links_in_content(content: &str) -> Vec<ValidationError> {
+    let link_regex = match Regex::new(r"\[([^\]]+)\]\(([^)]+)\)") {
+        Ok(re) => re,
+        Err(_) => {
+            return vec![error(
+                "links",
+                "Failed to compile link regex",
+                Severity::Error,
+            )]
+        }
+    };
+
+    let url_validations: Vec<UrlValidation> = link_regex
+        .captures_iter(content)
+        .filter_map(|captures| captures.get(2).map(|m| m.as_str()))
+        .map(validate_single_url)
+        .collect();
+
+    let url_count = url_validations.len();
+    let malformed_count = url_validations.iter().filter(|v| v.malformed).count();
+
+    let per_url_errors: Vec<ValidationError> =
+        url_validations.into_iter().flat_map(|v| v.errors).collect();
+
+    let summary_errors: Vec<ValidationError> = if url_count == 0 {
+        vec![error("links", "No links found in document", Severity::Info)]
+    } else if malformed_count > 0 {
+        vec![error(
+            "links",
+            &format!("Found {malformed_count} malformed links out of {url_count} total"),
+            Severity::Warning,
+        )]
+    } else {
+        vec![]
+    };
+
+    per_url_errors
+        .into_iter()
+        .chain(summary_errors.into_iter())
+        .collect()
 }
 
 /// INDEX.json structure (simplified)
@@ -100,366 +243,306 @@ struct Chunk {
     chunk_level: Option<String>,
 }
 
-/// Extract and validate URLs from markdown content
-fn validate_links_in_content(content: &str, result: &mut ValidationResult) {
-    // Regex for markdown links: [text](url)
-    let link_regex = match Regex::new(r"\[([^\]]+)\]\(([^)]+)\)") {
-        Ok(re) => re,
-        Err(_) => {
-            result.add_error("links", "Failed to compile link regex", Severity::Error);
-            return;
-        }
-    };
-
-    let mut url_count = 0;
-    let mut malformed_count = 0;
-
-    for captures in link_regex.captures_iter(content) {
-        if let Some(url_match) = captures.get(2) {
-            let url = url_match.as_str();
-            url_count += 1;
-
-            // Check if URL is well-formed
-            if url.is_empty() {
-                result.add_error("links", "Found empty link URL", Severity::Warning);
-                malformed_count += 1;
-                continue;
-            }
-
-            // Check for incomplete links (missing closing parenthesis indicator)
-            if url.starts_with('\n') || url.contains('\n') {
-                result.add_error(
-                    "links",
-                    &format!(
-                        "Malformed link: URL contains newline near '{}'",
-                        url.chars().take(20).collect::<String>()
-                    ),
-                    Severity::Warning,
-                );
-                malformed_count += 1;
-                continue;
-            }
-
-            // Validate URL format for http/https URLs
-            if url.starts_with("http://") || url.starts_with("https://") {
-                // Basic URL validation (contains domain)
-                if !url.contains('.') || url.len() < 12 {
-                    result.add_error(
-                        "links",
-                        &format!("Suspicious URL format: {url}"),
-                        Severity::Info,
-                    );
-                }
-            } else if url.starts_with('#') {
-                // Anchor link - valid
-                continue;
-            } else if url.starts_with('/') || url.starts_with("./") || url.starts_with("../") {
-                // Relative link - warn if it looks suspicious
-                if url.contains("..") && url.matches("..").count() > 3 {
-                    result.add_error(
-                        "links",
-                        &format!("Deeply nested relative path: {url}"),
-                        Severity::Info,
-                    );
-                }
-            } else if !url.starts_with("mailto:") && !url.starts_with("ftp:") {
-                // Unknown URL scheme
-                result.add_error(
-                    "links",
-                    &format!("Unknown URL scheme or relative path: {url}"),
-                    Severity::Info,
-                );
-            }
-        }
-    }
-
-    // Report summary
-    if url_count == 0 {
-        result.add_error("links", "No links found in document", Severity::Info);
-    } else if malformed_count > 0 {
-        result.add_error(
-            "links",
-            &format!("Found {malformed_count} malformed links out of {url_count} total"),
-            Severity::Warning,
-        );
-    }
-}
-
 /// Validate chunk file paths exist
 #[allow(unused_variables)]
-fn validate_chunk_paths(chunks: &[Chunk], base_path: &Path, result: &mut ValidationResult) {
-    let missing_paths: Vec<String> = Vec::new();
-
-    for chunk in chunks {
-        // Skip chunks without content (they might reference external paths)
-        if chunk.content.is_none() {
-            continue;
-        }
-
-        // Check if chunk ID suggests a file path
-        // Chunk IDs typically look like: doc1-chunk1, or include path info
-        // We'll validate against the base path if it looks like a file reference
-
-        // For now, we'll do a basic check - in a real implementation,
-        // you'd parse the chunk metadata for actual file references
-
-        // This is a placeholder for actual chunk path validation
-        // Real implementation would need to know the chunks/ directory structure
-    }
-
-    if !missing_paths.is_empty() {
-        for path in &missing_paths {
-            result.add_error(
-                "chunk_paths",
-                &format!("Referenced chunk file not found: {path}"),
-                Severity::Warning,
-            );
-        }
-    }
+fn validate_chunk_paths(_chunks: &[Chunk], _base_path: &Path) -> Vec<ValidationError> {
+    vec![]
 }
 
 /// Validate llms.txt file
 fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
-    let mut result = ValidationResult::new();
-
-    // Check file exists
     if !path.exists() {
-        result.add_error("file", "llms.txt does not exist", Severity::Error);
-        return Ok(result);
+        return Ok(validation_result(vec![error(
+            "file",
+            "llms.txt does not exist",
+            Severity::Error,
+        )]));
     }
 
-    // Read content
     let content =
         fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
 
-    // Check file is not empty
     if content.trim().is_empty() {
-        result.add_error("content", "File is empty", Severity::Error);
-        return Ok(result);
+        return Ok(validation_result(vec![error(
+            "content",
+            "File is empty",
+            Severity::Error,
+        )]));
     }
 
-    // Check for required sections
-    let required_sections = vec!["Getting Started", "Core Concepts", "API Reference"];
-    let mut missing_required = Vec::new();
-    for section in required_sections {
-        if !content.contains(&format!("## {section}")) {
-            missing_required.push(section.to_string());
-        }
-    }
-    if !missing_required.is_empty() {
-        for section in missing_required {
-            result.add_error(
+    let required_sections = ["Getting Started", "Core Concepts", "API Reference"];
+    let section_errors: Vec<ValidationError> = required_sections
+        .iter()
+        .filter(|section| !content.contains(&format!("## {section}")))
+        .map(|section| {
+            error(
                 "sections",
                 &format!("Missing required section: {section}"),
                 Severity::Error,
-            );
-        }
-    }
+            )
+        })
+        .collect();
 
-    // Check for INDEX.json reference (optional)
-    if !content.contains("INDEX.json") {
-        result.add_error(
+    let index_ref_errors: Vec<ValidationError> = if !content.contains("INDEX.json") {
+        vec![error(
             "index_reference",
             "No reference to INDEX.json found",
             Severity::Info,
-        );
-    }
+        )]
+    } else {
+        vec![]
+    };
 
-    // Check structure (basic markdown validation)
     let lines: Vec<&str> = content.lines().collect();
-    let mut has_h1 = false;
-    let mut has_h2 = false;
+    let has_h1 = lines.iter().any(|line| line.starts_with("# "));
+    let has_h2 = lines.iter().any(|line| line.starts_with("## "));
 
-    for line in &lines {
-        if line.starts_with("# ") {
-            has_h1 = true;
-        }
-        if line.starts_with("## ") {
-            has_h2 = true;
-        }
-    }
+    let structure_errors: Vec<ValidationError> = [
+        (!has_h1).then(|| error("structure", "No H1 heading found", Severity::Warning)),
+        (!has_h2).then(|| error("structure", "No H2 headings found", Severity::Error)),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
 
-    if !has_h1 {
-        result.add_error("structure", "No H1 heading found", Severity::Warning);
-    }
-
-    if !has_h2 {
-        result.add_error("structure", "No H2 headings found", Severity::Error);
-    }
-
-    // Check length (should be substantial)
     let word_count = content.split_whitespace().count();
-    if word_count < 100 {
-        result.add_error(
+    let length_errors: Vec<ValidationError> = if word_count < 100 {
+        vec![error(
             "length",
             &format!("File seems too short ({word_count} words)"),
             Severity::Warning,
-        );
-    }
+        )]
+    } else {
+        vec![]
+    };
 
-    // Validate links
-    validate_links_in_content(&content, &mut result);
+    let link_errors = validate_links_in_content(&content);
 
-    // Check for INDEX.json file if referenced
-    if content.contains("INDEX.json") {
-        let index_path = path.parent().map(|p| p.join("INDEX.json"));
-        if let Some(index_path) = index_path {
-            if !index_path.exists() {
-                result.add_error(
-                    "index_reference",
-                    "Referenced INDEX.json file not found in same directory",
-                    Severity::Warning,
-                );
-            }
-        }
-    }
+    let index_file_errors: Vec<ValidationError> = content
+        .contains("INDEX.json")
+        .then(|| {
+            path.parent()
+                .map(|p| p.join("INDEX.json"))
+                .filter(|index_path| !index_path.exists())
+                .map(|_| {
+                    error(
+                        "index_reference",
+                        "Referenced INDEX.json file not found in same directory",
+                        Severity::Warning,
+                    )
+                })
+                .into_iter()
+                .collect::<Vec<_>>()
+        })
+        .map_or(Vec::new(), |v| v);
 
-    Ok(result)
+    let errors: Vec<ValidationError> = std::iter::empty()
+        .chain(section_errors.into_iter())
+        .chain(index_ref_errors.into_iter())
+        .chain(structure_errors.into_iter())
+        .chain(length_errors.into_iter())
+        .chain(link_errors.into_iter())
+        .chain(index_file_errors.into_iter())
+        .collect();
+
+    Ok(validation_result(errors))
 }
 
 /// Validate INDEX.json file
 fn validate_index_json(path: &Path) -> Result<ValidationResult> {
-    let mut result = ValidationResult::new();
-
-    // Check file exists
     if !path.exists() {
-        result.add_error("file", "INDEX.json does not exist", Severity::Error);
-        return Ok(result);
+        return Ok(validation_result(vec![error(
+            "file",
+            "INDEX.json does not exist",
+            Severity::Error,
+        )]));
     }
 
-    // Read and parse JSON
     let content =
         fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
 
     let index: IndexJson = match serde_json::from_str(&content) {
         Ok(idx) => idx,
         Err(e) => {
-            result.add_error("json", &format!("Invalid JSON: {e}"), Severity::Error);
-            return Ok(result);
+            return Ok(validation_result(vec![error(
+                "json",
+                &format!("Invalid JSON: {e}"),
+                Severity::Error,
+            )]));
         }
     };
 
-    // Validate required fields
-    if index.version.is_none() {
-        result.add_error(
-            "version",
-            "Missing required field: version",
-            Severity::Error,
-        );
-    }
+    let field_errors: Vec<ValidationError> = [
+        index.version.is_none().then(|| {
+            error(
+                "version",
+                "Missing required field: version",
+                Severity::Error,
+            )
+        }),
+        index.project.is_none().then(|| {
+            error(
+                "project",
+                "Missing required field: project",
+                Severity::Error,
+            )
+        }),
+        index.updated.is_none().then(|| {
+            error(
+                "updated",
+                "Missing required field: updated",
+                Severity::Warning,
+            )
+        }),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
 
-    if index.project.is_none() {
-        result.add_error(
-            "project",
-            "Missing required field: project",
-            Severity::Error,
-        );
-    }
-
-    if index.updated.is_none() {
-        result.add_error(
-            "updated",
-            "Missing required field: updated",
-            Severity::Warning,
-        );
-    }
-
-    // Validate documents
-    if let Some(docs) = &index.documents {
-        if docs.is_empty() {
-            result.add_error("documents", "Documents array is empty", Severity::Error);
-        }
-
-        // Check for duplicate document IDs
-        let mut seen_ids = HashSet::new();
-        for doc in docs {
-            if !seen_ids.insert(&doc.id) {
-                result.add_error(
-                    "documents",
-                    &format!("Duplicate document ID: {}", doc.id),
-                    Severity::Error,
-                );
-            }
-
-            // Validate document fields
-            if doc.title.is_empty() {
-                result.add_error(
-                    "documents",
-                    &format!("Document {} has empty title", doc.id),
-                    Severity::Warning,
-                );
-            }
-
-            if doc.path.is_empty() {
-                result.add_error(
-                    "documents",
-                    &format!("Document {} has empty path", doc.id),
-                    Severity::Error,
-                );
-            }
-        }
-    } else {
-        result.add_error(
+    let doc_errors: Vec<ValidationError> = match &index.documents {
+        None => vec![error(
             "documents",
             "Missing required field: documents",
             Severity::Error,
-        );
-    }
+        )],
+        Some(docs) if docs.is_empty() => {
+            vec![error(
+                "documents",
+                "Documents array is empty",
+                Severity::Error,
+            )]
+        }
+        Some(docs) => {
+            let dup_ids: HashSet<&str> = docs
+                .iter()
+                .map(|doc| doc.id.as_str())
+                .filter(|id| docs.iter().filter(|d| d.id.as_str() == *id).count() > 1)
+                .collect();
 
-    // Validate chunks
-    if let Some(chunks) = &index.chunks {
-        let mut seen_chunk_ids = HashSet::new();
-        let doc_ids: HashSet<String> = index
-            .documents
-            .as_ref()
-            .map(|docs| docs.iter().map(|d| d.id.clone()).collect())
-            .unwrap_or_default();
-
-        for chunk in chunks {
-            // Check for duplicate chunk IDs
-            if !seen_chunk_ids.insert(&chunk.chunk_id) {
-                result.add_error(
-                    "chunks",
-                    &format!("Duplicate chunk ID: {}", chunk.chunk_id),
-                    Severity::Error,
-                );
-            }
-
-            // Validate doc_id references
-            if !doc_ids.contains(&chunk.doc_id) {
-                result.add_error(
-                    "chunks",
-                    &format!(
-                        "Chunk {} references non-existent document: {}",
-                        chunk.chunk_id, chunk.doc_id
-                    ),
-                    Severity::Error,
-                );
-            }
-
-            // Validate chunk_level values
-            if let Some(level) = &chunk.chunk_level {
-                if !["summary", "standard", "detailed"].contains(&level.as_str()) {
-                    result.add_error(
-                        "chunks",
-                        &format!("Invalid chunk_level: {level}"),
+            let dup_errors: Vec<ValidationError> = dup_ids
+                .into_iter()
+                .map(|id| {
+                    error(
+                        "documents",
+                        &format!("Duplicate document ID: {id}"),
                         Severity::Error,
-                    );
-                }
-            }
-        }
+                    )
+                })
+                .collect();
 
-        if chunks.is_empty() {
-            result.add_error("chunks", "Chunks array is empty", Severity::Warning);
-        } else {
-            // Validate chunk file paths
-            if let Some(base_dir) = path.parent() {
-                validate_chunk_paths(chunks, base_dir, &mut result);
-            }
-        }
-    }
+            let field_val_errors: Vec<ValidationError> = docs
+                .iter()
+                .flat_map(|doc| {
+                    [
+                        doc.title.is_empty().then(|| {
+                            error(
+                                "documents",
+                                &format!("Document {} has empty title", doc.id),
+                                Severity::Warning,
+                            )
+                        }),
+                        doc.path.is_empty().then(|| {
+                            error(
+                                "documents",
+                                &format!("Document {} has empty path", doc.id),
+                                Severity::Error,
+                            )
+                        }),
+                    ]
+                    .into_iter()
+                    .flatten()
+                })
+                .collect();
 
-    Ok(result)
+            dup_errors
+                .into_iter()
+                .chain(field_val_errors.into_iter())
+                .collect()
+        }
+    };
+
+    let chunk_errors: Vec<ValidationError> = match &index.chunks {
+        None => vec![],
+        Some(chunks) if chunks.is_empty() => {
+            vec![error("chunks", "Chunks array is empty", Severity::Warning)]
+        }
+        Some(chunks) => {
+            let doc_ids: HashSet<&str> = index
+                .documents
+                .as_ref()
+                .map(|docs| docs.iter().map(|d| d.id.as_str()).collect())
+                .map_or_else(HashSet::new, |v: HashSet<&str>| v);
+
+            let dup_chunk_ids: HashSet<&str> = chunks
+                .iter()
+                .map(|chunk| chunk.chunk_id.as_str())
+                .filter(|id| chunks.iter().filter(|c| c.chunk_id.as_str() == *id).count() > 1)
+                .collect();
+
+            let dup_errors: Vec<ValidationError> = dup_chunk_ids
+                .into_iter()
+                .map(|id| {
+                    error(
+                        "chunks",
+                        &format!("Duplicate chunk ID: {id}"),
+                        Severity::Error,
+                    )
+                })
+                .collect();
+
+            let ref_errors: Vec<ValidationError> = chunks
+                .iter()
+                .filter(|chunk| !doc_ids.contains(chunk.doc_id.as_str()))
+                .map(|chunk| {
+                    error(
+                        "chunks",
+                        &format!(
+                            "Chunk {} references non-existent document: {}",
+                            chunk.chunk_id, chunk.doc_id
+                        ),
+                        Severity::Error,
+                    )
+                })
+                .collect();
+
+            let level_errors: Vec<ValidationError> = chunks
+                .iter()
+                .filter_map(|chunk| {
+                    chunk.chunk_level.as_ref().and_then(|level| {
+                        (!["summary", "standard", "detailed"].contains(&level.as_str())).then(
+                            || {
+                                error(
+                                    "chunks",
+                                    &format!("Invalid chunk_level: {level}"),
+                                    Severity::Error,
+                                )
+                            },
+                        )
+                    })
+                })
+                .collect();
+
+            let path_errors = path
+                .parent()
+                .map(|base_dir| validate_chunk_paths(chunks, base_dir))
+                .map_or(Vec::new(), |v| v);
+
+            dup_errors
+                .into_iter()
+                .chain(ref_errors.into_iter())
+                .chain(level_errors.into_iter())
+                .chain(path_errors.into_iter())
+                .collect()
+        }
+    };
+
+    let errors: Vec<ValidationError> = std::iter::empty()
+        .chain(field_errors.into_iter())
+        .chain(doc_errors.into_iter())
+        .chain(chunk_errors.into_iter())
+        .collect();
+
+    Ok(validation_result(errors))
 }
 
 /// Print validation results
@@ -491,7 +574,7 @@ fn print_results(result: &ValidationResult, path: &Path) -> usize {
 
     println!("\n📊 Found {error_count} errors, {warning_count} warnings, {info_count} info");
 
-    for error in &result.errors {
+    result.errors.iter().for_each(|error| {
         let symbol = match error.severity {
             Severity::Error => "❌",
             Severity::Warning => "⚠️ ",
@@ -504,7 +587,7 @@ fn print_results(result: &ValidationResult, path: &Path) -> usize {
         };
         println!("\n{} [{}] {}", symbol, severity_str, error.field);
         println!("   {}", error.message);
-    }
+    });
 
     println!("\n{}", "=".repeat(60));
     // Always show "Validation failed" when errors exist - never "passed"
@@ -539,7 +622,7 @@ fn main() -> Result<()> {
     let program = args
         .first()
         .map(|s| s.as_str())
-        .unwrap_or("llms_txt_validator");
+        .map_or("llms_txt_validator", |s| s);
 
     // Handle --help and --version flags first
     if args.iter().any(|a| a == "--help" || a == "-h") {
@@ -658,8 +741,8 @@ Check the [API docs](https://api.example.com/v1/docs).
 Also see [local file](./guide.md) and [anchor](#section).
         "#;
 
-        let mut result = ValidationResult::new();
-        validate_links_in_content(content, &mut result);
+        let errors = validate_links_in_content(content);
+        let result = validation_result(errors);
 
         // Should not have any errors, only info about link count
         assert!(!result.has_errors());
@@ -675,8 +758,8 @@ And another [newline link](https://example.com
 /path) here.
         "#;
 
-        let mut result = ValidationResult::new();
-        validate_links_in_content(content, &mut result);
+        let errors = validate_links_in_content(content);
+        let result = validation_result(errors);
 
         // Should detect malformed links (empty URL or URL with newline)
         assert!(result.has_warnings() || result.has_errors());
@@ -686,8 +769,8 @@ And another [newline link](https://example.com
     fn test_link_validation_no_links() {
         let content = "# Documentation\n\nJust plain text with no links.";
 
-        let mut result = ValidationResult::new();
-        validate_links_in_content(content, &mut result);
+        let errors = validate_links_in_content(content);
+        let result = validation_result(errors);
 
         // Should report no links found (Info level)
         let has_no_links_info = result

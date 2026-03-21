@@ -95,11 +95,10 @@ pub struct FilterResult {
 }
 
 impl FilterResult {
-    /// Create a new FilterResult with explicit is_empty field
+    /// Create a new `FilterResult` with explicit `is_empty` field
     #[must_use]
-    pub fn with_is_empty(mut self, is_empty: bool) -> Self {
-        self.is_empty = is_empty;
-        self
+    pub fn with_is_empty(self, is_empty: bool) -> Self {
+        Self { is_empty, ..self }
     }
 }
 
@@ -137,7 +136,7 @@ pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
                 html: extracted_content,
                 removed_count: 0, // Readability handles removal internally
                 density_score: crate::math_types::Score::try_new(density)
-                    .unwrap_or_else(|_| crate::math_types::Score::zero()),
+                    .map_or_else(|_| crate::math_types::Score::zero(), std::convert::identity),
                 used_readability: true,
                 is_empty: false,
             }
@@ -145,8 +144,7 @@ pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
         Err(e) => {
             // Log that we're falling back to custom pruning
             eprintln!(
-                "[filter] Content extraction: Readability failed ({:?}), using fallback pruning",
-                e
+                "[filter] Content extraction: Readability failed ({e:?}), using fallback pruning"
             );
             // Fallback to custom density-based pruning
             let fallback_result = fallback_prune_html(html, config);
@@ -185,6 +183,7 @@ fn try_readability_extraction(html: &str) -> Result<String, anyhow::Error> {
     use std::io::Cursor;
     use url::Url;
 
+    #[allow(unused_mut)] // I/O boundary: Readability extractor requires &mut Read
     let mut cursor = Cursor::new(html.as_bytes());
     let base_url =
         Url::parse("https://example.com").map_err(|e| anyhow::anyhow!("URL parse error: {e}"))?;
@@ -280,7 +279,7 @@ fn fallback_prune_html(html: &str, config: &FilterConfig) -> FilterResult {
         html: final_content.clone(),
         removed_count,
         density_score: crate::math_types::Score::try_new(density_score)
-            .unwrap_or_else(|_| crate::math_types::Score::zero()),
+            .map_or_else(|_| crate::math_types::Score::zero(), std::convert::identity),
         used_readability: false,
         is_empty: final_content.trim().is_empty(),
     }
@@ -332,10 +331,10 @@ pub fn extract_main_content(document: &Html, config: &FilterConfig) -> String {
                 })
             })
         })
-        .unwrap_or_else(|| {
-            // Last resort: all text (even if below min_word_count)
-            document.root_element().text().collect::<Vec<_>>().join(" ")
-        })
+        .map_or_else(
+            || document.root_element().text().collect::<Vec<_>>().join(" "),
+            std::convert::identity,
+        )
 }
 
 /// Filter markdown content by removing common boilerplate patterns
@@ -475,40 +474,40 @@ fn is_footer_line(line: &str) -> bool {
 pub fn discover_test_files(root: &std::path::Path) -> Result<Vec<String>, anyhow::Error> {
     use walkdir::WalkDir;
 
-    let mut files = Vec::new();
-    // Markdown extensions: .md, .mdx, and unusual variants (.markdown, .mdown, .mkd)
     let extensions = [".md", ".mdx", ".markdown", ".mdown", ".mkd", ".rst", ".txt"];
     let exclude_dirs = ["node_modules", ".git", "_build", "dist", "vendor"];
 
-    for entry in WalkDir::new(root) {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(e) => {
-                eprintln!("Error: Skipping path due to I/O error: {e}");
-                continue;
+    let files: Vec<String> = WalkDir::new(root)
+        .into_iter()
+        .filter_map(|entry| {
+            let entry = entry
+                .inspect_err(|e| eprintln!("Error: Skipping path due to I/O error: {e}"))
+                .ok()?;
+            let path = entry.path();
+
+            if exclude_dirs.iter().any(|excl| {
+                path.components()
+                    .any(|c| c.as_os_str().to_string_lossy().contains(excl))
+            }) {
+                return None;
             }
-        };
 
-        let path = entry.path();
-
-        // Skip excluded directories
-        if exclude_dirs.iter().any(|excl| {
-            path.components()
-                .any(|c| c.as_os_str().to_string_lossy().contains(excl))
-        }) {
-            continue;
-        }
-
-        if path.is_file() {
-            if let Some(ext) = path.extension() {
-                let ext_str = format!(".{}", ext.to_string_lossy());
-                if extensions.contains(&ext_str.as_str()) {
-                    let rel_path = path.strip_prefix(root)?.to_string_lossy().to_string();
-                    files.push(rel_path);
-                }
+            if !path.is_file() {
+                return None;
             }
-        }
-    }
+
+            let ext_str = path
+                .extension()
+                .map(|ext| format!(".{}", ext.to_string_lossy()))?;
+            if !extensions.contains(&ext_str.as_str()) {
+                return None;
+            }
+
+            path.strip_prefix(root)
+                .ok()
+                .map(|p| p.to_string_lossy().to_string())
+        })
+        .collect();
 
     Ok(files)
 }
@@ -644,5 +643,245 @@ mod tests {
 
         // Should extract article content
         assert!(content.contains("Article Title") || content.contains("Article content"));
+    }
+
+    #[test]
+    fn test_prune_html_empty_input() {
+        let config = FilterConfig::default();
+        let result = prune_html("", &config);
+        assert!(result.density_score.value() >= 0.0);
+        assert!(result.density_score.value() <= 1.0);
+    }
+
+    #[test]
+    fn test_prune_html_script_and_style_removal() {
+        let html = r#"
+            <html><body>
+            <script>alert('hi');</script>
+            <style>body { color: red; }</style>
+            <main>
+                <h1>Content</h1>
+                <p>Real content with enough words to pass the minimum word count threshold for content filtering.</p>
+            </main>
+            </body></html>
+        "#;
+        let config = FilterConfig::default();
+        let result = prune_html(html, &config);
+        assert!(
+            result.html.contains("Content")
+                || result.html.contains("content")
+                || result.html.contains("Real")
+        );
+        assert!(result.density_score.value() > 0.0);
+    }
+
+    #[test]
+    fn test_prune_html_with_nav_class_patterns() {
+        let html = r#"
+            <html><body>
+            <div class="sidebar">Sidebar junk</div>
+            <div class="breadcrumb">Home > Page</div>
+            <div class="pagination">1 2 3 4</div>
+            <article>
+                <h1>Real</h1>
+                <p>Real content with enough words to pass the minimum word count threshold for content filtering in tests.</p>
+            </article>
+            </body></html>
+        "#;
+        let config = FilterConfig::default();
+        let result = prune_html(html, &config);
+        assert!(result.html.contains("Real"));
+    }
+
+    #[test]
+    fn test_extract_main_content_role_main() {
+        let html = r#"
+            <html><body>
+            <div role="main">
+                <h1>Role Main</h1>
+                <p>Content inside role main with enough words to pass the minimum threshold.</p>
+            </div>
+            </body></html>
+        "#;
+        let document = scraper::Html::parse_document(html);
+        let config = FilterConfig::default();
+        let content = extract_main_content(&document, &config);
+        assert!(content.contains("Role Main"));
+    }
+
+    #[test]
+    fn test_extract_main_content_fallback_to_body() {
+        let html = r#"
+            <html><body>
+            <p>This is body text with enough words to pass the minimum threshold for extraction tests.</p>
+            </body></html>
+        "#;
+        let document = scraper::Html::parse_document(html);
+        let config = FilterConfig::default();
+        let content = extract_main_content(&document, &config);
+        assert!(content.contains("body text"));
+    }
+
+    #[test]
+    fn test_extract_main_content_no_match_all_text() {
+        let html = r#"<html><body><span>short</span></body></html>"#;
+        let document = scraper::Html::parse_document(html);
+        let config = FilterConfig::default();
+        let content = extract_main_content(&document, &config);
+        assert!(content.contains("short"));
+    }
+
+    #[test]
+    fn test_filter_markdown_nav_sections_skipped() {
+        let md = r#"# Getting Started
+
+Intro paragraph with enough words to pass filtering.
+
+## Navigation
+
+- Home
+- About
+
+## On This Page
+
+Contents list.
+
+## Real Content
+
+This is the real content with enough words to pass the minimum word count filter threshold."#;
+        let config = FilterConfig::default();
+        let filtered = filter_markdown(md, &config);
+        assert!(filtered.contains("Getting Started"));
+        assert!(filtered.contains("Real Content"));
+        assert!(!filtered.contains("Navigation"));
+        assert!(!filtered.contains("On This Page"));
+    }
+
+    #[test]
+    fn test_filter_markdown_footer_lines_skipped() {
+        let md = r#"# Title
+
+Content paragraph with enough words here to pass the minimum threshold.
+
+Copyright 2024 Example Corp. All rights reserved."#;
+        let config = FilterConfig::default();
+        let filtered = filter_markdown(md, &config);
+        assert!(!filtered.contains("Copyright 2024"));
+        assert!(!filtered.contains("All rights reserved"));
+    }
+
+    #[test]
+    fn test_filter_markdown_empty_input() {
+        let config = FilterConfig::default();
+        let filtered = filter_markdown("", &config);
+        assert!(filtered.is_empty());
+    }
+
+    #[test]
+    fn test_filter_markdown_empty_first_section_kept() {
+        let md = "# Short\n\nOnly a few words.";
+        let config = FilterConfig::default();
+        let filtered = filter_markdown(md, &config);
+        assert!(filtered.contains("Short"));
+    }
+
+    #[test]
+    fn test_filter_markdown_custom_nav_patterns() {
+        let md = r#"# Guide
+
+## Quickstart
+
+Quickstart content with enough words to pass minimum threshold.
+
+## API Reference
+
+API details with enough words to pass the minimum threshold."#;
+        let mut config = FilterConfig::default();
+        config.nav_patterns = vec!["api reference".to_string()];
+        let filtered = filter_markdown(md, &config);
+        assert!(filtered.contains("Quickstart"));
+        assert!(!filtered.contains("API Reference"));
+    }
+
+    #[test]
+    fn test_filter_result_with_is_empty() {
+        let result = FilterResult {
+            html: "content".to_string(),
+            removed_count: 0,
+            density_score: crate::math_types::Score::zero(),
+            used_readability: true,
+            is_empty: false,
+        };
+        let modified = result.with_is_empty(true);
+        assert!(modified.is_empty);
+        assert_eq!(modified.html, "content");
+    }
+
+    #[test]
+    fn test_filter_config_default() {
+        let config = FilterConfig::default();
+        assert_eq!(config.density_threshold, 0.45);
+        assert_eq!(config.min_word_count, 10);
+        assert!(config.remove_tags.contains(&"nav".to_string()));
+        assert!(config.remove_tags.contains(&"script".to_string()));
+        assert!(config.nav_patterns.contains(&"sidebar".to_string()));
+    }
+
+    #[test]
+    fn test_filter_strategy_default() {
+        assert_eq!(FilterStrategy::default(), FilterStrategy::Pruning);
+    }
+
+    #[test]
+    fn test_is_footer_line_various_patterns() {
+        assert!(is_footer_line("privacy policy"));
+        assert!(is_footer_line("terms of service"));
+        assert!(is_footer_line("cookie policy"));
+        assert!(is_footer_line("built with hugo"));
+        assert!(is_footer_line("last updated: 2024"));
+        assert!(is_footer_line("© 2024 Company"));
+    }
+
+    #[test]
+    fn test_is_nav_heading_various() {
+        assert!(is_nav_heading("table of contents"));
+        assert!(is_nav_heading("menu"));
+        assert!(is_nav_heading("see also"));
+        assert!(is_nav_heading("related articles"));
+        assert!(is_nav_heading("breadcrumb navigation"));
+        assert!(!is_nav_heading("Introduction"));
+        assert!(!is_nav_heading("API Reference"));
+    }
+
+    #[test]
+    fn test_extract_main_content_class_content() {
+        let html = r#"
+            <html><body>
+            <div class="content">
+                <h1>Class Content</h1>
+                <p>Content inside div class content with enough words to pass the minimum word count.</p>
+            </div>
+            </body></html>
+        "#;
+        let document = scraper::Html::parse_document(html);
+        let config = FilterConfig::default();
+        let content = extract_main_content(&document, &config);
+        assert!(content.contains("Class Content"));
+    }
+
+    #[test]
+    fn test_extract_main_content_id_main() {
+        let html = r#"
+            <html><body>
+            <div id="main">
+                <h1>ID Main</h1>
+                <p>Content inside id main with enough words to pass the minimum word count for tests.</p>
+            </div>
+            </body></html>
+        "#;
+        let document = scraper::Html::parse_document(html);
+        let config = FilterConfig::default();
+        let content = extract_main_content(&document, &config);
+        assert!(content.contains("ID Main"));
     }
 }

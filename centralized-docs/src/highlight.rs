@@ -5,7 +5,6 @@
 //! characters and Unicode.
 
 use regex::Regex;
-use std::collections::HashMap;
 
 /// Highlight query terms in text using ANSI bold
 ///
@@ -46,31 +45,15 @@ pub fn highlight_terms(text: &str, query: &str, use_color: bool) -> String {
         return text.to_string();
     }
 
-    // Build a cache of compiled regexes to avoid recompilation
-    let mut regex_cache = HashMap::new();
-
-    let mut result = text.to_string();
-
-    for term in terms {
-        if term.is_empty() {
-            continue;
-        }
-
-        // Get or create cached regex
-        let re = regex_cache
-            .entry(term.to_string())
-            .or_insert_with(|| compile_highlight_regex(term));
-
-        // Check if regex compilation failed
-        if let Ok(regex) = re {
-            // Use ANSI bold codes: \x1b[1m = bold on, \x1b[0m = reset
-            result = regex.replace_all(&result, "\x1b[1m$1\x1b[0m").to_string();
-        } else {
-            // Skip this term if regex fails (already logged by compile_highlight_regex)
-        }
-    }
-
-    result
+    terms
+        .iter()
+        .filter(|term| !term.is_empty())
+        .fold(text.to_string(), |acc, term| {
+            compile_highlight_regex(term).ok().map_or_else(
+                || acc.clone(),
+                |regex| regex.replace_all(&acc, "\x1b[1m$1\x1b[0m").to_string(),
+            )
+        })
 }
 
 /// Compile a regex pattern for highlighting with word boundary support

@@ -100,21 +100,25 @@ pub enum ExtractionStatus {
 }
 
 /// A newtype wrapper for URL sets providing domain semantics.
+///
+/// Uses `im::HashSet` (structural sharing, Arc-based) so `insert` is O(log n)
+/// instead of O(n) clone — critical in rayon fold→reduce where UrlSet is
+/// cloned per-page.
 #[derive(Debug, Clone, Default)]
-pub struct UrlSet(std::collections::HashSet<String>);
+pub struct UrlSet(im::HashSet<String>);
 
 impl UrlSet {
     /// Create a new empty UrlSet.
     pub fn new() -> Self {
-        Self(std::collections::HashSet::new())
+        Self(im::HashSet::new())
     }
 
     /// Insert a URL, returning a new UrlSet (persistent, no mutation).
+    ///
+    /// O(log n) via structural sharing — no full clone of the backing HAMT.
     #[must_use]
     pub fn insert(&self, url: String) -> Self {
-        let mut new_set = self.0.clone();
-        new_set.insert(url);
-        Self(new_set)
+        Self(self.0.update(url))
     }
 
     /// Check if a URL is present in the set.
@@ -154,10 +158,7 @@ fn validate_config(config: &ScrapeConfig) -> Result<(), HttpError> {
 }
 
 /// Apply timing and retry configuration options.
-fn apply_timing_and_retry_options(
-    website: &mut spider::website::Website,
-    config: &ScrapeConfig,
-) -> Result<(), HttpError> {
+fn apply_timing_and_retry_options(website: &mut spider::website::Website, config: &ScrapeConfig) {
     website.configuration.delay = config.delay_ms;
 
     website.configuration.concurrency_limit = Some(config.concurrency_limit);
@@ -168,8 +169,6 @@ fn apply_timing_and_retry_options(
 
     website.configuration.request_timeout =
         Some(Box::new(Duration::from_secs(config.request_timeout_secs)));
-
-    Ok(())
 }
 
 /// Apply policy and limits configuration options.
@@ -204,18 +203,19 @@ fn apply_website_options(
     website: &mut spider::website::Website,
     config: &ScrapeConfig,
 ) -> Result<(), HttpError> {
-    apply_timing_and_retry_options(website, config)?;
+    apply_timing_and_retry_options(website, config);
     apply_policy_and_limits(website, config)?;
     Ok(())
 }
 
 /// Build a spider `Website` with shared base configuration.
 pub fn build_website_base(
-    url: ValidatedUrl,
+    url: &ValidatedUrl,
     config: &ScrapeConfig,
 ) -> Result<spider::website::Website, HttpError> {
     validate_config(config)?;
 
+    #[allow(unused_mut)] // spider::Website API requires &mut self for configuration
     let mut website = spider::website::Website::new(url.as_str());
     apply_website_options(&mut website, config)?;
 
@@ -258,15 +258,12 @@ struct ExtractionState {
 
 /// Merge two extraction states into a new state without mutation.
 fn merge_extraction_states(a: ExtractionState, b: ExtractionState) -> ExtractionState {
-    let merged_seen = b
-        .pages
-        .iter()
-        .fold(a.seen_urls, |acc, p| acc.insert(p.url.clone()));
+    let merged_seen = a.seen_urls.0.union(b.seen_urls.0);
 
     ExtractionState {
         pages: a.pages.into_iter().chain(b.pages).collect(),
         errors: a.errors.into_iter().chain(b.errors).collect(),
-        seen_urls: merged_seen,
+        seen_urls: UrlSet(merged_seen),
         total_content_size: a.total_content_size.saturating_add(b.total_content_size),
         status: match (a.status, b.status) {
             (ExtractionStatus::Halted(r), _) | (_, ExtractionStatus::Halted(r)) => {
@@ -300,12 +297,8 @@ fn append_error(errors: Vec<ScrapeError>, url: String, msg: String) -> Vec<Scrap
 fn check_page_size_limit(page: &spider::page::Page, limit: u64) -> Option<String> {
     let html = page.get_html();
     let html_size = html.len() as u64;
-    (html_size > limit).then(|| {
-        format!(
-            "Page exceeds max-page-bytes limit ({} bytes > {} bytes)",
-            html_size, limit
-        )
-    })
+    (html_size > limit)
+        .then(|| format!("Page exceeds max-page-bytes limit ({html_size} bytes > {limit} bytes)"))
 }
 
 /// Check if page limit is reached - pure function.
@@ -315,10 +308,10 @@ fn is_page_limit_reached(current_count: usize, max_pages: usize) -> bool {
 
 /// Check if total size limit would be exceeded - pure function.
 fn would_exceed_total_size(current_size: u64, page_size: u64, max_total: u64) -> bool {
-    if current_size > u64::MAX - page_size {
+    if page_size > u64::MAX.saturating_sub(current_size) {
         return true;
     }
-    current_size + page_size > max_total
+    current_size.saturating_add(page_size) > max_total
 }
 
 /// Check if page is eligible for processing - returns error and halt reason if not.
@@ -331,7 +324,7 @@ fn check_page_eligibility(
     // Check page limit
     if is_page_limit_reached(current_count, max_pages) {
         let url = page.get_url().to_string();
-        let error_msg = format!("Reached page limit ({}), stopping scrape", max_pages);
+        let error_msg = format!("Reached page limit ({max_pages}), stopping scrape");
         return Some((url, error_msg, Some(HaltReason::PageLimitReached)));
     }
 
@@ -409,7 +402,7 @@ fn accumulate_page(
         pages: new_pages,
         errors: state.errors,
         seen_urls: new_seen,
-        total_content_size: state.total_content_size + page_size,
+        total_content_size: state.total_content_size.saturating_add(page_size),
         status: state.status,
     }
 }
@@ -421,16 +414,16 @@ fn check_size_limit(
     page_size: u64,
     max_total: u64,
 ) -> Option<ExtractionState> {
-    check_total_size_exceeded(state, page_size, max_total).map(|mut error_state| {
-        error_state.errors = append_error(
+    check_total_size_exceeded(state, page_size, max_total).map(|error_state| ExtractionState {
+        pages: error_state.pages,
+        errors: append_error(
             error_state.errors,
             url,
-            format!(
-                "Total content size would exceed limit ({} bytes)",
-                max_total
-            ),
-        );
-        error_state
+            format!("Total content size would exceed limit ({max_total} bytes)"),
+        ),
+        seen_urls: error_state.seen_urls,
+        total_content_size: error_state.total_content_size,
+        status: error_state.status,
     })
 }
 
@@ -460,7 +453,7 @@ fn check_size_and_accumulate(
 /// Handle transform error - return state with error appended.
 fn handle_transform_error(
     url: String,
-    error: anyhow::Error,
+    error: &anyhow::Error,
     state: ExtractionState,
 ) -> ExtractionState {
     ExtractionState {
@@ -509,7 +502,7 @@ fn transform_and_accumulate_page(
 
     match transformed {
         Ok(scraped) => handle_transformed_content(url, scraped, state, config),
-        Err(error) => handle_transform_error(url, error, state),
+        Err(error) => handle_transform_error(url, &error, state),
     }
 }
 
@@ -526,7 +519,7 @@ fn process_pages_with_fold(
             }
             transform_and_accumulate_page(state, page, config, config.max_pages)
         })
-        .reduce(|| initial_extraction_state(), merge_extraction_states)
+        .reduce(initial_extraction_state, merge_extraction_states)
 }
 
 /// Extract the total URL count from website pages.
@@ -573,6 +566,7 @@ pub fn extract_pages_from_website(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -589,7 +583,7 @@ mod tests {
         config.max_retries = 256;
         let url = ValidatedUrl::try_new("https://example.com").unwrap();
 
-        let result = build_website_base(url, &config);
+        let result = build_website_base(&url, &config);
         assert_eq!(
             result.unwrap_err(),
             HttpError::ConfigOverflow("max_retries exceeds u8 limit")
@@ -602,7 +596,7 @@ mod tests {
         config.concurrency_limit = 0;
         let url = ValidatedUrl::try_new("https://example.com").unwrap();
 
-        let result = build_website_base(url, &config);
+        let result = build_website_base(&url, &config);
         assert_eq!(
             result.unwrap_err(),
             HttpError::ConfigOverflow("concurrency_limit cannot be 0")
@@ -615,7 +609,7 @@ mod tests {
         config.concurrency_limit = 4294967296; // 2^32
         let url = ValidatedUrl::try_new("https://example.com").unwrap();
 
-        let result = build_website_base(url, &config);
+        let result = build_website_base(&url, &config);
         assert_eq!(
             result.unwrap_err(),
             HttpError::ConfigOverflow("concurrency_limit exceeds u32 limit")
@@ -636,7 +630,7 @@ mod tests {
     fn test_extract_pages_from_website_empty() {
         let config = ScrapeConfig::default();
         let url = ValidatedUrl::try_new("https://example.com").unwrap();
-        let website = build_website_base(url, &config).unwrap();
+        let website = build_website_base(&url, &config).unwrap();
         let result = extract_pages_from_website(&website, &config);
 
         assert_eq!(result.pages.len(), 0);
@@ -687,5 +681,143 @@ mod tests {
         let urls2 = urls.insert("http://example.com".to_string());
         assert!(!urls.contains("http://example.com"));
         assert!(urls2.contains("http://example.com"));
+    }
+
+    #[test]
+    fn test_urlset_insert_persistent() {
+        let urls = UrlSet::new()
+            .insert("http://a.com".to_string())
+            .insert("http://b.com".to_string())
+            .insert("http://a.com".to_string());
+        assert!(urls.contains("http://a.com"));
+        assert!(urls.contains("http://b.com"));
+    }
+
+    #[test]
+    fn test_urlset_default() {
+        let urls = UrlSet::default();
+        assert!(!urls.contains("anything"));
+    }
+
+    #[test]
+    fn test_validated_url_valid() {
+        let url = ValidatedUrl::try_new("https://example.com/path?query=1").unwrap();
+        assert_eq!(url.as_str(), "https://example.com/path?query=1");
+    }
+
+    #[test]
+    fn test_validated_url_various_schemes() {
+        assert!(ValidatedUrl::try_new("https://example.com").is_ok());
+        assert!(ValidatedUrl::try_new("http://example.com").is_ok());
+        assert!(ValidatedUrl::try_new("ftp://example.com").is_ok());
+        assert!(ValidatedUrl::try_new("not-a-url").is_err());
+        assert!(ValidatedUrl::try_new("").is_err());
+    }
+
+    #[test]
+    fn test_safe_byte_limit_valid() {
+        let limit = SafeByteLimit::try_new(1024).unwrap();
+        assert!((limit.as_f64() - 1024.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_safe_byte_limit_max_exact() {
+        let limit = SafeByteLimit::try_new(9_007_199_254_740_991).unwrap();
+        assert!((limit.as_f64() - 9_007_199_254_740_991.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_http_error_variants() {
+        let err1 = HttpError::InvalidUrl("bad".to_string());
+        assert_eq!(err1, HttpError::InvalidUrl("bad".to_string()));
+
+        let err2 = HttpError::ConfigOverflow("overflow");
+        assert_eq!(err2, HttpError::ConfigOverflow("overflow"));
+
+        let err3 = HttpError::ExecutionFailed("exec".to_string());
+        assert_eq!(err3, HttpError::ExecutionFailed("exec".to_string()));
+
+        let err4 = HttpError::ScrapeFailed("scrape".to_string());
+        assert_eq!(err4, HttpError::ScrapeFailed("scrape".to_string()));
+
+        assert_ne!(err1, err2);
+    }
+
+    #[test]
+    fn test_http_error_display() {
+        let err = HttpError::InvalidUrl("http://bad".to_string());
+        let msg = format!("{err}");
+        assert!(msg.contains("Invalid URL"));
+        assert!(msg.contains("http://bad"));
+
+        let err2 = HttpError::ScrapeFailed("timeout".to_string());
+        let msg2 = format!("{err2}");
+        assert!(msg2.contains("Scrape failed"));
+    }
+
+    #[test]
+    fn test_extraction_status_default() {
+        assert_eq!(ExtractionStatus::default(), ExtractionStatus::Active);
+    }
+
+    #[test]
+    fn test_extraction_status_equality() {
+        let a = ExtractionStatus::Halted(HaltReason::PageLimitReached);
+        let b = ExtractionStatus::Halted(HaltReason::PageLimitReached);
+        let c = ExtractionStatus::Halted(HaltReason::TotalSizeExceeded);
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_scrape_strategy_equality() {
+        assert_eq!(ScrapeStrategy::Standard, ScrapeStrategy::Standard);
+        assert_ne!(ScrapeStrategy::Standard, ScrapeStrategy::Sitemap);
+    }
+
+    #[test]
+    fn test_is_page_limit_reached() {
+        assert!(is_page_limit_reached(10, 10));
+        assert!(is_page_limit_reached(11, 10));
+        assert!(!is_page_limit_reached(9, 10));
+    }
+
+    #[test]
+    fn test_would_exceed_total_size() {
+        assert!(would_exceed_total_size(100, 1, 100));
+        assert!(would_exceed_total_size(50, 60, 100));
+        assert!(!would_exceed_total_size(50, 49, 100));
+        assert!(would_exceed_total_size(u64::MAX, 1, u64::MAX));
+    }
+
+    #[test]
+    fn test_scrape_error_equality() {
+        let a = ScrapeError::new("url".to_string(), "msg".to_string());
+        let b = ScrapeError::new("url".to_string(), "msg".to_string());
+        let c = ScrapeError::new("url2".to_string(), "msg2".to_string());
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_validated_url_clone() {
+        let url = ValidatedUrl::try_new("https://example.com").unwrap();
+        let cloned = url.clone();
+        assert_eq!(url.as_str(), cloned.as_str());
+    }
+
+    #[test]
+    fn test_safe_byte_limit_copy() {
+        let limit = SafeByteLimit::try_new(500).unwrap();
+        let copied = limit;
+        assert_eq!(limit.as_f64(), copied.as_f64());
+    }
+
+    #[test]
+    fn test_halt_reason_clone() {
+        let r1 = HaltReason::PageLimitReached.clone();
+        assert_eq!(r1, HaltReason::PageLimitReached);
+        let r2 = HaltReason::IntegerOverflow.clone();
+        assert_eq!(r2, HaltReason::IntegerOverflow);
     }
 }

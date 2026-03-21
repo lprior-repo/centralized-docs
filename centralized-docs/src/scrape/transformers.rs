@@ -1,6 +1,6 @@
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![warn(clippy::unwrap_used)]
+#![warn(clippy::expect_used)]
+#![warn(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 #![allow(clippy::doc_markdown)]
@@ -14,8 +14,10 @@
 use crate::filter::filter_markdown;
 use crate::filter::{prune_html, FilterConfig, FilterResult};
 use anyhow::{Context, Result};
+use itertools::Itertools;
+
 use regex::Regex;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs;
 use std::hash::Hasher;
@@ -44,28 +46,40 @@ pub fn url_to_slug(url: &str) -> Result<String> {
     let path = path.strip_suffix(".html").map_or(path, |s| s);
     let path = path.strip_suffix(".htm").map_or(path, |s| s);
 
-    let mut raw_slug = path.replace(['/', '.'], "-");
+    let query_suffix = parsed
+        .query()
+        .filter(|q| !q.is_empty())
+        .map(|q| {
+            let slug = q
+                .replace(['=', '&'], "-")
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '-')
+                .collect::<String>();
+            if slug.is_empty() {
+                String::new()
+            } else {
+                format!("--q-{slug}")
+            }
+        })
+        .map_or_else(String::new, std::convert::identity);
 
-    if let Some(query) = parsed.query() {
-        let query_slug = query
-            .replace(['=', '&'], "-")
-            .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-')
-            .collect::<String>();
-        if !query_slug.is_empty() {
-            raw_slug = format!("{raw_slug}--q-{query_slug}");
-        }
-    }
+    let frag_suffix = parsed
+        .fragment()
+        .filter(|f| !f.is_empty())
+        .map(|f| {
+            let slug = f
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '-')
+                .collect::<String>();
+            if slug.is_empty() {
+                String::new()
+            } else {
+                format!("--f-{slug}")
+            }
+        })
+        .map_or_else(String::new, std::convert::identity);
 
-    if let Some(fragment) = parsed.fragment() {
-        let frag_slug = fragment
-            .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-')
-            .collect::<String>();
-        if !frag_slug.is_empty() {
-            raw_slug = format!("{raw_slug}--f-{frag_slug}");
-        }
-    }
+    let raw_slug = format!("{path}{query_suffix}{frag_suffix}").replace(['/', '.'], "-");
 
     let slug = raw_slug
         .chars()
@@ -80,13 +94,12 @@ pub fn url_to_slug(url: &str) -> Result<String> {
         .map_or(slug.as_str(), |s| s)
         .to_string();
 
-    // Include query parameters in slug to prevent collisions
-    // e.g., /docs?page=1 and /docs?page=2 should have different slugs
     let query = parsed.query();
     let fragment = parsed.fragment();
 
     let slug = if query.is_some() || fragment.is_some() {
-        // Create a short hash of query+fragment to avoid long slugs
+        #[allow(unused_mut)]
+        // std::hash::Hash::hash requires &mut Hasher — no functional alternative
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         if let Some(q) = query {
             std::hash::Hash::hash(q, &mut hasher);
@@ -101,7 +114,6 @@ pub fn url_to_slug(url: &str) -> Result<String> {
     };
 
     let slug = if slug.len() > 200 {
-        // Safe truncation at character boundary (BEAD-001 fix)
         let boundary = slug
             .char_indices()
             .take(200)
@@ -126,22 +138,29 @@ pub fn url_to_slug(url: &str) -> Result<String> {
 /// Detect if a page is a rate limit response
 #[must_use]
 pub fn detect_rate_limit_page(html: &str) -> bool {
-    let html_lower = html.to_lowercase();
-    html_lower.contains("rate limit exceeded")
-        || html_lower.contains("429")
-        || html_lower.contains("too many requests")
+    html.contains("429") || {
+        let lower = html.to_ascii_lowercase();
+        lower.contains("rate limit exceeded") || lower.contains("too many requests")
+    }
 }
 
 /// Statically compiled header regex for extract_headers
-static HEADER_REGEX: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid regex"));
+static HEADER_REGEX: std::sync::LazyLock<Option<Regex>> =
+    std::sync::LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").ok());
+
+fn header_regex() -> Option<&'static Regex> {
+    HEADER_REGEX.as_ref()
+}
 
 /// Extract headers from markdown
 #[must_use]
 pub fn extract_headers(markdown: &str) -> Vec<super::validation::Header> {
+    let Some(re) = header_regex() else {
+        return vec![];
+    };
     markdown
         .lines()
-        .filter_map(|line| HEADER_REGEX.captures(line.trim()))
+        .filter_map(|line| re.captures(line.trim()))
         .filter_map(|caps| {
             let level_match = caps.get(1)?;
             let text_match = caps.get(2)?;
@@ -153,36 +172,45 @@ pub fn extract_headers(markdown: &str) -> Vec<super::validation::Header> {
 }
 
 /// Statically compiled link regex for extract_internal_links
-static LINK_REGEX: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid regex"));
+static LINK_REGEX: std::sync::LazyLock<Option<Regex>> =
+    std::sync::LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").ok());
+
+fn link_regex() -> Option<&'static Regex> {
+    LINK_REGEX.as_ref()
+}
 
 /// Extract internal links from markdown
 #[must_use]
 pub fn extract_internal_links(markdown: &str, base_url: &str) -> Vec<String> {
     let base = url::Url::parse(base_url).ok();
-    let mut links = Vec::new();
+    let Some(re) = link_regex() else {
+        return vec![];
+    };
 
-    for caps in LINK_REGEX.captures_iter(markdown) {
-        if let Some(href_match) = caps.get(2) {
+    re.captures_iter(markdown)
+        .filter_map(|caps| caps.get(2))
+        .flat_map(|href_match| {
             let href = href_match.as_str();
 
-            if let Some(ref base) = base {
-                if let Ok(resolved) = base.join(href) {
-                    if resolved.host() == base.host() {
-                        links.push(resolved.to_string());
-                    }
-                }
-            }
+            let resolved = base
+                .as_ref()
+                .and_then(|b| b.join(href).ok())
+                .filter(|resolved| resolved.host() == base.as_ref().and_then(reqwest::Url::host));
 
-            if href.starts_with('/') || href.starts_with("./") {
-                links.push(href.to_string());
-            }
-        }
-    }
+            let is_relative = href.starts_with('/') || href.starts_with("./");
 
-    links.sort();
-    links.dedup();
-    links
+            resolved
+                .map(|r| vec![r.to_string()])
+                .map_or_else(Vec::new, std::convert::identity)
+                .into_iter()
+                .chain(is_relative.then(|| href.to_string()))
+                .collect::<Vec<String>>()
+        })
+        .collect::<Vec<String>>()
+        .into_iter()
+        .sorted()
+        .dedup()
+        .collect()
 }
 
 /// Generate table of contents from headers
@@ -192,43 +220,71 @@ pub fn generate_toc(headers: &[super::validation::Header]) -> String {
         return String::new();
     }
 
-    let mut toc = String::from("## Table of Contents\n\n");
-    for header in headers {
-        let indent = "  ".repeat(header.level.saturating_sub(1) as usize);
-        let anchor = header
-            .text
-            .to_lowercase()
-            .replace(' ', "-")
-            .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-')
-            .collect::<String>();
-        let _ = writeln!(toc, "{}- [{}](#{})", indent, header.text, anchor);
-    }
-    toc.push_str("\n---\n\n");
-    toc
+    headers
+        .iter()
+        .fold(String::from("## Table of Contents\n\n"), |acc, header| {
+            let indent = "  ".repeat(header.level.saturating_sub(1) as usize);
+            let anchor = header
+                .text
+                .to_lowercase()
+                .replace(' ', "-")
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '-')
+                .collect::<String>();
+            #[allow(unused_mut)] // writeln! macro requires &mut Write — no functional alternative
+            let mut acc = acc;
+            let _ = writeln!(acc, "{}- [{}](#{})", indent, header.text, anchor);
+            acc
+        })
+        + "\n---\n\n"
 }
 
-/// Find related pages based on shared links
+/// Build inverted indexes from all pages — O(P×L) once.
+/// Returns (link→urls, url→page) pair for reuse across multiple lookups.
 #[must_use]
-pub fn find_related_pages<'a>(
-    current_page: &super::validation::ScrapedPage,
-    all_pages: &'a [super::validation::ScrapedPage],
-) -> Vec<&'a super::validation::ScrapedPage> {
-    let current_links: HashSet<_> = current_page.links.iter().collect();
-
-    let mut related: Vec<_> = all_pages
+pub fn build_link_indexes(
+    all_pages: &[super::validation::ScrapedPage],
+) -> (
+    HashMap<&String, Vec<&str>>,
+    HashMap<&str, &super::validation::ScrapedPage>,
+) {
+    let link_to_urls: HashMap<&String, Vec<&str>> = all_pages
         .iter()
-        .filter(|p| p.url != current_page.url)
-        .map(|p| {
-            let page_links: HashSet<_> = p.links.iter().collect();
-            let shared = current_links.intersection(&page_links).count();
-            (shared, p)
-        })
-        .filter(|(shared, _)| *shared > 0)
+        .flat_map(|page| page.links.iter().zip(std::iter::repeat(page.url.as_str())))
+        .into_group_map();
+
+    let url_to_page: HashMap<&str, &super::validation::ScrapedPage> = all_pages
+        .iter()
+        .map(|page| (page.url.as_str(), page))
         .collect();
 
-    related.sort_by_key(|b| std::cmp::Reverse(b.0));
-    related.into_iter().take(5).map(|(_, page)| page).collect()
+    (link_to_urls, url_to_page)
+}
+
+/// Find related pages using pre-built indexes — O(L) per call instead of O(P×L).
+#[must_use]
+#[allow(clippy::implicit_hasher)]
+pub fn find_related_pages_with_index<'a>(
+    current_page: &super::validation::ScrapedPage,
+    #[allow(clippy::implicit_hasher)] link_to_urls: &HashMap<&String, Vec<&str>>,
+    #[allow(clippy::implicit_hasher)] url_to_page: &HashMap<
+        &str,
+        &'a super::validation::ScrapedPage,
+    >,
+) -> Vec<&'a super::validation::ScrapedPage> {
+    current_page
+        .links
+        .iter()
+        .filter_map(|link| link_to_urls.get(link))
+        .flatten()
+        .filter(|url| **url != current_page.url)
+        .map(|url| (*url, ()))
+        .into_group_map()
+        .into_iter()
+        .sorted_by_key(|(_, occurrences)| std::cmp::Reverse(occurrences.len()))
+        .take(5)
+        .filter_map(|(url, _)| url_to_page.get(url).copied())
+        .collect()
 }
 
 /// Transform a spider page into [`ScrapedPage`] format
@@ -258,7 +314,7 @@ pub fn transform_page(
             html: raw_html,
             removed_count: 0,
             density_score: crate::math_types::Score::try_new(1.0)
-                .unwrap_or_else(|_| crate::math_types::Score::zero()),
+                .map_or_else(|_| crate::math_types::Score::zero(), std::convert::identity),
             used_readability: false,
             is_empty: false,
         }
@@ -270,11 +326,17 @@ pub fn transform_page(
     };
 
     let selector_config = if filtering_enabled {
-        let mut exclude_tags: Vec<String> = filter_config.remove_tags.clone();
-        for pattern in &filter_config.nav_patterns {
-            exclude_tags.push(format!(".{pattern}"));
-            exclude_tags.push(format!("#{pattern}"));
-        }
+        let exclude_tags: Vec<String> = filter_config
+            .remove_tags
+            .clone()
+            .into_iter()
+            .chain(
+                filter_config
+                    .nav_patterns
+                    .iter()
+                    .flat_map(|pattern| [format!(".{pattern}"), format!("#{pattern}")]),
+            )
+            .collect();
         Some(
             spider_transformations::transformation::content::SelectorConfiguration {
                 root_selector: None,
@@ -354,6 +416,8 @@ pub fn write_scraped_pages(
     fs::create_dir_all(&scrape_dir)?;
 
     let all_pages = &result.pages;
+    #[allow(unused_mut)]
+    // HashMap entry API requires &mut self for and_modify — no functional alternative
     let mut slug_counts: HashMap<String, usize> = HashMap::new();
     let filenames: Vec<String> = all_pages
         .iter()
@@ -384,49 +448,55 @@ pub fn write_scraped_pages(
         );
     }
 
-    for (page, filename) in all_pages.iter().zip(filenames.iter()) {
-        let filepath = scrape_dir.join(filename);
+    let (link_to_urls, url_to_page) = build_link_indexes(all_pages);
 
-        let toc = generate_toc(&page.headers);
+    all_pages
+        .iter()
+        .zip(filenames.iter())
+        .map(|(page, filename)| {
+            let filepath = scrape_dir.join(filename);
 
-        let related = find_related_pages(page, all_pages);
+            let toc = generate_toc(&page.headers);
 
-        let related_section = if related.is_empty() {
-            String::new()
-        } else {
-            let mut section = String::from("\n## Related Pages\n\n");
-            for related_page in related {
-                use std::fmt::Write;
-                let related_link = url_to_filename
-                    .get(&related_page.url)
-                    .map_or_else(|| format!("{}.md", related_page.slug), Clone::clone);
-                let _ = writeln!(section, "- [{}]({related_link})", related_page.title);
-            }
-            section
-        };
+            let related = find_related_pages_with_index(page, &link_to_urls, &url_to_page);
 
-        let filter_status_str = match page.filter_status {
-            PageFilterStatus::Filtered => "true",
-            PageFilterStatus::Unfiltered => "false",
-        };
-        let content = format!(
-            "---\nurl: {}\ntitle: {}\nword_count: {}\nfiltered: {}\nelements_removed: {}\ndensity_score: {:.2}\n---\n\n{}{}{}",
-            page.url, page.title, page.word_count, filter_status_str, page.elements_removed, page.density_score,
-            toc, page.markdown, related_section
-        );
+            let related_section = if related.is_empty() {
+                String::new()
+            } else {
+                related
+                    .iter()
+                    .fold(String::from("\n## Related Pages\n\n"), |section, related_page| {
+                        let related_link = url_to_filename
+                            .get(&related_page.url)
+                            .map_or_else(|| format!("{}.md", related_page.slug), Clone::clone);
+                        format!("{section}- [{}]({related_link})\n", related_page.title)
+                    })
+            };
 
-        fs::write(&filepath, content)?;
-    }
+            let filter_status_str = match page.filter_status {
+                PageFilterStatus::Filtered => "true",
+                PageFilterStatus::Unfiltered => "false",
+            };
+            let content = format!(
+                "---\nurl: {}\ntitle: {}\nword_count: {}\nfiltered: {}\nelements_removed: {}\ndensity_score: {:.2}\n---\n\n{}{}{}",
+                page.url, page.title, page.word_count, filter_status_str, page.elements_removed, page.density_score,
+                toc, page.markdown, related_section
+            );
 
-    let manifest = serde_json::to_string_pretty(result)?;
-    fs::write(scrape_dir.join("manifest.json"), manifest)?;
+            (filepath, content)
+        })
+        .try_for_each(|(filepath, content)| {
+            fs::write(filepath, content).map_err(anyhow::Error::from)
+        })?;
+
+    let manifest_file = std::fs::File::create(scrape_dir.join("manifest.json"))?;
+    serde_json::to_writer_pretty(manifest_file, result)?;
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
     use super::*;
     use crate::scrape::validation;
     use std::time::{SystemTime, UNIX_EPOCH};

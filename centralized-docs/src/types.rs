@@ -257,7 +257,7 @@ pub enum DocumentIdError {
 }
 
 /// Errors that can occur when creating `ChunkId`.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[allow(dead_code)]
 pub enum ChunkIdError {
     #[error("Chunk ID cannot be empty")]
@@ -265,7 +265,7 @@ pub enum ChunkIdError {
 }
 
 /// Errors that can occur when creating Tag.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[allow(dead_code)]
 pub enum TagError {
     #[error("Tag cannot be empty")]
@@ -275,7 +275,7 @@ pub enum TagError {
 }
 
 /// Errors that can occur when creating Keyword.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[allow(dead_code)]
 pub enum KeywordError {
     #[error("Keyword cannot be empty")]

@@ -443,14 +443,16 @@ fn validate_filter_regex(pattern: &str) -> Result<(), String> {
     // Catches: (.*)* (.+)+ (a+)+ (\w+)+ ([a-z]+)+ (a|a)+ etc.
     let redos_patterns = [(r"\([^)]+\)[+*]", "nested quantifiers on groups")];
 
-    for (pattern_re, description) in &redos_patterns {
-        if let Ok(re) = regex::Regex::new(pattern_re) {
-            if re.is_match(pattern) {
-                return Err(format!(
-                    "Regex contains potentially slow pattern (ReDoS risk): {description}"
-                ));
-            }
-        }
+    let redos_match = redos_patterns.iter().find_map(|(pattern_re, description)| {
+        regex::Regex::new(pattern_re).ok().and_then(|re| {
+            re.is_match(pattern).then(|| {
+                format!("Regex contains potentially slow pattern (ReDoS risk): {description}")
+            })
+        })
+    });
+
+    if let Some(error) = redos_match {
+        return Err(error);
     }
 
     // BEAD-004: Compile with size limits to prevent excessive memory usage
@@ -846,7 +848,7 @@ async fn main() -> Result<()> {
                 max_chunk_keywords,
                 hnsw_m,
                 hnsw_ef_construction,
-                max_document_bytes: max_document_bytes.unwrap_or(10 * 1024 * 1024),
+                max_document_bytes: max_document_bytes.map_or(10 * 1024 * 1024, |v| v),
                 path_filter: None, // Standard index doesn't have path filtering yet
             };
             (run_index(&source, &output, &config), None)
@@ -905,16 +907,13 @@ async fn main() -> Result<()> {
 
             let index_config = IndexConfig {
                 generate_llms: true,
-                project_name: project_name.as_ref().cloned().unwrap_or_else(|| {
-                    url::Url::parse(&repo_url)
-                        .ok()
-                        .and_then(|u| {
-                            u.path_segments()
-                                .and_then(|mut s| s.next_back())
-                                .map(|s| s.to_string())
-                        })
-                        .unwrap_or_else(|| "Documentation".to_string())
-                }),
+                project_name: project_name.as_ref().cloned().map_or_else(
+                    || {
+                        extract_last_path_segment(&repo_url)
+                            .map_or_else(|| "Documentation".to_string(), |s| s)
+                    },
+                    |name| name,
+                ),
                 project_desc: format!("Documentation cloned from {repo_url}"),
                 path_filter: filter,
                 ..Default::default()
@@ -925,7 +924,9 @@ async fn main() -> Result<()> {
             // Clean up massive git clone directory to save disk space
             if temp_dir.exists() {
                 println!("[CLEANUP] Removing temporary clone directory...");
-                let _ = std::fs::remove_dir_all(&temp_dir);
+                if let Err(err) = std::fs::remove_dir_all(&temp_dir) {
+                    eprintln!("Warning: cleanup failed: {err}");
+                }
             }
 
             index_result?;
@@ -1156,6 +1157,7 @@ fn apply_query_filter(
     use tantivy::schema::{Schema, Value, STORED, TEXT};
     use tantivy::Index;
 
+    #[allow(unused_mut)]
     let mut schema_builder = Schema::builder();
     let title_field = schema_builder.add_text_field("title", TEXT);
     let content_field = schema_builder.add_text_field("content", TEXT);
@@ -1163,17 +1165,21 @@ fn apply_query_filter(
     let schema = schema_builder.build();
 
     let index = Index::create_in_ram(schema);
+    #[allow(unused_mut)]
     let mut writer = index.writer(15_000_000)?;
 
-    for (id, page) in pages.iter().enumerate() {
-        // Use tantivy::doc! macro
-        let doc = tantivy::doc!(
-            title_field => page.title.as_str(),
-            content_field => page.markdown.as_str(),
-            id_field => id as u64
-        );
-        writer.add_document(doc)?;
-    }
+    pages
+        .iter()
+        .enumerate()
+        .try_for_each(|(id, page)| -> Result<()> {
+            let doc = tantivy::doc!(
+                title_field => page.title.as_str(),
+                content_field => page.markdown.as_str(),
+                id_field => id as u64
+            );
+            writer.add_document(doc)?;
+            Ok(())
+        })?;
     writer.commit()?;
 
     let reader = index.reader()?;
@@ -1183,18 +1189,17 @@ fn apply_query_filter(
 
     let top_docs = searcher.search(&parsed_query, &TopDocs::with_limit(pages.len()))?;
 
-    // Collect valid IDs that pass the threshold
-    let mut valid_ids = std::collections::HashSet::new();
-    for (score, doc_address) in top_docs {
-        if score >= threshold {
-            let doc = searcher.doc::<tantivy::TantivyDocument>(doc_address)?;
-            if let Some(val) = doc.get_first(id_field) {
-                if let Some(id_val) = val.as_u64() {
-                    valid_ids.insert(id_val as usize);
-                }
-            }
-        }
-    }
+    let valid_ids: std::collections::HashSet<usize> = top_docs
+        .iter()
+        .filter(|(score, _)| *score >= threshold)
+        .filter_map(|(_, doc_address)| {
+            let fetched = searcher
+                .doc::<tantivy::TantivyDocument>(*doc_address)
+                .ok()?;
+            let val = fetched.get_first(id_field)?;
+            val.as_u64().map(|id_val| id_val as usize)
+        })
+        .collect();
 
     let kept_pages: Vec<scrape::ScrapedPage> = pages
         .into_iter()
@@ -1256,10 +1261,12 @@ async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> R
         sitemap_strategy: config.sitemap_strategy,
         path_filter: config.filter.clone(),
         delay_ms: config.delay,
-        max_page_size_bytes: config.max_page_bytes.unwrap_or(DEFAULT_MAX_PAGE_SIZE_BYTES),
+        max_page_size_bytes: config
+            .max_page_bytes
+            .map_or(DEFAULT_MAX_PAGE_SIZE_BYTES, |v| v),
         max_total_size_bytes: config
             .max_total_bytes
-            .unwrap_or(DEFAULT_MAX_TOTAL_SIZE_BYTES),
+            .map_or(DEFAULT_MAX_TOTAL_SIZE_BYTES, |v| v),
         spider_max_page_bytes: config.max_page_bytes,
         spider_max_total_bytes: config.max_total_bytes,
         request_timeout_secs: config.request_timeout_secs,
@@ -1413,7 +1420,9 @@ fn check_write_permission(dir: &Path) -> Result<()> {
     match std::fs::write(&test_file, b"") {
         Ok(_) => {
             // Clean up the test file
-            let _ = std::fs::remove_file(&test_file);
+            if let Err(err) = std::fs::remove_file(&test_file) {
+                eprintln!("Warning: cleanup failed: {err}");
+            }
             Ok(())
         }
         Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
@@ -1451,10 +1460,12 @@ const OUTPUT_LOCK_STALE_AFTER_SECS: u64 = 60 * 30;
 
 impl Drop for OutputLock {
     fn drop(&mut self) {
-        // Unlock the file first (release lock)
-        let _ = self.file.unlock();
-        // Then remove the lock file
-        let _ = std::fs::remove_file(&self.lock_path);
+        if let Err(err) = self.file.unlock() {
+            eprintln!("Warning: cleanup failed: {err}");
+        }
+        if let Err(err) = std::fs::remove_file(&self.lock_path) {
+            eprintln!("Warning: cleanup failed: {err}");
+        }
     }
 }
 
@@ -1474,29 +1485,36 @@ fn acquire_output_lock(output: &Path) -> Result<OutputLock> {
             .read(true)
             .open(lock_path)
         {
+            #[allow(unused_mut)]
             Ok(mut file) => {
                 // Write lock metadata
                 let metadata = OutputLockMetadata {
                     pid: process::id(),
-                    start_time: get_process_start_time(process::id()).unwrap_or(0),
+                    start_time: get_process_start_time(process::id()).map_or(0, |v| v),
                     created_at_unix_secs: now_unix_secs(),
                 };
 
                 if let Err(error) = serde_json::to_writer(&mut file, &metadata) {
-                    let _ = std::fs::remove_file(lock_path);
+                    if let Err(err) = std::fs::remove_file(lock_path) {
+                        eprintln!("Warning: cleanup failed: {err}");
+                    }
                     return Err(anyhow::anyhow!("Failed to write lock metadata: {error}"));
                 }
 
                 // Flush to ensure metadata is written before acquiring lock
                 if let Err(error) = file.flush() {
-                    let _ = std::fs::remove_file(lock_path);
+                    if let Err(err) = std::fs::remove_file(lock_path) {
+                        eprintln!("Warning: cleanup failed: {err}");
+                    }
                     return Err(anyhow::anyhow!("Failed to flush lock file: {error}"));
                 }
 
                 // Acquire exclusive file lock - this is the key to preventing race conditions
                 // The lock is automatically released when the file is closed (in Drop)
                 if let Err(error) = file.lock_exclusive() {
-                    let _ = std::fs::remove_file(lock_path);
+                    if let Err(err) = std::fs::remove_file(lock_path) {
+                        eprintln!("Warning: cleanup failed: {err}");
+                    }
                     return Err(anyhow::anyhow!("Failed to acquire file lock: {error}"));
                 }
 
@@ -1547,6 +1565,14 @@ fn now_unix_secs() -> u64 {
         .map_or(0, |duration| duration.as_secs())
 }
 
+fn extract_last_path_segment(url_str: &str) -> Option<String> {
+    url::Url::parse(url_str).ok().and_then(|u| {
+        u.path_segments()
+            .map(|segments| segments.collect::<Vec<_>>())
+            .and_then(|vec| vec.into_iter().next_back().map(String::from))
+    })
+}
+
 /// Get process start time in clock ticks since system boot.
 /// Reads from /proc/<pid>/stat, field 22 (starttime).
 fn get_process_start_time(pid: u32) -> Option<u64> {
@@ -1562,7 +1588,7 @@ fn get_process_start_time(pid: u32) -> Option<u64> {
 }
 
 fn process_is_alive(pid: u32, start_time: u64) -> bool {
-    let current_start_time = get_process_start_time(process::id()).unwrap_or(0);
+    let current_start_time = get_process_start_time(process::id()).map_or(0, |v| v);
 
     if pid == process::id() {
         return current_start_time == start_time;
@@ -1570,7 +1596,7 @@ fn process_is_alive(pid: u32, start_time: u64) -> bool {
 
     get_process_start_time(pid)
         .map(|actual_start_time| actual_start_time == start_time)
-        .unwrap_or(false)
+        .map_or(false, |v| v)
 }
 
 fn read_lock_metadata(lock_path: &Path) -> Option<OutputLockMetadata> {
@@ -1639,12 +1665,12 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
 
     // Report failed files as warnings instead of failing the entire build
     if !analyze_result.failed_files.is_empty() {
-        for failed_file in &analyze_result.failed_files {
+        analyze_result.failed_files.iter().for_each(|failed_file| {
             eprintln!(
                 "Warning: Failed to analyze {}: {}",
                 failed_file.source_path, failed_file.error
             );
-        }
+        });
     }
 
     let analyses = analyze_result.analyses;
@@ -1652,11 +1678,11 @@ fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     println!("  Processed {} files\n", analyses.len());
     println!(
         "  Categories: ref={} concept={} tutorial={} ops={} meta={}\n",
-        categories.get("ref").unwrap_or(&0),
-        categories.get("concept").unwrap_or(&0),
-        categories.get("tutorial").unwrap_or(&0),
-        categories.get("ops").unwrap_or(&0),
-        categories.get("meta").unwrap_or(&0)
+        categories.get("ref").map_or(&0, |v| v),
+        categories.get("concept").map_or(&0, |v| v),
+        categories.get("tutorial").map_or(&0, |v| v),
+        categories.get("ops").map_or(&0, |v| v),
+        categories.get("meta").map_or(&0, |v| v)
     );
 
     // STEP 3: ASSIGN IDs
@@ -1797,8 +1823,8 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
         sitemap_strategy: SitemapStrategy::UseSitemap,
         path_filter: filter,
         delay_ms: delay,
-        max_page_size_bytes: max_page_bytes.unwrap_or(DEFAULT_MAX_PAGE_SIZE_BYTES),
-        max_total_size_bytes: max_total_bytes.unwrap_or(DEFAULT_MAX_TOTAL_SIZE_BYTES),
+        max_page_size_bytes: max_page_bytes.map_or(DEFAULT_MAX_PAGE_SIZE_BYTES, |v| v),
+        max_total_size_bytes: max_total_bytes.map_or(DEFAULT_MAX_TOTAL_SIZE_BYTES, |v| v),
         spider_max_page_bytes: max_page_bytes,
         spider_max_total_bytes: max_total_bytes,
         request_timeout_secs: config.request_timeout_secs,
@@ -1862,11 +1888,17 @@ async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<(
     println!("[PHASE 2] INDEX\n");
 
     // Derive project name from URL if not provided
-    let name = project_name.unwrap_or_else(|| {
-        url::Url::parse(url)
-            .map(|u| u.host_str().unwrap_or("Documentation").to_string())
-            .unwrap_or_else(|_| "Documentation".to_string())
-    });
+    let name = project_name.map_or_else(
+        || {
+            url::Url::parse(url)
+                .map(|u| {
+                    u.host_str()
+                        .map_or_else(|| "Documentation".to_string(), |h| h.to_string())
+                })
+                .map_or_else(|_| "Documentation".to_string(), |s| s)
+        },
+        |n| n,
+    );
 
     // Use the scrape directory as source for indexing
     let index_config = IndexConfig {
@@ -1930,14 +1962,14 @@ fn emit_search_output(
             println!("No results found for \"{query}\"");
         } else {
             println!("Results:\n");
-            for result in results {
+            results.iter().for_each(|result| {
                 println!(
                     "{}. [{}] {} (score: {:.2})",
                     result.rank, result.category, result.title, result.score
                 );
                 println!("   Path: {}", result.path);
                 println!("   {}\n", result.summary);
-            }
+            });
 
             println!("{}", "=".repeat(70));
             println!(

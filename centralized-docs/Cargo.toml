@@ -21,7 +21,8 @@ contextual-chunker = { path = "../contextual-chunker" }
 
 # Core utilities
 regex = "1.10"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
+bincode = "1.3"
 serde_json = "1.0"
 serde_yaml = "0.9"
 walkdir = "2.4"
@@ -38,6 +39,8 @@ tap = "1.0"
 strum = { version = "0.26", features = ["derive"] }
 itertools = "0.13"
 derive_more = { version = "1.0", features = ["display", "deref", "as_ref"] }
+rpds = "1.2"                    # Persistent immutable data structures (HashTrieMap, HashTrieSet, Vector)
+im = "15.1"                     # Thread-safe persistent collections (Arc-based, for concurrent contexts)
 
 unicode-segmentation = "1.12"
 
@@ -77,6 +80,15 @@ pulldown-cmark-to-cmark = "22.0.0"
 fs2 = "0.4"
 ordered-float = "5.1.0"
 rayon = "1.11.0"
+
+# High-performance ACID key-value cache (idempotency)
+redb = "2"
+
+# High-performance non-cryptographic hashing (content-addressed keys)
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
+# Lock-free concurrent map for in-flight deduplication
+dashmap = "6"
 
 [dev-dependencies]
 tempfile = "3.8"
