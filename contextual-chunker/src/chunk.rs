@@ -453,7 +453,7 @@ pub fn chunk_all(documents: &[Document]) -> Result<ChunkingResult> {
 }
 
 fn heading_key(chunk: &Chunk) -> String {
-    chunk.heading.clone().unwrap_or_else(|| "intro".to_string())
+    chunk.heading.clone().map_or("intro".to_string(), |s| s)
 }
 
 fn group_by_heading(chunks: &[Chunk]) -> HashMap<String, Vec<usize>> {
@@ -702,11 +702,10 @@ fn estimate_tokens(text: &str) -> usize {
         return (text.len() / 4).max(1);
     }
 
-    // Use get_encoding() which returns a cached &'static CoreBpe
-    let encoder =
-        tiktoken::get_encoding("cl100k_base").expect("Failed to load cl100k_base encoding");
-
-    encoder.count(text)
+    // Use get_encoding() which returns Option<CoreBpe>
+    // Functional approach: map_or applies closure on Some, returns default on None
+    tiktoken::get_encoding("cl100k_base")
+        .map_or((text.len() / 4).max(1), |encoder| encoder.count(text))
 }
 
 /// Create a summary from chunk content (extractive)

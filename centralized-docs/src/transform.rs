@@ -130,12 +130,12 @@ pub fn transform_all(
         .collect();
 
     let mut errors = Vec::new();
-    let mut success_count = 0;
+    let mut success_count: usize = 0;
 
     for analysis in analyses {
         if let Some(mapping) = link_map.get(&analysis.source_path) {
             match transform_file(analysis, mapping, link_map, &docs_dir, &filename_map) {
-                Ok(()) => success_count += 1,
+                Ok(()) => success_count = success_count.saturating_add(1),
                 Err(e) => {
                     errors.push(TransformError {
                         source_path: analysis.source_path.clone(),

@@ -315,10 +315,10 @@ fn is_page_limit_reached(current_count: usize, max_pages: usize) -> bool {
 
 /// Check if total size limit would be exceeded - pure function.
 fn would_exceed_total_size(current_size: u64, page_size: u64, max_total: u64) -> bool {
-    if current_size > u64::MAX - page_size {
+    if page_size > u64::MAX.saturating_sub(current_size) {
         return true;
     }
-    current_size + page_size > max_total
+    current_size.saturating_add(page_size) > max_total
 }
 
 /// Check if page is eligible for processing - returns error and halt reason if not.
@@ -409,7 +409,7 @@ fn accumulate_page(
         pages: new_pages,
         errors: state.errors,
         seen_urls: new_seen,
-        total_content_size: state.total_content_size + page_size,
+        total_content_size: state.total_content_size.saturating_add(page_size),
         status: state.status,
     }
 }

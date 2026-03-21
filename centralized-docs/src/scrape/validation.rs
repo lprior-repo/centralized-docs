@@ -28,8 +28,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 
 /// Statically compiled H1 regex for extract_title
-static H1_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^#\s+(.+)$").expect("valid regex"));
+#[allow(clippy::unwrap_used)]
+static H1_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^#\s+(.+)$").unwrap());
 
 /// Safely compiles a user-provided regex pattern with ReDoS protection.
 ///

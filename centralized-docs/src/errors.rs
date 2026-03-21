@@ -60,6 +60,10 @@ pub enum DocTransformerError {
     #[error(transparent)]
     Keyword(#[from] KeywordError),
 
+    /// Cache-related errors.
+    #[error(transparent)]
+    Cache(#[from] CacheError),
+
     #[cfg(feature = "enhanced")]
     #[error(transparent)]
     Features(#[from] FeatureError),
@@ -266,6 +270,37 @@ pub enum EmbeddingError {
 
     #[error("embedding provider not supported: {provider}")]
     UnsupportedProvider { provider: String },
+}
+
+/// Cache-related errors.
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum CacheError {
+    #[error("cache key too large: {size} bytes (max {max})")]
+    KeyTooLarge { size: usize, max: usize },
+
+    #[error("cache value too large: {size} bytes (max {max})")]
+    ValueTooLarge { size: usize, max: usize },
+
+    #[error("cache backend error during {operation}: {message}")]
+    BackendError {
+        operation: &'static str,
+        message: String,
+    },
+
+    #[error("cache not initialized")]
+    NotInitialized,
+
+    #[error("cache already open at path: {0}")]
+    AlreadyOpen(String),
+
+    #[error("cache I/O error: {0}")]
+    Io(String),
+
+    #[error("cache serialization error: {0}")]
+    Serialization(String),
+
+    #[error("cache deserialization error: {0}")]
+    Deserialization(String),
 }
 
 #[cfg(test)]

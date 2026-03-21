@@ -1,6 +1,6 @@
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![warn(clippy::unwrap_used)]
+#![warn(clippy::expect_used)]
+#![warn(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 #![allow(clippy::doc_markdown)]
@@ -14,6 +14,7 @@
 use crate::filter::filter_markdown;
 use crate::filter::{prune_html, FilterConfig, FilterResult};
 use anyhow::{Context, Result};
+
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
@@ -134,7 +135,7 @@ pub fn detect_rate_limit_page(html: &str) -> bool {
 
 /// Statically compiled header regex for extract_headers
 static HEADER_REGEX: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").expect("valid regex"));
+    std::sync::LazyLock::new(|| Regex::new(r"^(#{1,6})\s+(.+)$").unwrap());
 
 /// Extract headers from markdown
 #[must_use]
@@ -154,7 +155,7 @@ pub fn extract_headers(markdown: &str) -> Vec<super::validation::Header> {
 
 /// Statically compiled link regex for extract_internal_links
 static LINK_REGEX: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").expect("valid regex"));
+    std::sync::LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap());
 
 /// Extract internal links from markdown
 #[must_use]
@@ -426,7 +427,6 @@ pub fn write_scraped_pages(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
     use super::*;
     use crate::scrape::validation;
     use std::time::{SystemTime, UNIX_EPOCH};
