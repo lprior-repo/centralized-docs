@@ -22,7 +22,7 @@ fn test_document_validation_missing_required_fields() {
             has_code: false,
             has_tables: false,
             category: "ref".to_string(),
-            content: "Test content".to_string(),
+            content: "Test content".to_string().into(),
         },
         // Missing category
         doc_transformer::analyze::Analysis {
@@ -36,7 +36,7 @@ fn test_document_validation_missing_required_fields() {
             has_code: false,
             has_tables: false,
             category: "".to_string(),
-            content: "Test content".to_string(),
+            content: "Test content".to_string().into(),
         },
         // Missing first_paragraph (summary)
         doc_transformer::analyze::Analysis {
@@ -50,7 +50,7 @@ fn test_document_validation_missing_required_fields() {
             has_code: false,
             has_tables: false,
             category: "ref".to_string(),
-            content: "Test content".to_string(),
+            content: "Test content".to_string().into(),
         },
     ];
 
@@ -105,7 +105,7 @@ fn test_document_validation_whitespace_only() {
             has_code: false,
             has_tables: false,
             category: "ref".to_string(),
-            content: "   ".to_string(),
+            content: "   ".to_string().into(),
         },
         doc_transformer::analyze::Analysis {
             source_path: "test2.md".to_string(),
@@ -118,7 +118,7 @@ fn test_document_validation_whitespace_only() {
             has_code: false,
             has_tables: false,
             category: "   ".to_string(),
-            content: "Test content".to_string(),
+            content: "Test content".to_string().into(),
         },
     ];
 
@@ -173,7 +173,7 @@ fn test_document_validation_extremely_long_content() {
         word_count: long_content.len(),
         has_code: false,
         has_tables: false,
-        content: long_content.clone(),
+        content: long_content.clone().into(),
     }];
 
     let link_map: std::collections::HashMap<String, doc_transformer::assign::IdMapping> =
@@ -227,7 +227,7 @@ fn test_document_validation_invalid_utf8() {
         word_count: 100,
         has_code: false,
         has_tables: false,
-        content: "Test content".to_string(),
+        content: "Test content".to_string().into(),
     }];
 
     // Try to write invalid UTF-8 to a file
@@ -263,7 +263,7 @@ fn test_document_validation_empty_headings() {
         word_count: 100,
         has_code: false,
         has_tables: false,
-        content: "Test content".to_string(),
+        content: "Test content".to_string().into(),
     }];
 
     let link_map: std::collections::HashMap<String, doc_transformer::assign::IdMapping> =
@@ -319,7 +319,7 @@ fn test_document_validation_extremely_long_headings() {
         word_count: 100,
         has_code: false,
         has_tables: false,
-        content: "Test content".to_string(),
+        content: "Test content".to_string().into(),
     }];
 
     let link_map: std::collections::HashMap<String, doc_transformer::assign::IdMapping> =
@@ -373,7 +373,7 @@ fn test_document_validation_empty_links() {
         word_count: 100,
         has_code: false,
         has_tables: false,
-        content: "Test content".to_string(),
+        content: "Test content".to_string().into(),
     }];
 
     let link_map: std::collections::HashMap<String, doc_transformer::assign::IdMapping> =
@@ -422,7 +422,7 @@ fn test_document_validation_extremely_long_link_urls() {
         word_count: 100,
         has_code: false,
         has_tables: false,
-        content: "Test content".to_string(),
+        content: "Test content".to_string().into(),
     }];
 
     let link_map: std::collections::HashMap<String, doc_transformer::assign::IdMapping> =
@@ -476,7 +476,7 @@ fn test_document_validation_negative_word_count() {
         word_count: 100,
         has_code: false,
         has_tables: false,
-        content: "Test content".to_string(),
+        content: "Test content".to_string().into(),
     }];
 
     let link_map: std::collections::HashMap<String, doc_transformer::assign::IdMapping> =
@@ -527,7 +527,7 @@ fn test_document_validation_zero_word_count() {
         word_count: 100,
         has_code: false,
         has_tables: false,
-        content: "Test content".to_string(),
+        content: "Test content".to_string().into(),
     }];
 
     let link_map: std::collections::HashMap<String, doc_transformer::assign::IdMapping> =

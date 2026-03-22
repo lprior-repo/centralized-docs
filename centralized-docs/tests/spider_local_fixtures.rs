@@ -12,7 +12,7 @@ fn request_timeout_is_applied_to_website_configuration() {
     };
 
     let url = doc_transformer::scrape::http::ValidatedUrl::try_new(&config.base_url).unwrap();
-    let website = build_website_base(url, &config).unwrap();
+    let website = build_website_base(&url, &config).unwrap();
 
     assert_eq!(
         website.configuration.request_timeout.as_deref(),
@@ -30,7 +30,7 @@ fn redirect_policy_is_applied_to_website_configuration() {
 
     let url1 =
         doc_transformer::scrape::http::ValidatedUrl::try_new(&blocked_config.base_url).unwrap();
-    let blocked_website = build_website_base(url1, &blocked_config).unwrap();
+    let blocked_website = build_website_base(&url1, &blocked_config).unwrap();
     assert_eq!(
         blocked_website.configuration.redirect_policy,
         RedirectPolicy::None
@@ -44,7 +44,7 @@ fn redirect_policy_is_applied_to_website_configuration() {
 
     let url2 =
         doc_transformer::scrape::http::ValidatedUrl::try_new(&allowed_config.base_url).unwrap();
-    let allowed_website = build_website_base(url2, &allowed_config).unwrap();
+    let allowed_website = build_website_base(&url2, &allowed_config).unwrap();
     assert_eq!(
         allowed_website.configuration.redirect_policy,
         RedirectPolicy::Loose
@@ -61,7 +61,7 @@ fn spider_byte_caps_are_applied_to_website_configuration() {
     };
 
     let url = doc_transformer::scrape::http::ValidatedUrl::try_new(&config.base_url).unwrap();
-    let website = build_website_base(url, &config).unwrap();
+    let website = build_website_base(&url, &config).unwrap();
 
     assert_eq!(website.configuration.max_page_bytes, Some(64.0));
     assert_eq!(website.configuration.max_bytes_allowed, Some(1024));

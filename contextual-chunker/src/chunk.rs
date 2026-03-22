@@ -78,7 +78,7 @@ pub fn chunk_markdown(
     capacity: ChunkCapacity,
 ) -> std::result::Result<Vec<String>, ChunkerError> {
     let capacity_val = capacity.get();
-    let tokenizer = FastTokenizer::new().map_err(|e| ChunkerError::TokenizationError(e))?;
+    let tokenizer = FastTokenizer::new().map_err(ChunkerError::TokenizationError)?;
 
     // Fix: Pre-process absurdly long strings without line breaks to avoid stack overflow
     // in tiktoken-rs PCRE regex parsing
@@ -727,7 +727,7 @@ fn create_summary(content: &str) -> String {
     if let Some(last_space) = truncated.rfind(char::is_whitespace) {
         format!("{}...", &truncated[..last_space])
     } else {
-        format!("{}...", truncated)
+        format!("{truncated}...")
     }
 }
 

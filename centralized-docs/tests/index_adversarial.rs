@@ -101,7 +101,7 @@ fn test_index_invalid_hnsw_parameters() {
         has_code: false,
         has_tables: false,
         category: "ref".to_string(),
-        content: String::new(),
+        content: String::new().into(),
     }];
     let link_map: std::collections::HashMap<String, doc_transformer::assign::IdMapping> =
         std::collections::HashMap::new();
@@ -194,7 +194,7 @@ fn test_index_missing_chunks_result() {
         source_path: "test.md".to_string(),
         title: "Test".to_string(),
         category: "ref".to_string(),
-        content: String::new(),
+        content: String::new().into(),
         first_paragraph: "Test paragraph".to_string(),
         frontmatter: None,
         word_count: 100,
@@ -253,7 +253,7 @@ fn test_index_large_document_count() {
             has_code: false,
             has_tables: false,
             category: "ref".to_string(),
-            content: String::new(),
+            content: String::new().into(),
         });
     }
 
@@ -300,7 +300,7 @@ fn test_index_empty_documents_array() {
         source_path: "test.md".to_string(),
         title: "Test".to_string(),
         category: "ref".to_string(),
-        content: String::new(),
+        content: String::new().into(),
         first_paragraph: "Test paragraph".to_string(),
         frontmatter: None,
         word_count: 100,
@@ -382,7 +382,7 @@ fn test_index_very_long_project_name() {
         source_path: "test.md".to_string(),
         title: "Test".to_string(),
         category: "ref".to_string(),
-        content: String::new(),
+        content: String::new().into(),
         first_paragraph: "Test paragraph".to_string(),
         frontmatter: None,
         word_count: 100,

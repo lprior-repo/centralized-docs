@@ -18,7 +18,7 @@ fn create_test_index(dir: &Path) -> anyhow::Result<()> {
         summary: "A test document with content".to_string(),
         path: "test/doc1.md".to_string(),
         category: "test".to_string(),
-        content: String::new(),
+        content: String::new().into(),
         word_count: 10,
         tags: vec![],
         chunk_ids: vec![],

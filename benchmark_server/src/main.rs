@@ -107,8 +107,6 @@ async fn main() {
     info!("- ~625 KB payload per request");
     info!("- 10,000 total pages");
 
-    let listener = tokio::net::TcpListener::bind(&addr).await
-        .unwrap();
-    axum::serve(listener, app).await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }

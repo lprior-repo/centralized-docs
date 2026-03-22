@@ -18,7 +18,7 @@ where
         category: "ref".to_string(),
         tags: vec!["test".to_string()],
         summary: "This is a test document".to_string(),
-        content: String::new(),
+        content: String::new().into(),
         word_count: 100,
         chunk_ids: vec!["test_chunk".to_string()],
         headings: vec![],
