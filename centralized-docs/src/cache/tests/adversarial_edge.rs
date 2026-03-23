@@ -77,15 +77,18 @@ fn rq_attack_14_stats_accuracy_large_n() -> anyhow::Result<()> {
 
     let stats = cache.stats()?;
     assert_eq!(
-        stats.document_entries, DOC_N as u64,
+        stats.document_entries,
+        u64::from(DOC_N),
         "document count mismatch"
     );
     assert_eq!(
-        stats.scrape_entries, SCRAPE_N as u64,
+        stats.scrape_entries,
+        u64::from(SCRAPE_N),
         "scrape count mismatch"
     );
     assert_eq!(
-        stats.transform_entries, TRANSFORM_N as u64,
+        stats.transform_entries,
+        u64::from(TRANSFORM_N),
         "transform count mismatch"
     );
 
@@ -98,7 +101,7 @@ fn rq_attack_14_stats_accuracy_large_n() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// ATTACK 15: All tables disabled — get_or_compute should still invoke compute.
+/// ATTACK 15: All tables disabled — `get_or_compute` should still invoke compute.
 #[test]
 fn rq_attack_15_all_tables_disabled_get_or_compute_still_works() -> anyhow::Result<()> {
     let config = CacheConfig {

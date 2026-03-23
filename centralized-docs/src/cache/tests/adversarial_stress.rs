@@ -9,7 +9,7 @@ use std::thread;
 // RED QUEEN ADVERSARIAL TESTS — Concurrency stress & edge cases
 // ============================================================
 
-/// ATTACK 8: Concurrent clear_all during read.
+/// ATTACK 8: Concurrent `clear_all` during read.
 #[test]
 fn rq_attack_8_concurrent_clear_during_read() -> anyhow::Result<()> {
     let config = CacheConfig::in_memory();
@@ -51,7 +51,7 @@ fn rq_attack_8_concurrent_clear_during_read() -> anyhow::Result<()> {
     let clearer_errors = Arc::clone(&errors);
     let clearer = thread::spawn(move || {
         for _ in 0..20 {
-            if let Err(_) = clearer_cache.clear_all() {
+            if clearer_cache.clear_all().is_err() {
                 clearer_errors.fetch_add(1, Ordering::SeqCst);
             }
             for i in 0..100u32 {
@@ -74,7 +74,7 @@ fn rq_attack_8_concurrent_clear_during_read() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// ATTACK 9: Concurrent clear_all during get_or_compute.
+/// ATTACK 9: Concurrent `clear_all` during `get_or_compute`.
 #[test]
 fn rq_attack_9_concurrent_clear_during_compute() -> anyhow::Result<()> {
     let config = CacheConfig::in_memory();

@@ -6,6 +6,14 @@
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::missing_errors_doc)]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unreadable_literal,
+        clippy::field_reassign_with_default,
+        clippy::float_cmp
+    )
+)]
 
 //! HTTP client and website configuration
 //!

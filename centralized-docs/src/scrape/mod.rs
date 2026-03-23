@@ -151,6 +151,44 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     }
 }
 
+/// Execute a single scrape attempt with explicit sitemap strategy
+async fn scrape_single_attempt(
+    config: &validation::ScrapeConfig,
+    strategy: http::ScrapeStrategy,
+) -> Result<validation::ScrapeResult> {
+    let validated_url = validate_url(&config.base_url)?;
+
+    let valid_url_wrapper = http::ValidatedUrl::try_new(validated_url.as_str())
+        .map_err(|e| anyhow::anyhow!("Invalid URL: {e}"))?;
+    #[allow(unused_mut)] // I/O boundary: spider::Website requires &mut for scrape operations
+    let mut website = build_website_base(&valid_url_wrapper, config)
+        .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
+
+    if let Some(ref pattern) = config.path_filter {
+        validation::compile_safe_regex(pattern).context("Path filter regex validation failed")?;
+
+        let base_domain = url::Url::parse(&config.base_url)
+            .map(|u| u.host_str().map_or("", |h| h).to_string())
+            .unwrap_or_default();
+        let scheme = url::Url::parse(&config.base_url)
+            .map_or_else(|_| "https".to_string(), |u| u.scheme().to_string());
+
+        let domain_escaped = regex::escape(&base_domain);
+        let pattern_stripped = pattern.strip_prefix('^').map_or(pattern.as_str(), |s| s);
+        let full_url_pattern = format!("^{scheme}://{domain_escaped}{pattern_stripped}");
+        let _ = website
+            .configuration
+            .with_whitelist_url(Some(vec![full_url_pattern.as_str().into()]));
+        website.configuration.configure_allowlist();
+    }
+
+    execute_scrape_with_website(&mut website, strategy)
+        .await
+        .map_err(|e| anyhow::anyhow!("Execution failed: {e}"))?;
+
+    Ok(extract_pages_from_website(&website, config))
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
@@ -223,7 +261,7 @@ mod tests {
         );
         let plan2 = plan.clone();
         assert_eq!(plan, plan2);
-        let dbg = format!("{:?}", plan);
+        let dbg = format!("{plan:?}");
         assert!(dbg.contains("Sitemap"));
     }
 
@@ -233,42 +271,4 @@ mod tests {
         let plan = derive_scrape_plan(&config, false);
         assert_eq!(plan.strategy, http::ScrapeStrategy::Standard);
     }
-}
-
-/// Execute a single scrape attempt with explicit sitemap strategy
-async fn scrape_single_attempt(
-    config: &validation::ScrapeConfig,
-    strategy: http::ScrapeStrategy,
-) -> Result<validation::ScrapeResult> {
-    let validated_url = validate_url(&config.base_url)?;
-
-    let valid_url_wrapper = http::ValidatedUrl::try_new(validated_url.as_str())
-        .map_err(|e| anyhow::anyhow!("Invalid URL: {e}"))?;
-    #[allow(unused_mut)] // I/O boundary: spider::Website requires &mut for scrape operations
-    let mut website = build_website_base(&valid_url_wrapper, config)
-        .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;
-
-    if let Some(ref pattern) = config.path_filter {
-        validation::compile_safe_regex(pattern).context("Path filter regex validation failed")?;
-
-        let base_domain = url::Url::parse(&config.base_url)
-            .map(|u| u.host_str().map_or("", |h| h).to_string())
-            .unwrap_or_default();
-        let scheme = url::Url::parse(&config.base_url)
-            .map_or_else(|_| "https".to_string(), |u| u.scheme().to_string());
-
-        let domain_escaped = regex::escape(&base_domain);
-        let pattern_stripped = pattern.strip_prefix('^').map_or(pattern.as_str(), |s| s);
-        let full_url_pattern = format!("^{scheme}://{domain_escaped}{pattern_stripped}");
-        let _ = website
-            .configuration
-            .with_whitelist_url(Some(vec![full_url_pattern.as_str().into()]));
-        website.configuration.configure_allowlist();
-    }
-
-    execute_scrape_with_website(&mut website, strategy)
-        .await
-        .map_err(|e| anyhow::anyhow!("Execution failed: {e}"))?;
-
-    Ok(extract_pages_from_website(&website, config))
 }

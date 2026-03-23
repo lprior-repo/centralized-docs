@@ -655,7 +655,7 @@ mod tests {
 
     #[test]
     fn test_prune_html_script_and_style_removal() {
-        let html = r#"
+        let html = r"
             <html><body>
             <script>alert('hi');</script>
             <style>body { color: red; }</style>
@@ -664,7 +664,7 @@ mod tests {
                 <p>Real content with enough words to pass the minimum word count threshold for content filtering.</p>
             </main>
             </body></html>
-        "#;
+        ";
         let config = FilterConfig::default();
         let result = prune_html(html, &config);
         assert!(
@@ -711,11 +711,11 @@ mod tests {
 
     #[test]
     fn test_extract_main_content_fallback_to_body() {
-        let html = r#"
+        let html = r"
             <html><body>
             <p>This is body text with enough words to pass the minimum threshold for extraction tests.</p>
             </body></html>
-        "#;
+        ";
         let document = scraper::Html::parse_document(html);
         let config = FilterConfig::default();
         let content = extract_main_content(&document, &config);
@@ -724,7 +724,7 @@ mod tests {
 
     #[test]
     fn test_extract_main_content_no_match_all_text() {
-        let html = r#"<html><body><span>short</span></body></html>"#;
+        let html = r"<html><body><span>short</span></body></html>";
         let document = scraper::Html::parse_document(html);
         let config = FilterConfig::default();
         let content = extract_main_content(&document, &config);
@@ -733,7 +733,7 @@ mod tests {
 
     #[test]
     fn test_filter_markdown_nav_sections_skipped() {
-        let md = r#"# Getting Started
+        let md = r"# Getting Started
 
 Intro paragraph with enough words to pass filtering.
 
@@ -748,7 +748,7 @@ Contents list.
 
 ## Real Content
 
-This is the real content with enough words to pass the minimum word count filter threshold."#;
+This is the real content with enough words to pass the minimum word count filter threshold.";
         let config = FilterConfig::default();
         let filtered = filter_markdown(md, &config);
         assert!(filtered.contains("Getting Started"));
@@ -759,11 +759,11 @@ This is the real content with enough words to pass the minimum word count filter
 
     #[test]
     fn test_filter_markdown_footer_lines_skipped() {
-        let md = r#"# Title
+        let md = r"# Title
 
 Content paragraph with enough words here to pass the minimum threshold.
 
-Copyright 2024 Example Corp. All rights reserved."#;
+Copyright 2024 Example Corp. All rights reserved.";
         let config = FilterConfig::default();
         let filtered = filter_markdown(md, &config);
         assert!(!filtered.contains("Copyright 2024"));
@@ -787,7 +787,7 @@ Copyright 2024 Example Corp. All rights reserved."#;
 
     #[test]
     fn test_filter_markdown_custom_nav_patterns() {
-        let md = r#"# Guide
+        let md = r"# Guide
 
 ## Quickstart
 
@@ -795,7 +795,7 @@ Quickstart content with enough words to pass minimum threshold.
 
 ## API Reference
 
-API details with enough words to pass the minimum threshold."#;
+API details with enough words to pass the minimum threshold.";
         let mut config = FilterConfig::default();
         config.nav_patterns = vec!["api reference".to_string()];
         let filtered = filter_markdown(md, &config);

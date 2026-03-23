@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
     use crate::sys::lock::{
         get_process_start_time, now_unix_secs, should_reclaim_stale_lock, OutputLockMetadata,
         OUTPUT_LOCK_STALE_AFTER_SECS,

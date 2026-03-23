@@ -108,7 +108,9 @@ mod tests {
         assert_eq!(mapping.slug, "intro");
         assert!(mapping.id.contains("tutorial"));
         assert!(mapping.filename.starts_with("tutorial-"));
-        assert!(mapping.filename.ends_with(".md"));
+        assert!(std::path::Path::new(&mapping.filename)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("md")));
     }
 
     #[test]
@@ -188,6 +190,8 @@ mod tests {
         assert!(mapping.id.contains("quickstart"));
         assert!(mapping.filename.starts_with("tutorial-"));
         assert!(mapping.filename.contains("quickstart"));
-        assert!(mapping.filename.ends_with(".md"));
+        assert!(std::path::Path::new(&mapping.filename)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("md")));
     }
 }

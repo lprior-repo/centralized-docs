@@ -26,6 +26,7 @@ fn create_invalid_index(temp_dir: &TempDir) -> PathBuf {
         let file = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
+            .truncate(true)
             .open(index_path_clone.join("INDEX.json"));
         let _ = file.unwrap().write_all(b"invalid json content");
     });

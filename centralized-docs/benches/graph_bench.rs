@@ -41,6 +41,7 @@ fn generate_test_chunks(n: usize) -> Vec<Chunk> {
                 content: format!(
                     "Content for chunk {chunk_idx} in document {doc_idx}. This is sample documentation text."
                 ),
+                context_prefix: None,
                 token_count: 256 + (chunk_idx % 256),
                 heading: Some(format!("Section {chunk_idx}")),
                 heading_path: vec!["Document".to_string(), format!("Section {chunk_idx}")],
@@ -96,7 +97,7 @@ fn generate_test_documents(chunks: &[Chunk]) -> Vec<doc_transformer::index::Inde
                 ],
                 summary: format!("Summary for document {idx}"),
                 word_count: 1000 + idx * 100,
-                content: String::new(),
+                content: String::new().into(),
                 chunk_ids,
                 headings: vec![
                     "Introduction".to_string(),

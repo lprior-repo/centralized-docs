@@ -61,10 +61,7 @@ impl std::ops::Add for Score {
     fn add(self, rhs: Self) -> Self::Output {
         let sum = self.0.into_inner() + rhs.0.into_inner();
         #[allow(clippy::unwrap_used)]
-        let not_nan = match NotNan::new(sum) {
-            Ok(v) => v,
-            Err(_) => Default::default(),
-        };
+        let not_nan = NotNan::new(sum).unwrap_or_default();
         Self(not_nan)
     }
 }
@@ -312,7 +309,7 @@ mod tests {
     #[test]
     fn score_debug() {
         let s = Score::try_new(1.0).unwrap();
-        let dbg = format!("{:?}", s);
+        let dbg = format!("{s:?}");
         assert!(dbg.contains("Score"));
     }
 

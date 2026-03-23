@@ -1,10 +1,16 @@
-#![warn(clippy::unwrap_used)]
-#![warn(clippy::expect_used)]
-#![warn(clippy::panic)]
-#![warn(clippy::pedantic)]
+#![cfg_attr(
+    not(test),
+    warn(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::pedantic
+    )
+)]
 #![forbid(unsafe_code)]
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::missing_errors_doc)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 //! Data transformation utilities
 //!

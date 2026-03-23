@@ -11,7 +11,7 @@ use tempfile::TempDir;
 // RED QUEEN ADVERSARIAL TESTS — Concurrency & Crypto
 // ============================================================
 
-/// ATTACK 1: 100+ threads hitting get_or_compute simultaneously.
+/// ATTACK 1: 100+ threads hitting `get_or_compute` simultaneously.
 /// Proves compute runs exactly once under extreme contention.
 #[test]
 fn rq_attack_1_extreme_concurrency_100_threads() -> anyhow::Result<()> {
@@ -118,7 +118,7 @@ fn rq_attack_3_disk_corruption_graceful_error() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// ATTACK 4: InMemory backend — verify zero disk files created.
+/// ATTACK 4: `InMemory` backend — verify zero disk files created.
 #[test]
 fn rq_attack_4_inmemory_no_disk_files() -> anyhow::Result<()> {
     let config = CacheConfig::in_memory();
@@ -140,7 +140,7 @@ fn rq_attack_4_inmemory_no_disk_files() -> anyhow::Result<()> {
         });
 
     let redb_files: Vec<_> = walker
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| {
             let name = e.file_name().to_string_lossy();
             name.contains(".redb")

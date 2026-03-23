@@ -734,7 +734,7 @@ mod tests {
             message: "test".to_string(),
             status_code: None,
         };
-        let dbg = format!("{:?}", err);
+        let dbg = format!("{err:?}");
         assert!(dbg.contains("ApiError"));
     }
 

@@ -404,7 +404,7 @@ mod tests {
         let result = slugify("test@#$%^&*()doc");
         assert!(result.contains("test"));
         assert!(result.contains("doc"));
-        assert!(!result.contains("@"));
+        assert!(!result.contains('@'));
     }
 
     #[test]

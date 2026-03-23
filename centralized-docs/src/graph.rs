@@ -202,7 +202,7 @@ impl KnowledgeDAG {
                     .into_iter()
                     .collect()
             })
-            .map_or_else(HashSet::new, |hs| hs)
+            .unwrap_or_default()
     }
 
     /// Persistent DFS — no `mut`, threads `im::HashSet` through recursion
@@ -237,7 +237,7 @@ impl KnowledgeDAG {
                 self.dfs_reachable_with_edge_types(start_idx, &edge_type_set, &mut visited);
                 visited
             })
-            .map_or_else(HashSet::new, |hs| hs)
+            .unwrap_or_default()
     }
 
     #[allow(dead_code)]

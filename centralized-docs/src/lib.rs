@@ -75,6 +75,17 @@
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::float_cmp,
+        clippy::field_reassign_with_default,
+        clippy::too_many_arguments,
+        clippy::match_same_arms
+    )
+)]
 // Allow pedantic format_push_string warnings - common in imperative shell code
 #![allow(clippy::format_push_string)]
 // Allow pedantic clone_on_copy warnings - sometimes intentional for explicitness

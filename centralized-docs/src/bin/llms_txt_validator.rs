@@ -207,10 +207,7 @@ fn validate_links_in_content(content: &str) -> Vec<ValidationError> {
         vec![]
     };
 
-    per_url_errors
-        .into_iter()
-        .chain(summary_errors.into_iter())
-        .collect()
+    per_url_errors.into_iter().chain(summary_errors).collect()
 }
 
 /// INDEX.json structure (simplified)
@@ -337,12 +334,12 @@ fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
         .map_or(Vec::new(), |v| v);
 
     let errors: Vec<ValidationError> = std::iter::empty()
-        .chain(section_errors.into_iter())
-        .chain(index_ref_errors.into_iter())
-        .chain(structure_errors.into_iter())
-        .chain(length_errors.into_iter())
-        .chain(link_errors.into_iter())
-        .chain(index_file_errors.into_iter())
+        .chain(section_errors)
+        .chain(index_ref_errors)
+        .chain(structure_errors)
+        .chain(length_errors)
+        .chain(link_errors)
+        .chain(index_file_errors)
         .collect();
 
     Ok(validation_result(errors))
@@ -454,10 +451,7 @@ fn validate_index_json(path: &Path) -> Result<ValidationResult> {
                 })
                 .collect();
 
-            dup_errors
-                .into_iter()
-                .chain(field_val_errors.into_iter())
-                .collect()
+            dup_errors.into_iter().chain(field_val_errors).collect()
         }
     };
 
@@ -471,7 +465,7 @@ fn validate_index_json(path: &Path) -> Result<ValidationResult> {
                 .documents
                 .as_ref()
                 .map(|docs| docs.iter().map(|d| d.id.as_str()).collect())
-                .map_or_else(HashSet::new, |v: HashSet<&str>| v);
+                .unwrap_or_default();
 
             let dup_chunk_ids: HashSet<&str> = chunks
                 .iter()
@@ -529,17 +523,17 @@ fn validate_index_json(path: &Path) -> Result<ValidationResult> {
 
             dup_errors
                 .into_iter()
-                .chain(ref_errors.into_iter())
-                .chain(level_errors.into_iter())
-                .chain(path_errors.into_iter())
+                .chain(ref_errors)
+                .chain(level_errors)
+                .chain(path_errors)
                 .collect()
         }
     };
 
     let errors: Vec<ValidationError> = std::iter::empty()
-        .chain(field_errors.into_iter())
-        .chain(doc_errors.into_iter())
-        .chain(chunk_errors.into_iter())
+        .chain(field_errors)
+        .chain(doc_errors)
+        .chain(chunk_errors)
         .collect();
 
     Ok(validation_result(errors))

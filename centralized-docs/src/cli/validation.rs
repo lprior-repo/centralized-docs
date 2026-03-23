@@ -2,10 +2,6 @@ use crate::validate;
 use anyhow::Result;
 use spider::configuration::RedirectPolicy;
 
-const DEFAULT_MAX_PAGE_SIZE_BYTES: u64 = 10 * 1024 * 1024;
-const DEFAULT_MAX_TOTAL_SIZE_BYTES: u64 = 500 * 1024 * 1024;
-const SEARCH_JSON_ALREADY_EMITTED_PREFIX: &str = "__SEARCH_JSON_ALREADY_EMITTED__";
-
 // Validation functions for HNSW graph parameters
 //
 // Parse as i64 first to properly detect and report negative numbers,
