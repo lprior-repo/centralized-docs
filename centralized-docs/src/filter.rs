@@ -129,8 +129,6 @@ pub fn prune_html(html: &str, config: &FilterConfig) -> FilterResult {
     // Attempt Readability extraction first
     match try_readability_extraction(html) {
         Ok(extracted_content) => {
-            // Log which extraction method was used
-            eprintln!("[filter] Content extraction: Mozilla Readability (success)");
             let density = calculate_text_density(&extracted_content);
             FilterResult {
                 html: extracted_content,

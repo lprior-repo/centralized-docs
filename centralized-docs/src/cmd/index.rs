@@ -8,6 +8,12 @@ use std::path::{Path, PathBuf};
 /// Run the index command (main pipeline)
 pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     validate_output_path(output)?;
+
+    // Boundary validation before processing
+    if !source.exists() {
+        anyhow::bail!("Source not found: {}", source.display());
+    }
+
     let _output_lock = acquire_output_lock(output)?;
 
     // Log graph configuration parameters

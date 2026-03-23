@@ -102,7 +102,10 @@ pub fn run_search(
 
     let index = match doc_transformer::search::open_existing_index(index_dir)? {
         Some(index) => index,
-        None => anyhow::bail!("Advanced index unavailable or corrupted."),
+        None => {
+            // Rebuild from INDEX.json will propagate the actual serde error if it's corrupted
+            doc_transformer::search::rebuild_index_from_json(index_dir)?
+        }
     };
 
     let results = doc_transformer::search::search_index(&index, query, limit)?;

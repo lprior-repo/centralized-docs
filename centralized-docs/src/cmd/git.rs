@@ -11,6 +11,16 @@ pub fn run_ingest_git(
     project_name: Option<String>,
     filter: Option<String>,
 ) -> Result<()> {
+    // Early boundary validation for URL format
+    if !repo_url.starts_with("http://")
+        && !repo_url.starts_with("https://")
+        && !repo_url.starts_with("git@")
+        && !repo_url.starts_with("file://")
+        && !repo_url.starts_with("ssh://")
+    {
+        anyhow::bail!("Invalid Git repository URL format. Must start with http://, https://, git@, ssh://, or file://");
+    }
+
     let temp_dir = output.join(".git-clone");
     std::fs::create_dir_all(&temp_dir)?;
 

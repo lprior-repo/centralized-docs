@@ -97,11 +97,15 @@ pub fn analyze_files(
     source_dir: &Path,
     category_config_path: Option<&Path>,
 ) -> Result<AnalyzeResult> {
-    let config = if let Some(path) = category_config_path {
-        Some(CategoryConfig::load_from_file(path)?)
-    } else {
-        None
-    };
+    let config =
+        if let Some(path) = category_config_path {
+            use anyhow::Context;
+            Some(CategoryConfig::load_from_file(path).with_context(|| {
+                format!("Failed to load category config from '{}'", path.display())
+            })?)
+        } else {
+            None
+        };
 
     let input_count = files.len();
 
