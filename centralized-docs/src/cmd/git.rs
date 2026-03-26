@@ -39,7 +39,29 @@ pub fn run_ingest_git(
             git2::build::RepoBuilder::new().clone(repo_url, &temp_dir)
         };
 
-        cloned.map_err(|e| anyhow::anyhow!("Failed to clone repository: {e}"))?;
+        _ = cloned.map_err(|e: git2::Error| {
+            let error_message = e.message().to_lowercase();
+            let is_network_error = error_message.contains("network")
+                || error_message.contains("ssl")
+                || error_message.contains("tls")
+                || error_message.contains("ssh")
+                || error_message.contains("authentication")
+                || error_message.contains("authorization");
+
+            if is_network_error {
+                anyhow::anyhow!(
+                    "Git clone failed: network error. Please check your connection and repository URL.\n\
+                    Error: {}",
+                    e.message()
+                )
+            } else {
+                anyhow::anyhow!(
+                    "Git clone failed: {}.\n\
+                    Please verify the repository URL is accessible and you have the necessary permissions.",
+                    e.message()
+                )
+            }
+        })?;
 
         println!("  ✓ Clone successful\n");
     }

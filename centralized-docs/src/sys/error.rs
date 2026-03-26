@@ -62,6 +62,13 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "cannot index empty",
         "parent path is not a directory",
         "validation failed",
+        "query parse error",
+        "invalid query",
+        "failed to clone repository",
+        "git clone failed",
+        "domain unreachable",
+        "no pages extracted",
+        "failed to scrape",
     ];
 
     let is_user_input = user_input_patterns

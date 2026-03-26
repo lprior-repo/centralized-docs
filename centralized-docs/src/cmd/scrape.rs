@@ -5,7 +5,6 @@ use crate::cli::validation::validate_filter_regex;
 use crate::scrape;
 use anyhow::Result;
 use std::path::Path;
-use std::process;
 
 /// Validate query length to prevent DoS attacks and resource exhaustion
 ///
@@ -206,7 +205,7 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
         println!("  - The URL is correct and accessible in a browser");
         println!("  - The domain exists and is spelled correctly");
         println!("{}\n", "=".repeat(70));
-        process::exit(2);
+        anyhow::bail!("Domain unreachable: {}", initial_result.base_url);
     }
 
     // Check for total failure BEFORE further processing
@@ -225,7 +224,7 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
             println!("  - The URL is correct and accessible in a browser");
             println!("  - The domain exists and is spelled correctly");
             println!("{}\n", "=".repeat(70));
-            process::exit(2);
+            anyhow::bail!("Failed to reach '{}': DNS or connection error", url);
         }
 
         if initial_result.total_urls == 5 {
@@ -235,7 +234,10 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
             println!("The site may be a JavaScript SPA (Single Page Application)");
             println!("Consider using --spa-mode or --browser for dynamic rendering");
             println!("{}\n", "=".repeat(70));
-            process::exit(2);
+            anyhow::bail!(
+                "No pages extracted from '{}': site may require JavaScript rendering",
+                url
+            );
         }
         // Partial success: some pages failed, but we got results
         println!();
