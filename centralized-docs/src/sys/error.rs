@@ -22,6 +22,12 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "ssl error",
         "tls error",
         "certificate",
+        "domain unreachable",
+        "DNS",
+        "failed to clone repository",
+        "git clone failed",
+        "no pages extracted",
+        "failed to scrape",
     ];
 
     let is_pipeline_error = pipeline_error_patterns
@@ -34,12 +40,12 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
 
     // User input error patterns (explicit matches - high precision)
     // These are errors where the user provided invalid input
+    // Network/infrastructure errors have been REMOVED from here
     let user_input_patterns = [
         "must be",
         "cannot be",
         "missing",
         "required",
-        "not found",
         "no such file",
         "must be at least",
         "must be at most",
@@ -51,7 +57,6 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "query too long",
         "limit must be",
         "another index operation appears to be running",
-        "invalid url",
         "invalid config",
         "invalid or too complex regex",
         "regex parse error",
@@ -64,11 +69,6 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "validation failed",
         "query parse error",
         "invalid query",
-        "failed to clone repository",
-        "git clone failed",
-        "domain unreachable",
-        "no pages extracted",
-        "failed to scrape",
     ];
 
     let is_user_input = user_input_patterns
@@ -92,4 +92,102 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
     // These include: IO errors, transform failures, network errors, corrupt data
     // Anything that isn't a user input error is a pipeline error
     2
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_map_error_to_exit_code_pipeline_network() {
+        let err = anyhow::anyhow!("network error while connecting");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_pipeline_dns() {
+        let err = anyhow::anyhow!("DNS lookup failed");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_pipeline_ssl() {
+        let err = anyhow::anyhow!("ssl error: certificate expired");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_pipeline_connection_refused() {
+        let err = anyhow::anyhow!("connection refused");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_pipeline_connection_timeout() {
+        let err = anyhow::anyhow!("connection timed out");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_user_input_validation() {
+        let err = anyhow::anyhow!("query cannot be empty");
+        assert_eq!(map_error_to_exit_code(&err), 1);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_user_input_missing() {
+        let err = anyhow::anyhow!("source directory not found");
+        assert_eq!(map_error_to_exit_code(&err), 1);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_query_parse() {
+        let err = anyhow::anyhow!("query parse error: invalid syntax");
+        assert_eq!(map_error_to_exit_code(&err), 1);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_no_results() {
+        let err = anyhow::anyhow!("no results found for 'test'");
+        assert_eq!(map_error_to_exit_code(&err), 0);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_default_pipeline() {
+        let err = anyhow::anyhow!("unexpected io error");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_case_insensitive() {
+        let err = anyhow::anyhow!("NETWORK ERROR while connecting");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+
+        let err = anyhow::anyhow!("Query Parse Error: invalid");
+        assert_eq!(map_error_to_exit_code(&err), 1);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_domain_unreachable() {
+        let err = anyhow::anyhow!("Domain unreachable: https://example.com");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_git_clone_failed() {
+        let err = anyhow::anyhow!("Failed to clone repository: https://github.com/repo");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_no_pages_extracted() {
+        let err = anyhow::anyhow!("No pages extracted from https://example.com");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_failed_scrape() {
+        let err = anyhow::anyhow!("Failed to scrape https://example.com");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
 }
