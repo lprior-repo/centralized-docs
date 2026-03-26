@@ -15,7 +15,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use super::config::{
     CacheBackend, CacheConfig, CacheStats, CacheType, DOCUMENT_CACHE_TABLE, METADATA_TABLE,
-    SCRAPE_CACHE_TABLE, TRANSFORM_CACHE_TABLE,
+    SCRAPE_CACHE_TABLE, SNAPSHOTS_TABLE, TRANSFORM_CACHE_TABLE,
 };
 use super::hash::{
     get_cached_value, put_cached_value_with_limit, table_len, validate_and_insert,
@@ -74,6 +74,7 @@ impl DocCache {
             let _ = write_tx.open_table(SCRAPE_CACHE_TABLE)?;
             let _ = write_tx.open_table(TRANSFORM_CACHE_TABLE)?;
             let _ = write_tx.open_table(METADATA_TABLE)?;
+            let _ = write_tx.open_table(SNAPSHOTS_TABLE)?;
         }
         write_tx.commit()?;
         Ok(())
@@ -151,6 +152,23 @@ impl DocCache {
         Ok(())
     }
 
+    pub fn get_snapshot<V: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<V>> {
+        let read_tx = self.db.begin_read()?;
+        get_cached_value(&read_tx, SNAPSHOTS_TABLE, key)
+    }
+
+    pub fn put_snapshot<V: Serialize>(&self, key: &[u8], value: &V) -> Result<()> {
+        validate_key_size(key)?;
+        let write_tx = self.db.begin_write()?;
+        {
+            #[allow(unused_mut)]
+            let mut table = write_tx.open_table(SNAPSHOTS_TABLE)?;
+            put_cached_value_with_limit(&mut table, key, value)?;
+        }
+        write_tx.commit()?;
+        Ok(())
+    }
+
     pub fn clear_all(&self) -> Result<()> {
         self.in_flight.clear();
         let write_tx = self.db.begin_write()?;
@@ -159,10 +177,12 @@ impl DocCache {
             write_tx.delete_table(SCRAPE_CACHE_TABLE)?;
             write_tx.delete_table(TRANSFORM_CACHE_TABLE)?;
             write_tx.delete_table(METADATA_TABLE)?;
+            write_tx.delete_table(SNAPSHOTS_TABLE)?;
             let _ = write_tx.open_table(DOCUMENT_CACHE_TABLE)?;
             let _ = write_tx.open_table(SCRAPE_CACHE_TABLE)?;
             let _ = write_tx.open_table(TRANSFORM_CACHE_TABLE)?;
             let _ = write_tx.open_table(METADATA_TABLE)?;
+            let _ = write_tx.open_table(SNAPSHOTS_TABLE)?;
         }
         write_tx.commit()?;
         Ok(())

@@ -29,7 +29,7 @@ walkdir = "2.4"
 chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }
-tokio = { version = "1.35", features = ["macros"] }
+tokio = { version = "1.35", features = ["macros", "process"] }
 
 # Graph library (UPDATED: 0.6 -> 0.8.2)
 petgraph = { version = "0.8", features = ["serde-1"] }
@@ -105,6 +105,14 @@ path = "src/llms_test_multibyte.rs"
 
 [[bench]]
 name = "graph_bench"
+harness = false
+
+[[bench]]
+name = "watch_benchmarks"
+harness = false
+
+[[bench]]
+name = "filter_benchmarks"
 harness = false
 
 # ===========================================================================

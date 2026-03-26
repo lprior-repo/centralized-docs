@@ -20,6 +20,7 @@ pub(crate) const SCRAPE_CACHE_TABLE: TableDefinition<&[u8], &[u8]> = TableDefini
 pub(crate) const TRANSFORM_CACHE_TABLE: TableDefinition<&[u8], &[u8]> =
     TableDefinition::new("transforms");
 pub(crate) const METADATA_TABLE: TableDefinition<&str, &str> = TableDefinition::new("metadata");
+pub(crate) const SNAPSHOTS_TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new("snapshots");
 
 /// Cache backend selection - eliminates magic strings for type safety.
 #[non_exhaustive]

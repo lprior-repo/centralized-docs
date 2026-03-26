@@ -90,7 +90,7 @@ pub enum Commands {
         filter: Option<String>,
 
         /// Delay between requests in milliseconds (0-60000)
-        #[arg(short, long, default_value = "250", value_parser = validate_delay, allow_hyphen_values = true)]
+        #[arg(short, long, default_value = "0", value_parser = validate_delay, allow_hyphen_values = true)]
         delay: u64,
 
         /// Request timeout in seconds (1-600)
@@ -113,8 +113,8 @@ pub enum Commands {
         #[arg(long, value_parser = validate_positive_bytes)]
         max_total_bytes: Option<u64>,
 
-        /// Concurrency (1-2, default 1) capped for politeness
-        #[arg(long, default_value = "1", value_parser = validate_concurrency_limit, allow_hyphen_values = true)]
+        /// Concurrency (1-128, default 4) capped for politeness
+        #[arg(long, default_value = "4", value_parser = validate_concurrency_limit, allow_hyphen_values = true)]
         concurrency: usize,
 
         /// Filter pages by BM25 relevance to query
@@ -215,7 +215,7 @@ pub enum Commands {
         filter: Option<String>,
 
         /// Delay between requests in milliseconds (0-60000)
-        #[arg(short, long, default_value = "250", value_parser = validate_delay, allow_hyphen_values = true)]
+        #[arg(short, long, default_value = "0", value_parser = validate_delay, allow_hyphen_values = true)]
         delay: u64,
 
         /// Request timeout in seconds (1-600)
@@ -238,8 +238,8 @@ pub enum Commands {
         #[arg(long, value_parser = validate_positive_bytes)]
         max_total_bytes: Option<u64>,
 
-        /// Concurrency (1-2, default 1) capped for politeness
-        #[arg(long, default_value = "1", value_parser = validate_concurrency_limit, allow_hyphen_values = true)]
+        /// Concurrency (1-128, default 4) capped for politeness
+        #[arg(long, default_value = "4", value_parser = validate_concurrency_limit, allow_hyphen_values = true)]
         concurrency: usize,
 
         /// Filter pages by BM25 relevance to query
@@ -253,5 +253,86 @@ pub enum Commands {
         /// Project name for llms.txt header
         #[arg(long)]
         project_name: Option<String>,
+    },
+
+    /// Scrape a site and produce a change plan (Terraform-style plan)
+    Watch {
+        /// URL of the documentation site to watch
+        #[arg(value_name = "URL")]
+        url: String,
+
+        /// Output directory for change reports
+        #[arg(short, long, value_name = "DIR")]
+        output: PathBuf,
+
+        /// Path to the redb cache file for snapshots
+        #[arg(long, default_value = ".cache/ctd_cache.redb")]
+        cache: PathBuf,
+
+        /// Regex pattern to filter URLs by path
+        #[arg(short, long, value_name = "REGEX")]
+        filter: Option<String>,
+
+        /// Delay between requests in milliseconds (0-60000)
+        #[arg(short, long, default_value = "0", value_parser = validate_delay, allow_hyphen_values = true)]
+        delay: u64,
+
+        /// Request timeout in seconds (1-600)
+        #[arg(long, default_value = "30", value_parser = validate_timeout_secs, allow_hyphen_values = true)]
+        request_timeout_secs: u64,
+
+        /// Max spider retries (0 disables spider retry)
+        #[arg(long, default_value = "3", value_parser = validate_retry_count, allow_hyphen_values = true)]
+        max_retries: u32,
+
+        /// Redirect policy: loose (default), strict, none
+        #[arg(long, default_value = "loose", value_parser = parse_redirect_policy)]
+        redirect_policy: RedirectPolicy,
+
+        /// Concurrency (1-128, default 4) capped for politeness
+        #[arg(long, default_value = "4", value_parser = validate_concurrency_limit, allow_hyphen_values = true)]
+        concurrency: usize,
+
+        /// Output structured JSON to stdout
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Commit a change plan snapshot (Terraform-style apply)
+    Apply {
+        /// URL of the documentation site to apply snapshot for
+        #[arg(value_name = "URL")]
+        url: String,
+
+        /// Path to the redb cache file for snapshots
+        #[arg(long, default_value = ".cache/ctd_cache.redb")]
+        cache: PathBuf,
+
+        /// The scraped content directory (with manifest.json)
+        #[arg(long, value_name = "DIR")]
+        scrape_dir: PathBuf,
+
+        /// Skip confirmation prompt
+        #[arg(long)]
+        yes: bool,
+    },
+
+    /// Compare two .scrape directories and show diff
+    Diff {
+        /// First .scrape directory
+        #[arg(value_name = "DIR_A")]
+        dir_a: PathBuf,
+
+        /// Second .scrape directory
+        #[arg(value_name = "DIR_B")]
+        dir_b: PathBuf,
+
+        /// Output directory for diff reports
+        #[arg(short, long, value_name = "DIR")]
+        output: Option<PathBuf>,
+
+        /// Output structured JSON to stdout
+        #[arg(long)]
+        json: bool,
     },
 }

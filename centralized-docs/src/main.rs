@@ -218,6 +218,51 @@ async fn main() -> Result<()> {
             };
             (cmd::ingest::run_ingest(&url, &output, &config).await, None)
         }
+        Commands::Watch {
+            url,
+            output,
+            cache,
+            filter,
+            delay,
+            request_timeout_secs,
+            max_retries,
+            redirect_policy,
+            concurrency,
+            json,
+        } => (
+            cmd::watch::run_watch(
+                &url,
+                &output,
+                &cache,
+                filter.as_deref(),
+                delay,
+                request_timeout_secs,
+                max_retries,
+                redirect_policy,
+                concurrency,
+                json,
+            )
+            .await,
+            None,
+        ),
+        Commands::Apply {
+            url,
+            cache,
+            scrape_dir,
+            yes,
+        } => (
+            cmd::watch::run_apply(&url, &cache, &scrape_dir, yes).await,
+            None,
+        ),
+        Commands::Diff {
+            dir_a,
+            dir_b,
+            output,
+            json,
+        } => (
+            cmd::watch::run_diff(&dir_a, &dir_b, output.as_deref(), json),
+            None,
+        ),
     };
 
     match result {

@@ -356,7 +356,7 @@ pub fn filter_markdown(markdown: &str, config: &FilterConfig) -> String {
         config
             .nav_patterns
             .iter()
-            .any(|pattern| heading_text.contains(pattern))
+            .any(|pattern| contains_ignore_ascii_case(heading_text, pattern))
             || is_nav_heading(heading_text)
     }
 
@@ -369,14 +369,15 @@ pub fn filter_markdown(markdown: &str, config: &FilterConfig) -> String {
     markdown
         .lines()
         .fold(initial_state, |mut state, line| {
-            let lower = line.to_lowercase();
-
             // Check if this is a heading
             if line.starts_with('#') {
                 // Flush previous section if it meets word count
                 if !state.current_section.is_empty() {
-                    let section_text = state.current_section.join(" ");
-                    let word_count = section_text.split_whitespace().count();
+                    let word_count = state
+                        .current_section
+                        .iter()
+                        .map(|s| s.split_whitespace().count())
+                        .sum::<usize>();
                     if word_count >= config.min_word_count {
                         state.result.append(&mut state.current_section);
                     } else {
@@ -384,14 +385,14 @@ pub fn filter_markdown(markdown: &str, config: &FilterConfig) -> String {
                     }
                 }
 
-                let heading_text = line.trim_start_matches('#').trim().to_lowercase();
-                state.skip_until_heading = is_nav_section(&heading_text, config);
+                let heading_text = line.trim_start_matches('#').trim();
+                state.skip_until_heading = is_nav_section(heading_text, config);
             }
 
             if state.skip_until_heading {
                 if line.starts_with('#') {
-                    let heading_text = line.trim_start_matches('#').trim().to_lowercase();
-                    if !is_nav_section(&heading_text, config) {
+                    let heading_text = line.trim_start_matches('#').trim();
+                    if !is_nav_section(heading_text, config) {
                         state.skip_until_heading = false;
                         state.current_section.push(line);
                     }
@@ -400,7 +401,7 @@ pub fn filter_markdown(markdown: &str, config: &FilterConfig) -> String {
             }
 
             // Skip common footer patterns
-            if !is_footer_line(&lower) {
+            if !is_footer_line(line) {
                 state.current_section.push(line);
             }
 
@@ -409,14 +410,30 @@ pub fn filter_markdown(markdown: &str, config: &FilterConfig) -> String {
         .pipe(|mut state| {
             // Flush final section
             if !state.current_section.is_empty() {
-                let section_text = state.current_section.join(" ");
-                let word_count = section_text.split_whitespace().count();
+                let word_count = state
+                    .current_section
+                    .iter()
+                    .map(|s| s.split_whitespace().count())
+                    .sum::<usize>();
                 if word_count >= config.min_word_count || state.result.is_empty() {
                     state.result.extend(state.current_section);
                 }
             }
             state.result.join("\n")
         })
+}
+
+/// Fast case-insensitive substring search without allocating
+#[inline]
+fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
+    let n_bytes = needle.as_bytes();
+    if n_bytes.is_empty() {
+        return true;
+    }
+    haystack
+        .as_bytes()
+        .windows(n_bytes.len())
+        .any(|w| w.eq_ignore_ascii_case(n_bytes))
 }
 
 /// Navigation heading patterns as a const array for functional matching
@@ -448,12 +465,16 @@ const FOOTER_PATTERNS: [&str; 9] = [
 
 /// Check if a heading indicates navigation content
 fn is_nav_heading(heading: &str) -> bool {
-    NAV_HEADINGS.iter().any(|&h| heading.contains(h))
+    NAV_HEADINGS
+        .iter()
+        .any(|&h| contains_ignore_ascii_case(heading, h))
 }
 
 /// Check if a line looks like footer content
 fn is_footer_line(line: &str) -> bool {
-    FOOTER_PATTERNS.iter().any(|&p| line.contains(p))
+    FOOTER_PATTERNS
+        .iter()
+        .any(|&p| contains_ignore_ascii_case(line, p))
 }
 
 /// Test helper: Discover markdown files from a directory (for integration tests)

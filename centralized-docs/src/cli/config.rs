@@ -58,7 +58,7 @@ impl Default for ScrapeCommandConfig {
         Self {
             sitemap_strategy: SitemapStrategy::UseSitemap,
             filter: None,
-            delay: 250,
+            delay: 0,
             query: None,
             threshold: 0.1,
             request_timeout_secs: 30,
@@ -66,7 +66,7 @@ impl Default for ScrapeCommandConfig {
             redirect_policy: RedirectPolicy::Loose,
             max_page_bytes: None,
             max_total_bytes: None,
-            concurrency_limit: 1,
+            concurrency_limit: 4,
         }
     }
 }
@@ -91,7 +91,7 @@ impl Default for IngestConfig {
     fn default() -> Self {
         Self {
             filter: None,
-            delay: 250,
+            delay: 0,
             query: None,
             threshold: 0.1,
             project_name: None,
@@ -100,7 +100,7 @@ impl Default for IngestConfig {
             redirect_policy: RedirectPolicy::Loose,
             max_page_bytes: None,
             max_total_bytes: None,
-            concurrency_limit: 1,
+            concurrency_limit: 4,
         }
     }
 }

@@ -141,3 +141,4 @@ pub mod search;
 pub mod transform;
 pub mod types;
 pub mod validate;
+pub mod watch;

@@ -1,0 +1,49 @@
+---
+version: "1.0"
+project: "kubernetes.io"
+project_version: "0.1.0"
+updated: "2026-03-26"
+documents: 99
+index: "./INDEX.json"
+---
+
+# kubernetes.io
+
+> Documentation scraped from https://kubernetes.io/docs/home/
+
+Key context for AI:
+- Total documents: 99
+- Format: Markdown with YAML frontmatter
+- Chunking: Semantic chunks with context prefix (~170 tokens)
+- Navigation: Knowledge DAG with Jaccard similarity
+
+## Getting Started
+
+- [Kubernetes Documentation](./docs/tutorial-docs-home.md-docs-home.md): Kubernetes is an open source container orchestration engi...
+- [Change the Access Mode of a PersistentVolume to ReadWriteOncePod](./docs/tutorial-docs-tasks-administer-cluster-change-pv-access-mode-readwriteoncepod.md-docs-tasks-administer-cluster-change-pv-access-mode-readwriteoncepod.md): Change the Access Mode of a PersistentVolume to ReadWrite...
+- [Example: Deploying Cassandra with a StatefulSet](./docs/tutorial-docs-tutorials-stateful-application-cassandra.md-docs-tutorials-stateful-application-cassandra.md): This tutorial shows you how to run  Apache Cassandra  on ...
+- [Configure Quality of Service for Pods](./docs/tutorial-docs-tasks-configure-pod-container-quality-service-pod.md-docs-tasks-configure-pod-container-quality-service-pod.md): This page shows how to configure Pods so that they will b...
+- [쿠버네티스 문서](./docs/tutorial-ko-docs-home.md-ko-docs-home.md): Information in this document may be out of date This docu...
+
+## Core Concepts
+
+- [Releases](./docs/concept-releases.md-releases.md): The Kubernetes project maintains release branches for the...
+- [Configure a kubelet image credential provider](./docs/concept-docs-tasks-administer-cluster-kubelet-credential-provider.md-docs-tasks-administer-cluster-kubelet-credential-provider.md): FEATURE STATE: Kubernetes v1.26 [stable] Starting from Ku...
+
+## API Reference
+
+- [Adding entries to Pod /etc/hosts with HostAliases](./docs/ref-docs-tasks-network-customize-hosts-file-for-pods.md-docs-tasks-network-customize-hosts-file-for-pods.md): Adding entries to a Pod's  /etc/hosts  file provides Pod-...
+- [Process ID Limits And Reservations](./docs/ref-docs-concepts-policy-pid-limiting.md-docs-concepts-policy-pid-limiting.md): FEATURE STATE: Kubernetes v1.20 [stable] Kubernetes allow...
+- [DeviceTaintRule v1alpha3](./docs/ref-docs-reference-kubernetes-api-workload-resources-device-taint-rule-v1alpha3.md-docs-reference-kubernetes-api-workload-resources-device-taint-rule-v1alpha3.md): DeviceTaintRule adds one taint to all devices which match...
+- [kube-apiserver Configuration (v1beta1)](./docs/ref-docs-reference-config-api-apiserver-config-v1beta1.md-docs-reference-config-api-apiserver-config-v1beta1.md): Package v1beta1 is the v1beta1 version of the API.
+- [Debug Pods](./docs/ref-docs-tasks-debug-debug-application-debug-pods.md-docs-tasks-debug-debug-application-debug-pods.md): This guide is to help users debug applications that are d...
+
+## Operations
+
+- [Creating Highly Available Clusters with kubeadm](./docs/ops-docs-setup-production-environment-tools-kubeadm-high-availability.md-docs-setup-production-environment-tools-kubeadm-high-availability.md): This page explains two different approaches to setting up...
+- [Pod Security Standards](./docs/ops-docs-concepts-security-pod-security-standards.md-docs-concepts-security-pod-security-standards.md): A detailed look at the different policy levels defined in...
+
+## Machine-Readable Index
+
+- [INDEX.json](./INDEX.json): Complete searchable index with keywords, chunks, and knowledge graph
+- [COMPASS.md](./COMPASS.md): Human-readable navigation guide
