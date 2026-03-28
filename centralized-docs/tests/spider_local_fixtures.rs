@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 use std::time::Duration;
 
 use doc_transformer::scrape::{build_website_base, ScrapeConfig};

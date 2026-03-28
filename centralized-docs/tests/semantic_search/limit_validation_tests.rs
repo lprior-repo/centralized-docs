@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Tests for limit validation (P2 search-limit-zero + P1 negative limit)
 //!
 //! Tests that:
@@ -5,7 +11,6 @@
 //! - limit < 0 is rejected (negative values)
 //! - Valid limits work correctly
 
-#![allow(clippy::unwrap_used)]
 
 use tempfile::TempDir;
 

@@ -41,7 +41,7 @@ fn check_write_permission(dir: &Path) -> Result<()> {
     let test_file = dir.join(".permission_check.tmp");
 
     match std::fs::write(&test_file, b"") {
-        Ok(_) => {
+        Ok(()) => {
             // Clean up the test file
             if let Err(err) = std::fs::remove_file(&test_file) {
                 eprintln!("Warning: cleanup failed: {err}");

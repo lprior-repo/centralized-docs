@@ -20,7 +20,7 @@ use doc_transformer::watch::{
 /// Run the `watch` command: scrape + diff → change plan (terraform plan equivalent).
 ///
 /// # Contract
-/// - **Preconditions**: url is valid, cache_path writable, output writable
+/// - **Preconditions**: url is valid, `cache_path` writable, output writable
 /// - **Postconditions**: change-plan.json + change-plan.md written, snapshot NOT mutated
 /// - **Invariant**: calling watch twice with same content produces identical plans
 pub async fn run_watch(
@@ -60,13 +60,13 @@ pub async fn run_watch(
 
     print_watch_footer(output, &plan);
 
-    process::exit(if plan.summary.is_empty() { 0 } else { 1 });
+    process::exit(i32::from(!plan.summary.is_empty()));
 }
 
 /// Run the `apply` command: commit current scrape as new snapshot (terraform apply).
 ///
 /// # Contract
-/// - **Preconditions**: scrape_dir contains valid manifest.json, cache writable
+/// - **Preconditions**: `scrape_dir` contains valid manifest.json, cache writable
 /// - **Postconditions**: snapshot stored in redb, idempotent on re-run
 /// - **Invariant**: apply twice with same content is a no-op
 pub async fn run_apply(url: &str, cache_path: &Path, scrape_dir: &Path, yes: bool) -> Result<()> {
@@ -124,7 +124,7 @@ pub fn run_diff(
 
     emit_plan(&plan, json_output);
 
-    process::exit(if plan.summary.is_empty() { 0 } else { 1 });
+    process::exit(i32::from(!plan.summary.is_empty()));
 }
 
 // ════════════════════════════════════════════════════════════════════════

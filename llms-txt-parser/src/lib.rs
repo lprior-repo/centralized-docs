@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_parse_simple() -> anyhow::Result<()> {
-        let content = r#"# My Project
+        let content = r"# My Project
 
 > A great project
 
@@ -328,7 +328,7 @@ mod tests {
 ## Core Concepts
 
 - [Concepts](./concepts.md)
-"#;
+";
 
         let llms_txt = parse_content(content)?;
         assert_eq!(llms_txt.project_name, "My Project");
@@ -341,9 +341,9 @@ mod tests {
 
     #[test]
     fn test_parse_with_frontmatter() -> anyhow::Result<()> {
-        let content = r#"---
-version: "1.0"
-project: "Test Project"
+        let content = r"---
+version: 1.0
+project: Test Project
 documents: 42
 ---
 
@@ -352,7 +352,7 @@ documents: 42
 > Description
 
 ## Getting Started
-"#;
+";
 
         let llms_txt = parse_content(content)?;
         assert!(llms_txt.frontmatter.is_some());
@@ -378,12 +378,12 @@ documents: 42
 
     #[test]
     fn test_get_section() -> anyhow::Result<()> {
-        let content = r#"# Project
+        let content = r"# Project
 
 ## Getting Started
 
 Content here
-"#;
+";
 
         let llms_txt = parse_content(content)?;
         assert!(llms_txt.get_section("Getting Started").is_some());
@@ -393,12 +393,12 @@ Content here
 
     #[test]
     fn test_required_sections() -> anyhow::Result<()> {
-        let content = r#"# Project
+        let content = r"# Project
 
 ## Getting Started
 ## Core Concepts
 ## API Reference
-"#;
+";
 
         let llms_txt = parse_content(content)?;
         assert!(llms_txt.has_required_sections());

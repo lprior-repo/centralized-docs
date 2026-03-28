@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Document Indexing Tests
 //!
 //! Tests for the document indexing capability:

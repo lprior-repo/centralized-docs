@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use doc_transformer::chunk::{Chunk, ChunkLevel};
 use doc_transformer::graph::KnowledgeDAG;

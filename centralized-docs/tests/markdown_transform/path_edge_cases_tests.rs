@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Path edge case tests
 //!
 //! Tests paths with spaces, permission errors, special characters, and unicode.

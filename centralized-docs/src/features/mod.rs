@@ -23,7 +23,7 @@ use thiserror::Error;
 // ===========================================================================
 
 /// All feature-related errors
-#[derive(Debug, Error, Clone, PartialEq)]
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum FeatureError {
     #[allow(dead_code)]
     #[error("invalid cache TTL: must be positive, got {0}s")]

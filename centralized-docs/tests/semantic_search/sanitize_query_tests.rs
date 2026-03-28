@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Tests for query sanitization (doc-tx-6aq)
 //!
 //! NOTE: sanitize_query function was not implemented (deferred to future bead).

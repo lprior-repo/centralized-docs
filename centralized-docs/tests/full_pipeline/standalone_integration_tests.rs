@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Standalone Integration Tests (No Dependencies on Broken Main Library)
 //!
 //! This test module is completely self-contained and doesn't depend on the main

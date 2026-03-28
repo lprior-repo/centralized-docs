@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Common test helpers for ctd integration tests
 //!
 //! This module provides reusable test utilities that all integration tests can use.
@@ -36,8 +42,6 @@
 //! ```
 
 #![deny(clippy::panic)]
-#![allow(clippy::unwrap_used)] // Test assertions may use unwrap()
-#![allow(clippy::expect_used)] // Test code may use expect()
 #![allow(clippy::uninlined_format_args)] // Test code with clearer format placeholders
 
 use anyhow::{Context, Result};

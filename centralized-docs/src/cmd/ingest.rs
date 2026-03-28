@@ -88,7 +88,7 @@ pub async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Resu
     if let Some(ref warning) = spa_detection.warning_message {
         println!();
         println!("{}", "=".repeat(70));
-        println!("{}", warning);
+        println!("{warning}");
         println!("{}", "=".repeat(70));
     }
 
@@ -108,7 +108,7 @@ pub async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Resu
             url::Url::parse(url)
                 .map(|u| {
                     u.host_str()
-                        .map_or_else(|| "Documentation".to_string(), |h| h.to_string())
+                        .map_or_else(|| "Documentation".to_string(), std::string::ToString::to_string)
                 })
                 .map_or_else(|_| "Documentation".to_string(), |s| s)
         },

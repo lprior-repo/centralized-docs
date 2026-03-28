@@ -4,7 +4,7 @@ pub mod validation;
 use clap::{Parser, Subcommand};
 use spider::configuration::RedirectPolicy;
 use std::path::PathBuf;
-use validation::*;
+use validation::{validate_limit_cli, validate_delay, validate_timeout_secs, validate_retry_count, parse_redirect_policy, validate_positive_bytes, validate_concurrency_limit, validate_threshold, validate_max_related_chunks, validate_max_chunk_keywords, validate_hnsw_m, validate_hnsw_ef_construction};
 
 #[derive(Parser, Debug)]
 #[command(

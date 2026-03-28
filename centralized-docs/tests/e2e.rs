@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! End-to-End Tests using Playwright
 //!
 //! This module tests the CLI through a real browser using Playwright.
@@ -7,8 +13,6 @@
 //!
 //! Run `npx playwright@1.56.1 install chromium` before executing these tests.
 
-#![allow(clippy::panic)]
-#![allow(clippy::unwrap_used)]
 #![allow(dead_code)]
 
 use std::path::Path;

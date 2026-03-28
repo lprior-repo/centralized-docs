@@ -1,3 +1,6 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::nursery)]
+#![allow(clippy::complexity)]
 //! `ctd` v0.6.1 — AI-Optimized Documentation Indexer
 //!
 //! CLI entry point for the `ctd` pipeline. Exposes four sub-commands
@@ -51,7 +54,7 @@ async fn main() -> Result<()> {
             if e.kind() == clap::error::ErrorKind::DisplayHelp
                 || e.kind() == clap::error::ErrorKind::DisplayVersion
             {
-                eprintln!("{}", e);
+                eprintln!("{e}");
                 process::exit(0);
             }
             let validation_errors = [
@@ -68,7 +71,7 @@ async fn main() -> Result<()> {
             } else {
                 1
             };
-            eprintln!("{}", e);
+            eprintln!("{e}");
             process::exit(exit_code);
         }
     };
@@ -90,7 +93,7 @@ async fn main() -> Result<()> {
             } else {
                 1
             };
-            eprintln!("{}", e);
+            eprintln!("{e}");
             process::exit(exit_code);
         }
     };

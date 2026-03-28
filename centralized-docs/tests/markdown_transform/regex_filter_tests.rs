@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Tests for --filter argument regex validation (P1 filter-invalid-regex)
 //!
 //! Tests verify that invalid regex patterns are rejected with clear error messages.

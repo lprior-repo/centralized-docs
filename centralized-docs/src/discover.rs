@@ -727,9 +727,7 @@ mod tests {
 
         // The discovered file should be the single file itself
         let expected_name = single_file
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| "unknown".to_string());
+            .file_name().map_or_else(|| "unknown".to_string(), |n| n.to_string_lossy().to_string());
         assert_eq!(files[0].source_path, expected_name);
     }
 

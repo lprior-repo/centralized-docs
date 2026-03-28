@@ -1,7 +1,11 @@
 #![allow(clippy::print_stdout)]
 #![allow(clippy::dbg_macro)]
 #![allow(clippy::uninlined_format_args)]
-#![allow(clippy::print_debug)]
+#![allow(clippy::print_stderr)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
 
 use futures::stream::{self, StreamExt};
 use std::fs;
@@ -92,8 +96,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let safe_name = site
                 .replace("https://", "")
                 .replace("http://", "")
-                .replace("/", "_")
-                .replace(".", "_");
+                .replace(['/', '.'], "_");
             let site_out = out_dir.join(&safe_name);
 
             let start = Instant::now();
@@ -115,8 +118,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let duration = start.elapsed();
             let completed = completed_count.fetch_add(1, Ordering::SeqCst) + 1;
 
-            match output_res {
-                Ok(Ok(out)) => match out.status.code() {
+            if let Ok(Ok(out)) = output_res {
+                match out.status.code() {
                     Some(0) => {
                         println!(
                             "[{}/{}] ✅ Perfect Success in {:.2}s: {}",
@@ -127,7 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         );
                         success_count.fetch_add(1, Ordering::SeqCst);
                     }
-                    Some(2) | Some(1) => {
+                    Some(1 | 2) => {
                         // doc_transformer uses code 2 for partial failure
                         println!(
                             "[{}/{}] ⚠️ Partial Success in {:.2}s: {}",
@@ -158,14 +161,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         );
                         fail_count.fetch_add(1, Ordering::SeqCst);
                     }
-                },
-                _ => {
-                    println!(
-                        "[{}/{}] ❌ OS Execution Error: {}",
-                        completed, total_sites, site
-                    );
-                    fail_count.fetch_add(1, Ordering::SeqCst);
                 }
+            } else {
+                println!(
+                    "[{}/{}] ❌ OS Execution Error: {}",
+                    completed, total_sites, site
+                );
+                fail_count.fetch_add(1, Ordering::SeqCst);
             }
         }
     }))

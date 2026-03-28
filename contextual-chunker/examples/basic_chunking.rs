@@ -1,6 +1,6 @@
 //! Basic example of using contextual-chunker
 //!
-//! Run with: cargo run --example basic_chunking
+//! Run with: cargo run --example `basic_chunking`
 
 use contextual_chunker::{chunk, chunk_all, ChunkLevel, Document};
 
@@ -11,7 +11,7 @@ fn main() -> anyhow::Result<()> {
     let doc = Document::new(
         "tutorial".to_string(),
         "Getting Started Tutorial".to_string(),
-        r#"
+        r"
 ## Installation
 
 To get started, you need to install the required software:
@@ -39,7 +39,7 @@ cargo test
 ```
 
 If all tests pass, you're ready to go!
-"#
+"
         .to_string(),
     );
 

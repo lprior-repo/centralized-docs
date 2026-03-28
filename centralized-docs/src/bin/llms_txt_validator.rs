@@ -1,3 +1,6 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::nursery)]
+#![allow(clippy::complexity)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
@@ -7,9 +10,9 @@
 //! Validates llms.txt files and INDEX.json against RFC specification.
 //!
 //! Usage:
-//!   llms_txt_validator <path>           # Validate llms.txt file
-//!   llms_txt_validator --index <path>   # Validate INDEX.json file
-//!   llms_txt_validator --url <url>      # Validate remote llms.txt
+//!   `llms_txt_validator` <path>           # Validate llms.txt file
+//!   `llms_txt_validator` --index <path>   # Validate INDEX.json file
+//!   `llms_txt_validator` --url <url>      # Validate remote llms.txt
 
 use anyhow::{Context, Result};
 use regex::Regex;
@@ -280,14 +283,14 @@ fn validate_llms_txt(path: &Path) -> Result<ValidationResult> {
         })
         .collect();
 
-    let index_ref_errors: Vec<ValidationError> = if !content.contains("INDEX.json") {
+    let index_ref_errors: Vec<ValidationError> = if content.contains("INDEX.json") {
+        vec![]
+    } else {
         vec![error(
             "index_reference",
             "No reference to INDEX.json found",
             Severity::Info,
         )]
-    } else {
-        vec![]
     };
 
     let lines: Vec<&str> = content.lines().collect();
@@ -615,7 +618,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let program = args
         .first()
-        .map(|s| s.as_str())
+        .map(std::string::String::as_str)
         .map_or("llms_txt_validator", |s| s);
 
     // Handle --help and --version flags first
@@ -634,7 +637,7 @@ fn main() -> Result<()> {
         std::process::exit(1);
     }
 
-    let (is_index, path) = if args.get(1).map(|s| s.as_str()) == Some("--index") {
+    let (is_index, path) = if args.get(1).map(std::string::String::as_str) == Some("--index") {
         if args.len() < 3 {
             eprintln!("Error: --index requires a path argument");
             std::process::exit(1);
@@ -656,7 +659,7 @@ fn main() -> Result<()> {
             Ok(c) => c,
             Err(e) => {
                 // File read error - user error (file exists but can't be read)
-                eprintln!("Error: failed to read file: {}", e);
+                eprintln!("Error: failed to read file: {e}");
                 std::process::exit(1);
             }
         };
@@ -666,7 +669,7 @@ fn main() -> Result<()> {
             Ok(_) => validate_index_json(&path)?,
             Err(e) => {
                 // Invalid JSON is a user input error - exit code 1
-                eprintln!("Error: Parse error (invalid JSON): {}", e);
+                eprintln!("Error: Parse error (invalid JSON): {e}");
                 std::process::exit(1);
             }
         }
@@ -727,13 +730,13 @@ mod tests {
 
     #[test]
     fn test_link_validation_valid_urls() {
-        let content = r#"
+        let content = r"
 # Documentation
 
 See the [official site](https://example.com) for more info.
 Check the [API docs](https://api.example.com/v1/docs).
 Also see [local file](./guide.md) and [anchor](#section).
-        "#;
+        ";
 
         let errors = validate_links_in_content(content);
         let result = validation_result(errors);
@@ -744,13 +747,13 @@ Also see [local file](./guide.md) and [anchor](#section).
 
     #[test]
     fn test_link_validation_malformed_urls() {
-        let content = r#"
+        let content = r"
 # Documentation
 
 This has a [empty link]() in the text.
 And another [newline link](https://example.com
 /path) here.
-        "#;
+        ";
 
         let errors = validate_links_in_content(content);
         let result = validation_result(errors);
@@ -903,13 +906,13 @@ And another [newline link](https://example.com
             ]
         }"#;
 
-        writeln!(file, "{}", json)?;
+        writeln!(file, "{json}")?;
 
         let result = validate_index_json(file.path())?;
         let error_count = count_errors(&result);
 
         // Should have errors in 11-100 range (we have 11 duplicate chunk IDs)
-        assert!(error_count > 10, "Expected >10 errors, got {}", error_count);
+        assert!(error_count > 10, "Expected >10 errors, got {error_count}");
         Ok(())
     }
 

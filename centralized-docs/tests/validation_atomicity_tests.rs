@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Tests for atomic validation behavior
 //!
 //! Verifies that validation runs BEFORE artifact writing,

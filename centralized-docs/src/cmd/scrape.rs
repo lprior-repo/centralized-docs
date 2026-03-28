@@ -6,7 +6,7 @@ use crate::scrape;
 use anyhow::Result;
 use std::path::Path;
 
-/// Validate query length to prevent DoS attacks and resource exhaustion
+/// Validate query length to prevent `DoS` attacks and resource exhaustion
 ///
 /// Constraints:
 /// - Maximum 1000 bytes (prevents regex compilation timeouts)
@@ -217,26 +217,24 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
             println!("SCRAPE FAILED");
             println!("{}", "=".repeat(70));
             println!(
-                "Failed to reach '{}'. The domain may not exist or DNS resolution failed.",
-                url
+                "Failed to reach '{url}'. The domain may not exist or DNS resolution failed."
             );
             println!("Please verify:");
             println!("  - The URL is correct and accessible in a browser");
             println!("  - The domain exists and is spelled correctly");
             println!("{}\n", "=".repeat(70));
-            anyhow::bail!("Failed to reach '{}': DNS or connection error", url);
+            anyhow::bail!("Failed to reach '{url}': DNS or connection error");
         }
 
         if initial_result.total_urls == 5 {
             println!();
             println!("{}", "=".repeat(70));
-            println!("No pages extracted from '{}'.", url);
+            println!("No pages extracted from '{url}'.");
             println!("The site may be a JavaScript SPA (Single Page Application)");
             println!("Consider using --spa-mode or --browser for dynamic rendering");
             println!("{}\n", "=".repeat(70));
             anyhow::bail!(
-                "No pages extracted from '{}': site may require JavaScript rendering",
-                url
+                "No pages extracted from '{url}': site may require JavaScript rendering"
             );
         }
         // Partial success: some pages failed, but we got results
@@ -266,7 +264,7 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
     if let Some(ref warning) = spa_detection.warning_message {
         println!();
         println!("{}", "=".repeat(70));
-        println!("{}", warning);
+        println!("{warning}");
         println!("{}\n", "=".repeat(70));
     }
 

@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Integration tests for the watch/change-tracking module.
 //!
 //! Tests the full plan/apply workflow including serialization roundtrips,
@@ -1513,11 +1519,9 @@ fn plan_with_special_chars_in_title() {
         );
 
         // Also verify JSON serialization doesn't choke
-        let json = format_plan_json(&plan).expect(&format!(
-            "JSON serialize must not fail for title: {title:?}"
-        ));
+        let json = format_plan_json(&plan).unwrap_or_else(|_| panic!("JSON serialize must not fail for title: {title:?}"));
         let parsed: ChangePlan = serde_json::from_str(&json)
-            .expect(&format!("JSON parse must not fail for title: {title:?}"));
+            .unwrap_or_else(|_| panic!("JSON parse must not fail for title: {title:?}"));
         assert_eq!(parsed.changes[0].title, *title);
     }
 }

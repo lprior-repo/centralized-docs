@@ -5,8 +5,9 @@
 /// - Exit 2: Pipeline/internal errors (transform failures, corrupt data, network errors)
 ///
 /// This ensures consistent exit codes across all validation layers:
-/// - Parser-level validation (via clap value_parser) now exits with 1 (user error)
+/// - Parser-level validation (via clap `value_parser`) now exits with 1 (user error)
 /// - Runtime validation also exits with 1 for user input errors
+#[must_use] 
 pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
     let error_string = err.to_string();
     let error_string_lower = error_string.to_lowercase();

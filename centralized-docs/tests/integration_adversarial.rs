@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;

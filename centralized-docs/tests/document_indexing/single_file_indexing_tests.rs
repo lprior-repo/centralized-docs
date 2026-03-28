@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Comprehensive tests for single file indexing (P1 file-discovery-single-file)
 //!
 //! Test cases:

@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use doc_transformer::filter::{filter_markdown, FilterConfig};
 

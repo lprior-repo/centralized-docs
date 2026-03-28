@@ -126,7 +126,7 @@ pub fn validate_retry_count(s: &str) -> Result<u32, String> {
         ));
     }
 
-    if value > u8::MAX as i64 {
+    if value > i64::from(u8::MAX) {
         return Err(format!("retry must be at most {}, got {value}", u8::MAX));
     }
 
@@ -229,17 +229,17 @@ pub fn validate_delay(s: &str) -> Result<u64, String> {
         .map_err(|_| format!("delay value too large: {value}"))
 }
 
-/// CLI wrapper for validate_limit that returns String error for clap compatibility.
+/// CLI wrapper for `validate_limit` that returns String error for clap compatibility.
 pub fn validate_limit_cli(s: &str) -> Result<usize, String> {
     validate::validate_limit(s).map_err(|e| e.to_string())
 }
 
-/// Validate and compile regex pattern with ReDoS protection (BEAD-004).
+/// Validate and compile regex pattern with `ReDoS` protection (BEAD-004).
 ///
-/// Implements safety measures against ReDoS attacks:
+/// Implements safety measures against `ReDoS` attacks:
 /// - Maximum pattern length (500 characters)
-/// - Detection of known ReDoS patterns (nested quantifiers)
-/// - Compilation size limits via RegexBuilder
+/// - Detection of known `ReDoS` patterns (nested quantifiers)
+/// - Compilation size limits via `RegexBuilder`
 ///
 /// Returns Ok(()) if pattern is safe and compiles successfully.
 pub fn validate_filter_regex(pattern: &str) -> Result<(), String> {
@@ -247,8 +247,7 @@ pub fn validate_filter_regex(pattern: &str) -> Result<(), String> {
     let char_count = pattern.chars().count();
     if char_count > 500 {
         return Err(format!(
-            "Regex pattern too long: {} chars (max 500)",
-            char_count
+            "Regex pattern too long: {char_count} chars (max 500)"
         ));
     }
 

@@ -1,3 +1,9 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Core search behavior tests
 //!
 //! Tests actual user-facing search behavior:
@@ -6,7 +12,6 @@
 //! 3. Unicode search
 //! 4. Large limit handling
 
-#![allow(clippy::unwrap_used)]
 
 use std::path::Path;
 use tempfile::TempDir;

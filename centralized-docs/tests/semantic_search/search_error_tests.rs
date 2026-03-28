@@ -1,10 +1,15 @@
+#![allow(clippy::pedantic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
+
+
 //! Tests for special character query error handling (doc-tx-247)
 //!
 //! This module tests that Tantivy search fails gracefully with informative
 //! error messages when queries contain special characters that break Tantivy
 //! query syntax.
 
-#![allow(clippy::unwrap_used)]
 
 use std::io::Read;
 use std::path::Path;

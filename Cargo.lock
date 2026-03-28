@@ -328,7 +328,6 @@ name = "benchmark_server"
 version = "0.6.1"
 dependencies = [
  "axum",
- "lazy_static",
  "tokio",
  "tower 0.4.13",
  "tower-http 0.5.2",
