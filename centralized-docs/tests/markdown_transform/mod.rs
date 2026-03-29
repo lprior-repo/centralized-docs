@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Markdown Transform Tests
 //!
 //! Tests for the markdown transform capability:

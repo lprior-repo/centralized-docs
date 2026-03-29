@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! CLI Integration Tests for ctd
 //!
 //! This module tests the CLI interface by spawning the binary as a subprocess
@@ -16,7 +15,6 @@
 //! - **Temp directories**: All tests use tempfile for automatic cleanup
 //! - **Fast feedback**: Tests use minimal inputs to keep execution fast
 //! - **Deterministic**: No network calls in core tests (use local fixtures)
-
 
 use std::fs;
 use std::path::Path;

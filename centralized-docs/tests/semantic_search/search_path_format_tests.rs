@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Tests for search result path format consistency (doc-tx-ss7)
 //!
 //! This module tests that search results display paths that match the actual

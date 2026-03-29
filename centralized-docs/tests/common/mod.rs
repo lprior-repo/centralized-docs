@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Common test helpers for ctd integration tests
 //!
 //! This module provides reusable test utilities that all integration tests can use.

@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;

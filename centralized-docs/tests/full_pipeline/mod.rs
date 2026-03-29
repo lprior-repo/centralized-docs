@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Integration Tests
 //!
 //! Full pipeline integration tests covering:

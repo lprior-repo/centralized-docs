@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Path edge case tests
 //!
 //! Tests paths with spaces, permission errors, special characters, and unicode.

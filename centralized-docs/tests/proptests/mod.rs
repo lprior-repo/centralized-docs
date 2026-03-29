@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Property-based tests
 //!
 //! Tests using proptest for property-based testing:

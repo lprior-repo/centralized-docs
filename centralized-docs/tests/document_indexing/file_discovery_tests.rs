@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Tests for file-discovery bug (bead doc-tx-qc7)
 //!
 //! Bug: When files exist but fail during analysis (e.g., invalid UTF-8),

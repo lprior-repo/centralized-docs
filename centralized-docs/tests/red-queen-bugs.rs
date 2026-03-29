@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 use std::fs::{self, Permissions};
 use std::os::unix::fs::PermissionsExt;
 use std::process::Command;

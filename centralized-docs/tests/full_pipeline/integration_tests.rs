@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Integration tests for ctd core pipeline
 //!
 //! This module tests the complete end-to-end pipeline:

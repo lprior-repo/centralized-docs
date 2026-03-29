@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Core search behavior tests
 //!
 //! Tests actual user-facing search behavior:
@@ -11,7 +10,6 @@
 //! 2. Search with no results
 //! 3. Unicode search
 //! 4. Large limit handling
-
 
 use std::path::Path;
 use tempfile::TempDir;

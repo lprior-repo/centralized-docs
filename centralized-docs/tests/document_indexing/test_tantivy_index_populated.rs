@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Test to verify Tantivy index is properly populated
 
 use tempfile::TempDir;

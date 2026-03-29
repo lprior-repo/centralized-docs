@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Tests for atomic validation behavior
 //!
 //! Verifies that validation runs BEFORE artifact writing,

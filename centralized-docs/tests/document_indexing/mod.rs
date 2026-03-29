@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Document Indexing Tests
 //!
 //! Tests for the document indexing capability:

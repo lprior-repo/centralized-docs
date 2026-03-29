@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Adversarial QA tests for stealth mode and exponential backoff
 //!
 //! Tests ScrapeConfig construction and field correctness using the current API.

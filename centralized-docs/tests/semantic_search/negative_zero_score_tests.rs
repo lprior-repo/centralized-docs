@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Tests for negative zero score filtering (doc-tx-5dr)
 //!
 //! This module tests that search_index() never returns results with

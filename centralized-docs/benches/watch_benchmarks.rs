@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Performance benchmarks for the watch/change-plan pipeline.
 //!
 //! Covers: hashing, snapshot building, diffing, formatting, JSON serialization,

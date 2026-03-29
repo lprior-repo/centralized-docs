@@ -1,5 +1,7 @@
 //! Strongly-typed identifiers and domain types for the document transformer.
 
+pub mod symbols;
+
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::cmp::PartialOrd;

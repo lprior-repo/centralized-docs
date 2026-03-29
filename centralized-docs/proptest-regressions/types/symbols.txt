@@ -1,0 +1,17 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc da799194ee423978582f6a7acb2dc71d1f37cd1d9d20b86851c00f8d0383e74b # shrinks to a = 0, flag = 1
+cc e66e8393951b1e20d46926a664ed2dd94b635510c7ef23d424fe8063869415a2 # shrinks to bits = 0
+cc 374ef9122b56f9d287a39c2a4ea6721f3ce75cc1064e5f32ad86bbd7199842eb # shrinks to a = 0
+cc d0b2d6ca5871d745b3840aeb7df74cd0278bef47e41c7692e7f7e82cc0645023 # shrinks to a = 0
+cc f5d24c7d16417ebf2639fe0273c1d2114705b56d025ff389cb02ffe0a2196614 # shrinks to a = 0, b = 0
+cc a45a3ff369c87d5cc9f349b49769c44234504bd820cc0126c3c26d3eda0139f9 # shrinks to bits = 0
+cc c9a3a14d023717a994273c18963314929150b89e5866052918e3a6e628b890c9 # shrinks to a = 0, b = 0
+cc d1b164fb9bfdaab1027556d022108c47989f9320ab8fe0a066671ea84ef198e0 # shrinks to scheme = "a", module_path = "a", descriptor = "a", display_name = "A"
+cc 7c23ae5c0483feb73b9a9715ddbb1a1dbb67c3e9818e3d7b666b5e46d0985e33 # shrinks to scheme = "a", module_path = "_", descriptor = "a"
+cc c6ae5ecf74698bb301e37c7f3b85a0ca176d9040166c7d0d9bb5b78d4d0179bd # shrinks to scheme = "a", module_path = "a", descriptor = "A"
+cc af54e81e6f791c55737f033abae66e8ce7bb3e8aedbad4a561ce2f495aecfbf2 # shrinks to scheme = "a", module_path = "A", descriptor = "A"

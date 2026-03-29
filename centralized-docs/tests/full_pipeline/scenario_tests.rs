@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Behavior-Focused Scenario Tests
 //!
 //! These tests tell stories about USER BEHAVIOR, not implementation details.

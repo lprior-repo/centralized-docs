@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 use doc_transformer::index;
 use std::fs;
 use std::io::Write;

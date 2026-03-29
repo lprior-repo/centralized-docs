@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! End-to-End Tests using Playwright
 //!
 //! This module tests the CLI through a real browser using Playwright.

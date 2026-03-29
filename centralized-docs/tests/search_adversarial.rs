@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 use doc_transformer::search;
 use tempfile::TempDir;
 

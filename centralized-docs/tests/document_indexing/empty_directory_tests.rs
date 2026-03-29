@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Comprehensive tests for empty directory handling
 //!
 //! BEAD: file-discovery-no-markdown (P2)

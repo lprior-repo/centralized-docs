@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Semantic Search Tests
 //!
 //! Tests for the semantic search capability:

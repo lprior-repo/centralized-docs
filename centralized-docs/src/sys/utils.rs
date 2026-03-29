@@ -1,4 +1,4 @@
-#[must_use] 
+#[must_use]
 pub fn extract_last_path_segment(url_str: &str) -> Option<String> {
     url::Url::parse(url_str).ok().and_then(|u| {
         u.path_segments()

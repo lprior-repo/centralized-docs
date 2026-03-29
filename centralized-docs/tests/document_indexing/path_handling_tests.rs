@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;

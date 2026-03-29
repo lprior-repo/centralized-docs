@@ -3,14 +3,12 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Tests for limit validation (P2 search-limit-zero + P1 negative limit)
 //!
 //! Tests that:
 //! - limit = 0 is rejected (prevents tantivy panic)
 //! - limit < 0 is rejected (negative values)
 //! - Valid limits work correctly
-
 
 use tempfile::TempDir;
 

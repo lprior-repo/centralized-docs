@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Tests for INDEX.json schema compliance
 //!
 //! These tests verify that INDEX.json conforms to validator schema:

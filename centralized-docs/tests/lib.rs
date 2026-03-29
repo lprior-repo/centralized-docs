@@ -3,7 +3,6 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-
 //! Integration test suite for ctd
 //!
 //! This is the root of the integration test module tree. Tests are organized
