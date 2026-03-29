@@ -36,6 +36,8 @@ use reqwest::{
 use serde::Deserialize;
 use thiserror::Error;
 
+#[cfg(feature = "localembed")]
+use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -567,6 +569,105 @@ struct CohereUsage {
 #[must_use]
 pub fn embeddings_to_vectors(embeddings: &[Embedding]) -> Vec<Vec<f32>> {
     embeddings.iter().map(|e| e.vector.clone()).collect()
+}
+
+/// Local text embedding provider using FastEmbed.
+/// Runs embedding models (like BGE-small) completely locally.
+#[cfg(feature = "localembed")]
+pub struct LocalFastEmbedProvider {
+    model_name: String,
+    model: std::sync::Arc<tokio::sync::Mutex<TextEmbedding>>,
+    dim: usize,
+}
+
+#[cfg(feature = "localembed")]
+impl std::fmt::Debug for LocalFastEmbedProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LocalFastEmbedProvider")
+            .field("model_name", &self.model_name)
+            .field("dim", &self.dim)
+            .finish()
+    }
+}
+
+#[cfg(feature = "localembed")]
+impl Clone for LocalFastEmbedProvider {
+    fn clone(&self) -> Self {
+        Self {
+            model_name: self.model_name.clone(),
+            model: std::sync::Arc::clone(&self.model),
+            dim: self.dim,
+        }
+    }
+}
+
+#[cfg(feature = "localembed")]
+impl LocalFastEmbedProvider {
+    pub fn new() -> Result<Self, EmbeddingProviderError> {
+        // FastEmbed handles downloading and caching the model
+        let model = TextEmbedding::try_new(
+            InitOptions::new(EmbeddingModel::BGESmallENV15).with_show_download_progress(false),
+        )
+        .map_err(|e| EmbeddingProviderError::ApiError {
+            message: format!("Failed to initialize FastEmbed: {e}"),
+            status_code: None,
+        })?;
+
+        Ok(Self {
+            model_name: "bge-small-en-v1.5".to_string(),
+            model: std::sync::Arc::new(tokio::sync::Mutex::new(model)),
+            dim: 384, // BGE-small has 384 dimensions
+        })
+    }
+}
+
+#[cfg(feature = "localembed")]
+#[async_trait]
+impl EmbeddingProvider for LocalFastEmbedProvider {
+    fn name(&self) -> &'static str {
+        "local_fastembed"
+    }
+
+    fn model(&self) -> &str {
+        &self.model_name
+    }
+
+    fn dimension(&self) -> usize {
+        self.dim
+    }
+
+    async fn embed_texts(&self, texts: &[&str]) -> Result<Vec<Embedding>, EmbeddingProviderError> {
+        if texts.is_empty() {
+            return Err(EmbeddingProviderError::EmptyInput);
+        }
+
+        let mut model_guard = self.model.lock().await;
+
+        let texts_vec: Vec<String> = texts.iter().map(|&s| s.to_string()).collect();
+        let fastembed_result =
+            model_guard
+                .embed(texts_vec, None)
+                .map_err(|e| EmbeddingProviderError::ApiError {
+                    message: format!("FastEmbed inference failed: {e}"),
+                    status_code: None,
+                })?;
+
+        let mut embeddings = Vec::with_capacity(fastembed_result.len());
+        for (i, vec) in fastembed_result.into_iter().enumerate() {
+            embeddings.push(Embedding {
+                vector: vec,
+                text: Some(texts[i].to_string()),
+                model: self.model_name.clone(),
+            });
+        }
+
+        Ok(embeddings)
+    }
+
+    fn estimate_tokens(&self, text: &str) -> usize {
+        // Rough estimate for local model
+        text.len() / 4
+    }
 }
 
 #[cfg(test)]

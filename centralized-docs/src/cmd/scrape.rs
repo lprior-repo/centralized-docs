@@ -216,9 +216,7 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
             println!("{}", "=".repeat(70));
             println!("SCRAPE FAILED");
             println!("{}", "=".repeat(70));
-            println!(
-                "Failed to reach '{url}'. The domain may not exist or DNS resolution failed."
-            );
+            println!("Failed to reach '{url}'. The domain may not exist or DNS resolution failed.");
             println!("Please verify:");
             println!("  - The URL is correct and accessible in a browser");
             println!("  - The domain exists and is spelled correctly");
@@ -233,9 +231,7 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
             println!("The site may be a JavaScript SPA (Single Page Application)");
             println!("Consider using --spa-mode or --browser for dynamic rendering");
             println!("{}\n", "=".repeat(70));
-            anyhow::bail!(
-                "No pages extracted from '{url}': site may require JavaScript rendering"
-            );
+            anyhow::bail!("No pages extracted from '{url}': site may require JavaScript rendering");
         }
         // Partial success: some pages failed, but we got results
         println!();

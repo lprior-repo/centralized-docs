@@ -90,8 +90,20 @@ xxhash-rust = { version = "0.8", features = ["xxh3"] }
 # Lock-free concurrent map for in-flight deduplication
 dashmap = "6"
 
+[dependencies.rmcp]
+version = "1.3"
+optional = true
+
+[dependencies.rmcp-macros]
+version = "1.3"
+optional = true
+
+[dependencies.schemars]
+version = "0.8"
+
 [dev-dependencies]
 tempfile = "3.8"
+rstest = "0.24"
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.4"
 tiny_http = "0.12"
@@ -147,6 +159,8 @@ harness = false
 # ===========================================================================
 
 [features]
+localembed = []
+
 # Tier 1: Core - always enabled (default)
 default = ["sitemap", "sync"]
 sitemap = ["spider/sitemap"]

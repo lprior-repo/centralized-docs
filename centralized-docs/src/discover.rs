@@ -726,8 +726,10 @@ mod tests {
         assert_eq!(manifest.total_files, 1, "Manifest should show 1 file");
 
         // The discovered file should be the single file itself
-        let expected_name = single_file
-            .file_name().map_or_else(|| "unknown".to_string(), |n| n.to_string_lossy().to_string());
+        let expected_name = single_file.file_name().map_or_else(
+            || "unknown".to_string(),
+            |n| n.to_string_lossy().to_string(),
+        );
         assert_eq!(files[0].source_path, expected_name);
     }
 

@@ -139,6 +139,7 @@ pub mod highlight;
 pub mod index;
 pub mod llms;
 pub mod math_types;
+pub mod mcp;
 pub mod scrape;
 pub mod search;
 pub mod transform;

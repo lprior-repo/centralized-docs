@@ -107,8 +107,10 @@ pub async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Resu
         || {
             url::Url::parse(url)
                 .map(|u| {
-                    u.host_str()
-                        .map_or_else(|| "Documentation".to_string(), std::string::ToString::to_string)
+                    u.host_str().map_or_else(
+                        || "Documentation".to_string(),
+                        std::string::ToString::to_string,
+                    )
                 })
                 .map_or_else(|_| "Documentation".to_string(), |s| s)
         },
