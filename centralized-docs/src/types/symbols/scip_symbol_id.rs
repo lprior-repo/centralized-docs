@@ -59,7 +59,7 @@ impl ScipSymbolId {
             return Err(ScipSymbolIdError::HashInModulePath);
         }
         if let Some(pos) = path.find("//") {
-            return Err(ScipSymbolIdError::EmptyModuleSegment(pos + 1));
+            return Err(ScipSymbolIdError::EmptyModuleSegment(pos.saturating_add(1)));
         }
         Ok(())
     }
@@ -100,7 +100,7 @@ impl ScipSymbolId {
             None => return Err(ScipSymbolIdError::InvalidFormat(s.to_string())),
         };
 
-        if s[hash_pos + 1..].contains('#') {
+        if s[hash_pos.saturating_add(1)..].contains('#') {
             return Err(ScipSymbolIdError::InvalidFormat(s.to_string()));
         }
 
@@ -111,8 +111,8 @@ impl ScipSymbolId {
         };
 
         let scheme = &pre_hash[..slash_pos];
-        let module_path = &pre_hash[slash_pos + 1..];
-        let descriptor = &s[hash_pos + 1..];
+        let module_path = &pre_hash[slash_pos.saturating_add(1)..];
+        let descriptor = &s[hash_pos.saturating_add(1)..];
 
         if scheme.is_empty() {
             return Err(ScipSymbolIdError::InvalidFormat(s.to_string()));
@@ -149,7 +149,7 @@ impl ScipSymbolId {
             .next()
             .and_then(|pre_hash| {
                 let slash_pos = pre_hash.find('/')?;
-                Some(&pre_hash[slash_pos + 1..])
+                Some(&pre_hash[slash_pos.saturating_add(1)..])
             })
             .unwrap_or("")
     }
@@ -203,6 +203,7 @@ impl<'de> Deserialize<'de> for ScipSymbolId {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
     use proptest::prelude::*;
 
@@ -393,10 +394,7 @@ mod tests {
     #[test]
     fn scip_symbol_id_parse_returns_invalid_format_error_when_input_is_empty() {
         let result = ScipSymbolId::parse("");
-        assert_eq!(
-            result,
-            Err(ScipSymbolIdError::InvalidFormat("".to_string()))
-        );
+        assert_eq!(result, Err(ScipSymbolIdError::InvalidFormat(String::new())));
     }
 
     #[test]

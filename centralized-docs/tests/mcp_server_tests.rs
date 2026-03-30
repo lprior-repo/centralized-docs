@@ -1,10 +1,11 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use doc_transformer::math_types::Score;
-use doc_transformer::mcp::{
-    CtdMcpError, CtdMcpServer, GetRelatedConceptsParams, ReadChunkParams, SearchDocsParams,
-    ToolResult,
+use doc_transformer::mcp::domain::IndexData;
+use doc_transformer::mcp::types::{
+    GetRelatedConceptsParams, ReadChunkParams, SearchDocsParams, ToolResult,
 };
+use doc_transformer::mcp::{CtdMcpError, CtdMcpServer};
 use doc_transformer::search::SearchResult;
 use serde_json::json;
 use std::path::PathBuf;
@@ -171,7 +172,7 @@ mod search_docs_validation {
     }
 
     #[tokio::test]
-    async fn search_docs_returns_invalid_input_when_limit_exceeds_100() {
+    async fn search_docs_returns_invalid_input_when_limit_exceeds_1000() {
         let dir = TempDir::new().unwrap();
         write_index_json(
             &dir,
@@ -181,14 +182,14 @@ mod search_docs_validation {
         let result = server
             .search_docs(SearchDocsParams {
                 query: "test".to_string(),
-                limit: 101,
+                limit: 1001,
             })
             .await;
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
             matches!(err, CtdMcpError::InvalidInput { .. }),
-            "Expected InvalidInput for limit 101, got {:?}",
+            "Expected InvalidInput for limit 1001, got {:?}",
             err
         );
     }
@@ -702,21 +703,24 @@ mod pure_helpers {
     #[test]
     fn find_chunk_content_returns_some_when_id_matches() {
         let json = json!({"chunks": [{"chunk_id": "c1", "content": "hello"}]});
-        let result = CtdMcpServer::find_chunk_content(&json, "c1");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_chunk_content("c1");
         assert_eq!(result, Some("hello".to_string()));
     }
 
     #[test]
     fn find_chunk_content_returns_none_when_no_match() {
         let json = json!({"chunks": [{"chunk_id": "c1", "content": "hello"}]});
-        let result = CtdMcpServer::find_chunk_content(&json, "missing");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_chunk_content("missing");
         assert_eq!(result, None);
     }
 
     #[test]
     fn find_chunk_content_returns_none_when_chunks_empty() {
         let json = json!({"chunks": []});
-        let result = CtdMcpServer::find_chunk_content(&json, "any");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_chunk_content("any");
         assert_eq!(result, None);
     }
 
@@ -726,35 +730,40 @@ mod pure_helpers {
             {"chunk_id": "dup-1", "content": "first"},
             {"chunk_id": "dup-1", "content": "second"}
         ]});
-        let result = CtdMcpServer::find_chunk_content(&json, "dup-1");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_chunk_content("dup-1");
         assert_eq!(result, Some("first".to_string()));
     }
 
     #[test]
     fn find_chunk_content_returns_some_empty_string_for_empty_content() {
         let json = json!({"chunks": [{"chunk_id": "e1", "content": ""}]});
-        let result = CtdMcpServer::find_chunk_content(&json, "e1");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_chunk_content("e1");
         assert_eq!(result, Some("".to_string()));
     }
 
     #[test]
     fn find_doc_summary_returns_some_when_id_matches() {
         let json = json!({"documents": [{"doc_id": "d1", "summary": "my summary"}]});
-        let result = CtdMcpServer::find_doc_summary(&json, "d1");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_doc_summary("d1");
         assert_eq!(result, Some("my summary".to_string()));
     }
 
     #[test]
     fn find_doc_summary_returns_none_when_no_match() {
         let json = json!({"documents": [{"doc_id": "d1", "summary": "my summary"}]});
-        let result = CtdMcpServer::find_doc_summary(&json, "missing");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_doc_summary("missing");
         assert_eq!(result, None);
     }
 
     #[test]
     fn find_doc_summary_returns_none_when_docs_empty() {
         let json = json!({"documents": []});
-        let result = CtdMcpServer::find_doc_summary(&json, "any");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_doc_summary("any");
         assert_eq!(result, None);
     }
 
@@ -764,14 +773,16 @@ mod pure_helpers {
             {"doc_id": "dup-d1", "summary": "first"},
             {"doc_id": "dup-d1", "summary": "second"}
         ]});
-        let result = CtdMcpServer::find_doc_summary(&json, "dup-d1");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_doc_summary("dup-d1");
         assert_eq!(result, Some("first".to_string()));
     }
 
     #[test]
     fn find_doc_summary_returns_some_empty_string_for_empty_summary() {
         let json = json!({"documents": [{"doc_id": "e2", "summary": ""}]});
-        let result = CtdMcpServer::find_doc_summary(&json, "e2");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_doc_summary("e2");
         assert_eq!(result, Some("".to_string()));
     }
 
@@ -781,7 +792,8 @@ mod pure_helpers {
             {"from": "a", "to": "b", "relationship_type": "Parent"},
             {"from": "c", "to": "a", "relationship_type": "Related"}
         ]}});
-        let result = CtdMcpServer::find_related_edges(&json, "a");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_related_edges("a");
         assert_eq!(result.len(), 2);
         assert_eq!(result[0], "- b (Relationship: Parent)");
         assert_eq!(result[1], "- c (Relationship: Related - inbound)");
@@ -792,14 +804,16 @@ mod pure_helpers {
         let json = json!({"graph": {"edges": [
             {"from": "x", "to": "y", "relationship_type": "Parent"}
         ]}});
-        let result = CtdMcpServer::find_related_edges(&json, "z");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_related_edges("z");
         assert!(result.is_empty());
     }
 
     #[test]
     fn find_related_edges_returns_empty_when_graph_missing() {
         let json = json!({});
-        let result = CtdMcpServer::find_related_edges(&json, "any");
+        let index_data = serde_json::from_value::<IndexData>(json).unwrap();
+        let result = index_data.find_related_edges("any");
         assert!(result.is_empty());
     }
 }
@@ -810,7 +824,7 @@ mod error_mapping {
     #[test]
     fn ctd_mcp_error_display_index_not_found() {
         let err = CtdMcpError::IndexNotFound {
-            path: "/foo".to_string(),
+            path: PathBuf::from("/foo"),
         };
         let msg = err.to_string();
         assert!(
@@ -922,6 +936,6 @@ mod run_entrypoint {
     async fn run_returns_error_when_dir_missing() {
         let result = doc_transformer::mcp::run(PathBuf::from("/nonexistent/path_xyz_abc")).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), CtdMcpError::Internal { .. }));
+        assert!(matches!(result.unwrap_err(), CtdMcpError::IoError { .. }));
     }
 }

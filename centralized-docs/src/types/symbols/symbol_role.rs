@@ -131,6 +131,7 @@ impl<'de> Deserialize<'de> for SymbolRole {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
     use proptest::prelude::*;
 
@@ -188,11 +189,14 @@ mod tests {
 
     #[test]
     fn symbol_role_from_bits_accepts_each_valid_single_flag_when_given_power_of_two() {
-        assert_eq!(SymbolRole::from_bits(1).map(|r| r.bits()), Ok(1));
-        assert_eq!(SymbolRole::from_bits(2).map(|r| r.bits()), Ok(2));
-        assert_eq!(SymbolRole::from_bits(4).map(|r| r.bits()), Ok(4));
-        assert_eq!(SymbolRole::from_bits(8).map(|r| r.bits()), Ok(8));
-        assert_eq!(SymbolRole::from_bits(16).map(|r| r.bits()), Ok(16));
+        assert_eq!(SymbolRole::from_bits(1).map(super::SymbolRole::bits), Ok(1));
+        assert_eq!(SymbolRole::from_bits(2).map(super::SymbolRole::bits), Ok(2));
+        assert_eq!(SymbolRole::from_bits(4).map(super::SymbolRole::bits), Ok(4));
+        assert_eq!(SymbolRole::from_bits(8).map(super::SymbolRole::bits), Ok(8));
+        assert_eq!(
+            SymbolRole::from_bits(16).map(super::SymbolRole::bits),
+            Ok(16)
+        );
     }
 
     #[test]

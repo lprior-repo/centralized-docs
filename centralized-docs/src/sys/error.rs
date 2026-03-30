@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_map_error_to_exit_code_user_input_missing() {
-        let err = anyhow::anyhow!("source directory not found");
+        let err = anyhow::anyhow!("no such file or directory");
         assert_eq!(map_error_to_exit_code(&err), 1);
     }
 

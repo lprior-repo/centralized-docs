@@ -1,0 +1,28 @@
+[package]
+name = "centralized-docs-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.centralized-docs]
+path = ".."
+
+[[bin]]
+name = "fuzz_target_1"
+path = "fuzz_targets/fuzz_target_1.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mcp_stdio_transport"
+path = "fuzz_targets/mcp_stdio_transport.rs"
+test = false
+doc = false
+bench = false
