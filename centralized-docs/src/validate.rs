@@ -225,8 +225,8 @@ fn check_see_also_section(content: &str) -> Option<String> {
 ///
 /// **Postconditions:**
 /// - Queries < 1 char (trimmed) rejected with `EmptyQuery`
-/// - Queries > 1000 bytes rejected with `QueryTooLong`
-/// - Valid queries (1-1000 bytes) return Ok with trimmed query
+/// - Queries > 1024 bytes rejected with `QueryTooLong`
+/// - Valid queries (1-1024 bytes) return Ok with trimmed query
 ///
 /// **Invariants:**
 /// - No expensive operations on invalid input
@@ -237,7 +237,7 @@ fn check_see_also_section(content: &str) -> Option<String> {
 ///
 /// Returns `ValidationError` for invalid queries:
 /// - `EmptyQuery`: Query is empty or whitespace-only after trimming
-/// - `QueryTooLong`: Query exceeds 1000 byte limit
+/// - `QueryTooLong`: Query exceeds 1024 byte limit
 ///
 /// ## Example
 ///
@@ -251,12 +251,12 @@ fn check_see_also_section(content: &str) -> Option<String> {
 /// assert!(matches!(validate_query(""), Err(ValidationError::EmptyQuery)));
 /// assert!(matches!(validate_query("   "), Err(ValidationError::EmptyQuery)));
 ///
-/// // Too long query
-/// let long = "a".repeat(1001);
+/// // Too long query (limit is 1024 bytes)
+/// let long = "a".repeat(1025);
 /// assert!(matches!(validate_query(&long), Err(ValidationError::QueryTooLong{..})));
 /// ```
 pub fn validate_query(query: &str) -> Result<&str, ValidationError> {
-    const MAX_QUERY_LENGTH: usize = 1000;
+    const MAX_QUERY_LENGTH: usize = 1024;
 
     // Check for null bytes before trimming - these should be rejected
     // as they may cause unexpected behavior in search backends
@@ -458,21 +458,21 @@ mod tests {
 
     #[test]
     fn test_validate_query_at_limit() {
-        let query = "a".repeat(1000);
+        let query = "a".repeat(1024);
         let result = validate_query(&query);
         assert!(result.is_ok());
-        assert_eq!(result.map(str::len), Ok(1000));
+        assert_eq!(result.map(str::len), Ok(1024));
     }
 
     #[test]
     fn test_validate_query_exceeds_limit() {
-        let query = "a".repeat(1001);
+        let query = "a".repeat(1025);
         let result = validate_query(&query);
         assert!(matches!(
             result,
             Err(ValidationError::QueryTooLong {
-                length: 1001,
-                max: 1000
+                length: 1025,
+                max: 1024
             })
         ));
     }
@@ -485,7 +485,7 @@ mod tests {
             result,
             Err(ValidationError::QueryTooLong {
                 length: 5000,
-                max: 1000
+                max: 1024
             })
         ));
     }
@@ -497,23 +497,23 @@ mod tests {
 
     #[test]
     fn test_validate_query_unicode_at_limit() {
-        // Euro sign "€" is 3 bytes, so 333 reps = 999 bytes + "a" = 1000 bytes
-        let query = format!("{}a", "€".repeat(333));
-        assert_eq!(query.len(), 1000);
+        // Euro sign "€" is 3 bytes, so 341 reps = 1023 bytes + "a" = 1024 bytes
+        let query = format!("{}a", "€".repeat(341));
+        assert_eq!(query.len(), 1024);
         assert!(validate_query(&query).is_ok());
     }
 
     #[test]
     fn test_validate_query_unicode_exceeds_limit() {
-        // Euro sign "€" is 3 bytes, 334 reps = 1002 bytes
-        let query = "€".repeat(334);
-        assert_eq!(query.len(), 1002);
+        // Euro sign "€" is 3 bytes, 342 reps = 1026 bytes
+        let query = "€".repeat(342);
+        assert_eq!(query.len(), 1026);
         let result = validate_query(&query);
         assert!(matches!(
             result,
             Err(ValidationError::QueryTooLong {
-                length: 1002,
-                max: 1000
+                length: 1026,
+                max: 1024
             })
         ));
     }
@@ -537,14 +537,14 @@ mod tests {
 
     #[test]
     fn test_validate_query_error_message_too_long() {
-        let query = "a".repeat(1001);
+        let query = "a".repeat(1025);
         let result = validate_query(&query);
         assert!(result.is_err());
         // Convert error to string for message validation
         let err_msg = result.as_ref().map_err(ToString::to_string);
         if let Err(msg) = err_msg {
-            assert!(msg.contains("1001"));
-            assert!(msg.contains("1000"));
+            assert!(msg.contains("1025"));
+            assert!(msg.contains("1024"));
             assert!(msg.contains("too long"));
         }
     }
