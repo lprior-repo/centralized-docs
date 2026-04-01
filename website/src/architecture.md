@@ -31,3 +31,51 @@ When an AI agent needs to know "how to configure caching", it doesn't need to re
 The final output is tied together with an `llms.txt` file at the root of the indexed output. 
 
 Think of `llms.txt` as a `robots.txt` for AI. It gives the agent a top-level summary of the project and provides direct, curated links to the most important sections, the index, and the DAG. Instead of hallucinating paths or guessing where to start, the agent reads the `llms.txt` and knows exactly how to interact with the library's documentation.
+
+## 6. MCP Server
+
+The MCP server provides AI-native access to indexed documentation via the [Model Context Protocol](https://modelcontextprotocol.io).
+
+### How It Works
+
+1. **Initialization**: Server loads `INDEX.json` and initializes BM25 search index
+2. **Tool Registration**: Exposes three tools (`search_docs`, `read_chunk`, `get_related_concepts`)
+3. **Transport**: Uses stdio transport for local AI communication
+4. **AI Interaction**: AI calls tools directly during conversation, receiving structured results
+
+### Tool Schemas (JSON)
+
+```json
+{
+  "search_docs": {
+    "description": "Search indexed documentation using BM25",
+    "parameters": {
+      "query": "string (required)",
+      "limit": "integer (optional, default: 10, range: 1-1000)"
+    }
+  },
+  "read_chunk": {
+    "description": "Read a specific chunk by ID",
+    "parameters": {
+      "id": "string (required, max 256 bytes)"
+    }
+  },
+  "get_related_concepts": {
+    "description": "Get related concepts from the knowledge graph",
+    "parameters": {
+      "id": "string (required)"
+    }
+  }
+}
+```
+
+### Design Decisions
+
+| Decision | Rationale |
+|----------|----------|
+| **stdio transport** | No network exposure, simple lifecycle management |
+| **Stateless** | Always reads current index; no corruption on crash |
+| **Validated inputs** | Parse, don't validate; fail fast on bad input |
+| **Single INDEX.json** | Single source of truth for consistency |
+
+The MCP server complements the CLI by providing programmatic, stateful access during AI conversations.

@@ -41,7 +41,7 @@ pub mod sys;
 
 use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches};
-use cli::{Cli, Commands};
+use cli::{Cli, Commands, McpCommand};
 use std::process;
 
 #[tokio::main]
@@ -112,6 +112,9 @@ async fn main() -> Result<()> {
                 ctx,
             )
         }
+        Commands::Mcp { command } => match command {
+            McpCommand::Serve { index_dir } => (cmd::mcp::run_mcp_serve(&index_dir).await, None),
+        },
         Commands::Scrape {
             url,
             output,

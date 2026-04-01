@@ -9,7 +9,7 @@ TMP_DIR="$(mktemp -d)"
 
 cleanup() {
 	rm -f "$TMP_ARCHIVE"
-	rm -f "$TMP_DIR/ctd" "$TMP_DIR/llms_txt_validator" "$TMP_DIR/README.md" "$TMP_DIR/LICENSE"
+	rm -f "$TMP_DIR/ctd" "$TMP_DIR/ctd-mcp" "$TMP_DIR/llms_txt_validator" "$TMP_DIR/README.md" "$TMP_DIR/LICENSE"
 	rmdir "$TMP_DIR" 2>/dev/null || true
 }
 
@@ -131,6 +131,10 @@ verify_checksum "$ASSET_NAME" "$RESOLVED_VERSION"
 tar -xzf "$TMP_ARCHIVE" -C "$TMP_DIR"
 
 install_binary "$TMP_DIR/ctd" "$INSTALL_DIR/ctd"
+
+if [ -f "$TMP_DIR/ctd-mcp" ]; then
+	install_binary "$TMP_DIR/ctd-mcp" "$INSTALL_DIR/ctd-mcp"
+fi
 
 if [ -f "$TMP_DIR/llms_txt_validator" ]; then
 	install_binary "$TMP_DIR/llms_txt_validator" "$INSTALL_DIR/llms_txt_validator"

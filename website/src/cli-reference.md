@@ -72,6 +72,12 @@ Scrape and index in one step.
 - Available ingest-only/index bridge flag: `--project-name`.
 - `ingest` does **not** expose the full `index` flag surface.
 
+#### `mcp serve`
+Start the MCP server for AI agent integration using the Model Context Protocol.
+- `INDEX_DIR`: Directory containing `INDEX.json` (required)
+
+The server uses stdio transport, allowing AI clients like Claude Desktop or Claude Code to connect directly. See [MCP Server](mcp-server.md) for full documentation.
+
 ## `llms_txt_validator`
 
 Validate generated `llms.txt` and `INDEX.json` outputs.

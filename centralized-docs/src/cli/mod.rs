@@ -1,5 +1,8 @@
 pub mod config;
+pub mod mcp_cmd;
 pub mod validation;
+
+pub use mcp_cmd::McpCommand;
 
 use clap::{Parser, Subcommand};
 use spider::configuration::RedirectPolicy;
@@ -74,6 +77,12 @@ pub enum Commands {
         /// Output structured JSON for machine parsing
         #[arg(long)]
         json: bool,
+    },
+
+    /// Start the MCP server for AI agent integration
+    Mcp {
+        #[command(subcommand)]
+        command: McpCommand,
     },
 
     /// Scrape a documentation website to local markdown files

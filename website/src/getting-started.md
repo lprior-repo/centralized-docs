@@ -29,6 +29,30 @@ ctd --help
 llms_txt_validator -V
 ```
 
+## MCP Server Installation
+
+The MCP server is included with `ctd`. After installing, verify MCP functionality:
+
+```bash
+ctd mcp serve --help
+```
+
+### Quick Start
+
+1. **Index your documentation:**
+   ```bash
+   ctd index ./docs --output ./output --project-name "My Docs"
+   ```
+
+2. **Start the MCP server:**
+   ```bash
+   ctd mcp serve ./output
+   ```
+
+3. **Connect** your AI client (Claude Desktop, Claude Code, etc.) to the running server.
+
+See the [MCP Server](mcp-server.md) documentation for full configuration details.
+
 ## Index Local Documentation
 
 ```bash

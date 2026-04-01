@@ -21,6 +21,7 @@ jobs:
             target_arch: x86_64-unknown-linux-gnu
             artifact_name: ctd-${{ github.ref_name }}-linux-x86_64.tar.gz
             binary_name: ctd
+            mcp_binary_name: ctd-mcp
             validator_name: llms_txt_validator
             is_windows: false
 
@@ -28,6 +29,7 @@ jobs:
             target_arch: aarch64-apple-darwin
             artifact_name: ctd-${{ github.ref_name }}-macos-aarch64.tar.gz
             binary_name: ctd
+            mcp_binary_name: ctd-mcp
             validator_name: llms_txt_validator
             is_windows: false
 
@@ -36,6 +38,7 @@ jobs:
             target_arch: x86_64-pc-windows-msvc
             artifact_name: ctd-${{ github.ref_name }}-windows-x86_64.zip
             binary_name: ctd.exe
+            mcp_binary_name: ctd-mcp.exe
             validator_name: llms_txt_validator.exe
             is_windows: true
 
@@ -68,6 +71,7 @@ jobs:
           mkdir -p dist
           # Copy binaries from the target-specific release folder
           cp target/${{ matrix.target_arch }}/release/${{ matrix.binary_name }} dist/
+          cp target/${{ matrix.target_arch }}/release/${{ matrix.mcp_binary_name }} dist/ 2>/dev/null || true
           cp target/${{ matrix.target_arch }}/release/${{ matrix.validator_name }} dist/ 2>/dev/null || true
           
           # Include documentation and licensing
@@ -83,6 +87,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist
           Copy-Item target/${{ matrix.target_arch }}/release/${{ matrix.binary_name }} -Destination dist/
+          if (Test-Path target/${{ matrix.target_arch }}/release/${{ matrix.mcp_binary_name }}) {
+            Copy-Item target/${{ matrix.target_arch }}/release/${{ matrix.mcp_binary_name }} -Destination dist/
+          }
           if (Test-Path target/${{ matrix.target_arch }}/release/${{ matrix.validator_name }}) {
             Copy-Item target/${{ matrix.target_arch }}/release/${{ matrix.validator_name }} -Destination dist/
           }

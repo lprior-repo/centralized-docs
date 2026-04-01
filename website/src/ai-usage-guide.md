@@ -4,6 +4,52 @@ The primary goal of `centralized-docs` (`ctd`) is to dramatically reduce the tok
 
 Instead of pasting entire documentation sites into a prompt, you integrate the agent with the generated structures.
 
+## MCP Server Integration
+
+The MCP server provides native tool access for AI agents through the [Model Context Protocol](https://modelcontextprotocol.io).
+
+### Benefits Over CLI
+
+| Aspect | CLI | MCP Server |
+|--------|-----|------------|
+| Integration | Subprocess calls | Native tools |
+| Context | Lost between calls | Preserved |
+| Chunk IDs | Manual JSON parsing | Direct references |
+| Related concepts | Multiple queries | Graph traversal |
+
+### Claude Code Usage
+
+```bash
+# Add the MCP server
+claude mcp add centralized-docs ctd mcp serve /path/to/indexed-docs
+
+# Now Claude Code can use tools directly
+# The AI can call: search_docs, read_chunk, get_related_concepts
+```
+
+### Claude Desktop Configuration
+
+```json
+{
+  "mcpServers": {
+    "centralized-docs": {
+      "command": "ctd",
+      "args": ["mcp", "serve", "/path/to/indexed-docs"]
+    }
+  }
+}
+```
+
+### Available Tools
+
+- **`search_docs(query, limit?)`** - Search using BM25
+- **`read_chunk(id)`** - Read a specific chunk by ID
+- **`get_related_concepts(id)`** - Get related concepts from the graph
+
+See [MCP Server](mcp-server.md) for complete documentation.
+
+---
+
 ## The Problem: The "Lost in the Middle" Effect
 
 When AI agents read thousands of lines of raw Markdown, they suffer from two major issues:

@@ -8,6 +8,10 @@ name = "ctd"
 path = "src/main.rs"
 
 [[bin]]
+name = "ctd-mcp"
+path = "src/bin/ctd_mcp.rs"
+
+[[bin]]
 name = "llms_txt_validator"
 path = "src/bin/llms_txt_validator.rs"
 
