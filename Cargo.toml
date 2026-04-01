@@ -1,5 +1,5 @@
 [workspace]
-members = ["centralized-docs", "contextual-chunker", "llms-txt-parser", "evaluations", "benchmark_server"]
+members = ["centralized-docs", "contextual-chunker", "llms-txt-parser", "benchmark_server"]
 resolver = "2"
 
 [workspace.package]
@@ -74,3 +74,26 @@ opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
+
+# ===========================================================================
+# PROFILING PROFILES
+# ===========================================================================
+# These profiles are optimized for profiling, not production.
+# They enable debug info and frame pointers so profilers can resolve symbols.
+
+# Profile for flamegraph / samply / perf profiling
+# Usage: cargo build --profile profiling
+[profile.profiling]
+inherits = "release"
+opt-level = 3
+lto = true
+codegen-units = 1
+debug = "line-tables-only"     # Source-line debug info for profilers
+strip = false                  # Keep symbols for profiling
+
+# Benchmark profile (used by cargo bench / criterion)
+# criterion uses the "bench" profile in release mode
+[profile.bench]
+inherits = "release"
+opt-level = 3
+debug = "line-tables-only"     # Source-line debug info for profilers

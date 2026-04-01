@@ -1,0 +1,22 @@
+# ===========================================================================
+# PROFILING FLAGS
+# ===========================================================================
+# Frame pointers are critical for accurate stack traces in profilers.
+# Without these, flamegraphs and samply will show broken/incomplete stacks.
+#
+# To DISABLE profiling flags (for production builds):
+#   CARGO_PROFILE_RELEASE_RUSTFLAGS="" cargo build --release
+#
+# To ENABLE (default here):
+#   cargo build --profile profiling
+#   cargo flamegraph ...
+#   samply ...
+
+[build]
+rustflags = [
+    "-C", "force-frame-pointers=yes",
+    "-C", "symbol-mangling-version=v0",
+]
+
+[profile.profiling]
+inherits = "release"

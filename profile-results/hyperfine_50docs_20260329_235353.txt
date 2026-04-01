@@ -1,0 +1,4 @@
+Benchmark 1: /home/lewis/src/centralized-docs/target/profiling/ctd index /tmp/ctd-test-50 --output /tmp/ctd-profile-index-output
+  Time (mean ± σ):      9.514 s ±  0.396 s    [User: 9.099 s, System: 0.439 s]
+  Range (min … max):    9.081 s …  9.856 s    3 runs
+ 
