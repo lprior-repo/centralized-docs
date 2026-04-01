@@ -8,7 +8,7 @@ use std::path::Path;
 use std::process;
 
 use crate::cli::config::{DEFAULT_MAX_PAGE_SIZE_BYTES, DEFAULT_MAX_TOTAL_SIZE_BYTES};
-use doc_transformer::cache::{CacheConfig, DocCache, url_hash};
+use doc_transformer::cache::{url_hash, CacheConfig, DocCache};
 use doc_transformer::scrape::validation::ScrapeResult;
 use doc_transformer::watch::{
     compute_plan, diff_directories, format_plan_json, format_plan_markdown, snapshot_from_scrape,

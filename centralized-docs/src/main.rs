@@ -153,6 +153,7 @@ async fn main() -> Result<()> {
             source,
             output,
             llms_txt,
+            with_agents,
             project_name,
             project_desc,
             category_config,
@@ -164,6 +165,7 @@ async fn main() -> Result<()> {
         } => {
             let config = cli::config::IndexConfig {
                 generate_llms: llms_txt,
+                generate_agents: with_agents,
                 project_name,
                 project_desc,
                 category_config,

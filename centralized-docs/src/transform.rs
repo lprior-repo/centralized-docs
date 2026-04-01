@@ -203,7 +203,7 @@ fn transform_file(
     let content = if content_has_see_also(&content) {
         content
     } else {
-        format!("{content}\n## See Also\n\n- [Documentation Index](./COMPASS.md)\n")
+        format!("{content}\n## See Also\n\n- [Documentation Index](./NAVIGATION.md)\n")
     };
 
     let tags = generate_tags(analysis);

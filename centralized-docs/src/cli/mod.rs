@@ -31,13 +31,11 @@ USAGE:
 
 OUTPUT:
   llms.txt      - AI entry point (read this first)
-  llms-full.txt - Full corpus for large-context models
   INDEX.json    - Machine-readable index with chunks and DAG
-  COMPASS.md    - Human-readable navigation
-  AGENTS.md     - AI coding instructions and workflow context
+  NAVIGATION.md - Human-readable navigation
   docs/         - Transformed documents with frontmatter
   chunks/       - Semantic chunks with context prefix
-"
+ "
     ),
     // Disable automatic exit on error so we can return exit code 1 for validation errors
     // instead of clap's default exit code 2
@@ -180,6 +178,10 @@ pub enum Commands {
         /// Generate llms.txt entry point files
         #[arg(long, default_value = "true")]
         llms_txt: bool,
+
+        /// Generate AGENTS.md file for AI coding agents
+        #[arg(long)]
+        with_agents: bool,
 
         /// Project name for llms.txt header
         #[arg(long, default_value = "Documentation")]

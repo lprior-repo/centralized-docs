@@ -9,6 +9,7 @@ pub const DEFAULT_MAX_TOTAL_SIZE_BYTES: u64 = 500 * 1024 * 1024;
 #[derive(Debug, Clone)]
 pub struct IndexConfig {
     pub generate_llms: bool,
+    pub generate_agents: bool,
     pub project_name: String,
     pub project_desc: String,
     pub category_config: Option<PathBuf>,
@@ -24,6 +25,7 @@ impl Default for IndexConfig {
     fn default() -> Self {
         Self {
             generate_llms: true,
+            generate_agents: true,
             project_name: "Documentation".to_string(),
             project_desc: "AI-optimized documentation index".to_string(),
             category_config: None,

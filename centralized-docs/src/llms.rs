@@ -1,6 +1,6 @@
 //! llms.txt generation module
 //!
-//! Generates llms.txt and llms-full.txt files following the llms.txt specification.
+//! Generates llms.txt and AGENTS.md files following the llms.txt specification.
 //! These files provide AI-friendly entry points into the documentation.
 //!
 //! Specification: <https://llmstxt.org/>
@@ -23,8 +23,6 @@ pub struct LlmsConfig {
     pub project_description: String,
     /// Maximum documents per category in llms.txt (default: 5)
     pub max_per_category: usize,
-    /// Include full content in llms-full.txt (default: true)
-    pub generate_full: bool,
     /// llms.txt specification version (default: "1.0")
     pub spec_version: String,
     /// Project version (default: "0.1.0")
@@ -39,7 +37,6 @@ impl Default for LlmsConfig {
             project_name: "Documentation".to_string(),
             project_description: "AI-optimized documentation index".to_string(),
             max_per_category: 5,
-            generate_full: true,
             spec_version: "1.0".to_string(),
             project_version: "0.1.0".to_string(),
             include_frontmatter: true,
@@ -177,67 +174,6 @@ pub fn generate_llms_txt<S: BuildHasher>(
     Ok(())
 }
 
-/// Generate llms-full.txt - all documentation content concatenated
-///
-/// This file contains all document content for models with large context windows.
-/// Each document is separated by a header with metadata.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Reading document files fails
-/// - Writing output file fails
-pub fn generate_llms_full_txt<S: BuildHasher>(
-    analyses: &[Analysis],
-    link_map: &HashMap<String, IdMapping, S>,
-    output_dir: &Path,
-) -> Result<()> {
-    let header = format!(
-        "# Full Documentation\n\n> This file contains all {} documents concatenated for large context models.\n\n---\n\n",
-        analyses.len()
-    );
-
-    // Sort by category then title for consistent ordering using functional pattern
-    let sorted: Vec<_> = analyses
-        .iter()
-        .filter_map(|a| {
-            if let Some(m) = link_map.get(&a.source_path) {
-                Some((a, m))
-            } else {
-                eprintln!(
-                    "Warning: Missing ID mapping for document: {}",
-                    a.source_path
-                );
-                None
-            }
-        })
-        .sorted_by(|a, b| {
-            a.0.category
-                .cmp(&b.0.category)
-                .then_with(|| a.0.title.cmp(&b.0.title))
-        })
-        .collect_vec();
-
-    let full_content: String = sorted
-        .iter()
-        .fold(String::new(), |mut acc, (analysis, mapping)| {
-            let body = skip_frontmatter(&analysis.content).to_string();
-            use std::fmt::Write;
-            let _ = write!(
-                acc,
-                "## {} [{}]\n\n**Path**: docs/{}\n**ID**: {}\n\n{}\n\n---\n\n",
-                analysis.title, analysis.category, mapping.filename, mapping.id, body
-            );
-            acc
-        });
-
-    let content = format!("{header}{full_content}");
-
-    fs::write(output_dir.join("llms-full.txt"), content)?;
-
-    Ok(())
-}
-
 /// Truncate summary to fit in a description
 #[must_use]
 pub fn truncate_summary(text: &str, max_len: usize) -> String {
@@ -279,28 +215,12 @@ fn safe_truncate_chars(text: &str, max_chars: usize) -> String {
         .map_or_else(String::new, std::convert::identity)
 }
 
-/// Skip YAML frontmatter from document content using functional pattern
-fn skip_frontmatter(content: &str) -> &str {
-    content
-        .strip_prefix("---")
-        .and_then(|stripped| {
-            stripped
-                .find("---")
-                .map(|end| stripped[end.saturating_add(3)..].trim_start())
-        })
-        .map_or(content, |s| s)
-}
-
 /// Generate AGENTS.md - coding instructions for AI assistants
 ///
 /// This file provides project-specific instructions that AI coding assistants
 /// should follow when working with this codebase. Adopted by `OpenAI` Codex,
 /// Google Jules, and Cursor.
 ///
-/// # Errors
-///
-/// Returns an error if:
-/// - Writing output file fails
 /// # Errors
 ///
 /// Returns an error if:
@@ -341,14 +261,13 @@ pub fn generate_agents_md<S: BuildHasher>(
          4. **Chunk navigation** - Each chunk has `previous_chunk_id` and `next_chunk_id`\n\n\
          ## File Structure\n\n\
          ```
-         ./\n\
-         ├── llms.txt           # AI entry point (read first)\n\
-         ├── llms-full.txt      # Full content for large context models\n\
-         ├── AGENTS.md          # This file - coding instructions\n\
-         ├── INDEX.json         # Machine-readable index + knowledge graph\n\
-         ├── COMPASS.md         # Human-readable navigation\n\
-         ├── docs/              # Transformed documents with frontmatter\n\
-         └── chunks/            # Semantic chunks with context prefix\n\
+         ./
+         ├── llms.txt           # AI entry point (read first)
+         ├── AGENTS.md          # This file - coding instructions
+         ├── INDEX.json         # Machine-readable index + knowledge graph
+         ├── NAVIGATION.md      # Human-readable navigation
+         ├── docs/              # Transformed documents with frontmatter
+         └── chunks/            # Semantic chunks with context prefix
          ```
 \n\n\
          ## Chunk Format\n\n\
@@ -467,31 +386,10 @@ mod tests {
     }
 
     #[test]
-    fn test_skip_frontmatter() {
-        let with_fm = "---\ntitle: Test\n---\n\nContent here";
-        assert_eq!(skip_frontmatter(with_fm), "Content here");
-
-        let without_fm = "Just content";
-        assert_eq!(skip_frontmatter(without_fm), "Just content");
-    }
-
-    #[test]
-    fn test_skip_frontmatter_empty() {
-        assert_eq!(skip_frontmatter(""), "");
-    }
-
-    #[test]
-    fn test_skip_frontmatter_incomplete() {
-        let partial = "---\ntitle: Test\n";
-        assert_eq!(skip_frontmatter(partial), "---\ntitle: Test\n");
-    }
-
-    #[test]
     fn test_llms_config_default() {
         let config = LlmsConfig::default();
         assert_eq!(config.project_name, "Documentation");
         assert_eq!(config.max_per_category, 5);
-        assert!(config.generate_full);
         assert!(config.include_frontmatter);
         assert_eq!(config.spec_version, "1.0");
         assert_eq!(config.project_version, "0.1.0");
@@ -555,46 +453,6 @@ mod tests {
         let content = std::fs::read_to_string(dir.path().join("llms.txt")).unwrap();
         assert!(content.contains("# Documentation"));
         assert!(content.contains("Total documents: 0"));
-    }
-
-    #[test]
-    fn test_generate_llms_full_txt_basic() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let analyses = vec![make_analysis("a.md", "tutorial", "Test Doc")];
-        let link_map = make_link_map(&[("a.md", "tutorial-test.md")]);
-
-        generate_llms_full_txt(&analyses, &link_map, dir.path()).unwrap();
-
-        let content = std::fs::read_to_string(dir.path().join("llms-full.txt")).unwrap();
-        assert!(content.contains("# Full Documentation"));
-        assert!(content.contains("Test Doc"));
-        assert!(content.contains("Some content here"));
-    }
-
-    #[test]
-    fn test_generate_llms_full_txt_with_frontmatter() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let mut analysis = make_analysis("a.md", "tutorial", "Doc");
-        analysis.content = Arc::from("---\ntitle: Test\n---\n\nReal content");
-        let link_map = make_link_map(&[("a.md", "a.md")]);
-
-        generate_llms_full_txt(&[analysis], &link_map, dir.path()).unwrap();
-
-        let content = std::fs::read_to_string(dir.path().join("llms-full.txt")).unwrap();
-        assert!(content.contains("Real content"));
-        assert!(!content.contains("title: Test"));
-    }
-
-    #[test]
-    fn test_generate_llms_full_txt_empty() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let analyses: Vec<Analysis> = vec![];
-        let link_map: HashMap<String, IdMapping> = HashMap::new();
-
-        generate_llms_full_txt(&analyses, &link_map, dir.path()).unwrap();
-
-        let content = std::fs::read_to_string(dir.path().join("llms-full.txt")).unwrap();
-        assert!(content.contains("0 documents"));
     }
 
     #[test]

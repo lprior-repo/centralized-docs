@@ -462,11 +462,11 @@ fn build_tantivy_index(
         })
 }
 
-/// Writes documentation compass file with category-based navigation
+/// Writes documentation navigation file with category-based navigation
 /// # Errors
 /// Returns error if file writing fails
 #[allow(clippy::implicit_hasher)]
-pub fn build_and_write_compass<S: std::hash::BuildHasher>(
+pub fn build_and_write_navigation<S: std::hash::BuildHasher>(
     analyses: &[Analysis],
     link_map: &HashMap<String, IdMapping, S>,
     output_dir: &Path,
@@ -484,7 +484,7 @@ pub fn build_and_write_compass<S: std::hash::BuildHasher>(
         })
         .into_group_map();
 
-    let compass_content = ["tutorial", "concept", "ref", "ops", "meta"]
+    let navigation_content = ["tutorial", "concept", "ref", "ops", "meta"]
         .into_iter()
         .filter_map(|category| {
             by_category.get(category).map(|docs| {
@@ -507,14 +507,14 @@ pub fn build_and_write_compass<S: std::hash::BuildHasher>(
         })
         .collect::<String>();
 
-    let compass_content = format!(
-        "# Documentation Compass\n\n> **{} documents**\n\n{}",
+    let navigation_content = format!(
+        "# Documentation Navigation\n\n> **{} documents**\n\n{}",
         analyses.len(),
-        compass_content
+        navigation_content
     );
 
-    let compass_file = output_dir.join("COMPASS.md");
-    fs::write(compass_file, compass_content)?;
+    let navigation_file = output_dir.join("NAVIGATION.md");
+    fs::write(navigation_file, navigation_content)?;
 
     Ok(())
 }
@@ -1467,7 +1467,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_and_write_compass() {
+    fn test_build_and_write_navigation() {
         let analyses = vec![
             make_analysis(
                 "docs/tutorial/rust.md",
@@ -1497,30 +1497,30 @@ mod tests {
         ]);
 
         let dir = tempfile::TempDir::new().unwrap();
-        build_and_write_compass(&analyses, &link_map, dir.path()).unwrap();
+        build_and_write_navigation(&analyses, &link_map, dir.path()).unwrap();
 
-        let content = fs::read_to_string(dir.path().join("COMPASS.md")).unwrap();
-        assert!(content.contains("Documentation Compass"));
+        let content = fs::read_to_string(dir.path().join("NAVIGATION.md")).unwrap();
+        assert!(content.contains("Documentation Navigation"));
         assert!(content.contains("2 documents"));
         assert!(content.contains("Rust Tutorial"));
         assert!(content.contains("API Reference"));
     }
 
     #[test]
-    fn test_build_and_write_compass_empty_analyses() {
+    fn test_build_and_write_navigation_empty_analyses() {
         let analyses: Vec<Analysis> = vec![];
         let link_map: HashMap<String, IdMapping> = HashMap::new();
 
         let dir = tempfile::TempDir::new().unwrap();
-        build_and_write_compass(&analyses, &link_map, dir.path()).unwrap();
+        build_and_write_navigation(&analyses, &link_map, dir.path()).unwrap();
 
-        let content = fs::read_to_string(dir.path().join("COMPASS.md")).unwrap();
-        assert!(content.contains("Documentation Compass"));
+        let content = fs::read_to_string(dir.path().join("NAVIGATION.md")).unwrap();
+        assert!(content.contains("Documentation Navigation"));
         assert!(content.contains("0 documents"));
     }
 
     #[test]
-    fn test_build_and_write_compass_multiple_categories() {
+    fn test_build_and_write_navigation_multiple_categories() {
         let analyses = vec![
             make_analysis(
                 "a",
@@ -1565,9 +1565,9 @@ mod tests {
         ]);
 
         let dir = tempfile::TempDir::new().unwrap();
-        build_and_write_compass(&analyses, &link_map, dir.path()).unwrap();
+        build_and_write_navigation(&analyses, &link_map, dir.path()).unwrap();
 
-        let content = fs::read_to_string(dir.path().join("COMPASS.md")).unwrap();
+        let content = fs::read_to_string(dir.path().join("NAVIGATION.md")).unwrap();
         assert!(content.contains("TUTORIAL"));
         assert!(content.contains("CONCEPT"));
         assert!(content.contains("REF"));

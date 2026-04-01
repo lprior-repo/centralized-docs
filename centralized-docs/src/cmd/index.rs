@@ -145,8 +145,8 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
         Some(config.hnsw_ef_construction),
         Some(config.max_chunk_keywords),
     )?;
-    index::build_and_write_compass(&analyses, &link_map, output)?;
-    println!("  Created INDEX.json and COMPASS.md\n");
+    index::build_and_write_navigation(&analyses, &link_map, output)?;
+    println!("  Created INDEX.json and NAVIGATION.md\n");
 
     // STEP 8: LLMS.TXT + AGENTS.MD
     if config.generate_llms {
@@ -154,16 +154,14 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
         let llms_config = llms::LlmsConfig {
             project_name: config.project_name.clone(),
             project_description: config.project_desc.clone(),
-            generate_full: true,
             ..Default::default()
         };
         llms::generate_llms_txt(&analyses, &link_map, &llms_config, output)?;
-        llms::generate_agents_md(&analyses, &link_map, &llms_config, output)?;
-        if llms_config.generate_full {
-            llms::generate_llms_full_txt(&analyses, &link_map, output)?;
-            println!("  Created llms.txt, llms-full.txt, and AGENTS.md\n");
-        } else {
+        if config.generate_agents {
+            llms::generate_agents_md(&analyses, &link_map, &llms_config, output)?;
             println!("  Created llms.txt and AGENTS.md\n");
+        } else {
+            println!("  Created llms.txt\n");
         }
     }
 
