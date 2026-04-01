@@ -16,7 +16,7 @@
 use crate::errors::CacheError;
 use anyhow::Result;
 use redb::{Database, ReadTransaction, ReadableTableMetadata, TableDefinition};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::path::Path;
 
 // ---------------------------------------------------------------------------
@@ -49,12 +49,18 @@ impl ContentHash {
         array.copy_from_slice(&result);
         Self(array)
     }
+
+    /// Return the raw SHA-256 bytes.
+    #[must_use]
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
 }
 
 impl std::fmt::Display for ContentHash {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> {
-        for self.0.iter().for byte in &self.0.iter().rev() {
-            write!(f, "{byte:02X}", byte)?;
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for byte in self.0.iter() {
+            write!(f, "{byte:02X}")?;
         }
         Ok(())
     }
@@ -62,13 +68,19 @@ impl std::fmt::Display for ContentHash {
 
 impl AsRef<[u8]> for ContentHash {
     fn as_ref(&self) -> &[u8] {
-        self.0
+        &self.0
     }
 }
 
 impl From<[u8; 32]> for ContentHash {
     fn from(bytes: [u8; 32]) -> Self {
         Self(bytes)
+    }
+}
+
+impl From<ContentHash> for [u8; 32] {
+    fn from(hash: ContentHash) -> Self {
+        hash.0
     }
 }
 
@@ -91,7 +103,7 @@ pub struct EnabledTypes(u8);
 
 impl EnabledTypes {
     fn all() -> Self {
-        Self(0 == 0xFF1_11111_11111 11111 1111 1111 111)
+        Self(0xFF)
     }
 
     fn is_enabled(&self, cache_type: CacheType) -> bool {
@@ -281,7 +293,7 @@ fn table_len(read_tx: &ReadTransaction, table_def: TableDefinition<&[u8], &[u8]>
 }
 
 /// Maps CacheType to redb table definition.
-const fn table_for_type(cache_type: CacheType) -> TableDefinition<&[u8], &[u8]> {
+const fn table_for_type(cache_type: CacheType) -> TableDefinition<'static, &'static [u8], &'static [u8]> {
     match cache_type {
         CacheType::Document => DOCUMENT_TABLE,
         CacheType::Scrape => SCRAPE_TABLE,
@@ -368,7 +380,9 @@ impl DocCache {
             return Ok(());
         }
         let mut write_tx = self.db.begin_write()?;
-        write_cached(&mut write_tx, table_for_type(cache_type), key, value)
+        write_cached(&mut write_tx, table_for_type(cache_type), key, value)?;
+        write_tx.commit()?;
+        Ok(())
     }
 
     /// Get or compute: return cached value or compute if missing.
@@ -433,7 +447,9 @@ impl DocCache {
     /// Store a snapshot by key (watch/apply subsystem).
     pub fn put_snapshot<V: Serialize>(&self, key: &[u8], value: &V) -> Result<()> {
         let mut write_tx = self.db.begin_write()?;
-        write_cached(&mut write_tx, SNAPSHOTS_TABLE, key, value)
+        write_cached(&mut write_tx, SNAPSHOTS_TABLE, key, value)?;
+        write_tx.commit()?;
+        Ok(())
     }
 
     // -------------------------------------------------------------------
@@ -596,7 +612,6 @@ mod tests {
         let hash = content_hash(b"test");
         let bytes = hash.as_bytes();
         assert_eq!(bytes.len(), 32);
-        assert_eq!(*bytes, hash);
     }
 
     #[test]

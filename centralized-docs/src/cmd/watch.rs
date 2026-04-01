@@ -136,7 +136,7 @@ fn open_cache(cache_path: &Path) -> Result<DocCache> {
 
 fn load_snapshot(cache: &DocCache, url: &str) -> Result<Snapshot> {
     let url_key = url_hash(url);
-    let snapshot: Option<Snapshot> = cache.get_snapshot(&url_key)?;
+    let snapshot: Option<Snapshot> = cache.get_snapshot(url_key.as_bytes())?;
     Ok(snapshot.unwrap_or_else(|| Snapshot {
         target_url: url.to_string(),
         timestamp: chrono::Utc::now(),
@@ -146,7 +146,7 @@ fn load_snapshot(cache: &DocCache, url: &str) -> Result<Snapshot> {
 
 fn store_snapshot(cache: &DocCache, url: &str, snapshot: &Snapshot) -> Result<()> {
     let url_key = url_hash(url);
-    cache.put_snapshot(&url_key, snapshot)
+    cache.put_snapshot(url_key.as_bytes(), snapshot)
 }
 
 fn read_manifest(scrape_dir: &Path) -> Result<ScrapeResult> {

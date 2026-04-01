@@ -220,7 +220,7 @@ pub fn snapshot_from_scrape(target_url: &str, result: &ScrapeResult) -> Snapshot
             let hash = crate::cache::content_hash(page.markdown.as_bytes());
             let entry = PageHash {
                 url: page.url.clone(),
-                content_hash: hash,
+                content_hash: hash.into(),
                 title: page.title.clone(),
             };
             (page.url.clone(), entry)
