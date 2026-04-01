@@ -88,11 +88,8 @@ rayon = "1.11.0"
 # High-performance ACID key-value cache (idempotency)
 redb = "2"
 
-# High-performance non-cryptographic hashing (content-addressed keys)
-xxhash-rust = { version = "0.8", features = ["xxh3"] }
-
-# Lock-free concurrent map for in-flight deduplication
-dashmap = "6"
+# Cryptographic hashing (stable, content-addressed keys)
+sha2 = "0.10"
 
 [dependencies.rmcp]
 version = "1.3"

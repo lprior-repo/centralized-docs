@@ -31,8 +31,8 @@ use crate::scrape::validation::ScrapeResult;
 pub struct PageHash {
     /// The canonical URL of the page.
     pub url: String,
-    /// `xxh3_128` hash of the page's markdown content.
-    pub content_hash: u128,
+    /// SHA-256 hash of the page's markdown content.
+    pub content_hash: [u8; 32],
     /// The page title (for display in diffs).
     pub title: String,
 }
@@ -73,9 +73,9 @@ pub struct PageChange {
     /// What kind of change.
     pub kind: ChangeKind,
     /// Previous content hash (None for Added).
-    pub old_hash: Option<u128>,
+    pub old_hash: Option<[u8; 32]>,
     /// New content hash (None for Removed).
-    pub new_hash: Option<u128>,
+    pub new_hash: Option<[u8; 32]>,
     /// Page title for display.
     pub title: String,
 }
@@ -217,7 +217,7 @@ pub fn snapshot_from_scrape(target_url: &str, result: &ScrapeResult) -> Snapshot
         .pages
         .iter()
         .map(|page| {
-            let hash = crate::cache::hash::content_hash(page.markdown.as_bytes());
+            let hash = crate::cache::content_hash(page.markdown.as_bytes());
             let entry = PageHash {
                 url: page.url.clone(),
                 content_hash: hash,

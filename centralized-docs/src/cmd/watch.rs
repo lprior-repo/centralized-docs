@@ -8,9 +8,7 @@ use std::path::Path;
 use std::process;
 
 use crate::cli::config::{DEFAULT_MAX_PAGE_SIZE_BYTES, DEFAULT_MAX_TOTAL_SIZE_BYTES};
-use doc_transformer::cache::config::CacheConfig;
-use doc_transformer::cache::hash::url_hash;
-use doc_transformer::cache::store::DocCache;
+use doc_transformer::cache::{CacheConfig, DocCache, url_hash};
 use doc_transformer::scrape::validation::ScrapeResult;
 use doc_transformer::watch::{
     compute_plan, diff_directories, format_plan_json, format_plan_markdown, snapshot_from_scrape,
@@ -137,7 +135,7 @@ fn open_cache(cache_path: &Path) -> Result<DocCache> {
 }
 
 fn load_snapshot(cache: &DocCache, url: &str) -> Result<Snapshot> {
-    let url_key = url_hash(url).to_le_bytes();
+    let url_key = url_hash(url);
     let snapshot: Option<Snapshot> = cache.get_snapshot(&url_key)?;
     Ok(snapshot.unwrap_or_else(|| Snapshot {
         target_url: url.to_string(),
@@ -147,7 +145,7 @@ fn load_snapshot(cache: &DocCache, url: &str) -> Result<Snapshot> {
 }
 
 fn store_snapshot(cache: &DocCache, url: &str, snapshot: &Snapshot) -> Result<()> {
-    let url_key = url_hash(url).to_le_bytes();
+    let url_key = url_hash(url);
     cache.put_snapshot(&url_key, snapshot)
 }
 

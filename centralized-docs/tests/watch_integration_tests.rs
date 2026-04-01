@@ -1341,16 +1341,26 @@ fn plan_with_500_added_500_removed_simultaneously() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn snapshot_roundtrip_with_extreme_u128_hashes() {
+fn snapshot_roundtrip_with_extreme_hash_values() {
     let base_url = "https://example.com";
 
-    // Manually construct PageHash with extreme u128 values
+    // Manually construct PageHash with extreme [u8; 32] values
+    let all_max = [u8::MAX; 32];
+    let all_zero = [0u8; 32];
+    let mixed = {
+        let mut arr = [0u8; 32];
+        arr[0] = u8::MAX;
+        arr[16] = u8::MAX;
+        arr[31] = u8::MAX;
+        arr
+    };
+
     let mut pages = BTreeMap::new();
     pages.insert(
         format!("{base_url}/max"),
         PageHash {
             url: format!("{base_url}/max"),
-            content_hash: u128::MAX,
+            content_hash: all_max,
             title: "Max Hash".to_string(),
         },
     );
@@ -1358,7 +1368,7 @@ fn snapshot_roundtrip_with_extreme_u128_hashes() {
         format!("{base_url}/zero"),
         PageHash {
             url: format!("{base_url}/zero"),
-            content_hash: 0,
+            content_hash: all_zero,
             title: "Zero Hash".to_string(),
         },
     );
@@ -1366,7 +1376,7 @@ fn snapshot_roundtrip_with_extreme_u128_hashes() {
         format!("{base_url}/mid"),
         PageHash {
             url: format!("{base_url}/mid"),
-            content_hash: u128::MAX / 2,
+            content_hash: mixed,
             title: "Mid Hash".to_string(),
         },
     );
@@ -1386,8 +1396,8 @@ fn snapshot_roundtrip_with_extreme_u128_hashes() {
             .get(&format!("{base_url}/max"))
             .expect("max page")
             .content_hash,
-        u128::MAX,
-        "u128::MAX must survive roundtrip"
+        all_max,
+        "all-max hash must survive roundtrip"
     );
     assert_eq!(
         restored
@@ -1395,8 +1405,8 @@ fn snapshot_roundtrip_with_extreme_u128_hashes() {
             .get(&format!("{base_url}/zero"))
             .expect("zero page")
             .content_hash,
-        0,
-        "0 hash must survive roundtrip"
+        all_zero,
+        "all-zero hash must survive roundtrip"
     );
     assert_eq!(
         restored
@@ -1404,8 +1414,8 @@ fn snapshot_roundtrip_with_extreme_u128_hashes() {
             .get(&format!("{base_url}/mid"))
             .expect("mid page")
             .content_hash,
-        u128::MAX / 2,
-        "u128::MAX/2 must survive roundtrip"
+        mixed,
+        "mixed hash must survive roundtrip"
     );
 }
 

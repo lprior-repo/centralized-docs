@@ -17,4 +17,19 @@ pub enum CacheError {
         operation: &'static str,
         message: String,
     },
+
+    #[error("cache not initialized")]
+    NotInitialized,
+
+    #[error("cache already open at path: {0}")]
+    AlreadyOpen(String),
+
+    #[error("cache I/O error: {0}")]
+    Io(String),
+
+    #[error("cache serialization error: {0}")]
+    Serialization(String),
+
+    #[error("cache deserialization error: {0}")]
+    Deserialization(String),
 }

@@ -10,7 +10,7 @@
 
 use chrono::Utc;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use doc_transformer::cache::hash::content_hash;
+use doc_transformer::cache::content_hash;
 use doc_transformer::scrape::validation::{PageFilterStatus, ScrapeResult, ScrapedPage};
 use doc_transformer::watch::{
     compute_plan, format_plan_json, format_plan_markdown, snapshot_from_scrape, ChangeKind,
@@ -67,11 +67,11 @@ fn make_plan_with_changes(n: usize) -> ChangePlan {
             } else {
                 ChangeKind::Removed
             },
-            old_hash: if i % 3 == 0 { None } else { Some(i as u128) },
+            old_hash: if i % 3 == 0 { None } else { Some([i as u8; 32]) },
             new_hash: if i % 3 == 2 {
                 None
             } else {
-                Some((i + 1) as u128)
+                Some([(i as u8).wrapping_add(1); 32])
             },
             title: format!("Page {i}"),
         })
