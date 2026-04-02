@@ -15,8 +15,12 @@
 
 use crate::errors::CacheError;
 use anyhow::Result;
+use lru::LruCache;
+use parking_lot::RwLock;
 use redb::{Database, ReadTransaction, ReadableTableMetadata, TableDefinition};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json;
+use std::num::NonZeroUsize;
 use std::path::Path;
 
 // ---------------------------------------------------------------------------
@@ -26,8 +30,33 @@ use std::path::Path;
 /// Maximum allowed key size in bytes.
 const MAX_KEY_SIZE: usize = 256;
 
-/// Maximum allowed value size in bytes (10 MB).
-const MAX_VALUE_SIZE: usize = 10 * 1024 * 1024;
+/// Maximum allowed value size in bytes (50 MB — per-document chunks can be large).
+const MAX_VALUE_SIZE: usize = 50 * 1024 * 1024;
+
+/// Default LRU cache capacity (blessed lru crate) — bounds in-memory growth.
+const DEFAULT_LRU_CAPACITY: usize = 10_000;
+
+// ---------------------------------------------------------------------------
+// Internal bounded cache using blessed lru crate (memory) or redb (file)
+// ---------------------------------------------------------------------------
+
+/// Internal cache backend — uses blessed lru for memory, redb for file.
+/// `RwLock` provides interior mutability + Sync so cache can be shared across threads.
+enum CacheBackendInner {
+    /// Bounded LRU cache (blessed lru crate) for in-memory operation.
+    Lru(RwLock<LruCache<Vec<u8>, Vec<u8>>>),
+    /// Persistent redb database for file-backed operation.
+    Redb(Database),
+}
+
+impl std::fmt::Debug for CacheBackendInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Lru(_) => write!(f, "CacheBackendInner::Lru(..)"),
+            Self::Redb(_) => write!(f, "CacheBackendInner::Redb(..)"),
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Domain newtype: SHA-256 digest output (Holzmann Rule 8: typed domain values)
@@ -59,7 +88,7 @@ impl ContentHash {
 
 impl std::fmt::Display for ContentHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for byte in self.0.iter() {
+        for byte in &self.0 {
             write!(f, "{byte:02X}")?;
         }
         Ok(())
@@ -92,6 +121,8 @@ const DOCUMENT_TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new("docu
 const SCRAPE_TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new("scrape");
 const TRANSFORM_TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new("transforms");
 const SNAPSHOTS_TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new("snapshots");
+const ANALYSIS_TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new("analysis");
+const CHUNK_TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new("chunks");
 const METADATA_TABLE: TableDefinition<&str, &str> = TableDefinition::new("metadata");
 
 // ---------------------------------------------------------------------------
@@ -106,7 +137,7 @@ impl EnabledTypes {
         Self(0xFF)
     }
 
-    fn is_enabled(&self, cache_type: CacheType) -> bool {
+    fn is_enabled(self, cache_type: CacheType) -> bool {
         self.0 & (1 << cache_type as u8) != 0
     }
 }
@@ -115,7 +146,7 @@ impl EnabledTypes {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum CacheBackend {
-    /// In-memory cache using redb's InMemoryBackend.
+    /// In-memory cache using redb's `InMemoryBackend`.
     Memory,
     /// Persistent file-based cache.
     File(std::path::PathBuf),
@@ -185,6 +216,8 @@ pub enum CacheType {
     Scrape,
     Transform,
     Snapshot,
+    Analysis,
+    Chunk,
 }
 
 /// Cache statistics.
@@ -194,6 +227,8 @@ pub struct CacheStats {
     pub scrape_entries: u64,
     pub transform_entries: u64,
     pub snapshot_entries: u64,
+    pub analysis_entries: u64,
+    pub chunk_entries: u64,
 }
 
 // ---------------------------------------------------------------------------
@@ -218,11 +253,27 @@ pub fn path_hash(path: &Path) -> ContentHash {
     ContentHash::compute(path.to_string_lossy().as_bytes())
 }
 
+/// Compute SHA-256 hash of multiple byte slices concatenated.
+///
+/// Used for composite cache keys: `SHA-256(source_path + file_content + config_hash)`.
+#[must_use]
+pub fn composite_hash(parts: &[&[u8]]) -> ContentHash {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    for part in parts {
+        hasher.update(part);
+    }
+    let result = hasher.finalize();
+    let mut array = [0u8; 32];
+    array.copy_from_slice(&result);
+    ContentHash(array)
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers (Holzmann Rule 4: ≤ 60 lines, Rule 7: check returns)
 // ---------------------------------------------------------------------------
 
-/// Validates key size against MAX_KEY_SIZE.
+/// Validates key size against `MAX_KEY_SIZE`.
 fn validate_key_size(key: &[u8]) -> Result<(), CacheError> {
     if key.len() > MAX_KEY_SIZE {
         return Err(CacheError::KeyTooLarge {
@@ -233,7 +284,7 @@ fn validate_key_size(key: &[u8]) -> Result<(), CacheError> {
     Ok(())
 }
 
-/// Validates serialized value size against MAX_VALUE_SIZE.
+/// Validates serialized value size against `MAX_VALUE_SIZE`.
 fn validate_value_size(bytes: &[u8]) -> Result<(), CacheError> {
     if bytes.len() > MAX_VALUE_SIZE {
         return Err(CacheError::ValueTooLarge {
@@ -241,6 +292,32 @@ fn validate_value_size(bytes: &[u8]) -> Result<(), CacheError> {
             max: MAX_VALUE_SIZE,
         });
     }
+    Ok(())
+}
+
+/// Reads from blessed lru cache (bounded in-memory cache).
+fn get_from_lru<V: DeserializeOwned>(
+    cache: &RwLock<LruCache<Vec<u8>, Vec<u8>>>,
+    key: &[u8],
+) -> Result<Option<V>> {
+    let mut cache = cache.write();
+    let Some(value) = cache.get(key) else {
+        return Ok(None);
+    };
+    let value: V = serde_json::from_slice(value)?;
+    Ok(Some(value))
+}
+
+/// Writes to blessed lru cache with size validation.
+fn put_to_lru<V: Serialize>(
+    cache: &RwLock<LruCache<Vec<u8>, Vec<u8>>>,
+    key: &[u8],
+    value: &V,
+) -> Result<()> {
+    validate_key_size(key)?;
+    let bytes = serde_json::to_vec(value)?;
+    validate_value_size(&bytes)?;
+    cache.write().put(key.to_vec(), bytes);
     Ok(())
 }
 
@@ -292,13 +369,17 @@ fn table_len(read_tx: &ReadTransaction, table_def: TableDefinition<&[u8], &[u8]>
     Ok(table.len()?)
 }
 
-/// Maps CacheType to redb table definition.
-const fn table_for_type(cache_type: CacheType) -> TableDefinition<'static, &'static [u8], &'static [u8]> {
+/// Maps `CacheType` to redb table definition.
+const fn table_for_type(
+    cache_type: CacheType,
+) -> TableDefinition<'static, &'static [u8], &'static [u8]> {
     match cache_type {
         CacheType::Document => DOCUMENT_TABLE,
         CacheType::Scrape => SCRAPE_TABLE,
         CacheType::Transform => TRANSFORM_TABLE,
         CacheType::Snapshot => SNAPSHOTS_TABLE,
+        CacheType::Analysis => ANALYSIS_TABLE,
+        CacheType::Chunk => CHUNK_TABLE,
     }
 }
 
@@ -306,46 +387,59 @@ const fn table_for_type(cache_type: CacheType) -> TableDefinition<'static, &'sta
 // DocCache — thread-safe redb cache (Actions layer)
 // ---------------------------------------------------------------------------
 
-/// Thread-safe cache using redb's MVCC.
+/// Thread-safe cache using blessed lru (memory) or redb MVCC (file).
 ///
 /// All public methods take `&self`, enabling safe concurrent access
 /// from multiple threads without external synchronization.
 #[derive(Debug)]
 pub struct DocCache {
-    db: Database,
+    inner: CacheBackendInner,
     config: CacheConfig,
 }
 
 impl DocCache {
     /// Open a cache with the given configuration.
     ///
-    /// Creates the database file if necessary and initializes all tables.
-    /// redb handles concurrent access via MVCC — safe for multi-threaded use.
+    /// - Memory backend: uses blessed `lru::LruCache` (bounded, no eviction needed)
+    /// - File backend: uses redb (ACID, MVCC, persists to disk)
+    ///
+    /// # Panics
+    ///
+    /// Panics if `DEFAULT_LRU_CAPACITY` is zero (it won't be, it's set to `10_000`).
+    #[allow(clippy::expect_used)] // DEFAULT_LRU_CAPACITY is const and guaranteed non-zero.
     pub fn open(config: CacheConfig) -> Result<Self> {
-        let db = match &config.backend {
+        let inner = match &config.backend {
             CacheBackend::Memory => {
-                Database::builder()
-                    .create_with_backend(redb::backends::InMemoryBackend::new())?
+                let capacity = NonZeroUsize::new(DEFAULT_LRU_CAPACITY)
+                    .expect("DEFAULT_LRU_CAPACITY is const and non-zero");
+                CacheBackendInner::Lru(RwLock::new(LruCache::new(capacity)))
             }
             CacheBackend::File(path) => {
                 if let Some(parent) = path.parent() {
                     std::fs::create_dir_all(parent)?;
                 }
-                Database::create(path)?
+                CacheBackendInner::Redb(Database::create(path)?)
             }
         };
-        let cache = Self { db, config };
-        cache.initialize_tables()?;
+        let cache = Self { inner, config };
+        if matches!(cache.inner, CacheBackendInner::Redb(_)) {
+            cache.initialize_tables()?;
+        }
         Ok(cache)
     }
 
     fn initialize_tables(&self) -> Result<()> {
-        let write_tx = self.db.begin_write()?;
+        let CacheBackendInner::Redb(db) = &self.inner else {
+            return Ok(()); // LRU doesn't need table initialization
+        };
+        let write_tx = db.begin_write()?;
         {
             let _ = write_tx.open_table(DOCUMENT_TABLE)?;
             let _ = write_tx.open_table(SCRAPE_TABLE)?;
             let _ = write_tx.open_table(TRANSFORM_TABLE)?;
             let _ = write_tx.open_table(SNAPSHOTS_TABLE)?;
+            let _ = write_tx.open_table(ANALYSIS_TABLE)?;
+            let _ = write_tx.open_table(CHUNK_TABLE)?;
             let _ = write_tx.open_table(METADATA_TABLE)?;
         }
         write_tx.commit()?;
@@ -357,41 +451,37 @@ impl DocCache {
     // -------------------------------------------------------------------
 
     /// Retrieve a cached value by the given table.
-    pub fn get<V: DeserializeOwned>(
-        &self,
-        cache_type: CacheType,
-        key: &[u8],
-    ) -> Result<Option<V>> {
+    pub fn get<V: DeserializeOwned>(&self, cache_type: CacheType, key: &[u8]) -> Result<Option<V>> {
         if !self.config.enabled.is_enabled(cache_type) {
             return Ok(None);
         }
-        let read_tx = self.db.begin_read()?;
-        read_cached(&read_tx, table_for_type(cache_type), key)
+        match &self.inner {
+            CacheBackendInner::Lru(cache) => get_from_lru(cache, key),
+            CacheBackendInner::Redb(db) => {
+                let read_tx = db.begin_read()?;
+                read_cached(&read_tx, table_for_type(cache_type), key)
+            }
+        }
     }
 
     /// Store a value in the given table.
-    pub fn put<V: Serialize>(
-        &self,
-        cache_type: CacheType,
-        key: &[u8],
-        value: &V,
-    ) -> Result<()> {
+    pub fn put<V: Serialize>(&self, cache_type: CacheType, key: &[u8], value: &V) -> Result<()> {
         if !self.config.enabled.is_enabled(cache_type) {
             return Ok(());
         }
-        let mut write_tx = self.db.begin_write()?;
-        write_cached(&mut write_tx, table_for_type(cache_type), key, value)?;
-        write_tx.commit()?;
-        Ok(())
+        match &self.inner {
+            CacheBackendInner::Lru(cache) => put_to_lru(cache, key, value),
+            CacheBackendInner::Redb(db) => {
+                let mut write_tx = db.begin_write()?;
+                write_cached(&mut write_tx, table_for_type(cache_type), key, value)?;
+                write_tx.commit()?;
+                Ok(())
+            }
+        }
     }
 
     /// Get or compute: return cached value or compute if missing.
-    pub fn get_or_compute<V, F>(
-        &self,
-        cache_type: CacheType,
-        key: &[u8],
-        compute: F,
-    ) -> Result<V>
+    pub fn get_or_compute<V, F>(&self, cache_type: CacheType, key: &[u8], compute: F) -> Result<V>
     where
         V: Serialize + DeserializeOwned,
         F: FnOnce() -> Result<V>,
@@ -440,45 +530,82 @@ impl DocCache {
 
     /// Retrieve a snapshot by key (watch/apply subsystem).
     pub fn get_snapshot<V: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<V>> {
-        let read_tx = self.db.begin_read()?;
-        read_cached(&read_tx, SNAPSHOTS_TABLE, key)
+        match &self.inner {
+            CacheBackendInner::Lru(cache) => get_from_lru(cache, key),
+            CacheBackendInner::Redb(db) => {
+                let read_tx = db.begin_read()?;
+                read_cached(&read_tx, SNAPSHOTS_TABLE, key)
+            }
+        }
     }
 
     /// Store a snapshot by key (watch/apply subsystem).
     pub fn put_snapshot<V: Serialize>(&self, key: &[u8], value: &V) -> Result<()> {
-        let mut write_tx = self.db.begin_write()?;
-        write_cached(&mut write_tx, SNAPSHOTS_TABLE, key, value)?;
-        write_tx.commit()?;
-        Ok(())
+        match &self.inner {
+            CacheBackendInner::Lru(cache) => put_to_lru(cache, key, value),
+            CacheBackendInner::Redb(db) => {
+                let mut write_tx = db.begin_write()?;
+                write_cached(&mut write_tx, SNAPSHOTS_TABLE, key, value)?;
+                write_tx.commit()?;
+                Ok(())
+            }
+        }
     }
 
     // -------------------------------------------------------------------
     // Maintenance
     // -------------------------------------------------------------------
 
-    /// Clear all cache tables and recreate them fresh.
+    /// Clear all cache entries (LRU: purge; redb: delete tables + reinit).
     pub fn clear_all(&self) -> Result<()> {
-        let write_tx = self.db.begin_write()?;
-        {
-            write_tx.delete_table(DOCUMENT_TABLE)?;
-            write_tx.delete_table(SCRAPE_TABLE)?;
-            write_tx.delete_table(TRANSFORM_TABLE)?;
-            write_tx.delete_table(SNAPSHOTS_TABLE)?;
-            write_tx.delete_table(METADATA_TABLE)?;
+        match &self.inner {
+            CacheBackendInner::Lru(cache) => {
+                cache.write().clear();
+                Ok(())
+            }
+            CacheBackendInner::Redb(db) => {
+                let write_tx = db.begin_write()?;
+                {
+                    write_tx.delete_table(DOCUMENT_TABLE)?;
+                    write_tx.delete_table(SCRAPE_TABLE)?;
+                    write_tx.delete_table(TRANSFORM_TABLE)?;
+                    write_tx.delete_table(SNAPSHOTS_TABLE)?;
+                    write_tx.delete_table(ANALYSIS_TABLE)?;
+                    write_tx.delete_table(CHUNK_TABLE)?;
+                    write_tx.delete_table(METADATA_TABLE)?;
+                }
+                write_tx.commit()?;
+                self.initialize_tables()
+            }
         }
-        write_tx.commit()?;
-        self.initialize_tables()
     }
 
     /// Return entry counts for each table.
     pub fn stats(&self) -> Result<CacheStats> {
-        let read_tx = self.db.begin_read()?;
-        Ok(CacheStats {
-            document_entries: table_len(&read_tx, DOCUMENT_TABLE)?,
-            scrape_entries: table_len(&read_tx, SCRAPE_TABLE)?,
-            transform_entries: table_len(&read_tx, TRANSFORM_TABLE)?,
-            snapshot_entries: table_len(&read_tx, SNAPSHOTS_TABLE)?,
-        })
+        match &self.inner {
+            CacheBackendInner::Lru(cache) => {
+                let len = cache.read().len() as u64;
+                Ok(CacheStats {
+                    document_entries: len,
+                    scrape_entries: len,
+                    transform_entries: len,
+                    snapshot_entries: len,
+                    analysis_entries: len,
+                    chunk_entries: len,
+                })
+            }
+            CacheBackendInner::Redb(db) => {
+                let read_tx = db.begin_read()?;
+                Ok(CacheStats {
+                    document_entries: table_len(&read_tx, DOCUMENT_TABLE)?,
+                    scrape_entries: table_len(&read_tx, SCRAPE_TABLE)?,
+                    transform_entries: table_len(&read_tx, TRANSFORM_TABLE)?,
+                    snapshot_entries: table_len(&read_tx, SNAPSHOTS_TABLE)?,
+                    analysis_entries: table_len(&read_tx, ANALYSIS_TABLE)?,
+                    chunk_entries: table_len(&read_tx, CHUNK_TABLE)?,
+                })
+            }
+        }
     }
 }
 
@@ -562,6 +689,8 @@ mod tests {
         assert_eq!(stats.scrape_entries, 1);
         assert_eq!(stats.transform_entries, 0);
         assert_eq!(stats.snapshot_entries, 0);
+        assert_eq!(stats.analysis_entries, 0);
+        assert_eq!(stats.chunk_entries, 0);
 
         Ok(())
     }
@@ -802,7 +931,331 @@ mod tests {
         let hash = path_hash(std::path::Path::new("/foo/bar.md"));
         assert_eq!(
             hash,
-            content_hash(std::path::Path::new("/foo/bar.md").to_string_lossy().as_bytes())
+            content_hash(
+                std::path::Path::new("/foo/bar.md")
+                    .to_string_lossy()
+                    .as_bytes()
+            )
         );
+    }
+
+    // =======================================================================
+    // Idempotency Stress Tests — verify DocCache::open can be called
+    // multiple times on the same path without corruption or data loss.
+    // =======================================================================
+
+    #[test]
+    fn test_cache_open_idempotent_single_open_close_cycle() -> Result<()> {
+        // Single open/close should work
+        let temp_dir = TempDir::new()?;
+        let db_path = temp_dir.path().join("idempotent_single.redb");
+        let config = CacheConfig::new(&db_path);
+
+        let cache = DocCache::open(config.clone())?;
+        cache.put_document(b"key1", &"value1")?;
+        drop(cache);
+
+        // Re-open same path — should succeed (idempotent)
+        let cache2 = DocCache::open(config)?;
+        let retrieved: Option<String> = cache2.get_document(b"key1")?;
+        assert_eq!(
+            retrieved,
+            Some("value1".to_string()),
+            "Data should persist across open/close cycles"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cache_open_idempotent_ten_open_cycles() -> Result<()> {
+        // Stress test: 10 open/write/close cycles on same path
+        let temp_dir = TempDir::new()?;
+        let db_path = temp_dir.path().join("idempotent_10cycles.redb");
+
+        for cycle in 0..10 {
+            let config = CacheConfig::new(&db_path);
+            let cache = DocCache::open(config)?;
+
+            let key = format!("key_cycle_{}", cycle);
+            let value = format!("value_cycle_{}", cycle);
+            cache.put_document(key.as_bytes(), &value)?;
+
+            // Verify data visible within same open
+            let retrieved: Option<String> = cache.get_document(key.as_bytes())?;
+            assert_eq!(
+                retrieved,
+                Some(value),
+                "Data should be visible within cycle {}",
+                cycle
+            );
+        }
+
+        // Final open: verify ALL data still present
+        let config = CacheConfig::new(&db_path);
+        let final_cache = DocCache::open(config)?;
+
+        for cycle in 0..10 {
+            let key = format!("key_cycle_{}", cycle);
+            let expected_value = format!("value_cycle_{}", cycle);
+            let retrieved: Option<String> = final_cache.get_document(key.as_bytes())?;
+            assert_eq!(
+                retrieved,
+                Some(expected_value),
+                "Data from cycle {} should persist",
+                cycle
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cache_open_idempotent_hundred_open_cycles() -> Result<()> {
+        // Heavy stress test: 100 open/write/close cycles
+        let temp_dir = TempDir::new()?;
+        let db_path = temp_dir.path().join("idempotent_100cycles.redb");
+
+        for cycle in 0..100 {
+            let config = CacheConfig::new(&db_path);
+            let cache = DocCache::open(config)?;
+
+            let key = format!("stress_key_{}", cycle);
+            let value = format!("stress_value_{}", cycle);
+            cache.put_document(key.as_bytes(), &value)?;
+        }
+
+        // Verify all 100 entries still present after all cycles
+        let config = CacheConfig::new(&db_path);
+        let final_cache = DocCache::open(config)?;
+
+        for cycle in 0..100 {
+            let key = format!("stress_key_{}", cycle);
+            let expected_value = format!("stress_value_{}", cycle);
+            let retrieved: Option<String> = final_cache.get_document(key.as_bytes())?;
+            assert_eq!(
+                retrieved,
+                Some(expected_value),
+                "Data from cycle {} should persist",
+                cycle
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cache_open_idempotent_consecutive_opens_without_close() -> Result<()> {
+        // Test consecutive opens on same path without explicit drop
+        let temp_dir = TempDir::new()?;
+        let db_path = temp_dir.path().join("consecutive_opens.redb");
+        let config = CacheConfig::new(&db_path);
+
+        // Open, write, don't drop explicitly — let RAII handle it
+        {
+            let cache1 = DocCache::open(config.clone())?;
+            cache1.put_document(b"persistent_key", &"persistent_value")?;
+        }
+
+        // New scope — another open
+        {
+            let cache2 = DocCache::open(config.clone())?;
+            let retrieved: Option<String> = cache2.get_document(b"persistent_key")?;
+            assert_eq!(retrieved, Some("persistent_value".to_string()));
+            cache2.put_document(b"key2", &"value2")?;
+        }
+
+        // One more open — verify both keys
+        {
+            let cache3 = DocCache::open(config)?;
+            assert_eq!(
+                cache3.get_document(b"persistent_key")?,
+                Some("persistent_value".to_string())
+            );
+            assert_eq!(cache3.get_document(b"key2")?, Some("value2".to_string()));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cache_open_idempotent_all_table_types() -> Result<()> {
+        // Verify idempotency works for ALL public table types (not just documents)
+        let temp_dir = TempDir::new()?;
+        let db_path = temp_dir.path().join("all_tables_idempotent.redb");
+
+        // First open: write to all table types
+        {
+            let config = CacheConfig::new(&db_path);
+            let cache = DocCache::open(config)?;
+
+            cache.put_document(b"doc_key", &"doc_value")?;
+            cache.put_scrape(b"https://example.com", &"scraped_html")?;
+            cache.put_transform(b"transform_key", &"transformed_content")?;
+            cache.put_snapshot(b"/path/to/file.md", &"snapshot_data")?;
+        }
+
+        // Second open: verify all table types preserved
+        {
+            let config = CacheConfig::new(&db_path);
+            let cache = DocCache::open(config)?;
+
+            assert_eq!(
+                cache.get_document(b"doc_key")?,
+                Some("doc_value".to_string())
+            );
+            assert_eq!(
+                cache.get_scrape(b"https://example.com")?,
+                Some("scraped_html".to_string())
+            );
+            assert_eq!(
+                cache.get_transform(b"transform_key")?,
+                Some("transformed_content".to_string())
+            );
+            assert_eq!(
+                cache.get_snapshot(b"/path/to/file.md")?,
+                Some("snapshot_data".to_string())
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cache_open_idempotent_data_integrity() -> Result<()> {
+        // Verify data integrity (no corruption) across many open cycles
+        let temp_dir = TempDir::new()?;
+        let db_path = temp_dir.path().join("data_integrity.redb");
+
+        // Write some complex structured data
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        struct ComplexData {
+            name: String,
+            items: Vec<i32>,
+            nested: NestedData,
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        struct NestedData {
+            value: f64,
+            flag: bool,
+        }
+
+        let original = ComplexData {
+            name: "test".to_string(),
+            items: vec![1, 2, 3, 4, 5],
+            nested: NestedData {
+                value: 3.14159,
+                flag: true,
+            },
+        };
+
+        // Write once
+        {
+            let config = CacheConfig::new(&db_path);
+            let cache = DocCache::open(config)?;
+            cache.put_document(b"complex", &original)?;
+        }
+
+        // Read 50 times, each in new open cycle
+        for _ in 0..50 {
+            let config = CacheConfig::new(&db_path);
+            let cache = DocCache::open(config)?;
+            let retrieved: Option<ComplexData> = cache.get_document(b"complex")?;
+            assert_eq!(
+                retrieved,
+                Some(original.clone()),
+                "Data integrity check failed"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_composite_hash_order_matters() {
+        let hash1 = composite_hash(&[b"hello", b"world"]);
+        let hash2 = composite_hash(&[b"world", b"hello"]);
+        assert_ne!(
+            hash1, hash2,
+            "Different order should produce different hashes"
+        );
+    }
+
+    #[test]
+    fn test_composite_hash_deterministic() {
+        let hash1 = composite_hash(&[b"path/to/file.md", b"file content here"]);
+        let hash2 = composite_hash(&[b"path/to/file.md", b"file content here"]);
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_analysis_roundtrip() -> Result<()> {
+        let config = CacheConfig::in_memory();
+        let cache = DocCache::open(config)?;
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        struct AnalysisData {
+            source_path: String,
+            title: String,
+            category: String,
+            word_count: usize,
+        }
+
+        let analysis = AnalysisData {
+            source_path: "concept/general/test.md".to_string(),
+            title: "Test Doc".to_string(),
+            category: "concept".to_string(),
+            word_count: 42,
+        };
+
+        let key = composite_hash(&[
+            b"concept/general/test.md",
+            b"file content bytes",
+            b"config_hash",
+        ]);
+        cache.put(CacheType::Analysis, key.as_bytes(), &analysis)?;
+
+        let retrieved: Option<AnalysisData> = cache.get(CacheType::Analysis, key.as_bytes())?;
+        assert_eq!(retrieved, Some(analysis));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_chunk_roundtrip() -> Result<()> {
+        let config = CacheConfig::in_memory();
+        let cache = DocCache::open(config)?;
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        struct ChunkData {
+            chunk_id: String,
+            doc_id: String,
+            content: String,
+            token_count: usize,
+        }
+
+        let chunks = vec![
+            ChunkData {
+                chunk_id: "doc#0".to_string(),
+                doc_id: "doc".to_string(),
+                content: "Summary content".to_string(),
+                token_count: 20,
+            },
+            ChunkData {
+                chunk_id: "doc#1".to_string(),
+                doc_id: "doc".to_string(),
+                content: "Detailed content".to_string(),
+                token_count: 50,
+            },
+        ];
+
+        let key = composite_hash(&[b"doc/path.md", b"file content bytes"]);
+        cache.put(CacheType::Chunk, key.as_bytes(), &chunks)?;
+
+        let retrieved: Option<Vec<ChunkData>> = cache.get(CacheType::Chunk, key.as_bytes())?;
+        assert_eq!(retrieved, Some(chunks));
+
+        Ok(())
     }
 }

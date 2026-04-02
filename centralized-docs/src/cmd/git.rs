@@ -92,12 +92,8 @@ pub fn run_ingest_git(
 
     let index_result = run_index(&temp_dir, output, &index_config);
 
-    if temp_dir.exists() {
-        println!("[CLEANUP] Removing temporary clone directory...");
-        if let Err(err) = std::fs::remove_dir_all(&temp_dir) {
-            eprintln!("Warning: cleanup failed: {err}");
-        }
-    }
+    // NOTE: We intentionally do NOT remove the clone directory.
+    // Preserving it means subsequent runs skip the clone entirely.
 
     index_result?;
 

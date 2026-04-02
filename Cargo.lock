@@ -569,7 +569,9 @@ dependencies = [
  "hnsw_rs",
  "im",
  "itertools 0.13.0",
+ "lru 0.16.3",
  "ordered-float",
+ "parking_lot",
  "petgraph",
  "playwright-rs",
  "portpicker",
@@ -2586,6 +2588,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
 dependencies = [
  "hashbrown 0.15.5",
+]
+
+[[package]]
+name = "lru"
+version = "0.16.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1dc47f592c06f33f8e3aea9591776ec7c9f9e4124778ff8a3c3b87159f7e593"
+dependencies = [
+ "hashbrown 0.16.1",
 ]
 
 [[package]]
@@ -4864,7 +4875,7 @@ dependencies = [
  "itertools 0.14.0",
  "levenshtein_automata",
  "log",
- "lru",
+ "lru 0.12.5",
  "lz4_flex",
  "measure_time",
  "memmap2",

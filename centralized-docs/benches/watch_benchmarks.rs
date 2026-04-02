@@ -67,7 +67,11 @@ fn make_plan_with_changes(n: usize) -> ChangePlan {
             } else {
                 ChangeKind::Removed
             },
-            old_hash: if i % 3 == 0 { None } else { Some([i as u8; 32]) },
+            old_hash: if i % 3 == 0 {
+                None
+            } else {
+                Some([i as u8; 32])
+            },
             new_hash: if i % 3 == 2 {
                 None
             } else {

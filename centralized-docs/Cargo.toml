@@ -90,6 +90,8 @@ redb = "2"
 
 # Cryptographic hashing (stable, content-addressed keys)
 sha2 = "0.10"
+lru = "0.16.3"
+parking_lot = "0.12.5"
 
 [dependencies.rmcp]
 version = "1.3"
