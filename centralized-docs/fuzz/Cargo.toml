@@ -59,3 +59,16 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "transform_artifact_deserialize"
+path = "fuzz_targets/transform_artifact_deserialize.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "link_map_fingerprint"
+path = "fuzz_targets/link_map_fingerprint.rs"
+test = false
+doc = false
+bench = false

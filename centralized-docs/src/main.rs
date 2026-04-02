@@ -22,6 +22,7 @@ pub mod chunk;
 pub mod chunking_adapter;
 pub mod config;
 pub mod discover;
+pub mod embeddings;
 pub mod errors;
 #[cfg(feature = "enhanced")]
 pub mod features;
@@ -31,11 +32,13 @@ pub mod highlight;
 pub mod index;
 pub mod llms;
 pub mod math_types;
+pub mod mcp;
 pub mod scrape;
 pub mod search;
 pub mod transform;
 pub mod types;
 pub mod validate;
+pub mod watch;
 
 pub mod cli;
 pub mod cmd;

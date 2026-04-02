@@ -262,8 +262,11 @@ pub fn analyze_files_cached(
 /// Compute a deterministic hash of the category config file contents (or empty if none).
 fn compute_config_hash(category_config_path: Option<&Path>) -> ContentHash {
     match category_config_path {
+        None => ContentHash::compute(b""),
         None => content_hash(b""),
         Some(path) => match fs::read(path) {
+            Ok(bytes) => ContentHash::compute(&bytes),
+            Err(_) => ContentHash::compute(b""),
             Ok(bytes) => content_hash(&bytes),
             Err(_) => content_hash(b""),
         },
