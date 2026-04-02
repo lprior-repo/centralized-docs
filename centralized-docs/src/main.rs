@@ -17,10 +17,13 @@
 
 pub mod analyze;
 pub mod assign;
+pub mod cache;
 pub mod chunk;
 pub mod chunking_adapter;
 pub mod config;
+pub mod diff;
 pub mod discover;
+pub mod errors;
 #[cfg(feature = "enhanced")]
 pub mod features;
 pub mod filter;

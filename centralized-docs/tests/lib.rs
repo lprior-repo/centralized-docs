@@ -12,6 +12,7 @@
 pub mod common;
 
 // Capability-based test modules
+pub mod bulk_load;
 pub mod document_indexing;
 pub mod e2e;
 pub mod full_pipeline;
