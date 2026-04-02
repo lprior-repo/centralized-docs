@@ -1,5 +1,6 @@
 [workspace]
 members = ["centralized-docs", "contextual-chunker", "llms-txt-parser", "benchmark_server"]
+exclude = ["centralized-docs/fuzz"]
 resolver = "2"
 
 [workspace.package]

@@ -4,11 +4,15 @@ version = "0.0.0"
 publish = false
 edition = "2021"
 
+[workspace]
+
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+tempfile = "3.8"
+serde_json = "1.0"
 
 [dependencies.centralized-docs]
 path = ".."
@@ -40,3 +44,18 @@ path = "fuzz_targets/fuzz_serialize_snapshot.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "state_batch_deserialize"
+path = "fuzz_targets/state_batch_deserialize.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "record_file_hash_input"
+path = "fuzz_targets/record_file_hash_input.rs"
+test = false
+doc = false
+bench = false
+
