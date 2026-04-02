@@ -1,4 +1,4 @@
-use crate::cache::{composite_hash, CacheType, DocCache};
+use crate::cache::{composite_hash, content_hash, CacheType, ContentHash, DocCache};
 use crate::config::CategoryConfig;
 use crate::discover::DiscoveryFile;
 use std::sync::Arc;
@@ -191,7 +191,7 @@ pub fn analyze_files_cached(
             // Check cache first
             if let Some(cached) = cache
                 .get::<Analysis>(CacheType::Analysis, cache_key.as_bytes())
-                .map_err(|e| FailedFile {
+                .map_err(|e: anyhow::Error| FailedFile {
                     source_path: file.source_path.clone(),
                     error: e.to_string(),
                 })?
@@ -201,7 +201,7 @@ pub fn analyze_files_cached(
 
             // Cache miss — run analysis
             let analysis = analyze_single_file(&file.source_path, &file_path, config.as_ref())
-                .map_err(|e| FailedFile {
+                .map_err(|e: anyhow::Error| FailedFile {
                     source_path: file.source_path.clone(),
                     error: e.to_string(),
                 })?;
@@ -217,7 +217,7 @@ pub fn analyze_files_cached(
                 match res {
                     Ok((analysis, was_cached)) => {
                         if was_cached {
-                            hits += 1;
+                            hits = hits.saturating_add(1);
                         }
                         ok.push(analysis);
                     }
@@ -231,7 +231,7 @@ pub fn analyze_files_cached(
             |(mut ok1, mut err1, mut hits1), (ok2, err2, hits2)| {
                 ok1.extend(ok2);
                 err1.extend(err2);
-                hits1 += hits2;
+                hits1 = hits1.saturating_add(hits2);
                 (ok1, err1, hits1)
             },
         );
@@ -260,12 +260,12 @@ pub fn analyze_files_cached(
 }
 
 /// Compute a deterministic hash of the category config file contents (or empty if none).
-fn compute_config_hash(category_config_path: Option<&Path>) -> crate::cache::ContentHash {
+fn compute_config_hash(category_config_path: Option<&Path>) -> ContentHash {
     match category_config_path {
-        None => crate::cache::content_hash(b""),
+        None => content_hash(b""),
         Some(path) => match fs::read(path) {
-            Ok(bytes) => crate::cache::content_hash(&bytes),
-            Err(_) => crate::cache::content_hash(b""),
+            Ok(bytes) => content_hash(&bytes),
+            Err(_) => content_hash(b""),
         },
     }
 }

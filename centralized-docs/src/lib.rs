@@ -142,6 +142,7 @@ pub mod math_types;
 pub mod mcp;
 pub mod scrape;
 pub mod search;
+pub mod state;
 pub mod transform;
 pub mod types;
 pub mod validate;

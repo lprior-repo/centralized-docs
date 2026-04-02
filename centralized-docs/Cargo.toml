@@ -129,6 +129,10 @@ harness = false
 name = "filter_benchmarks"
 harness = false
 
+[[bench]]
+name = "state_snapshot_benchmarks"
+harness = false
+
 # ===========================================================================
 # FEATURE TIERS - Spider-rs Feature Parity
 # ===========================================================================

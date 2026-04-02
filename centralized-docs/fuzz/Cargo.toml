@@ -26,3 +26,17 @@ path = "fuzz_targets/mcp_stdio_transport.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "fuzz_load_snapshots_corrupt_bytes"
+path = "fuzz_targets/fuzz_load_snapshots_corrupt_bytes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_serialize_snapshot"
+path = "fuzz_targets/fuzz_serialize_snapshot.rs"
+test = false
+doc = false
+bench = false

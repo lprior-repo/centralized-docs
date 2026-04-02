@@ -38,7 +38,7 @@ pub struct PageHash {
 }
 
 /// A point-in-time snapshot of all scraped pages.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Snapshot {
     /// The target URL that was scraped.
     pub target_url: String,
