@@ -1,0 +1,1 @@
+Benchmark 1: target/profiling/ctd index /tmp/ctd-test-corpus --output /tmp/ctd-profile-index-output

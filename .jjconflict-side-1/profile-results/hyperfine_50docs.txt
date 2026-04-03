@@ -1,0 +1,4 @@
+Benchmark 1: target/profiling/ctd index /tmp/ctd-test-50 --output /tmp/ctd-profile-index-output
+  Time (mean ± σ):     10.678 s ±  1.690 s    [User: 10.148 s, System: 0.427 s]
+  Range (min … max):    9.307 s … 12.566 s    3 runs
+ 

@@ -1,0 +1,23 @@
+[package]
+name = "centralized-docs-pod"
+version = "0.6.1"
+edition = "2021"
+
+[dependencies]
+# Zero-copy Pod casting (fixed-size struct <-> byte slice)
+bytemuck = { version = "1", features = ["derive", "min_const_generics"] }
+
+# Error types
+thiserror = "1.0"
+
+[dev-dependencies]
+proptest = "1.4"
+
+[lints.rust]
+dead_code = "deny"
+unused_must_use = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"

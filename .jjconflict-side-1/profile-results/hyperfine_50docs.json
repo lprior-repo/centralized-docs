@@ -1,0 +1,29 @@
+{
+  "results": [
+    {
+      "command": "target/profiling/ctd index /tmp/ctd-test-50 --output /tmp/ctd-profile-index-output",
+      "mean": 10.678296271233336,
+      "stddev": 1.689947747755435,
+      "median": 10.1620802939,
+      "user": 10.147792406666667,
+      "system": 0.42695572666666665,
+      "min": 9.3066606639,
+      "max": 12.5661478559,
+      "times": [
+        12.5661478559,
+        10.1620802939,
+        9.3066606639
+      ],
+      "memory_usage_byte": [
+        139071488,
+        142307328,
+        142307328
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

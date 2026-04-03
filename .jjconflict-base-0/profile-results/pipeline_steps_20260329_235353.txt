@@ -1,0 +1,45 @@
+[CONFIG] Graph Parameters:
+  max_related_chunks: 20 (default: 20)
+  max_chunk_keywords: 12 (default: 12)
+  hnsw_m: 16 (default: 16)
+  hnsw_ef_construction: 200 (default: 200)
+
+[STEP 1] DISCOVER
+  Found 50 files
+
+[STEP 2] ANALYZE
+  Processed 50 files
+
+  Categories: ref=10 concept=40 tutorial=0 ops=0 meta=0
+
+[STEP 3] ASSIGN IDs
+  Generated 50 IDs
+
+[STEP 4] TRANSFORM
+  50/50 files (0 errors)
+
+[STEP 5] CHUNK
+  Generated 4171 chunks from 50 documents
+  Hierarchical: 3058 summary, 775 standard, 338 detailed
+  ~512 tokens/chunk with contextual prefixes
+
+[STEP 6] VALIDATE
+  50/50 files passed (0 errors, 0 warnings)
+
+[STEP 7] INDEX + GRAPH
+  Created INDEX.json and COMPASS.md
+
+[STEP 8] LLMS.TXT + AGENTS.MD
+  Created llms.txt, llms-full.txt, and AGENTS.md
+
+======================================================================
+COMPLETE
+======================================================================
+Source:     /tmp/ctd-test-50
+Output:     /tmp/ctd-profile-index-output
+Documents:  50
+Chunks:     4171
+Validation: 50/50 passed
+Entry:      llms.txt (AI should read this first)
+======================================================================
+

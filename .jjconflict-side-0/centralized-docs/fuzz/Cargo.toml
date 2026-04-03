@@ -1,0 +1,74 @@
+[package]
+name = "centralized-docs-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+tempfile = "3.8"
+serde_json = "1.0"
+
+[dependencies.centralized-docs]
+path = ".."
+
+[[bin]]
+name = "fuzz_target_1"
+path = "fuzz_targets/fuzz_target_1.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mcp_stdio_transport"
+path = "fuzz_targets/mcp_stdio_transport.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_load_snapshots_corrupt_bytes"
+path = "fuzz_targets/fuzz_load_snapshots_corrupt_bytes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_serialize_snapshot"
+path = "fuzz_targets/fuzz_serialize_snapshot.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "state_batch_deserialize"
+path = "fuzz_targets/state_batch_deserialize.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "record_file_hash_input"
+path = "fuzz_targets/record_file_hash_input.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "transform_artifact_deserialize"
+path = "fuzz_targets/transform_artifact_deserialize.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "link_map_fingerprint"
+path = "fuzz_targets/link_map_fingerprint.rs"
+test = false
+doc = false
+bench = false

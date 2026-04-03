@@ -1,0 +1,443 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Centralized Docs</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-515e7419.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-2c123e3a.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Centralized Docs</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="introduction--features"><a class="header" href="#introduction--features">Introduction &amp; Features</a></h1>
+<p><strong>Centralized Docs</strong> (<code>ctd</code>) is a pure Rust CLI tool that transforms raw documentation and static sites into AI-optimized, searchable knowledge structures.</p>
+<h2 id="the-origin-problem"><a class="header" href="#the-origin-problem">The Origin Problem</a></h2>
+<p>This project stemmed from the frustration of trying to get AI agents to understand modern software libraries. The standard workflows suck:</p>
+<ul>
+<li>Blindly copy/pasting massive chunks of documentation into prompts.</li>
+<li>Wasting time manually curating custom “skills” or context files for every new library.</li>
+<li>Watching AI agents hallucinate because they downloaded a massive, unstructured documentation site and lost the context in the noise.</li>
+</ul>
+<p>Instead of fighting the docs, <strong>Centralized Docs</strong> acts as a bridge. You can scrape any static documentation site or read local markdown files, and the CLI will output an <code>llms.txt</code> entry point alongside a DAG (Directed Acyclic Graph) of the knowledge.</p>
+<p>You simply point your AI at the <code>llms.txt</code>, and it can intelligently traverse the DAG and search the index rather than blindly reading everything.</p>
+<h2 id="core-features--benefits"><a class="header" href="#core-features--benefits">Core Features &amp; Benefits</a></h2>
+<ul>
+<li><strong>Scrapes Static Sites:</strong> Point the CLI at a documentation URL, and it will crawl the site, extract the content, and convert it to clean markdown.</li>
+<li><strong>Contextual Chunking:</strong> Each chunk carries surrounding context, solving the typical “lost in the middle” problem when AI reads isolated pieces of text.</li>
+<li><strong>Knowledge Graphs (DAG):</strong> Detects and maps relationships between documents, making it easy for an agent to traverse related concepts systematically.</li>
+<li><strong>llms.txt Generation:</strong> Automatically builds <code>llms.txt</code> files, acting as a <code>robots.txt</code> equivalent for AI agents.</li>
+<li><strong>Semantic Indexing:</strong> Fast, full-text search optimized for AI using BM25, allowing agents to query exactly what they need.</li>
+</ul>
+<h2 id="core-philosophy"><a class="header" href="#core-philosophy">Core Philosophy</a></h2>
+<ol>
+<li><strong>Version Control as Source of Truth</strong>: All generated docs can live in Git.</li>
+<li><strong>Search as Exploration</strong>: Find things easily via graphs and indexes.</li>
+<li><strong>Portability Above All</strong>: Framework-agnostic JSON and Markdown outputs.</li>
+<li><strong>Complete Traceability</strong>: Understand exactly how docs were transformed.</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h1>
+<p>This guide covers the production release flow for <code>ctd</code> <code>v0.6.1</code>.</p>
+<h2 id="install-a-release-binary"><a class="header" href="#install-a-release-binary">Install a Release Binary</a></h2>
+<pre><code class="language-bash">curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/scripts/install.sh | bash
+</code></pre>
+<p>The installer:</p>
+<ul>
+<li>detects your platform</li>
+<li>downloads the matching release archive</li>
+<li>verifies the archive with <code>SHA256SUMS.txt</code></li>
+<li>installs <code>ctd</code> and <code>llms_txt_validator</code> into <code>~/.local/bin</code></li>
+</ul>
+<h2 id="install-from-source"><a class="header" href="#install-from-source">Install From Source</a></h2>
+<pre><code class="language-bash">cargo install --path centralized-docs
+</code></pre>
+<h2 id="verify-the-installation"><a class="header" href="#verify-the-installation">Verify the Installation</a></h2>
+<pre><code class="language-bash">ctd --version
+ctd --help
+llms_txt_validator --version
+</code></pre>
+<h2 id="index-local-documentation"><a class="header" href="#index-local-documentation">Index Local Documentation</a></h2>
+<pre><code class="language-bash">ctd index ./docs --output ./output --project-name "My Docs"
+</code></pre>
+<p>Expected outputs:</p>
+<ul>
+<li><code>llms.txt</code></li>
+<li><code>INDEX.json</code></li>
+<li><code>COMPASS.md</code></li>
+<li><code>docs/</code></li>
+<li><code>chunks/</code></li>
+</ul>
+<h2 id="search-the-resulting-index"><a class="header" href="#search-the-resulting-index">Search the Resulting Index</a></h2>
+<pre><code class="language-bash">ctd search "authentication" --index-dir ./output --limit 5 --json
+</code></pre>
+<h2 id="validate-the-generated-metadata"><a class="header" href="#validate-the-generated-metadata">Validate the Generated Metadata</a></h2>
+<pre><code class="language-bash">llms_txt_validator ./output/llms.txt
+llms_txt_validator --index ./output/INDEX.json
+</code></pre>
+<h2 id="documentation-site"><a class="header" href="#documentation-site">Documentation Site</a></h2>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="how-it-works-architecture"><a class="header" href="#how-it-works-architecture">How It Works (Architecture)</a></h1>
+<p>The <code>ctd</code> CLI is designed to take unstructured or semi-structured documentation and turn it into highly optimized data structures for AI agents.</p>
+<p>Here is the high-level flow of how the architecture processes data.</p>
+<h2 id="1-scraping--ingestion"><a class="header" href="#1-scraping--ingestion">1. Scraping &amp; Ingestion</a></h2>
+<p>The process starts by gathering documentation. You can point the CLI at a local directory of markdown files, a Git repository, or a live static documentation website.</p>
+<p>When scraping static sites, the CLI crawls the URLs, extracts the HTML, strips out the noise (like navbars and footers), and converts the core content into clean, readable Markdown.</p>
+<h2 id="2-contextual-chunking"><a class="header" href="#2-contextual-chunking">2. Contextual Chunking</a></h2>
+<p>Large markdown files are problematic for AI because they either blow up the context window or, if chunked poorly, lose the thread of what they are talking about.</p>
+<p>The CLI uses <strong>Contextual Chunking</strong>:</p>
+<ul>
+<li>It breaks documents down based on Markdown headers (<code>#</code>, <code>##</code>, <code>###</code>).</li>
+<li>Crucially, it attaches the hierarchy of the headers to each chunk.</li>
+<li>If a chunk is under <code>## Installation</code>, the AI knows it’s an installation step, avoiding the “lost in the middle” problem.</li>
+</ul>
+<h2 id="3-knowledge-graph-dag-construction"><a class="header" href="#3-knowledge-graph-dag-construction">3. Knowledge Graph (DAG) Construction</a></h2>
+<p>Instead of treating documents as an isolated pile of files, the CLI detects relationships between them.</p>
+<p>It builds a <strong>Directed Acyclic Graph (DAG)</strong> of the content. By analyzing links and shared concepts, it maps out how different parts of the documentation relate to each other. This allows AI agents to traverse the documentation logically—moving from a broad concept down to specific API details—just like a human navigating a doc site.</p>
+<h2 id="4-semantic-indexing-bm25"><a class="header" href="#4-semantic-indexing-bm25">4. Semantic Indexing (BM25)</a></h2>
+<p>To support fast and effective search, the CLI builds a full-text search index using the <strong>BM25 algorithm</strong>.</p>
+<p>When an AI agent needs to know “how to configure caching”, it doesn’t need to read the whole library. It can use the <code>search</code> CLI command to query the BM25 index, returning only the most relevant, highly-scored contextual chunks.</p>
+<h2 id="5-llmstxt-entry-point"><a class="header" href="#5-llmstxt-entry-point">5. llms.txt Entry Point</a></h2>
+<p>The final output is tied together with an <code>llms.txt</code> file at the root of the indexed output.</p>
+<p>Think of <code>llms.txt</code> as a <code>robots.txt</code> for AI. It gives the agent a top-level summary of the project and provides direct, curated links to the most important sections, the index, and the DAG. Instead of hallucinating paths or guessing where to start, the agent reads the <code>llms.txt</code> and knows exactly how to interact with the library’s documentation.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="cli-reference"><a class="header" href="#cli-reference">CLI Reference</a></h1>
+<p>The <code>ctd</code> CLI provides tools to scrape, index, and search documentation.</p>
+<h2 id="version"><a class="header" href="#version">Version</a></h2>
+<ul>
+<li>Production release: <code>v0.6.1</code></li>
+<li>Primary binary: <code>ctd</code></li>
+<li>Helper binary: <code>llms_txt_validator</code></li>
+</ul>
+<h2 id="ctd"><a class="header" href="#ctd"><code>ctd</code></a></h2>
+<p><strong>Usage:</strong></p>
+<pre><code class="language-bash">ctd &lt;COMMAND&gt;
+</code></pre>
+<h3 id="commands"><a class="header" href="#commands">Commands</a></h3>
+<h4 id="search"><a class="header" href="#search"><code>search</code></a></h4>
+<p>Search indexed documentation using BM25.</p>
+<ul>
+<li><code>QUERY</code>: Query string to search for.</li>
+<li><code>--index-dir</code>, <code>-i &lt;DIR&gt;</code>: Directory containing <code>INDEX.json</code> (required).</li>
+<li><code>--limit</code>, <code>-n &lt;N&gt;</code>: Maximum number of results to return (default: 10).</li>
+<li><code>--no-color</code>: Disable colored output.</li>
+<li><code>--json</code>: Output structured JSON for machine parsing.</li>
+</ul>
+<h4 id="scrape"><a class="header" href="#scrape"><code>scrape</code></a></h4>
+<p>Scrape a documentation website to local markdown files.</p>
+<ul>
+<li><code>URL</code>: URL of the documentation site to scrape.</li>
+<li><code>--output</code>, <code>-o &lt;DIR&gt;</code>: Output directory for scraped content.</li>
+<li><code>--no-sitemap</code>: Disable sitemap.xml discovery (use crawling instead).</li>
+<li><code>--filter</code>, <code>-f &lt;REGEX&gt;</code>: Regex pattern to filter URLs by path.</li>
+<li><code>--delay</code>, <code>-d &lt;DELAY&gt;</code>: Delay between requests in milliseconds (0-60000, default: 250).</li>
+<li><code>--request-timeout-secs &lt;SECS&gt;</code>: Request timeout in seconds (1-600, default: 30).</li>
+<li><code>--max-retries &lt;N&gt;</code>: Max spider retries (0 disables spider retry, default: 3).</li>
+<li><code>--redirect-policy &lt;POLICY&gt;</code>: Redirect policy (loose, strict, none, default: loose).</li>
+<li><code>--max-page-bytes &lt;BYTES&gt;</code>: Max bytes per page (spider-level, before transform).</li>
+<li><code>--max-total-bytes &lt;BYTES&gt;</code>: Max total bytes across crawl (spider-level).</li>
+<li><code>--concurrency &lt;N&gt;</code>: Concurrency (1-2, default: 1) capped for politeness.</li>
+<li><code>--query</code>, <code>-q &lt;QUERY&gt;</code>: Filter pages by BM25 relevance to query.</li>
+<li><code>--threshold &lt;SCORE&gt;</code>: Minimum BM25 score to keep a page (0.0-10.0, default: 0.1).</li>
+</ul>
+<h4 id="ingest-git"><a class="header" href="#ingest-git"><code>ingest-git</code></a></h4>
+<p>Clone and index Git-hosted documentation.</p>
+<ul>
+<li><code>REPO_URL</code>: Git repository URL to clone.</li>
+<li><code>--output</code>, <code>-o &lt;DIR&gt;</code>: Output directory for indexed content.</li>
+<li><code>--branch &lt;BRANCH&gt;</code>: Git branch to checkout (default: main).</li>
+<li><code>--depth &lt;N&gt;</code>: Clone depth (0 = full, 1 = shallow/faster, default: 1).</li>
+<li><code>--project-name &lt;NAME&gt;</code>: Project name for llms.txt header.</li>
+<li><code>--filter</code>, <code>-f &lt;REGEX&gt;</code>: Regex pattern to filter file paths (for example <code>^docs/en/</code>).</li>
+</ul>
+<h4 id="index"><a class="header" href="#index"><code>index</code></a></h4>
+<p>Index local markdown files into an AI-optimized structure.</p>
+<ul>
+<li><code>SOURCE</code>: Source directory containing markdown files.</li>
+<li><code>--output</code>, <code>-o &lt;DIR&gt;</code>: Output directory for indexed content.</li>
+<li><code>--llms-txt</code>: Generate llms.txt entry point files (default: true).</li>
+<li><code>--project-name &lt;NAME&gt;</code>: Project name for llms.txt header (default: Documentation).</li>
+<li><code>--project-desc &lt;DESC&gt;</code>: Project description for llms.txt (default: <code>AI-optimized documentation index</code>).</li>
+<li><code>--category-config &lt;FILE&gt;</code>: Path to category rules config file.</li>
+<li><code>--max-related-chunks &lt;N&gt;</code>: Maximum number of related chunks per document (1-100, default: 20).</li>
+<li><code>--max-chunk-keywords &lt;N&gt;</code>: Maximum number of chunk keywords to include in similarity (0-50, default: 12).</li>
+<li><code>--hnsw-m &lt;M&gt;</code>: HNSW graph connectivity parameter (4-64, default: 16).</li>
+<li><code>--hnsw-ef-construction &lt;EF&gt;</code>: HNSW graph construction effort (50-1000, default: 200).</li>
+<li><code>--max-document-bytes &lt;BYTES&gt;</code>: Maximum document size in bytes (default: 10MB, warn at 5MB).</li>
+</ul>
+<h4 id="ingest"><a class="header" href="#ingest"><code>ingest</code></a></h4>
+<p>Scrape and index in one step.</p>
+<ul>
+<li><code>URL</code>: URL of the documentation site.</li>
+<li><code>--output</code>, <code>-o &lt;DIR&gt;</code>: Output directory for final indexed content.</li>
+<li>Available scrape flags: <code>--filter</code>, <code>--delay</code>, <code>--request-timeout-secs</code>, <code>--max-retries</code>, <code>--redirect-policy</code>, <code>--max-page-bytes</code>, <code>--max-total-bytes</code>, <code>--concurrency</code>, <code>--query</code>, <code>--threshold</code>.</li>
+<li>Available ingest-only/index bridge flag: <code>--project-name</code>.</li>
+<li><code>ingest</code> does <strong>not</strong> expose the full <code>index</code> flag surface.</li>
+</ul>
+<h2 id="llms_txt_validator"><a class="header" href="#llms_txt_validator"><code>llms_txt_validator</code></a></h2>
+<p>Validate generated <code>llms.txt</code> and <code>INDEX.json</code> outputs.</p>
+<pre><code class="language-bash">llms_txt_validator ./output/llms.txt
+llms_txt_validator --index ./output/INDEX.json
+llms_txt_validator -V
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="integrating-ai-agents-with-centralized-docs"><a class="header" href="#integrating-ai-agents-with-centralized-docs">Integrating AI Agents with Centralized Docs</a></h1>
+<p>The primary goal of <code>centralized-docs</code> (<code>ctd</code>) is to dramatically reduce the token footprint required to give AI agents (like Claude, GPT-4, or autonomous developer agents) deep contextual understanding of a codebase.</p>
+<p>Instead of pasting entire documentation sites into a prompt, you integrate the agent with the generated structures.</p>
+<h2 id="the-problem-the-lost-in-the-middle-effect"><a class="header" href="#the-problem-the-lost-in-the-middle-effect">The Problem: The “Lost in the Middle” Effect</a></h2>
+<p>When AI agents read thousands of lines of raw Markdown, they suffer from two major issues:</p>
+<ol>
+<li><strong>Token Exhaustion:</strong> A large library like Kubernetes or FastAPI has over 1 million words of documentation. You simply cannot fit that into an agent’s context window.</li>
+<li><strong>Context Loss:</strong> If you break a large markdown file into chunks blindly, a chunk that says “Run <code>make install</code>” loses the context of what header it was under. Was it under “Linux Installation” or “Windows Installation”? The agent hallucinates because it lost the semantic context.</li>
+</ol>
+<h2 id="the-solution-the-llmstxt-entry-point"><a class="header" href="#the-solution-the-llmstxt-entry-point">The Solution: The <code>llms.txt</code> Entry Point</a></h2>
+<p>When you run <code>ctd index</code> or <code>ingest-git</code>, the CLI generates an <code>llms.txt</code> file at the root of the output directory.</p>
+<p><strong>This is the only file your agent needs to read initially.</strong></p>
+<hr>
+<h2 id="-the-copy-paste-agent-instructions-50-tokens"><a class="header" href="#-the-copy-paste-agent-instructions-50-tokens">⚡ The Copy-Paste Agent Instructions (50 Tokens)</a></h2>
+<p>Copy and paste this snippet directly into your <code>AGENTS.md</code>, <code>CLAUDE.md</code>, or system prompt to instruct your agent on how to use Centralized Docs effectively:</p>
+<pre><code class="language-markdown"># Documentation Retrieval
+This project uses `ctd` for documentation. 
+1. START by reading `llms.txt` in the docs output directory. Do NOT read raw markdown files.
+2. SEARCH for concepts using: `ctd search "query" --index-dir &lt;output-dir&gt; --limit 3 --json`
+3. READ specific chunks by using `jq` to extract the `content` field from the JSON output of your search, or by navigating the `INDEX.json` DAG.
+</code></pre>
+<hr>
+<h2 id="step-by-step-how-agents-use-the-cli"><a class="header" href="#step-by-step-how-agents-use-the-cli">Step-by-Step: How Agents Use the CLI</a></h2>
+<p>To make your agent effective, it needs access to a terminal where it can execute <code>ctd</code> commands natively. Here is the exact workflow an autonomous agent should follow to keep its token usage minimal.</p>
+<h3 id="1-the-initial-search"><a class="header" href="#1-the-initial-search">1. The Initial Search</a></h3>
+<p>Instead of blindly reading files, the agent runs the <code>search</code> CLI command.</p>
+<pre><code class="language-bash">ctd search "how to configure oauth" --index-dir ./output --limit 3 --json
+</code></pre>
+<p>Because <code>ctd</code> uses BM25 semantic indexing on the full body text, this instantly returns the 3 most relevant documents in a structured JSON payload.</p>
+<h3 id="2-reading-the-chunk-context"><a class="header" href="#2-reading-the-chunk-context">2. Reading the Chunk Context</a></h3>
+<p>When the agent receives the JSON payload, it can read the specific <code>content</code> instead of the whole file.</p>
+<p>Every chunk in the <code>INDEX.json</code> DAG contains its <code>heading_path</code>. For example:
+<code>["Security - First Steps", "OAuth2 with Password", "Implementation"]</code>.</p>
+<p>This completely solves the “lost in the middle” problem. The agent reads a 200-token chunk and knows <em>exactly</em> where it sits in the hierarchy of the broader documentation.</p>
+<h3 id="3-advanced-usage-traversing-the-knowledge-dag"><a class="header" href="#3-advanced-usage-traversing-the-knowledge-dag">3. Advanced Usage: Traversing the Knowledge DAG</a></h3>
+<p>The <code>INDEX.json</code> contains a Directed Acyclic Graph (DAG) of the documentation. Every chunk knows its:</p>
+<ul>
+<li><code>parent_chunk_id</code></li>
+<li><code>child_chunk_ids</code></li>
+<li><code>sibling_chunk_ids</code></li>
+<li><code>next_chunk_id</code></li>
+<li><code>previous_chunk_id</code></li>
+</ul>
+<p>If an agent reads a Summary chunk and needs more detail, it doesn’t need to do another fuzzy search. It simply looks at the <code>child_chunk_ids</code> array in the JSON and fetches the specific detailed chunk. It can navigate the documentation programmatically just like a human clicking “Next Page”.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>

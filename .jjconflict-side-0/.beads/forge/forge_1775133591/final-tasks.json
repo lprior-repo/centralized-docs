@@ -1,0 +1,2077 @@
+[
+  {
+    "id": "task-001",
+    "title": "data: add zero-copy state dependencies to centralized-docs crate",
+    "type": "chore",
+    "priority": 1,
+    "effort": "15min",
+    "description": "Add `bytemuck` with derive support and `rkyv` with `bytecheck` support to `centralized-docs/Cargo.toml` without removing existing cache-related dependencies yet.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL expose bytemuck derives and rkyv bytecheck support to the centralized-docs crate."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN Cargo resolves centralized-docs dependencies",
+          "shall": "THE SYSTEM SHALL include bytemuck and rkyv in the lock graph."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF this task removes existing cache dependencies before migration code lands",
+          "shall_not": "THE SYSTEM SHALL NOT break current builds",
+          "because": "the migration must remain merge-safe while the new state path is still incomplete"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "`centralized-docs/Cargo.toml` defines the main crate dependencies.",
+        "The workspace builds with Cargo-managed dependencies."
+      ],
+      "postconditions": [
+        "`centralized-docs/Cargo.toml` contains `bytemuck` and `rkyv` entries with the requested features.",
+        "No existing dependency entries required by current code are removed in this task."
+      ],
+      "invariants": [
+        "Dependency changes remain limited to the centralized-docs crate manifest.",
+        "The task is safe to merge before any code consumes the new crates."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "`cargo check -p centralized-docs` resolves the new dependencies successfully.",
+        "`cargo metadata` shows `bytemuck` and `rkyv` in the centralized-docs dependency graph."
+      ],
+      "error": [
+        "Cargo reports an invalid feature name if the manifest entry is malformed.",
+        "Cargo fails dependency resolution if an invalid crate version or feature combination is declared."
+      ],
+      "edge": [
+        "Existing workspace crates remain unaffected because only the target crate manifest changes."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/Cargo.toml"
+      ],
+      "patterns": [
+        "Existing dependency declaration style in `centralized-docs/Cargo.toml`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Inspect the current dependency block in `centralized-docs/Cargo.toml`."
+      ],
+      "phase_1": [
+        "Add or update a failing validation step, fixture, or assertion that checks `cargo check -p centralized-docs` and `cargo metadata` only pass once `bytemuck` and `rkyv` are declared with the required features."
+      ],
+      "phase_2": [
+        "Add `bytemuck = { version = \"1\", features = [\"derive\"] }` and `rkyv = { version = \"0.8\", features = [\"bytecheck\"] }` to `centralized-docs/Cargo.toml` without removing existing cache-related dependencies, then keep the manifest valid TOML."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/Cargo.toml"
+      ],
+      "similar": [
+        "Existing `redb`, `sha2`, and `rayon` dependency declarations"
+      ]
+    }
+  },
+  {
+    "id": "task-002",
+    "title": "data: freeze archive boundary records and owned archive wrapper",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Define the persistence boundary up front: archived records use owned `String` and integer timestamp fields instead of `Arc<str>` or `DateTime<Utc>`, and bulk loaders return an `OwnedArchive<T>` wrapper backed by `Box<[u8]>` so archived values outlive the read transaction safely.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL use archive-safe record types and an owned archive wrapper for every rkyv payload persisted in redb."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN state bytes are loaded from redb for unchanged-output reuse",
+          "shall": "THE SYSTEM SHALL return validated archived values whose ownership does not depend on an open redb transaction."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF archive design still depends on unresolved `Arc<str>`, `DateTime<Utc>`, or borrowed-transaction lifetimes",
+          "shall_not": "THE SYSTEM SHALL NOT defer those choices to later implementation tasks",
+          "because": "the decomposition must remove implementation-shaping ambiguity before wiring command flows"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "The architecture spec requires rkyv-backed persisted outputs.",
+        "Current domain types include fields that are awkward to archive directly across transaction boundaries."
+      ],
+      "postconditions": [
+        "A concrete `OwnedArchive<T>` ownership model is defined and implemented for persisted payload reuse.",
+        "Persisted record shapes explicitly choose owned strings and epoch-second timestamps instead of leaving field compatibility open."
+      ],
+      "invariants": [
+        "No archived value returned from `StateDb` borrows bytes from a dropped transaction.",
+        "All later tasks consume the same archive boundary types instead of inventing parallel representations."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A unit test validates an `OwnedArchive<T>` can expose an archived root and deserialize it after the redb read scope ends.",
+        "A compile-time or unit test proves the chosen persisted record types archive successfully with rkyv."
+      ],
+      "error": [
+        "Invalid archived bytes return an access error from `OwnedArchive<T>::new` instead of creating an unchecked wrapper.",
+        "Compilation fails if a persisted record reintroduces an unsupported field type without a boundary conversion."
+      ],
+      "edge": [
+        "Empty strings, empty vectors, and zero timestamps still archive and deserialize without special cases."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/analyze.rs",
+        "centralized-docs/src/chunking_adapter.rs",
+        "centralized-docs/src/scrape/validation.rs",
+        "centralized-docs/src/watch.rs"
+      ],
+      "patterns": [
+        "Existing `Arc<str>` usage in persisted analysis-related types",
+        "Existing `DateTime<Utc>` usage in snapshot-related types"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "List every persisted payload type that will cross the redb boundary."
+      ],
+      "phase_1": [
+        "Write failing unit or compile-time tests that prove `OwnedArchive<T>` validates bytes after the redb read scope ends, rejects invalid archives, and that the chosen persisted record boundary types archive successfully."
+      ],
+      "phase_2": [
+        "Implement `OwnedArchive<T>`, define the archive-safe persisted record boundary types, and add the conversion helpers that lock later tasks onto the same ownership and field-shape decisions."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/analyze.rs",
+        "centralized-docs/src/watch.rs"
+      ],
+      "similar": [
+        "Existing domain-to-storage translation boundaries in `centralized-docs/src/cache/mod.rs`"
+      ]
+    }
+  },
+  {
+    "id": "task-003",
+    "title": "data: add fixed-size `FileStateRaw` and `UrlStateRaw` pod types",
+    "type": "feature",
+    "priority": 1,
+    "effort": "30min",
+    "description": "Create the fixed-size raw state structs with `#[repr(C)]` and bytemuck traits so file and URL state can be stored as Pod bytes in redb.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL represent file and URL state as fixed-size Pod structs with deterministic layout."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN redb returns bytes for a raw state row",
+          "shall": "THE SYSTEM SHALL be able to cast those bytes into the corresponding raw struct without serde."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF a raw struct contains non-Pod fields or implicit layout assumptions",
+          "shall_not": "THE SYSTEM SHALL NOT claim Pod safety",
+          "because": "bytemuck requires stable layout and explicitly initialized padding"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "bytemuck is available to derive Pod-compatible traits.",
+        "A new state module can be referenced from production code."
+      ],
+      "postconditions": [
+        "`FileStateRaw` and `UrlStateRaw` exist with explicit reserved bytes and stable layout attributes.",
+        "The types derive the traits needed for safe byte casting."
+      ],
+      "invariants": [
+        "All fields remain fixed-size primitives or byte arrays.",
+        "Reserved bytes are explicit instead of relying on compiler-inserted padding."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A unit test asserts the size of each raw struct matches the intended storage footprint.",
+        "A unit test verifies `bytemuck::bytes_of` and `pod_read_unaligned` round-trip both raw structs."
+      ],
+      "error": [
+        "Compilation fails if a non-Pod field is accidentally added to either raw struct.",
+        "A layout assertion test fails if a field change breaks the documented footprint."
+      ],
+      "edge": [
+        "Zeroed reserved bytes still produce an equality-preserving round trip for default-like test values."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/lib.rs",
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "patterns": [
+        "Existing module export pattern in `src/lib.rs`",
+        "Existing hash-oriented domain types in `src/cache/mod.rs`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Add a new state module scaffold and export it from `src/lib.rs` if needed."
+      ],
+      "phase_1": [
+        "Write failing layout and Pod round-trip tests that assert the exact size, byte-casting behavior, and reserved-byte handling expected from `FileStateRaw` and `UrlStateRaw`."
+      ],
+      "phase_2": [
+        "Define `FileStateRaw` and `UrlStateRaw` with `#[repr(C)]`, explicit reserved bytes, and the required bytemuck derives so the new layout tests pass."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/lib.rs",
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "similar": [
+        "Existing SHA-256-oriented domain types in `centralized-docs/src/cache/mod.rs`"
+      ]
+    }
+  },
+  {
+    "id": "task-004",
+    "title": "data: add archive-safe persisted output records and rkyv derives",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Implement the persisted record types chosen in the archive-boundary task for analyses, transforms, chunks, scraped pages, and snapshots, then derive rkyv support on those record trees instead of leaving field compatibility to later tasks.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL archive every persisted output type through explicit archive-safe record shapes."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN an output is prepared for redb persistence",
+          "shall": "THE SYSTEM SHALL serialize a concrete persisted record that is already compatible with rkyv."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF later tasks still need to decide how analysis, transform, scrape, or snapshot payloads archive",
+          "shall_not": "THE SYSTEM SHALL NOT leave record compatibility open",
+          "because": "storage format decisions must be settled before table and loader work begins"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "The archive boundary and ownership model are already defined.",
+        "Runtime domain types for analysis, transform, chunk, scrape, and snapshot outputs already exist."
+      ],
+      "postconditions": [
+        "Persisted record types exist for every redb output table named in the architecture spec.",
+        "Conversion helpers exist between runtime domain values and persisted record values where shapes differ."
+      ],
+      "invariants": [
+        "Persisted record types stay append-only and serialization-focused.",
+        "No task later in the plan needs to revisit `Arc<str>` or `DateTime<Utc>` compatibility."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "Focused tests archive and access one sample value for each persisted record family.",
+        "Round-trip tests prove persisted records convert back into the runtime domain types required by command flows."
+      ],
+      "error": [
+        "Invalid archived bytes for any persisted record type return an rkyv access error during tests.",
+        "Compilation fails if a nested persisted field lacks the required rkyv support."
+      ],
+      "edge": [
+        "Empty transform text, empty chunk vectors, empty scrape links, and empty snapshot page maps archive without special handling."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/analyze.rs",
+        "centralized-docs/src/chunking_adapter.rs",
+        "centralized-docs/src/scrape/validation.rs",
+        "centralized-docs/src/watch.rs"
+      ],
+      "patterns": [
+        "Current runtime domain type definitions used by index, scrape, and watch/apply"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Enumerate the persisted output record trees and add them to the new state module or adjacent persistence module."
+      ],
+      "phase_1": [
+        "Write failing archive-access and round-trip tests for each persisted record family, including invalid-byte checks and empty-value edge cases."
+      ],
+      "phase_2": [
+        "Implement the persisted record types, add `Archive`, `Serialize`, and `Deserialize` derives to the record trees, and add the runtime-to-persisted conversion helpers required by those tests."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/analyze.rs",
+        "centralized-docs/src/watch.rs"
+      ],
+      "similar": [
+        "Existing serde-backed storage types and cache payloads in `centralized-docs/src/cache/mod.rs`"
+      ]
+    }
+  },
+  {
+    "id": "task-005",
+    "title": "data: create redb table definitions for raw state and archived outputs",
+    "type": "feature",
+    "priority": 1,
+    "effort": "30min",
+    "description": "Define the redb tables required by the state database API, including `file_state`, `analysis_outputs`, `transform_outputs`, `chunk_outputs`, `url_state`, `scrape_outputs`, `snapshots`, and `metadata`.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL expose named redb tables for each persisted state and output class."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `StateDb` initializes a redb file",
+          "shall": "THE SYSTEM SHALL be able to open every table required by the architecture spec."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF raw-state rows and archived-output rows share an ambiguous table mapping",
+          "shall_not": "THE SYSTEM SHALL NOT mix incompatible value encodings",
+          "because": "Pod bytes and rkyv bytes need distinct read and validation paths"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "The new state module exists.",
+        "The persisted record shapes and raw Pod types are already defined."
+      ],
+      "postconditions": [
+        "Named table definitions exist for every spec-listed state and output table.",
+        "The code can open all tables during database initialization."
+      ],
+      "invariants": [
+        "Table names match the architecture spec exactly.",
+        "Table key and value types stay aligned with the raw-vs-archived storage strategy."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "An initialization test opens a temporary state database and confirms the new tables can be created.",
+        "A reopen test confirms table initialization remains idempotent."
+      ],
+      "error": [
+        "redb returns an error if a table definition uses an incompatible key or value type.",
+        "Opening a database with a mismatched table definition surfaces an initialization error."
+      ],
+      "edge": [
+        "Creating an empty database still opens every table definition without requiring data rows."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "patterns": [
+        "Current `TableDefinition` declarations and initialization flow in `DocCache`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Mirror the existing redb table declaration style from `src/cache/mod.rs`."
+      ],
+      "phase_1": [
+        "Write failing temporary-database initialization and reopen tests that prove every required table can be created idempotently."
+      ],
+      "phase_2": [
+        "Add the redb table definitions for raw state, archived outputs, snapshots, and metadata, then wire initialization so the temporary-database tests pass."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "similar": [
+        "`DOCUMENT_TABLE`, `SCRAPE_TABLE`, and related table definitions in `src/cache/mod.rs`"
+      ]
+    }
+  },
+  {
+    "id": "task-006",
+    "title": "data: implement `StateDb::open` and redb table initialization",
+    "type": "feature",
+    "priority": 1,
+    "effort": "30min",
+    "description": "Add the `StateDb` wrapper with `open(path)` and internal initialization logic so a dedicated state database file can be created and prepared for use.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL open a state database file and initialize required tables exactly once per database."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `StateDb::open` is called with a filesystem path",
+          "shall": "THE SYSTEM SHALL create parent directories as needed and return a ready-to-use database handle."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF initialization is skipped for a new file-backed database",
+          "shall_not": "THE SYSTEM SHALL NOT defer table creation until later data-path calls",
+          "because": "the state API should fail early at the boundary"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "The state module contains the required table definitions.",
+        "A filesystem path can be provided by callers."
+      ],
+      "postconditions": [
+        "`StateDb::open` returns a wrapper containing an initialized `redb::Database`.",
+        "Calling `open` on a fresh path creates parent directories and required tables."
+      ],
+      "invariants": [
+        "Open remains a thin action-layer boundary around redb setup.",
+        "Re-opening the same database is idempotent."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A temporary-database test verifies `StateDb::open` creates the database and tables.",
+        "A test verifies `StateDb::open` creates missing parent directories before opening the database."
+      ],
+      "error": [
+        "Opening a path inside an unwritable parent directory returns an error instead of panicking.",
+        "Opening a path that cannot be initialized as a redb database returns an error to the caller."
+      ],
+      "edge": [
+        "Calling `StateDb::open` twice on the same path succeeds both times."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "patterns": [
+        "`DocCache::open` and table initialization in `src/cache/mod.rs`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Copy the minimal directory-creation and `Database::create` pattern from `DocCache::open`."
+      ],
+      "phase_1": [
+        "Write failing temporary-database tests for fresh opens, reopen behavior, parent-directory creation, and the explicit error cases exposed by `StateDb::open`."
+      ],
+      "phase_2": [
+        "Implement `StateDb`, add the private table-initialization helper, and wire `open(path)` so the new open-path tests pass."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cache/mod.rs",
+        "centralized-docs/src/lib.rs"
+      ],
+      "similar": [
+        "`DocCache::open` setup and initialization path"
+      ]
+    }
+  },
+  {
+    "id": "task-007",
+    "title": "data: add `StateReadSession` to enforce one shared read transaction per run",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Introduce a read-session API that opens one `begin_read()` transaction per command run, keeps table access scoped to that transaction, and becomes the only way loaders can read state during index, scrape, and watch/apply flows.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL use exactly one shared redb read transaction per command run."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN a command starts its state-loading phase",
+          "shall": "THE SYSTEM SHALL create one `StateReadSession` and reuse it for all state reads in that run."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF any loader opens its own independent read transaction",
+          "shall_not": "THE SYSTEM SHALL NOT violate the two-transaction architecture",
+          "because": "the core invariant is exactly one shared read transaction and one write transaction per run"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "`StateDb` can open and initialize the database.",
+        "Raw state and archived table definitions already exist."
+      ],
+      "postconditions": [
+        "`StateDb` exposes a read-session entry point that owns the redb read transaction for the run.",
+        "Later loader APIs are defined on `StateReadSession` instead of opening transactions themselves."
+      ],
+      "invariants": [
+        "Only one read transaction exists per command run.",
+        "The write path remains separate and still uses exactly one commit boundary at shutdown."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A test proves multiple loader calls can share one `StateReadSession` without reopening redb transactions.",
+        "A command-level test or test-only counter proves one run performs one read transaction even when it loads multiple tables."
+      ],
+      "error": [
+        "Calling a loader without a valid read session is impossible by API shape or returns an explicit error.",
+        "A test fails if a refactor reintroduces per-loader `begin_read()` calls."
+      ],
+      "edge": [
+        "An empty database still supports a full read session that returns empty loader results."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "patterns": [
+        "Current redb read transaction usage in `DocCache`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Define the session boundary and decide which table handles need to live inside it."
+      ],
+      "phase_1": [
+        "Write failing tests or test-only counters that prove multiple loaders share one read session, that per-loader `begin_read()` calls are rejected, and that empty databases still support a full session."
+      ],
+      "phase_2": [
+        "Add `StateReadSession`, move state read APIs onto that type, and wire the session boundary so the single-read-transaction tests pass."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "similar": [
+        "Existing redb transaction boundaries in `DocCache`"
+      ]
+    }
+  },
+  {
+    "id": "task-008",
+    "title": "data: implement raw state bulk loaders on `StateReadSession`",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Implement `load_file_states` and `load_url_states` on the shared read session so raw state rows are scanned once per run and decoded through bytemuck-safe Pod reads.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL bulk load file and URL state rows within the shared read transaction for the run."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN raw state is requested from the read session",
+          "shall": "THE SYSTEM SHALL return every stored row keyed by its canonical source path or URL."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF a stored raw value has an unexpected byte length",
+          "shall_not": "THE SYSTEM SHALL NOT silently interpret corrupt state bytes",
+          "because": "diff correctness depends on trusted raw hashes"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "`StateReadSession` exists and owns the shared read transaction.",
+        "`FileStateRaw` and `UrlStateRaw` are Pod-compatible."
+      ],
+      "postconditions": [
+        "`load_file_states` and `load_url_states` scan their tables without opening additional transactions.",
+        "Malformed raw values return an error instead of partial decoded state."
+      ],
+      "invariants": [
+        "The methods are read-only.",
+        "The methods do not deserialize through serde."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A temporary database test writes valid `FileStateRaw` and `UrlStateRaw` rows and verifies both loaders return intact maps.",
+        "A test confirms the loaders return empty maps for empty tables without opening new transactions."
+      ],
+      "error": [
+        "Malformed byte-length rows fail with an error instead of producing partial structs.",
+        "A corrupt raw row aborts the load path rather than returning a partially populated map."
+      ],
+      "edge": [
+        "Large but valid tables still load through one table scan per raw-state table."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "patterns": [
+        "Current redb table iteration and read-transaction usage in `DocCache`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Inspect how existing code opens and scans redb tables."
+      ],
+      "phase_1": [
+        "Write failing temporary-database tests for empty, valid, and malformed raw-state rows, including assertions that the loaders stay inside the shared read transaction."
+      ],
+      "phase_2": [
+        "Implement `load_file_states` and `load_url_states` on `StateReadSession`, including safe Pod decoding and explicit malformed-row errors."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "similar": [
+        "redb table iteration patterns in `DocCache`"
+      ]
+    }
+  },
+  {
+    "id": "task-009",
+    "title": "data: implement archived output bulk loaders with transform reuse coverage",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Add `StateReadSession` bulk loaders for archived analyses, transforms, chunks, and scrape outputs by hash, using `OwnedArchive<T>` so unchanged content can reuse every stored output path instead of analysis alone.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL provide validated archived access to analyses, transforms, chunks, and scrape outputs for unchanged-content reuse."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN callers request archived outputs by hash from the read session",
+          "shall": "THE SYSTEM SHALL load each requested value from the matching table and validate its archive structure before returning it."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF the state API omits transform-output loading or returns unchecked archive pointers",
+          "shall_not": "THE SYSTEM SHALL NOT leave unchanged transform reuse unimplemented or unsafe",
+          "because": "the black-hat rejection identified transform reuse and archive ownership as missing"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Persisted output record types and `OwnedArchive<T>` already exist.",
+        "The state module defines output tables for analyses, transforms, chunks, and scrapes."
+      ],
+      "postconditions": [
+        "`StateReadSession` exposes bulk loader methods for every archived output family needed by command reuse paths.",
+        "Missing or invalid payloads fail explicitly rather than returning silent holes."
+      ],
+      "invariants": [
+        "The load path stays inside the shared read transaction for the run.",
+        "The implementation does not use serde or bincode for these output tables."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "Tests store archived analysis, transform, chunk, and scrape bytes, then access them through the new bulk loader APIs.",
+        "A test verifies valid requested hashes return owned archived values keyed by the original hash."
+      ],
+      "error": [
+        "Invalid rkyv bytes produce an error from the bulk loader.",
+        "A requested hash with missing stored bytes returns an error instead of an unchecked empty value."
+      ],
+      "edge": [
+        "Requesting an empty hash list returns an empty map without touching unrelated tables."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/analyze.rs",
+        "centralized-docs/src/chunking_adapter.rs",
+        "centralized-docs/src/transform.rs",
+        "centralized-docs/src/scrape/validation.rs"
+      ],
+      "patterns": [
+        "Current typed read helpers in `DocCache` for persisted payloads"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Inspect the rkyv access API needed to validate each persisted record family."
+      ],
+      "phase_1": [
+        "Write failing archive-loader tests for analyses, transforms, chunks, and scrape outputs, including requested-hash success cases, empty-request behavior, and missing or invalid archive failures."
+      ],
+      "phase_2": [
+        "Implement the archived bulk loaders for analyses, transforms, chunks, and scrape outputs using `OwnedArchive<T>` and the shared read session."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cache/mod.rs",
+        "centralized-docs/src/transform.rs"
+      ],
+      "similar": [
+        "Current typed cache read helpers in `DocCache`"
+      ]
+    }
+  },
+  {
+    "id": "task-010",
+    "title": "data: add explicit snapshot APIs on `StateReadSession` and `StateDb`",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Add explicit snapshot read and write support to the state layer before any watch/apply migration work, including `StateReadSession::load_snapshot` and snapshot upserts in the write batch so watch/apply does not depend on ad hoc `DocCache` helpers.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL expose explicit snapshot read and write APIs through the unified state database boundary."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN watch or apply needs a snapshot",
+          "shall": "THE SYSTEM SHALL load the archived snapshot through `StateReadSession` and persist snapshot updates through the single write-transaction path."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF snapshot migration starts before explicit state APIs exist",
+          "shall_not": "THE SYSTEM SHALL NOT couple watch/apply migration to hidden cache internals",
+          "because": "snapshot persistence must be a first-class part of the new state boundary"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Snapshot persisted records and tables already exist.",
+        "`StateReadSession` and the write batch type are available for extension."
+      ],
+      "postconditions": [
+        "Snapshot reads use an explicit `StateReadSession` API.",
+        "Snapshot writes are representable in the batch committed by `StateDb::commit_changes`."
+      ],
+      "invariants": [
+        "Snapshot load semantics remain keyed by the existing stable snapshot identity.",
+        "Snapshot persistence still obeys the one-read and one-write transaction invariant per run."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A temporary-database test proves a stored snapshot can be loaded through `StateReadSession` and written back through the batch API.",
+        "A test verifies first-run snapshot loads return `None` or the expected empty result without special casing at the command layer."
+      ],
+      "error": [
+        "Corrupt archived snapshot bytes return an explicit error during load.",
+        "A malformed snapshot write payload fails before commit rather than creating unreadable persisted state."
+      ],
+      "edge": [
+        "An unchanged snapshot can be skipped from the write batch without rewriting the existing row."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/watch.rs",
+        "centralized-docs/src/watch.rs",
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "patterns": [
+        "Current snapshot get and put helper flow in `DocCache` and `cmd/watch.rs`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Map the current snapshot keying and command-call surface."
+      ],
+      "phase_1": [
+        "Write failing temporary-database tests for snapshot load, snapshot write-through-batch behavior, corrupt archive handling, and first-run empty results."
+      ],
+      "phase_2": [
+        "Add snapshot read support to `StateReadSession` and extend the write batch plus `StateDb::commit_changes` contract to handle snapshot upserts and deletions."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/watch.rs",
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "similar": [
+        "Existing snapshot helper surface in `DocCache`"
+      ]
+    }
+  },
+  {
+    "id": "task-011",
+    "title": "data: implement validated `StateChanges` and atomic `commit_changes`",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Add the batch commit type and the single-write-transaction `StateDb::commit_changes` method, including pre-commit reference validation so every stored hash resolves, duplicate payload hashes are deduplicated, and unchanged rows are never rewritten.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL commit all state mutations in one validated ACID write transaction."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `commit_changes` receives a populated `StateChanges` batch",
+          "shall": "THE SYSTEM SHALL validate references, write all inserts and deletes across affected tables, and commit once."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF a batch contains a file, URL, or snapshot row that references a hash absent from both existing state and the batch payloads",
+          "shall_not": "THE SYSTEM SHALL NOT commit dangling references or rewrite unchanged rows",
+          "because": "reference integrity and stable reuse are core state invariants"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "`StateDb` is open and tables are initialized.",
+        "Raw state structs, output tables, and snapshot APIs already exist."
+      ],
+      "postconditions": [
+        "`StateDb::commit_changes` writes all batch mutations using one `begin_write`/`commit` cycle.",
+        "The batch validator rejects unresolved hashes, duplicate conflicting payloads, and unnecessary rewrites of unchanged rows."
+      ],
+      "invariants": [
+        "Exactly one write transaction exists per successful command run.",
+        "Every stored hash referenced by a committed state row resolves to a payload after commit completes."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A temporary-database test commits file updates, URL updates, snapshot updates, payload blobs, and deletions in one batch successfully.",
+        "A test verifies committed state rows reference payload hashes that can be loaded immediately after the commit."
+      ],
+      "error": [
+        "A batch with a missing referenced payload hash returns an error and preserves previously committed state.",
+        "A batch that tries to rewrite an unchanged row fails validation or is normalized to skip that write."
+      ],
+      "edge": [
+        "An empty `StateChanges` batch still commits successfully as a no-op through one write transaction."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "patterns": [
+        "Current redb write transaction patterns in `DocCache`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Define `StateChanges` to include files, URLs, snapshots, output blobs, and deletions."
+      ],
+      "phase_1": [
+        "Write failing temporary-database tests that cover atomic commits, reference validation, deduplication, unchanged-row suppression, rollback on error, and the no-op batch case."
+      ],
+      "phase_2": [
+        "Implement `StateChanges`, batch validation for reference integrity, deduplication, and unchanged-row suppression, and the single-write-transaction `commit_changes` path."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "similar": [
+        "Existing redb write helpers in `DocCache`"
+      ]
+    }
+  },
+  {
+    "id": "task-012",
+    "title": "calc: expose deterministic config hashing and add `compute_file_diff`",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Promote the config-hash helper to a reusable API and implement `compute_file_diff` so discovered files are classified into unchanged, changed, new, and deleted buckets from in-memory hashes and loaded file state.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL classify files from one deterministic config hash and one in-memory content hash pass."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN discovered files and known file state are provided",
+          "shall": "THE SYSTEM SHALL hash file bytes in parallel and compare them against stored content and config hashes."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF file hashing or config hashing uses divergent helpers",
+          "shall_not": "THE SYSTEM SHALL NOT classify identical inputs inconsistently",
+          "because": "state reuse depends on deterministic diff inputs"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Discovered files include source paths relative to the source directory.",
+        "Known states are keyed by those same source paths."
+      ],
+      "postconditions": [
+        "A shared config-hash helper is callable from outside `analyze.rs`.",
+        "`compute_file_diff` returns deterministic unchanged, changed, new, and deleted collections."
+      ],
+      "invariants": [
+        "The function performs no state writes.",
+        "A path can appear in exactly one diff bucket."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A unit test covers a mixed set of unchanged, changed, new, and deleted files.",
+        "A unit test verifies the config-hash helper returns the same digest for the same config contents regardless of caller."
+      ],
+      "error": [
+        "A missing file on disk returns an error from the hashing phase.",
+        "A file read failure during parallel hashing aborts diff computation instead of misclassifying the file."
+      ],
+      "edge": [
+        "A config-hash-only change marks a file as changed even when file bytes are identical."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/analyze.rs",
+        "centralized-docs/src/cmd/index.rs",
+        "centralized-docs/src/discover.rs"
+      ],
+      "patterns": [
+        "Current config-hash helper in `src/analyze.rs`",
+        "Existing rayon-based per-file work in `analyze::analyze_files`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Locate the current config-hash helper and choose the smallest reusable boundary."
+      ],
+      "phase_1": [
+        "Write failing unit tests for mixed unchanged, changed, new, and deleted files, config-only changes, and file-read error propagation from the diffing path."
+      ],
+      "phase_2": [
+        "Expose the deterministic config-hash helper as a reusable API and implement `compute_file_diff` with parallel hashing and deterministic bucket assignment."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/analyze.rs",
+        "centralized-docs/src/cmd/index.rs"
+      ],
+      "similar": [
+        "`analyze::analyze_files` rayon iteration and existing content hash helpers"
+      ]
+    }
+  },
+  {
+    "id": "task-013",
+    "title": "action: wire startup state open and file diff into `run_index`",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Modify `run_index` to open `StateDb`, create one `StateReadSession`, bulk load file state, compute the current config hash, run `compute_file_diff`, and print diff statistics before analysis starts.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL perform startup bulk state loading and diffing before analysis work begins."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `ctd index` starts after file discovery",
+          "shall": "THE SYSTEM SHALL open the state database, create one shared read session, load known file states, compute the current config hash, and print diff counts."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF `run_index` opens multiple read sessions or proceeds without a valid state boundary",
+          "shall_not": "THE SYSTEM SHALL NOT violate the two-transaction architecture",
+          "because": "the command must centralize all reads through one session"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "`StateDb::open`, `StateReadSession`, and `compute_file_diff` are available.",
+        "`run_index` already performs discovery and holds the output directory lock."
+      ],
+      "postconditions": [
+        "`run_index` computes a file diff before the analyze phase.",
+        "The command emits deterministic diff telemetry counts for unchanged, changed, new, and deleted files."
+      ],
+      "invariants": [
+        "Discovery behavior remains unchanged.",
+        "No state writes occur during the startup read step."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A command-level test verifies `run_index` opens the state DB and prints the new diff step when prior state exists.",
+        "A test verifies the command reuses one read session for startup state access."
+      ],
+      "error": [
+        "A failing state open returns an error instead of proceeding into analysis.",
+        "A file-diff failure bubbles out of `run_index` before any later pipeline steps execute."
+      ],
+      "edge": [
+        "A first run with no stored state reports every discovered file as new."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/index.rs",
+        "centralized-docs/src/analyze.rs"
+      ],
+      "patterns": [
+        "Current step-printing pattern in `run_index`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Inspect the current step ordering in `src/cmd/index.rs`."
+      ],
+      "phase_1": [
+        "Write failing command-level tests that assert `run_index` opens state before analysis, computes and prints diff telemetry, reuses one read session, and aborts before analysis on state-open or diff failures."
+      ],
+      "phase_2": [
+        "Insert state open, read-session creation, file-state load, config-hash calculation, `compute_file_diff`, and deterministic diff telemetry into `run_index` after discovery."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/index.rs",
+        "centralized-docs/src/analyze.rs"
+      ],
+      "similar": [
+        "Current step logging in `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-014",
+    "title": "action: reuse archived analyses for unchanged files in `run_index`",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Change the analysis stage in `run_index` so unchanged files load archived analyses from the shared read session, deserialize only the reused values needed for the in-memory pipeline, and analyze only changed or new files.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL compute analyses only for changed and new files while reusing archived analyses for unchanged files."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `run_index` enters the analyze phase with a non-empty unchanged set",
+          "shall": "THE SYSTEM SHALL load archived analyses for unchanged files by stored hash and merge them with newly computed analyses."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF an unchanged file's archived analysis is missing from state",
+          "shall_not": "THE SYSTEM SHALL NOT silently drop that document from the pipeline",
+          "because": "state holes must surface as explicit errors"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "`run_index` already has a `FileDiff` and an open `StateReadSession`.",
+        "`StateReadSession::load_analyses` can retrieve archived analyses by hash."
+      ],
+      "postconditions": [
+        "Only changed and new files are passed to `analyze::analyze_files`.",
+        "The final `analyses` vector still contains all documents in deterministic path order."
+      ],
+      "invariants": [
+        "The downstream pipeline continues receiving `Vec<Analysis>` or the runtime type it already expects.",
+        "Behavior for changed and new files remains the same as before."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A focused pipeline test verifies one unchanged file is reused from state while one changed file is re-analyzed.",
+        "A test verifies the merged analysis collection stays sorted by source path after combining reused and recomputed values."
+      ],
+      "error": [
+        "Missing archived analysis bytes for an unchanged file cause a surfaced error.",
+        "Invalid archived analysis bytes for an unchanged file return an explicit load or deserialize error."
+      ],
+      "edge": [
+        "A run with zero unchanged files still behaves like the previous full-analysis path."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/index.rs",
+        "centralized-docs/src/analyze.rs"
+      ],
+      "patterns": [
+        "Current `run_index` analyze stage and `AnalyzeResult` handling"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Identify where `run_index` currently creates the analysis collection."
+      ],
+      "phase_1": [
+        "Write failing pipeline tests that cover unchanged-analysis reuse, changed-file reanalysis, deterministic merge ordering, and explicit missing or invalid archived-analysis errors."
+      ],
+      "phase_2": [
+        "Load and deserialize archived analyses for unchanged files, analyze only `diff.changed_and_new()`, and merge the reused and recomputed values into the deterministic final analysis collection."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/index.rs",
+        "centralized-docs/src/analyze.rs"
+      ],
+      "similar": [
+        "Current all-files analyze path in `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-015",
+    "title": "action: capture transform artifacts by source path and reuse archived transforms",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Make transform outputs first-class pipeline artifacts keyed by `source_path`, use that mapping to persist changed/new transforms, and load archived transform outputs for unchanged files so transform reuse is explicit instead of inferred from later filesystem output.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL treat transform outputs as source-path-keyed state artifacts that can be persisted and reused."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `run_index` reaches the transform stage",
+          "shall": "THE SYSTEM SHALL retain a deterministic mapping from source path to transformed output for both new computation and unchanged reuse."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF transform persistence depends on reverse-mapping output files from disk or other implicit heuristics",
+          "shall_not": "THE SYSTEM SHALL NOT leave transform source mapping ambiguous",
+          "because": "unchanged transform reuse must be keyed directly by source path and stored hash"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Archived transform loaders exist on `StateReadSession`.",
+        "The index pipeline already produces transformed markdown for changed and new files."
+      ],
+      "postconditions": [
+        "A deterministic transform-artifact map exists at the command boundary keyed by source path.",
+        "Unchanged files can reuse stored transform outputs through the shared read session."
+      ],
+      "invariants": [
+        "Transform reuse is driven by stored transform hashes in `FileStateRaw`.",
+        "No later task needs to guess how transformed markdown maps back to a source file."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A focused test proves transform output for an unchanged file is loaded from state while a changed file gets a new transform artifact keyed by the same source path.",
+        "A test verifies the transform-artifact map remains deterministic across runs with identical inputs."
+      ],
+      "error": [
+        "Missing archived transform bytes for an unchanged file return an explicit error.",
+        "A changed file that reaches commit preparation without a transform artifact fails before commit."
+      ],
+      "edge": [
+        "An empty transformed markdown string still persists and reloads through the same mapping."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/transform.rs",
+        "centralized-docs/src/cmd/index.rs"
+      ],
+      "patterns": [
+        "Current transform stage outputs available after `transform_all` or equivalent helpers"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Locate where transformed markdown is available before disk-writing side effects obscure the source mapping."
+      ],
+      "phase_1": [
+        "Write failing tests that require a deterministic source-path-keyed transform artifact map, unchanged transform reuse, and explicit errors when archived or newly produced transform artifacts are missing."
+      ],
+      "phase_2": [
+        "Introduce the source-path-keyed transform artifact map for changed and new files and load archived transforms for unchanged files through the shared read session."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/transform.rs",
+        "centralized-docs/src/cmd/index.rs"
+      ],
+      "similar": [
+        "Current transform stage output handling in `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-016",
+    "title": "action: reuse archived chunk outputs for unchanged files in `run_index`",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Load archived chunk outputs for unchanged files from the shared read session and merge them with newly chunked outputs so unchanged files skip chunk recomputation as well as analysis and transform work.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL reuse stored chunk outputs for unchanged files instead of recomputing them."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `run_index` reaches the chunking phase with unchanged files present",
+          "shall": "THE SYSTEM SHALL load archived chunk outputs for unchanged files by stored hash and merge them with newly computed chunk results."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF unchanged files still reach chunk recomputation after analysis and transform reuse are in place",
+          "shall_not": "THE SYSTEM SHALL NOT leave the reuse path partially wired",
+          "because": "chunk reuse is part of the stored reference chain in `FileStateRaw`"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Chunk archived loaders exist on `StateReadSession`.",
+        "The index pipeline already exposes chunk outputs for changed and new files."
+      ],
+      "postconditions": [
+        "Unchanged files reuse stored chunk outputs through the state layer.",
+        "Final chunk collections remain keyed and ordered consistently with the rest of the pipeline."
+      ],
+      "invariants": [
+        "Chunk reuse is driven by stored chunk hashes in `FileStateRaw`.",
+        "Changed and new file behavior remains unchanged except for later state persistence."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A focused test proves an unchanged file's chunk vector is loaded from state while a changed file gets newly computed chunks.",
+        "A test verifies mixed reused and recomputed chunk results remain stable by source path ordering."
+      ],
+      "error": [
+        "Missing archived chunk bytes for an unchanged file surface an explicit error.",
+        "Invalid archived chunk payloads abort the reuse path instead of silently forcing partial recomputation."
+      ],
+      "edge": [
+        "An unchanged file with an empty stored chunk vector still reuses that empty output correctly."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/chunking_adapter.rs",
+        "centralized-docs/src/cmd/index.rs"
+      ],
+      "patterns": [
+        "Current chunk output assembly in the index pipeline"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Identify the smallest command boundary where chunk outputs are collected."
+      ],
+      "phase_1": [
+        "Write failing tests that cover unchanged chunk reuse, changed-file recomputation, deterministic merged ordering, and explicit missing or invalid archived-chunk errors."
+      ],
+      "phase_2": [
+        "Load archived chunk outputs for unchanged files and merge them with recomputed chunk results at the command boundary."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/chunking_adapter.rs",
+        "centralized-docs/src/cmd/index.rs"
+      ],
+      "similar": [
+        "Current chunk stage output handling in `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-017",
+    "title": "calc: build deterministic file-state commit batches from index outputs",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Create the calculation that converts the index run's diff and produced outputs into a validated `StateChanges` batch, ensuring changed and new files reference stored analysis, transform, and chunk hashes while unchanged rows are omitted entirely.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL derive a deterministic file-state change batch from diff results and produced outputs."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `run_index` finishes its in-memory pipeline",
+          "shall": "THE SYSTEM SHALL prepare updated file rows, deleted file keys, and payload blobs for a later atomic commit."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF unchanged files are rebuilt into new state rows or any referenced hash lacks a matching payload",
+          "shall_not": "THE SYSTEM SHALL NOT churn stable rows or create unresolved references",
+          "because": "stable reuse depends on precise batch construction before commit"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "The index pipeline already exposes final analysis, transform, and chunk artifacts keyed by source path.",
+        "The code can compute content-addressed hashes for archived payload bytes."
+      ],
+      "postconditions": [
+        "A helper returns `StateChanges` entries for updated and deleted file state plus new analysis, transform, and chunk blobs.",
+        "Each changed or new file gets a `FileStateRaw` row whose stored hashes resolve within the same batch or existing state."
+      ],
+      "invariants": [
+        "Unchanged files are not rewritten.",
+        "Deleted files only populate the delete list and do not leave dangling payload references."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A unit test verifies changed and new files produce updated rows and payload blobs while deleted files produce only delete entries.",
+        "A test verifies each generated `FileStateRaw` row references the content-addressed hashes of the payloads placed in the batch."
+      ],
+      "error": [
+        "rkyv serialization failure for any output value returns an error from the batch builder.",
+        "A missing analysis, transform, or chunk artifact needed for a changed or new file prevents the batch builder from producing partial updates."
+      ],
+      "edge": [
+        "A diff containing only deletions produces no updated rows and only deleted keys."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/index.rs",
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "patterns": [
+        "Existing content-hash helpers and end-of-pipeline values available in `run_index`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Identify the final source-path-keyed artifacts available after analysis, transform, and chunk stages."
+      ],
+      "phase_1": [
+        "Write failing unit tests that require deterministic `StateChanges` output for changed, new, and deleted files, correct payload-hash references, and explicit errors when required artifacts cannot be serialized or are missing."
+      ],
+      "phase_2": [
+        "Serialize changed and new payloads to rkyv bytes, compute their content-addressed keys, and populate `updated_files`, `deleted_files`, and payload vectors in the batch-building helper."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/index.rs",
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "similar": [
+        "Current content-hash helpers and pipeline result assembly in `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-018",
+    "title": "action: commit index state once at shutdown and assert transaction invariants",
+    "type": "feature",
+    "priority": 1,
+    "effort": "1hr",
+    "description": "Call the file-state batch builder and `StateDb::commit_changes` from `run_index` after successful pipeline completion, then add tests that the command uses exactly one shared read transaction and one write transaction per run.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL commit the computed index-state batch exactly once after successful processing."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `run_index` completes downstream processing without error",
+          "shall": "THE SYSTEM SHALL call `StateDb::commit_changes` with the prepared batch before returning `Ok(())`."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF an earlier pipeline stage fails or the command performs extra transactional round-trips",
+          "shall_not": "THE SYSTEM SHALL NOT write partial state or open extra transactions",
+          "because": "the core invariant is one shared read and one write per run"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "`run_index` can build a `StateChanges` batch from diff and outputs.",
+        "`StateDb::commit_changes` is implemented and validated."
+      ],
+      "postconditions": [
+        "A successful index run writes one state batch at shutdown.",
+        "Automated tests guard the one-read and one-write transaction invariant for the command."
+      ],
+      "invariants": [
+        "The command performs no per-file state writes.",
+        "Commit happens after the in-memory pipeline, not during it."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "An integration-style test verifies a successful index run populates the state database and reuses state on the next run.",
+        "A test-only transaction counter or equivalent assertion proves one index run uses one read transaction and one write transaction."
+      ],
+      "error": [
+        "A forced failure before the commit call preserves the prior state database contents.",
+        "A shutdown commit error is returned from `run_index` rather than being swallowed."
+      ],
+      "edge": [
+        "A run with no changes still reaches a valid no-op commit path without rewriting unchanged rows."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/index.rs"
+      ],
+      "patterns": [
+        "Current final success path in `run_index`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Identify the latest safe point in `run_index` where all required outputs exist."
+      ],
+      "phase_1": [
+        "Write failing integration and transaction-invariant tests that prove successful runs commit once at shutdown, failures preserve prior state, and one run uses exactly one read and one write transaction."
+      ],
+      "phase_2": [
+        "Build the shutdown `StateChanges` batch from the diff and pipeline results, then call `state_db.commit_changes(&changes)` only after successful pipeline completion."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/index.rs"
+      ],
+      "similar": [
+        "Current end-of-command summary path in `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-019",
+    "title": "action: load URL state through the shared read session at scrape startup",
+    "type": "feature",
+    "priority": 2,
+    "effort": "30min",
+    "description": "Integrate `StateDb` into the scrape command entry path so `ctd scrape` opens the state database, creates one shared read session, and bulk loads `UrlStateRaw` before classifying fetched pages.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL load prior URL state at scrape startup through the shared read transaction for the run."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `ctd scrape` begins its state-aware flow",
+          "shall": "THE SYSTEM SHALL open `StateDb`, create one `StateReadSession`, and load URL state before downstream scrape classification begins."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF scrape startup opens multiple read sessions or silently disables state loading on failure",
+          "shall_not": "THE SYSTEM SHALL NOT violate the state model or degrade into hidden best-effort mode",
+          "because": "scrape reuse must rely on the same explicit state boundary as index"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "`StateReadSession::load_url_states` is implemented.",
+        "The scrape command already has a defined startup boundary before fetch result processing."
+      ],
+      "postconditions": [
+        "The scrape command holds loaded URL state before it hashes fetched markdown.",
+        "The command reuses the same read session for any additional archived scrape-output reads later in the run."
+      ],
+      "invariants": [
+        "No scrape-state writes occur during startup.",
+        "The command still performs one shared read transaction for the run."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A command-level test verifies scrape startup loads URL state before classification logic runs.",
+        "A test proves scrape startup reuses one read session for multiple state reads in the same run."
+      ],
+      "error": [
+        "A failing state open aborts scrape before downstream processing starts.",
+        "A malformed URL-state row aborts scrape classification instead of silently treating the page as new."
+      ],
+      "edge": [
+        "A first scrape run with no URL state continues with an empty loaded map."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/scrape.rs",
+        "centralized-docs/src/scrape/mod.rs"
+      ],
+      "patterns": [
+        "Current scrape command startup and fetch orchestration"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Inspect where `ctd scrape` currently transitions from startup into fetch and post-fetch processing."
+      ],
+      "phase_1": [
+        "Write failing command-level tests that assert scrape startup opens state, bulk loads URL state before classification, reuses one read session, and aborts on state-open or malformed-row failures."
+      ],
+      "phase_2": [
+        "Open `StateDb`, create one `StateReadSession`, and bulk load URL state at scrape startup before downstream classification begins."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/scrape.rs",
+        "centralized-docs/src/scrape/mod.rs"
+      ],
+      "similar": [
+        "The new startup state-loading step in `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-020",
+    "title": "calc: classify fetched scrape pages by content hash against loaded URL state",
+    "type": "feature",
+    "priority": 2,
+    "effort": "1hr",
+    "description": "Add the pure scrape diff calculation that hashes fetched markdown content, compares it to loaded `UrlStateRaw`, and classifies pages into new, changed, unchanged, and deleted buckets where applicable.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL classify fetched scrape pages from their content hashes and previously loaded URL state."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN scrape fetch results are available",
+          "shall": "THE SYSTEM SHALL hash each fetched page, compare it to stored URL state, and produce deterministic page-classification buckets."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF unchanged pages are misclassified because hash comparison is bypassed or mixed with later command logic",
+          "shall_not": "THE SYSTEM SHALL NOT blur diffing with downstream processing",
+          "because": "scrape reuse depends on an explicit classification step"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Fetched scrape pages expose stable URL and markdown content values.",
+        "Loaded URL state is keyed by canonical URL."
+      ],
+      "postconditions": [
+        "A deterministic scrape diff structure classifies fetched pages into reuse and recompute buckets.",
+        "The classification step records the content hash needed for later URL-state writes."
+      ],
+      "invariants": [
+        "The classification function performs no state writes.",
+        "The classification result is the sole source of truth for unchanged versus changed scrape handling later in the run."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A unit test covers unchanged, changed, and new fetched pages against loaded URL state.",
+        "A test verifies the same inputs produce the same scrape classification result deterministically."
+      ],
+      "error": [
+        "A malformed fetched page missing required content data returns an error instead of landing in an arbitrary bucket.",
+        "A hash-computation failure aborts classification rather than silently marking the page as changed."
+      ],
+      "edge": [
+        "An unchanged page with a different status code still remains unchanged if the persisted model is content-hash driven."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/scrape.rs",
+        "centralized-docs/src/scrape/mod.rs",
+        "centralized-docs/src/scrape/validation.rs"
+      ],
+      "patterns": [
+        "Current fetched page representation and scrape result assembly"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Identify the minimal fetched-page data needed for content hashing and later writes."
+      ],
+      "phase_1": [
+        "Write failing unit tests that cover unchanged, changed, and new fetched pages, deterministic classification, malformed fetched-page errors, and hash-computation failures."
+      ],
+      "phase_2": [
+        "Implement deterministic scrape classification from fetched content hashes and loaded URL state, and record the content hashes needed by later write-path tasks."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/scrape.rs",
+        "centralized-docs/src/scrape/mod.rs"
+      ],
+      "similar": [
+        "The new file diff calculation used by `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-021",
+    "title": "action: load archived scrape outputs for unchanged pages and skip downstream stages",
+    "type": "feature",
+    "priority": 2,
+    "effort": "1hr",
+    "description": "Use the scrape classification result to load archived scrape outputs for unchanged pages through the shared read session and bypass validation, analysis, transform, and chunk recomputation for those pages explicitly.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL reuse archived scrape outputs for unchanged pages and skip the CPU-heavy downstream scrape stages for those pages."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN unchanged scrape pages are identified",
+          "shall": "THE SYSTEM SHALL load their archived scrape outputs by stored hash and feed those reused outputs into the later command assembly path."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF later tasks still need to decide which scrape stages can be skipped for unchanged pages",
+          "shall_not": "THE SYSTEM SHALL NOT leave scrape-stage skipping implicit",
+          "because": "unchanged pages must explicitly bypass validation, analysis, transform, and chunk work"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Scrape classification and archived scrape-output loaders are implemented.",
+        "The scrape command has a boundary where unchanged and changed pages can diverge before CPU-heavy processing."
+      ],
+      "postconditions": [
+        "Unchanged pages load stored scrape outputs from state and do not re-enter downstream processing stages.",
+        "Changed and new pages continue through the existing scrape processing path."
+      ],
+      "invariants": [
+        "The network fetch still occurs for all pages under the current spider-rs limitation.",
+        "Unchanged-page handling is driven by stored scrape hashes in `UrlStateRaw`."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A focused test proves an unchanged scraped page is loaded from state while a changed page is processed normally.",
+        "A test verifies unchanged pages bypass validation, analysis, transform, and chunking logic after classification."
+      ],
+      "error": [
+        "Missing or corrupt archived scrape output for an unchanged page returns an explicit error.",
+        "A reused scrape output with a hash mismatch against its URL state row fails before command assembly."
+      ],
+      "edge": [
+        "A run with zero unchanged pages still follows the existing full-processing path for all fetched pages."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/scrape.rs",
+        "centralized-docs/src/scrape/mod.rs",
+        "centralized-docs/src/scrape/validation.rs"
+      ],
+      "patterns": [
+        "Current post-fetch scrape processing stages and where they branch"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Identify the earliest safe boundary after classification where unchanged pages can exit the heavy path."
+      ],
+      "phase_1": [
+        "Write failing tests that require unchanged scrape pages to reuse archived outputs, bypass validation and downstream stages, and surface explicit errors for missing, corrupt, or hash-mismatched stored outputs."
+      ],
+      "phase_2": [
+        "Load archived scrape outputs for unchanged pages through the shared read session and bypass validation, analysis, transform, and chunking for those pages."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/scrape.rs",
+        "centralized-docs/src/scrape/validation.rs"
+      ],
+      "similar": [
+        "The unchanged-file reuse path wired into `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-022",
+    "title": "calc: build URL-state and scrape-output commit batches from scrape results",
+    "type": "feature",
+    "priority": 2,
+    "effort": "1hr",
+    "description": "Convert scrape classification results and processed outputs into `StateChanges` entries for updated URL rows, deleted URL rows if needed, and new archived scrape payloads, while omitting unchanged URL rows entirely.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL derive a deterministic scrape-state batch from classified and processed scrape results."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN scrape processing completes for the run",
+          "shall": "THE SYSTEM SHALL prepare updated URL-state rows and new scrape payload blobs for one later commit."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF unchanged URL rows are rewritten or a URL row references a scrape hash without a stored payload",
+          "shall_not": "THE SYSTEM SHALL NOT churn stable scrape state or create dangling hashes",
+          "because": "scrape reuse relies on the same reference-integrity rules as file state"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Scrape classification and unchanged-output reuse are already implemented.",
+        "The code can compute content-addressed hashes for archived scrape payload bytes."
+      ],
+      "postconditions": [
+        "A helper returns `StateChanges` entries for updated and deleted URL state plus new scrape blobs.",
+        "Each changed or new URL row references a stored scrape hash that resolves within the same batch or existing state."
+      ],
+      "invariants": [
+        "Unchanged URLs are not rewritten.",
+        "Batch construction stays independent from the final commit boundary."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A unit test verifies changed and new pages produce updated URL rows and scrape payload blobs while unchanged pages produce no updates.",
+        "A test verifies each generated `UrlStateRaw` row references the content-addressed hash of the scrape payload stored in the batch."
+      ],
+      "error": [
+        "Serialization failure for a scrape payload returns an error from the batch builder.",
+        "A missing processed scrape output for a changed or new page prevents batch construction from yielding partial updates."
+      ],
+      "edge": [
+        "A scrape run containing only unchanged pages yields an empty or no-op URL-state batch."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/scrape.rs",
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "patterns": [
+        "Existing content-hash helpers and scrape command result assembly"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Identify the final URL-keyed scrape artifacts available after unchanged-page reuse and changed-page processing."
+      ],
+      "phase_1": [
+        "Write failing unit tests that require deterministic URL-state batch output for changed and new pages, omission of unchanged rows, correct payload-hash references, and explicit serialization or missing-output failures."
+      ],
+      "phase_2": [
+        "Serialize changed and new scrape outputs to rkyv bytes, compute their content-addressed keys, and populate URL-state updates, deletions, and scrape payload vectors in the batch-building helper."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/scrape.rs",
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "similar": [
+        "The file-state batch builder introduced for `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-023",
+    "title": "action: wire scrape command to one shared read session and one shutdown commit",
+    "type": "feature",
+    "priority": 2,
+    "effort": "1hr",
+    "description": "Integrate the scrape startup load, page classification, unchanged-page reuse, and URL-state batch commit into `ctd scrape`, then add tests that the command obeys the one-read and one-write transaction invariant per run.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL execute scrape reuse and persistence through one shared read transaction and one write transaction per run."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `ctd scrape` completes without error",
+          "shall": "THE SYSTEM SHALL commit the prepared scrape-state batch exactly once before returning success."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF scrape wiring introduces extra transactional boundaries or partial writes",
+          "shall_not": "THE SYSTEM SHALL NOT diverge from the same transaction model enforced for index runs",
+          "because": "the black-hat rejection applies to every command run, not just indexing"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Scrape startup load, classification, reuse, and batch-building helpers already exist.",
+        "`StateDb::commit_changes` can commit URL-state and scrape-output updates."
+      ],
+      "postconditions": [
+        "`ctd scrape` uses one shared read session for all reads and one commit call for all writes in the run.",
+        "A successful scrape run persists URL-state and scrape-output updates exactly once at shutdown."
+      ],
+      "invariants": [
+        "The command performs no per-page writes.",
+        "A failed scrape run before shutdown leaves previously committed state intact."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "An integration-style test proves an unchanged scrape page is reused from state and a changed page is reprocessed and committed in one run.",
+        "A test-only transaction counter or equivalent assertion proves one scrape run uses one read transaction and one write transaction."
+      ],
+      "error": [
+        "A forced failure before commit preserves the prior scrape state database contents.",
+        "A shutdown commit error is returned from the scrape command instead of being swallowed."
+      ],
+      "edge": [
+        "A run with only unchanged pages still reaches a valid no-op commit path without rewriting stable rows."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/scrape.rs"
+      ],
+      "patterns": [
+        "Current scrape command success path and summary output"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Identify the final success boundary in `src/cmd/scrape.rs`."
+      ],
+      "phase_1": [
+        "Write failing integration and transaction-invariant tests that prove scrape runs reuse one shared read session, commit once at shutdown, preserve prior state on failure, and surface commit errors."
+      ],
+      "phase_2": [
+        "Wire startup load, classification, unchanged-page reuse, and batch building into the scrape command flow, then commit the scrape batch once at shutdown."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/scrape.rs"
+      ],
+      "similar": [
+        "The final state-commit wiring added to `run_index`"
+      ]
+    }
+  },
+  {
+    "id": "task-024",
+    "title": "action: migrate watch/apply snapshot persistence from `DocCache` to `StateDb`",
+    "type": "task",
+    "priority": 3,
+    "effort": "1hr",
+    "description": "Replace the watch/apply snapshot-specific `DocCache` calls with the explicit snapshot APIs on `StateReadSession` and `StateDb` so snapshots follow the same database source-of-truth model and transaction invariants as index and scrape.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL persist snapshots through the unified state database API."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN `run_watch` or `run_apply` loads or stores a snapshot",
+          "shall": "THE SYSTEM SHALL use `StateReadSession` and `StateDb` rather than the legacy `DocCache` snapshot helpers."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF watch/apply snapshot keys or transaction boundaries change during migration",
+          "shall_not": "THE SYSTEM SHALL NOT break idempotent snapshot lookup or the one-read and one-write transaction model",
+          "because": "snapshot continuity depends on stable identity and the same state discipline as other commands"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Explicit snapshot APIs already exist on the state layer.",
+        "`cmd/watch.rs` currently isolates snapshot I/O in helper functions."
+      ],
+      "postconditions": [
+        "Watch/apply snapshot helpers use the new state APIs instead of `DocCache`.",
+        "Watch/apply behavior remains idempotent for unchanged content."
+      ],
+      "invariants": [
+        "Pure calculation functions in `watch.rs` remain unchanged.",
+        "Snapshot migration stays confined to the command-side I/O boundary."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "A watch/apply test proves a stored snapshot can be loaded and re-applied through `StateDb`.",
+        "A test verifies migrated snapshot helpers preserve existing lookup semantics for repeat runs."
+      ],
+      "error": [
+        "Opening an invalid snapshot database path returns an error instead of panicking.",
+        "Corrupt archived snapshot bytes return an explicit error during load rather than a silent default."
+      ],
+      "edge": [
+        "First-run watch/apply still returns an empty default snapshot when no stored snapshot exists."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cmd/watch.rs",
+        "centralized-docs/src/watch.rs",
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "patterns": [
+        "The existing command-side snapshot helper boundary in `src/cmd/watch.rs`"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Identify the `DocCache` snapshot-only helpers in `src/cmd/watch.rs`."
+      ],
+      "phase_1": [
+        "Write failing watch/apply tests that require snapshot loads and stores to flow through `StateDb`, preserve repeat-run lookup semantics, surface invalid-path or corrupt-archive errors, and keep first-run empty behavior."
+      ],
+      "phase_2": [
+        "Swap the watch/apply snapshot helpers to open `StateDb`, create a read session, and load or store archived snapshots through the explicit state APIs."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cmd/watch.rs",
+        "centralized-docs/src/watch.rs",
+        "centralized-docs/src/cache/mod.rs"
+      ],
+      "similar": [
+        "The existing snapshot get and put helpers in `DocCache`"
+      ]
+    }
+  },
+  {
+    "id": "task-025",
+    "title": "data: remove LRU backend from `CacheBackendInner` after state migration",
+    "type": "chore",
+    "priority": 3,
+    "effort": "1hr",
+    "description": "Delete the now-obsolete LRU backend and related dependency usage from the legacy cache module once file, scrape, and snapshot state have been migrated to bulk-loaded `StateDb` flows.",
+    "ears": {
+      "ubiquitous": [
+        "THE SYSTEM SHALL remove its LRU backend once bulk state loading has replaced it."
+      ],
+      "event_driven": [
+        {
+          "trigger": "WHEN the state migration is complete for file, scrape, and snapshot flows",
+          "shall": "THE SYSTEM SHALL delete the LRU-specific branches and dependency usage from the cache module."
+        }
+      ],
+      "unwanted": [
+        {
+          "condition": "IF the cleanup removes code still used by non-migrated paths",
+          "shall_not": "THE SYSTEM SHALL NOT break unrelated runtime behavior",
+          "because": "cleanup must follow, not precede, migration completion"
+        }
+      ]
+    },
+    "contracts": {
+      "preconditions": [
+        "Production state flows no longer require the LRU backend.",
+        "Tests identify remaining callers of `CacheBackend::Memory` or `CacheBackendInner::Lru`."
+      ],
+      "postconditions": [
+        "`CacheBackendInner::Lru` and its supporting dependency usage are removed.",
+        "The crate no longer depends on LRU behavior for state caching."
+      ],
+      "invariants": [
+        "redb remains the source of truth for persisted state.",
+        "Cleanup does not alter already-migrated `StateDb` behavior."
+      ]
+    },
+    "tests": {
+      "happy": [
+        "`cargo test` passes without any `Lru` backend code paths.",
+        "A workspace search or compile check confirms no production code still references `CacheBackendInner::Lru`."
+      ],
+      "error": [
+        "Compilation fails immediately if any remaining production code still references removed LRU types.",
+        "The dependency check fails if `lru` remains declared after all code references are removed."
+      ],
+      "edge": [
+        "Benchmarks or tests that used in-memory cache backends are either updated to `StateDb` alternatives or intentionally removed."
+      ]
+    },
+    "research": {
+      "files": [
+        "centralized-docs/src/cache/mod.rs",
+        "centralized-docs/Cargo.toml"
+      ],
+      "patterns": [
+        "`CacheBackendInner::Lru`, `CacheBackend::Memory`, and `lru` dependency usage"
+      ],
+      "questions": []
+    },
+    "implementation": {
+      "phase_0": [
+        "Search for all remaining `Lru` backend references and confirm migration completeness."
+      ],
+      "phase_1": [
+        "Write failing compile or test assertions that confirm no production code still references `CacheBackendInner::Lru`, that the `lru` dependency is gone once cleanup is complete, and that updated tests cover any former in-memory-backend behavior."
+      ],
+      "phase_2": [
+        "Remove `Lru`-specific branches, types, and imports from the cache module, remove the `lru` dependency when it is no longer used, and update or remove any obsolete in-memory-backend tests or benchmarks."
+      ]
+    },
+    "context": {
+      "related_files": [
+        "centralized-docs/src/cache/mod.rs",
+        "centralized-docs/Cargo.toml"
+      ],
+      "similar": [
+        "`CacheBackendInner::Lru` branches throughout `src/cache/mod.rs`"
+      ]
+    }
+  }
+]

@@ -1,0 +1,17 @@
+$schema: "https://moonrepo.dev/schemas/workspace.json"
+
+# Project locations
+projects:
+  globs:
+    - "centralized-docs"
+    - "contextual-chunker"
+    - "llms-txt-parser"
+    - "evaluations"
+    - "benchmark_server"
+
+# VCS configuration
+vcs:
+  defaultBranch: "main"
+
+# Version constraint
+versionConstraint: ">=1.20.0"
