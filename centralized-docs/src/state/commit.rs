@@ -614,6 +614,42 @@ fn read_and_compare<K: redb::Key>(
 }
 
 // ---------------------------------------------------------------------------
+// ArchivedRaw — owned wrapper for raw archived bytes (snapshot API stub)
+// ---------------------------------------------------------------------------
+
+/// Owned wrapper around raw archived bytes.
+///
+/// Stub type for the snapshot load API. Will be replaced with a proper
+/// rkyv-based implementation in a future bead.
+#[derive(Debug)]
+pub struct ArchivedRaw {
+    #[allow(dead_code)]
+    bytes: Vec<u8>,
+}
+
+impl ArchivedRaw {
+    /// Construct from raw bytes.
+    #[must_use]
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self { bytes }
+    }
+
+    /// Deserialize the archived bytes into type `T`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`super::StateError`] if deserialization fails.
+    ///
+    /// # TODO
+    ///
+    /// This is a stub — implementation deferred to snapshot API bead.
+    pub fn deserialize<T>(&self) -> Result<T, super::StateError> {
+        let _ = &self.bytes;
+        todo!()
+    }
+}
+
+// ---------------------------------------------------------------------------
 // StateDb — newtype wrapper over redb::Database
 // ---------------------------------------------------------------------------
 
@@ -733,6 +769,19 @@ impl StateDb {
     pub fn database(&self) -> &Database {
         &self.db
     }
+
+    /// Drop the snapshots table.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`super::StateError`] if the table cannot be dropped.
+    ///
+    /// # TODO
+    ///
+    /// This is a stub — implementation deferred to snapshot API bead.
+    pub fn drop_snapshots_table(&self) -> Result<(), super::StateError> {
+        todo!()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -748,6 +797,30 @@ pub struct StateReadSession<'db> {
     #[allow(dead_code)]
     read_txn: redb::ReadTransaction,
     _phantom: std::marker::PhantomData<&'db ()>,
+}
+
+impl<'db> StateReadSession<'db> {
+    /// Bulk-load archived snapshots for the requested hash keys.
+    ///
+    /// Returns a `HashMap` keyed by the same `[u8; 32]` hashes, with
+    /// [`ArchivedRaw`] values that own their bytes independently of the
+    /// redb transaction lifetime.
+    ///
+    /// # Errors
+    ///
+    /// - [`super::StateError::TableOpenFailed`] if the snapshots table cannot be opened.
+    /// - [`super::StateError::StorageError`] if a redb read fails.
+    /// - [`super::StateError::ArchiveValidationFailed`] if stored bytes fail rkyv validation.
+    ///
+    /// # TODO
+    ///
+    /// This is a stub — implementation deferred to snapshot API bead.
+    pub fn load_snapshots(
+        &self,
+        _keys: &[[u8; 32]],
+    ) -> Result<HashMap<[u8; 32], ArchivedRaw>, super::StateError> {
+        todo!()
+    }
 }
 
 // ---------------------------------------------------------------------------

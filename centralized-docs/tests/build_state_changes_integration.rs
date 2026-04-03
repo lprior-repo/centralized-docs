@@ -323,7 +323,8 @@ fn integration_state_changes_structure_is_correct_for_commit() {
             "config_hash must match"
         );
         assert_eq!(
-            state.content_hash, outputs.content_hashes[*path],
+            state.content_hash,
+            outputs.content_hashes[path.as_str()],
             "content_hash must match for {}",
             path
         );

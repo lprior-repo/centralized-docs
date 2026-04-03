@@ -54,7 +54,24 @@ fn test_index_malformed_json() {
     fs::write(&index_file, "{ invalid json }").unwrap();
 
     // Should either fail gracefully or handle error
-    let result = index::build_and_write_compass(&[], &std::collections::HashMap::new(), index_path);
+    let result = index::build_and_write_index(
+        &[],
+        &std::collections::HashMap::new(),
+        &doc_transformer::chunking_adapter::ChunksResult {
+            chunks_metadata: vec![],
+            total_chunks: 0,
+            document_count: 0,
+            summary_chunks: 0,
+            standard_chunks: 0,
+            detailed_chunks: 0,
+        },
+        index_path,
+        "test_project",
+        None,
+        None,
+        None,
+        None,
+    );
     assert!(
         result.is_ok() || result.is_err(),
         "Should handle malformed JSON, got: {result:?}",
@@ -80,7 +97,24 @@ fn test_index_missing_required_fields() {
     .unwrap();
 
     // Should either fail gracefully or handle missing fields
-    let result = index::build_and_write_compass(&[], &std::collections::HashMap::new(), index_path);
+    let result = index::build_and_write_index(
+        &[],
+        &std::collections::HashMap::new(),
+        &doc_transformer::chunking_adapter::ChunksResult {
+            chunks_metadata: vec![],
+            total_chunks: 0,
+            document_count: 0,
+            summary_chunks: 0,
+            standard_chunks: 0,
+            detailed_chunks: 0,
+        },
+        index_path,
+        "test_project",
+        None,
+        None,
+        None,
+        None,
+    );
     assert!(
         result.is_ok() || result.is_err(),
         "Should handle missing chunks result, got: {result:?}",

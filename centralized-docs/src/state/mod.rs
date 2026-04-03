@@ -351,6 +351,15 @@ pub enum StateError {
         message: String,
     },
 
+    /// Archive validation failed for a specific key in an rkyv output table.
+    #[error("archive validation failed for key {key_hex}: {message}")]
+    ArchiveValidationFailed {
+        /// Hex-encoded key of the failed archive.
+        key_hex: String,
+        /// Error description.
+        message: String,
+    },
+
     /// An rkyv serialization failed.
     #[error("rkyv serialization failed for type {type_name}: {message}")]
     SerializationFailed {
@@ -714,6 +723,23 @@ pub fn read_file_state_raw(bytes: &[u8]) -> Result<FileStateRaw, StateError> {
 /// - [`StateError::PodCastFailed`] if field extraction fails.
 pub fn read_url_state_raw(bytes: &[u8]) -> Result<UrlStateRaw, StateError> {
     UrlStateRaw::from_bytes(bytes)
+}
+
+// ---------------------------------------------------------------------------
+// Snapshot serialization stub
+// ---------------------------------------------------------------------------
+
+/// Serialize a [`crate::watch::Snapshot`] into rkyv bytes.
+///
+/// # Errors
+///
+/// Returns [`StateError::SerializationFailed`] if rkyv serialization fails.
+///
+/// # TODO
+///
+/// This is a stub — implementation deferred to snapshot API bead.
+pub fn serialize_snapshot(_snapshot: &crate::watch::Snapshot) -> Result<Vec<u8>, StateError> {
+    todo!()
 }
 
 // ---------------------------------------------------------------------------
