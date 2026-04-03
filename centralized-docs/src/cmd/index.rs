@@ -1,11 +1,78 @@
+//! Run the index command (main pipeline).
+//!
+//! Implements the full discovery → state diff → analyze → assign → transform →
+//! chunk → validate → index pipeline. The state-diff step (STEP 1.5) opens the
+//! persistent `StateDb`, bulk-loads file state, and classifies discovered files
+//! into unchanged/changed/new/deleted buckets for informational output.
+
 use crate::cli::config::IndexConfig;
+use crate::diff::{compute_file_diff, StoredHashes};
+use crate::state::bulk_load::StateReadSession;
+use crate::state::commit::StateDb;
+use crate::state::FileStateRaw;
 use crate::sys::dir::validate_output_path;
 use crate::sys::lock::acquire_output_lock;
 use crate::{analyze, assign, chunking_adapter, discover, index, llms, transform, validate};
 use anyhow::Result;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// Run the index command (main pipeline)
+// ---------------------------------------------------------------------------
+// Pure Calculation: file_states_to_stored_hashes
+// ---------------------------------------------------------------------------
+
+/// Convert loaded file-state rows to the `StoredHashes` format expected by
+/// `compute_file_diff`.
+///
+/// Projects `content_hash` and `config_hash` from each `FileStateRaw`.
+/// The resulting map has exactly the same keys as the input map.
+///
+/// # Invariants
+///
+/// - INV-4: `StoredHashes.content_hash` == `FileStateRaw.content_hash` (bitwise identical)
+/// - INV-4: `StoredHashes.config_hash` == `FileStateRaw.config_hash` (bitwise identical)
+/// - Output map `len()` == input map `len()`
+/// - Output map keys == input map keys (byte-identical `String`s)
+#[must_use]
+pub fn file_states_to_stored_hashes(
+    file_states: &HashMap<String, FileStateRaw>,
+) -> HashMap<String, StoredHashes> {
+    file_states
+        .iter()
+        .map(|(path, raw)| {
+            (
+                path.clone(),
+                StoredHashes {
+                    content_hash: raw.content_hash.into(),
+                    config_hash: raw.config_hash.into(),
+                },
+            )
+        })
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Action: run_index
+// ---------------------------------------------------------------------------
+
+/// Run the index command (main pipeline) with state-aware diff computation.
+///
+/// New internal flow (inserted between STEP 1 DISCOVER and STEP 2 ANALYZE):
+///   1a. Open `StateDb` at `<output>/state.redb`
+///   1b. Begin `StateReadSession`
+///   1c. Bulk load file states: `session.load_file_states()`
+///   1d. Convert `HashMap<String, FileStateRaw>` to `HashMap<String, StoredHashes>`
+///   1e. Compute config hash: `compute_config_hash(config.category_config.as_deref())`
+///   1f. Compute file diff: `compute_file_diff(&files, source_dir, config_path, &stored_hashes)`
+///   1g. Print diff statistics
+///
+/// The pipeline continues unchanged: all files are still analyzed, transformed, etc.
+/// The diff is informational only in this bead.
+///
+/// # Errors
+///
+/// Returns `Err(anyhow::Error)` for any failure in validation, discovery,
+/// state database operations, diff computation, analysis, or indexing.
 pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<()> {
     validate_output_path(output)?;
 
@@ -44,6 +111,36 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
         anyhow::bail!(
             "No markdown files found in source directory. Cannot index empty source.\n\
              Hint: Ensure the source directory contains files with .md, .mdx, .markdown, .txt, or .rst extensions."
+        );
+    }
+
+    // STEP 1.5: STATE + DIFF
+    {
+        let state_db_path = output.join("state.redb");
+        let state_db = StateDb::open(&state_db_path)
+            .map_err(|e| anyhow::anyhow!("failed to open state database: {e}"))?;
+        let session = StateReadSession::new(state_db.database())
+            .map_err(|e| anyhow::anyhow!("failed to begin state read session: {e}"))?;
+        let file_states = session
+            .load_file_states()
+            .map_err(|e| anyhow::anyhow!("failed to load file states: {e}"))?;
+        let stored_hashes = file_states_to_stored_hashes(&file_states);
+
+        let source_dir = PathBuf::from(&discover_manifest.source_dir);
+        let file_diff = compute_file_diff(
+            &files,
+            &source_dir,
+            config.category_config.as_deref(),
+            &stored_hashes,
+        )
+        .map_err(|e| anyhow::anyhow!("failed to compute file diff: {e}"))?;
+
+        println!(
+            "[DIFF] Unchanged: {}  Changed: {}  New: {}  Deleted: {}",
+            file_diff.unchanged.len(),
+            file_diff.changed.len(),
+            file_diff.new.len(),
+            file_diff.deleted.len(),
         );
     }
 

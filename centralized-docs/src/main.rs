@@ -32,11 +32,14 @@ pub mod highlight;
 pub mod index;
 pub mod llms;
 pub mod math_types;
+pub mod persisted;
 pub mod scrape;
 pub mod search;
+pub mod state;
 pub mod transform;
 pub mod types;
 pub mod validate;
+pub mod watch;
 
 pub mod cli;
 pub mod cmd;

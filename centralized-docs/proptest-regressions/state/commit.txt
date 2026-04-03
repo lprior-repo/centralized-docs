@@ -6,3 +6,4 @@
 # everyone who runs the test benefits from these saved cases.
 cc 6be598d013d2b5a991eadd8f6077159d4e2c01497703ab83b3187eabd2b1c233 # shrinks to key = "\u{b}"
 cc 3a37e4ab0f3dcdab09e359d0d81f811ac0a72cfb08d473eecb93f6868b49efbe # shrinks to key = " "
+cc b584be9806eb5295c1eaab83fac185181f09bc5caa6628ea72a67ae843fc047d # shrinks to key = "\u{a0}"
