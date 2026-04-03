@@ -96,6 +96,9 @@ parking_lot = "0.12.5"
 # Zero-copy serialization (rkyv 0.8 for persisted output records)
 rkyv = { version = "0.8", features = ["std", "bytecheck"] }
 
+# Zero-copy transmute (safe Pod casts for redb mmap'd values)
+bytemuck = { version = "1", features = ["derive", "const_zeroed"] }
+
 [dependencies.rmcp]
 version = "1.3"
 
@@ -116,6 +119,7 @@ playwright-rs = "0.8"
 tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
 rmcp = { version = "1.3", features = ["client"] }
 rkyv = { version = "0.8", features = ["std", "bytecheck"] }
+bytemuck = { version = "1", features = ["derive", "const_zeroed"] }
 redb = "2"
 
 [[test]]
