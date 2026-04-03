@@ -1,7 +1,0 @@
-# Seeds for failure cases proptest has generated in the past. It is
-# automatically read and these particular cases re-run before any
-# novel cases are generated.
-#
-# It is recommended to check this file in to source control so that
-# everyone who runs the test benefits from these saved cases.
-cc 3dfa2c3ebdb35efab5982b06217e818580e2071669a976a37e7ded79a3b25994 # shrinks to success_count = 0, total_count = 0, error_count = 4294967296
