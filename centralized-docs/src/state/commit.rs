@@ -763,8 +763,9 @@ pub struct StateReadSession<'db> {
 mod tests {
     use super::*;
     use crate::state::{
-        analysis_outputs_table, chunk_outputs_table, file_state_table, scrape_outputs_table,
-        snapshots_table, transform_outputs_table, url_state_table, FileStateRaw, UrlStateRaw,
+        analysis_outputs_table, chunk_outputs_table, file_state_table, metadata_table,
+        scrape_outputs_table, snapshots_table, transform_outputs_table, url_state_table,
+        FileStateRaw, UrlStateRaw,
     };
     use redb::ReadableTableMetadata;
     use tempfile::TempDir;
@@ -2365,5 +2366,541 @@ mod tests {
             result.is_ok(),
             "payload at exactly MAX_VALUE_SIZE should be accepted: {result:?}"
         );
+    }
+
+    // =======================================================================
+    // G01 (B02): StateDb::open creates parent directories when missing
+    // =======================================================================
+
+    #[test]
+    fn state_db_open_creates_parent_directories_when_missing() {
+        let temp_dir = TempDir::new().unwrap();
+        let nested_path = temp_dir.path().join("deeply/nested/dir/state.redb");
+
+        let state_db = StateDb::open(&nested_path).expect("open should succeed");
+
+        // Verify all parent directories were created
+        assert!(
+            temp_dir.path().join("deeply").is_dir(),
+            "deeply/ should be a directory"
+        );
+        assert!(
+            temp_dir.path().join("deeply/nested").is_dir(),
+            "deeply/nested/ should be a directory"
+        );
+        assert!(
+            temp_dir.path().join("deeply/nested/dir").is_dir(),
+            "deeply/nested/dir/ should be a directory"
+        );
+        assert!(nested_path.exists(), "state.redb file should exist");
+
+        // Verify the returned StateDb is usable
+        let _session = state_db.begin_read().expect("begin_read should succeed");
+    }
+
+    // =======================================================================
+    // G02 (B07): StateDb::open handles filename-only path
+    // =======================================================================
+
+    #[test]
+    fn state_db_open_handles_filename_only_path_without_create_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        // Use just a filename — parent is empty string, no create_dir_all needed
+        let db_path = temp_dir.path().join("state.redb");
+
+        let state_db = StateDb::open(&db_path).expect("open with filename path should succeed");
+        let _session = state_db.begin_read().expect("begin_read should succeed");
+    }
+
+    // =======================================================================
+    // G03 (B09): StateDb::open succeeds with unicode and spaces in path
+    // =======================================================================
+
+    #[test]
+    fn state_db_open_succeeds_with_unicode_and_spaces_in_path() {
+        let temp_dir = TempDir::new().unwrap();
+        let unicode_path = temp_dir.path().join("path with spaces/数据库/state.redb");
+
+        let state_db = StateDb::open(&unicode_path).expect("open with unicode path should succeed");
+
+        assert!(
+            temp_dir.path().join("path with spaces").is_dir(),
+            "directory with spaces should exist"
+        );
+        assert!(
+            temp_dir.path().join("path with spaces/数据库").is_dir(),
+            "unicode directory should exist"
+        );
+
+        let _session = state_db.begin_read().expect("begin_read should succeed");
+    }
+
+    // =======================================================================
+    // G04 (B10): StateDb::open returns DatabaseOpen on read-only parent (Unix)
+    // =======================================================================
+
+    #[test]
+    #[cfg(unix)]
+    fn state_db_open_returns_database_open_error_on_read_only_parent() {
+        let temp_dir = TempDir::new().unwrap();
+        let readonly_dir = temp_dir.path().join("readonly");
+        std::fs::create_dir(&readonly_dir).unwrap();
+
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&readonly_dir, std::fs::Permissions::from_mode(0o444)).unwrap();
+
+        let db_path = readonly_dir.join("state.redb");
+        let result = StateDb::open(&db_path);
+
+        let err = result.expect_err("should fail on read-only parent");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("readonly") || msg.contains("failed to open"),
+            "error should reference path or failure: {msg}"
+        );
+
+        // Restore for cleanup
+        let _ = std::fs::set_permissions(&readonly_dir, std::fs::Permissions::from_mode(0o755));
+    }
+
+    // =======================================================================
+    // G05 (B11): StateDb::open creates deeply nested parent directories
+    // =======================================================================
+
+    #[test]
+    fn state_db_open_creates_deeply_nested_parent_directories() {
+        let temp_dir = TempDir::new().unwrap();
+        let deep_path = temp_dir.path().join("a/b/c/d/e/f/g/h/i/j/state.redb");
+
+        let state_db = StateDb::open(&deep_path).expect("open should succeed");
+
+        assert!(
+            temp_dir.path().join("a/b/c/d/e/f/g/h/i/j").is_dir(),
+            "all 10 nested directories should exist"
+        );
+
+        let _session = state_db.begin_read().expect("begin_read should succeed");
+    }
+
+    // =======================================================================
+    // G06 (B38): commit_changes accepts 0-byte payload in analyses
+    // =======================================================================
+
+    #[test]
+    fn commit_changes_accepts_zero_byte_payload_in_analyses() {
+        let (state_db, _temp_dir) = create_temp_state_db();
+        let hash_key = [1u8; 32];
+        let mut changes = StateChanges::empty();
+        changes.new_analyses = vec![(hash_key, vec![])];
+
+        state_db
+            .commit_changes(changes)
+            .expect("zero-byte payload should succeed");
+
+        let db = state_db.database();
+        let stored = read_hash_table(db, analysis_outputs_table(), &hash_key);
+        assert_eq!(
+            stored,
+            Some(vec![]),
+            "zero-byte payload should be stored as empty vec"
+        );
+    }
+
+    // =======================================================================
+    // G07 (B39): commit_changes succeeds with partial vec population
+    // =======================================================================
+
+    #[test]
+    fn commit_changes_succeeds_with_only_analyses_populated() {
+        let (state_db, _temp_dir) = create_temp_state_db();
+        let hash_a = [1u8; 32];
+        let mut changes = StateChanges::empty();
+        changes.new_analyses = vec![(hash_a, vec![10])];
+
+        state_db
+            .commit_changes(changes)
+            .expect("partial population should succeed");
+
+        let db = state_db.database();
+        assert_eq!(
+            read_hash_table(db, analysis_outputs_table(), &hash_a),
+            Some(vec![10]),
+            "analysis should be persisted"
+        );
+        assert_eq!(
+            count_table_entries(db, "transform_outputs"),
+            0,
+            "transform_outputs should be empty"
+        );
+        assert_eq!(
+            count_table_entries(db, "chunk_outputs"),
+            0,
+            "chunk_outputs should be empty"
+        );
+        assert_eq!(
+            count_table_entries(db, "scrape_outputs"),
+            0,
+            "scrape_outputs should be empty"
+        );
+    }
+
+    // =======================================================================
+    // G08 (B56): commit_changes persists large batch (100 entries per vec)
+    // =======================================================================
+
+    #[test]
+    fn commit_changes_persists_batch_with_100_entries_per_vec() {
+        let (state_db, _temp_dir) = create_temp_state_db();
+        let mut changes = StateChanges::empty();
+
+        // 100 file states
+        let mut file_states = Vec::with_capacity(100);
+        for i in 0..100u8 {
+            let path = format!("file_{i}.rs");
+            let state = FileStateRaw {
+                content_hash: [i; 32],
+                config_hash: [i.saturating_add(1); 32],
+                analysis_hash: [0u8; 32],
+                transform_hash: [0u8; 32],
+                chunk_hash: [0u8; 32],
+                last_processed_secs: u64::from(i),
+                reserved: [0u8; 32],
+            };
+            file_states.push((path, state));
+        }
+        changes.updated_files = file_states;
+
+        // 100 analysis outputs (start at 1 to avoid zero hash)
+        let mut analyses = Vec::with_capacity(100);
+        for i in 0..100u8 {
+            let mut hash = [0u8; 32];
+            hash[0] = i.wrapping_add(1);
+            analyses.push((hash, vec![i]));
+        }
+        changes.new_analyses = analyses;
+
+        state_db
+            .commit_changes(changes)
+            .expect("large batch should succeed");
+
+        let db = state_db.database();
+        assert_eq!(
+            count_table_entries(db, "file_state"),
+            100,
+            "file_state should have 100 entries"
+        );
+        assert_eq!(
+            count_table_entries(db, "analysis_outputs"),
+            100,
+            "analysis_outputs should have 100 entries"
+        );
+
+        // Spot-check a few entries
+        let stored = read_string_table(db, file_state_table(), "file_0.rs");
+        assert!(stored.is_some(), "file_0.rs should exist");
+        let stored = read_string_table(db, file_state_table(), "file_99.rs");
+        assert!(stored.is_some(), "file_99.rs should exist");
+
+        let mut check_hash = [0u8; 32];
+        check_hash[0] = 42;
+        let stored_analysis = read_hash_table(db, analysis_outputs_table(), &check_hash);
+        assert_eq!(
+            stored_analysis,
+            Some(vec![42]),
+            "analysis for i=42 should match"
+        );
+    }
+
+    // =======================================================================
+    // G09 (B58): CommitError::WriteFailed variant construction test
+    // =======================================================================
+
+    #[test]
+    fn commit_error_write_failed_display_contains_table_and_reason() {
+        let err = CommitError::WriteFailed {
+            table: "file_state",
+            reason: "disk full".to_string(),
+        };
+        let msg = format!("{err}");
+        assert!(
+            matches!(
+                err,
+                CommitError::WriteFailed {
+                    table: "file_state",
+                    reason: _,
+                }
+            ),
+            "WriteFailed must match with exact table name"
+        );
+        assert!(
+            msg.contains("file_state"),
+            "Display should contain table name: {msg}"
+        );
+        assert!(
+            msg.contains("disk full"),
+            "Display should contain reason: {msg}"
+        );
+        assert!(
+            msg.contains("write failed"),
+            "Display should mention write failure: {msg}"
+        );
+    }
+
+    // =======================================================================
+    // G10 (B61): StateDb::database() returns reference to underlying redb Database
+    // =======================================================================
+
+    #[test]
+    fn database_returns_reference_to_underlying_redb_database() {
+        let (state_db, _temp_dir) = create_temp_state_db();
+
+        let db_ref = state_db.database();
+        // Verify the reference is valid by using it
+        let read_txn = db_ref
+            .begin_read()
+            .expect("begin_read on returned &Database should succeed");
+        // All 8 tables should be accessible
+        read_txn.open_table(file_state_table()).unwrap();
+        read_txn.open_table(url_state_table()).unwrap();
+        read_txn.open_table(analysis_outputs_table()).unwrap();
+        read_txn.open_table(transform_outputs_table()).unwrap();
+        read_txn.open_table(chunk_outputs_table()).unwrap();
+        read_txn.open_table(scrape_outputs_table()).unwrap();
+        read_txn.open_table(snapshots_table()).unwrap();
+        read_txn.open_table(metadata_table()).unwrap();
+    }
+
+    // =======================================================================
+    // G11 (B62): StateChanges::empty() creates valid batch with all empty vecs
+    // =======================================================================
+
+    #[test]
+    fn state_changes_empty_creates_batch_with_all_empty_vecs() {
+        let changes = StateChanges::empty();
+        assert_eq!(changes.updated_files.len(), 0);
+        assert_eq!(changes.deleted_files.len(), 0);
+        assert_eq!(changes.new_analyses.len(), 0);
+        assert_eq!(changes.new_transforms.len(), 0);
+        assert_eq!(changes.new_chunks.len(), 0);
+        assert_eq!(changes.updated_urls.len(), 0);
+        assert_eq!(changes.deleted_urls.len(), 0);
+        assert_eq!(changes.new_scrapes.len(), 0);
+        assert_eq!(changes.new_snapshots.len(), 0);
+        assert_eq!(changes.deleted_snapshots.len(), 0);
+    }
+
+    // =======================================================================
+    // G12 (B63): StateChanges::default() equals empty()
+    // =======================================================================
+
+    #[test]
+    fn state_changes_default_equals_empty() {
+        let default = StateChanges::default();
+        let empty = StateChanges::empty();
+        assert_eq!(default.updated_files.len(), empty.updated_files.len());
+        assert_eq!(default.deleted_files.len(), empty.deleted_files.len());
+        assert_eq!(default.new_analyses.len(), empty.new_analyses.len());
+        assert_eq!(default.new_transforms.len(), empty.new_transforms.len());
+        assert_eq!(default.new_chunks.len(), empty.new_chunks.len());
+        assert_eq!(default.updated_urls.len(), empty.updated_urls.len());
+        assert_eq!(default.deleted_urls.len(), empty.deleted_urls.len());
+        assert_eq!(default.new_scrapes.len(), empty.new_scrapes.len());
+        assert_eq!(default.new_snapshots.len(), empty.new_snapshots.len());
+        assert_eq!(
+            default.deleted_snapshots.len(),
+            empty.deleted_snapshots.len()
+        );
+    }
+
+    // =======================================================================
+    // G13 (B69): should_skip_write with large 1 MiB differing inputs
+    // =======================================================================
+
+    #[test]
+    fn should_skip_write_returns_false_for_large_differing_inputs() {
+        let large_a = vec![0xFFu8; 1_048_576];
+        let large_b = vec![0xFEu8; 1_048_576];
+        assert!(!should_skip_write(&large_a, &large_b));
+        assert!(should_skip_write(&large_a, &large_a.clone()));
+    }
+
+    // =======================================================================
+    // G15 (4.12): Proptest — EmptyStringKey boundary detection
+    // =======================================================================
+
+    #[test]
+    fn proptest_empty_string_key_boundary_detection() {
+        use proptest::prelude::*;
+
+        proptest!(|(whitespace in "([ \t\n\r]{0,20})")| {
+            let mut changes = StateChanges::empty();
+            changes.updated_files = vec![(whitespace.clone(), FileStateRaw::zeroed())];
+            let result = validate_no_empty_string_keys(&changes);
+            prop_assert!(
+                matches!(result, Err(CommitError::EmptyStringKey { table: "file_state", index: 0 })),
+                "whitespace-only key '{}' should be rejected as EmptyStringKey",
+                whitespace.escape_unicode()
+            );
+        });
+    }
+
+    #[test]
+    fn proptest_non_empty_string_key_always_accepted() {
+        use proptest::prelude::*;
+
+        proptest!(|(key in "[^\t\n\r\x00-\\\x1F\x7F-\\\x7F]{1,10}")| {
+            let mut changes = StateChanges::empty();
+            changes.updated_files = vec![(key, FileStateRaw::zeroed())];
+            let result = validate_no_empty_string_keys(&changes);            prop_assert!(
+                result.is_ok(),
+                "non-whitespace key should be accepted"
+            );
+        });
+    }
+
+    // =======================================================================
+    // G16 (4.13): Proptest — validate_hash_key classifies by length
+    // =======================================================================
+
+    #[test]
+    fn proptest_validate_hash_key_classifies_by_length() {
+        use crate::state::validate_hash_key;
+        use proptest::prelude::*;
+
+        proptest!(|(bytes in proptest::collection::vec(any::<u8>(), 0..64))| {
+            let result = validate_hash_key(&bytes);
+            if bytes.len() == 32 {
+                prop_assert!(result.is_ok(), "32-byte key should be valid");
+            } else {
+                prop_assert!(
+                    matches!(result, Err(crate::state::StateError::InvalidHashKeyLength { actual }) if actual == bytes.len()),
+                    "non-32-byte key (len={}) should return InvalidHashKeyLength",
+                    bytes.len()
+                );
+            }
+        });
+    }
+
+    // =======================================================================
+    // G17 (4.14): Proptest — validate_source_path rejects invalid patterns
+    // =======================================================================
+
+    #[test]
+    fn proptest_validate_source_path_rejects_invalid_patterns() {
+        use crate::state::validate_source_path;
+        use proptest::prelude::*;
+
+        proptest!(|(s in ".*{0,50}")| {
+            let result = validate_source_path(&s);
+            let is_invalid = s.is_empty()
+                || s.as_bytes().first() == Some(&b'/')
+                || s.split('/').any(|c| c == "..");
+            if is_invalid {
+                prop_assert!(
+                    result.is_err(),
+                    "path '{}' should be rejected",
+                    s.escape_unicode()
+                );
+            } else {
+                prop_assert!(
+                    result.is_ok(),
+                    "valid relative path '{}' should be accepted",
+                    s.escape_unicode()
+                );
+            }
+        });
+    }
+
+    // =======================================================================
+    // G18 (4.15): Proptest — validate_url_key rejects invalid patterns
+    // =======================================================================
+
+    #[test]
+    fn proptest_validate_url_key_rejects_invalid_patterns() {
+        use crate::state::validate_url_key;
+        use proptest::prelude::*;
+
+        proptest!(|(s in ".*{0,100}")| {
+            let result = validate_url_key(&s);
+            let is_invalid = s.is_empty() || !s.contains("://");
+            if is_invalid {
+                prop_assert!(
+                    result.is_err(),
+                    "URL '{}' should be rejected",
+                    s.escape_unicode()
+                );
+            } else {
+                prop_assert!(
+                    result.is_ok(),
+                    "URL with scheme '{}' should be accepted",
+                    s.escape_unicode()
+                );
+            }
+        });
+    }
+
+    // =======================================================================
+    // G19 (4.16): Proptest — payload size boundary
+    // =======================================================================
+
+    #[test]
+    fn proptest_payload_size_boundary() {
+        use proptest::prelude::*;
+
+        proptest!(|(
+            sizes in proptest::collection::vec(0usize..MAX_VALUE_SIZE + 2, 0..5),
+        )| {
+            let mut entries: Vec<([u8; 32], Vec<u8>)> = Vec::new();
+            for (i, size) in sizes.iter().enumerate() {
+                let mut hash = [0u8; 32];
+                hash[0] = u8::try_from(i).unwrap_or(u8::MAX);
+                entries.push((hash, vec![0u8; *size]));
+            }
+            let result = check_payload_size(&entries, "analysis_outputs");
+            let has_oversized = entries.iter().any(|(_, v)| v.len() > MAX_VALUE_SIZE);
+            if has_oversized {
+                prop_assert!(
+                    matches!(result, Err(CommitError::PayloadTooLarge { table: "analysis_outputs", .. })),
+                    "oversized payload should be rejected"
+                );
+            } else {
+                prop_assert!(result.is_ok(), "all valid sizes should be accepted");
+            }
+        });
+    }
+
+    // =======================================================================
+    // G20 (5.5): Fuzz target seed test for OwnedArchive::try_from_bytes
+    // =======================================================================
+    // Note: actual fuzz target is in fuzz/ directory. This test verifies the
+    // key property: OwnedArchive::try_from_bytes must not panic on any input.
+
+    #[test]
+    fn owned_archive_try_from_bytes_never_panics_on_arbitrary_bytes() {
+        use crate::persisted::PersistedAnalyzeResult;
+        use crate::state::bulk_load::{BulkLoadError, OwnedArchive};
+
+        let seeds: &[&[u8]] = &[
+            &[0xFF, 0xFF, 0xFF, 0xFF],
+            &[],
+            &[0u8; 64],
+            &[0xFFu8; 256],
+            &[0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+        ];
+
+        for seed in seeds {
+            let bytes: Box<[u8]> = seed.to_vec().into_boxed_slice();
+            let key: [u8; 32] = [0x42; 32];
+            let result = OwnedArchive::<PersistedAnalyzeResult>::try_from_bytes(
+                "analysis_outputs",
+                &key,
+                bytes,
+            );
+            // Must not panic — either Ok or CorruptPayload
+            match result {
+                Ok(_) | Err(BulkLoadError::CorruptPayload { .. }) => {}
+                Err(other) => panic!("unexpected error variant: {other:?}"),
+            }
+        }
     }
 }

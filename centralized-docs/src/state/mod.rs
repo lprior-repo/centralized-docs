@@ -1800,6 +1800,157 @@ mod tests {
         let guard = table.get(hash_key.as_slice()).unwrap().unwrap();
         assert_eq!(guard.value(), value);
     }
+
+    // =======================================================================
+    // G14 (B93): validate_source_path accepts path with three dots
+    // =======================================================================
+
+    #[test]
+    fn validate_source_path_accepts_three_dots_in_path() {
+        let result = validate_source_path("foo/.../bar");
+        assert!(
+            result.is_ok(),
+            "three dots (not '..') should be accepted: {result:?}"
+        );
+    }
+
+    // =======================================================================
+    // G14 (B94): validate_source_path accepts single dot segment
+    // =======================================================================
+
+    #[test]
+    fn validate_source_path_accepts_single_dot_segment() {
+        let result = validate_source_path("./foo");
+        assert!(
+            result.is_ok(),
+            "single dot segment './foo' should be accepted: {result:?}"
+        );
+    }
+
+    // =======================================================================
+    // G14 (B95): validate_source_path accepts dot-dot prefix in filename
+    // =======================================================================
+
+    #[test]
+    fn validate_source_path_accepts_dot_dot_prefix_in_filename() {
+        let result = validate_source_path("..hidden");
+        assert!(
+            result.is_ok(),
+            "dot-dot prefix in filename '..hidden' should be accepted: {result:?}"
+        );
+    }
+
+    // =======================================================================
+    // G14 (B96): validate_source_path accepts unicode path
+    // =======================================================================
+
+    #[test]
+    fn validate_source_path_accepts_unicode_path() {
+        let result = validate_source_path("概念/一般/test.md");
+        assert!(
+            result.is_ok(),
+            "unicode path should be accepted: {result:?}"
+        );
+    }
+
+    // =======================================================================
+    // G14 (B97): validate_source_path accepts very long path
+    // =======================================================================
+
+    #[test]
+    fn validate_source_path_accepts_very_long_path() {
+        let long_path: String = "a".repeat(4096);
+        let result = validate_source_path(&long_path);
+        assert!(
+            result.is_ok(),
+            "4096-char path should be accepted: {result:?}"
+        );
+    }
+
+    // =======================================================================
+    // G21 (B72): StateError::WriteTransactionFailed field-level assertion
+    // =======================================================================
+
+    #[test]
+    fn state_error_write_transaction_failed_exact_fields() {
+        let err = StateError::WriteTransactionFailed {
+            message: "already locked".to_string(),
+        };
+        assert!(
+            matches!(
+                &err,
+                StateError::WriteTransactionFailed { message }
+                if message == "already locked"
+            ),
+            "WriteTransactionFailed must carry exact message"
+        );
+        let display = format!("{err}");
+        assert!(
+            display.contains("already locked"),
+            "Display must contain message: {display}"
+        );
+        assert!(
+            display.contains("write transaction"),
+            "Display must mention write transaction: {display}"
+        );
+    }
+
+    // =======================================================================
+    // G21 (B73): StateError::TableOpenFailed field-level assertion
+    // =======================================================================
+
+    #[test]
+    fn state_error_table_open_failed_exact_fields() {
+        let err = StateError::TableOpenFailed {
+            table: "file_state",
+            message: "corrupt".to_string(),
+        };
+        assert!(
+            matches!(
+                &err,
+                StateError::TableOpenFailed { table: "file_state", message }
+                if message == "corrupt"
+            ),
+            "TableOpenFailed must carry exact table and message"
+        );
+        let display = format!("{err}");
+        assert!(
+            display.contains("file_state"),
+            "Display must contain table name: {display}"
+        );
+        assert!(
+            display.contains("corrupt"),
+            "Display must contain message: {display}"
+        );
+    }
+
+    // =======================================================================
+    // G21 (B74): StateError::CommitFailed field-level assertion
+    // =======================================================================
+
+    #[test]
+    fn state_error_commit_failed_exact_fields() {
+        let err = StateError::CommitFailed {
+            message: "disk full".to_string(),
+        };
+        assert!(
+            matches!(
+                &err,
+                StateError::CommitFailed { message }
+                if message == "disk full"
+            ),
+            "CommitFailed must carry exact message"
+        );
+        let display = format!("{err}");
+        assert!(
+            display.contains("disk full"),
+            "Display must contain message: {display}"
+        );
+        assert!(
+            display.contains("commit"),
+            "Display must mention commit: {display}"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
