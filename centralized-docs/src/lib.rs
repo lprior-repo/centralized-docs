@@ -145,6 +145,7 @@ pub mod math_types;
 pub mod mcp;
 pub mod persisted;
 pub mod scrape;
+pub mod scrape_reuse;
 pub mod search;
 pub mod state;
 pub mod transform;
