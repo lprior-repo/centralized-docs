@@ -119,6 +119,7 @@
 #![allow(clippy::used_underscore_binding)]
 
 pub mod analyze;
+pub mod analyze_reuse;
 pub mod assign;
 pub mod cache;
 pub mod calc;
