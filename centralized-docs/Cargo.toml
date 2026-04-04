@@ -150,6 +150,10 @@ harness = false
 name = "state_db_benchmarks"
 harness = false
 
+[[bench]]
+name = "async_perf_benchmarks"
+harness = false
+
 # ===========================================================================
 # FEATURE TIERS - Spider-rs Feature Parity
 # ===========================================================================
