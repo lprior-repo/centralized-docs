@@ -47,13 +47,14 @@ use std::marker::PhantomData;
 ///
 /// Pure function: no side effects, deterministic output.
 fn hex_encode(bytes: &[u8]) -> String {
-    bytes
-        .iter()
-        .fold(String::with_capacity(bytes.len() * 2), |mut acc, b| {
+    bytes.iter().fold(
+        String::with_capacity(bytes.len().saturating_mul(2)),
+        |mut acc, b| {
             use std::fmt::Write;
             let _ = write!(acc, "{b:02x}");
             acc
-        })
+        },
+    )
 }
 
 // ---------------------------------------------------------------------------

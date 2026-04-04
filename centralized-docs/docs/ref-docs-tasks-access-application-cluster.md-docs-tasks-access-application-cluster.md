@@ -1,0 +1,62 @@
+---
+id: ref/docs-tasks-access-application-cluster.md/docs-tasks-access-application-cluster
+title: Access Applications in a Cluster
+category: ref
+tags: ["access", "applications", "cluster", "contents", "dashboard"]
+---
+
+## Table of Contents
+
+* [Access Applications in a Cluster](#access-applications-in-a-cluster)
+  * \[[Deploy and Access the Kubernetes Dashboard](/docs/tasks/access-application-cluster/web-ui-dashboard/)\](#deploy-and-access-the-kubernetes-dashboarddocstasksaccess-application-clusterweb-ui-dashboard)
+  * \[[Use Port Forwarding to Access Applications in a Cluster](/docs/tasks/access-application-cluster/port-forward-access-application-cluster/)\](#use-port-forwarding-to-access-applications-in-a-clusterdocstasksaccess-application-clusterport-forward-access-application-cluster)
+  * \[[Use a Service to Access an Application in a Cluster](/docs/tasks/access-application-cluster/service-access-application-cluster/)\](#use-a-service-to-access-an-application-in-a-clusterdocstasksaccess-application-clusterservice-access-application-cluster)
+  * \[[Communicate Between Containers in the Same Pod Using a Shared Volume](/docs/tasks/access-application-cluster/communicate-containers-same-pod-shared-volume/)\](#communicate-between-containers-in-the-same-pod-using-a-shared-volumedocstasksaccess-application-clustercommunicate-containers-same-pod-shared-volume)
+  * [Feedback](#feedback)
+
+---
+
+# Access Applications in a Cluster
+
+
+
+ > 
+ > **Context**: Configure load balancing, port forwarding, or setup firewall or DNS configurations to access applications in a cluster.
+
+
+
+Configure load balancing, port forwarding, or setup firewall or DNS configurations to access applications in a cluster.
+
+## [Deploy and Access the Kubernetes Dashboard](/docs/tasks/access-application-cluster/web-ui-dashboard/)
+
+Deploy the web UI (Kubernetes Dashboard) and access it.
+
+### [Use Port Forwarding to Access Applications in a Cluster](/docs/tasks/access-application-cluster/port-forward-access-application-cluster/)
+
+#### [Use a Service to Access an Application in a Cluster](/docs/tasks/access-application-cluster/service-access-application-cluster/)
+
+#### [Communicate Between Containers in the Same Pod Using a Shared Volume](/docs/tasks/access-application-cluster/communicate-containers-same-pod-shared-volume/)
+
+## Feedback
+
+Was this page helpful?
+Yes
+No
+Thanks for the feedback. If you have a specific, answerable question about how to use Kubernetes, ask it on
+[Stack Overflow](https://stackoverflow.com/questions/tagged/kubernetes).
+Open an issue in the [GitHub Repository](https://www.github.com/kubernetes/website/) if you want to
+[report a problem](<https://github.com/kubernetes/website/issues/new?title=Issue with k8s.io>)
+or
+[suggest an improvement](<https://github.com/kubernetes/website/issues/new?title=Improvement for k8s.io>).
+Last modified January 13, 2023 at 11:05 AM PST: [Update page weights in /tasks/access-application-cluster, /configure-pod-container, /configmap-secret (97693ff044)](https://github.com/kubernetes/website/commit/97693ff04461081a488a11a1ddd81f320e8be2fd)
+
+## Related Pages
+
+* [install kubectl macos](./concept-docs-tasks-tools-install-kubectl-macos.md-docs-tasks-tools-install-kubectl-macos.md)
+* [Communication between Nodes and the Control Plane](./ref-docs-concepts-architecture-control-plane-node-communication.md-docs-concepts-architecture-control-plane-node-communication.md)
+* [and then append (or prepend) ~/.local/bin to $PATH](./concept-docs-tasks-tools-install-kubectl-linux.md-docs-tasks-tools-install-kubectl-linux.md)
+* [Binding](./ref-docs-reference-kubernetes-api-workload-resources-binding-v1.md-docs-reference-kubernetes-api-workload-resources-binding-v1.md)
+* [conventions](./ref-docs-reference-kubectl-conventions.md-docs-reference-kubectl-conventions.md)
+## See Also
+
+- [Documentation Index](./COMPASS.md)

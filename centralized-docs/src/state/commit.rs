@@ -211,13 +211,13 @@ fn validate_all(changes: &StateChanges) -> Result<(), CommitError> {
     Ok(())
 }
 
-/// P1: Reject any zero hash key in payload vecs.
+/// P1: Reject any zero hash key in payload vecs (except snapshots, where
+/// the URL hash is the key and a zero hash is a valid — if unlikely — value).
 fn validate_no_zero_hashes(changes: &StateChanges) -> Result<(), CommitError> {
     check_zero_hash(&changes.new_analyses, "analysis_outputs")?;
     check_zero_hash(&changes.new_transforms, "transform_outputs")?;
     check_zero_hash(&changes.new_chunks, "chunk_outputs")?;
     check_zero_hash(&changes.new_scrapes, "scrape_outputs")?;
-    check_zero_hash(&changes.new_snapshots, "snapshots")?;
     Ok(())
 }
 
@@ -619,11 +619,10 @@ fn read_and_compare<K: redb::Key>(
 
 /// Owned wrapper around raw archived bytes.
 ///
-/// Stub type for the snapshot load API. Will be replaced with a proper
-/// rkyv-based implementation in a future bead.
+/// Stores rkyv-archived bytes independently of any redb transaction lifetime.
+/// Use [`deserialize`](ArchivedRaw::deserialize) to materialize a typed value.
 #[derive(Debug)]
 pub struct ArchivedRaw {
-    #[allow(dead_code)]
     bytes: Vec<u8>,
 }
 
@@ -636,16 +635,40 @@ impl ArchivedRaw {
 
     /// Deserialize the archived bytes into type `T`.
     ///
+    /// Validates the archive structure first via `rkyv::access`, then
+    /// deserializes via `rkyv::from_bytes`.
+    ///
     /// # Errors
     ///
-    /// Returns [`super::StateError`] if deserialization fails.
-    ///
-    /// # TODO
-    ///
-    /// This is a stub — implementation deferred to snapshot API bead.
-    pub fn deserialize<T>(&self) -> Result<T, super::StateError> {
-        let _ = &self.bytes;
-        todo!()
+    /// - Returns [`super::StateError::InvalidArchive`] if bytes are not a valid rkyv archive.
+    /// - Returns [`super::StateError::DeserializationFailed`] if deserialization fails.
+    pub fn deserialize<T>(&self) -> Result<T, super::StateError>
+    where
+        T: rkyv::Archive,
+        T::Archived: rkyv::Portable
+            + for<'a> rkyv::bytecheck::CheckBytes<
+                rkyv::rancor::Strategy<
+                    rkyv::validation::Validator<
+                        rkyv::validation::archive::ArchiveValidator<'a>,
+                        rkyv::validation::shared::SharedValidator,
+                    >,
+                    rkyv::rancor::Error,
+                >,
+            > + rkyv::Deserialize<T, rkyv::api::high::HighDeserializer<rkyv::rancor::Error>>,
+    {
+        rkyv::access::<T::Archived, rkyv::rancor::Error>(&self.bytes).map_err(|e| {
+            super::StateError::InvalidArchive {
+                type_name: std::any::type_name::<T>(),
+                message: e.to_string(),
+            }
+        })?;
+
+        rkyv::from_bytes::<T, rkyv::rancor::Error>(&self.bytes).map_err(|e| {
+            super::StateError::DeserializationFailed {
+                type_name: std::any::type_name::<T>(),
+                message: e.to_string(),
+            }
+        })
     }
 }
 
@@ -658,9 +681,31 @@ impl ArchivedRaw {
 /// - Transaction 2 (write): commit all changes atomically via [`commit_changes`](StateDb::commit_changes)
 ///
 /// Wraps a `redb::Database`. Does NOT support in-memory LRU mode.
-#[derive(Debug)]
+///
+/// # Invariant: one-read, one-write
+///
+/// `commit_changes` will return [`CommitError::WriteTransaction`] if any
+/// [`StateReadSession`] is still alive. This enforces the two-transaction
+/// architecture at the type level.
 pub struct StateDb {
     db: Database,
+    /// Number of active `StateReadSession` instances. Enforces the
+    /// one-read, one-write invariant.
+    active_read_sessions: std::sync::atomic::AtomicUsize,
+}
+
+impl std::fmt::Debug for StateDb {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StateDb")
+            .field("db", &self.db)
+            .field(
+                "active_read_sessions",
+                &self
+                    .active_read_sessions
+                    .load(std::sync::atomic::Ordering::Relaxed),
+            )
+            .finish()
+    }
 }
 
 impl StateDb {
@@ -692,7 +737,10 @@ impl StateDb {
             reason: e.to_string(),
         })?;
 
-        Ok(Self { db })
+        Ok(Self {
+            db,
+            active_read_sessions: std::sync::atomic::AtomicUsize::new(0),
+        })
     }
 
     /// Open a single shared read transaction for the command's lifetime.
@@ -709,9 +757,11 @@ impl StateDb {
             .map_err(|e| CommitError::ReadTransaction {
                 reason: e.to_string(),
             })?;
+        self.active_read_sessions
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Ok(StateReadSession {
             read_txn,
-            _phantom: std::marker::PhantomData,
+            state_db: self,
         })
     }
 
@@ -741,6 +791,18 @@ impl StateDb {
     /// See [`CommitError`] variants.
     #[allow(clippy::needless_pass_by_value)]
     pub fn commit_changes(&self, changes: StateChanges) -> Result<(), CommitError> {
+        // Phase 0: Check one-read, one-write invariant
+        let active = self
+            .active_read_sessions
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if active > 0 {
+            return Err(CommitError::WriteTransaction {
+                reason: format!(
+                    "cannot commit while {active} read session(s) are active; drop all StateReadSession instances first"
+                ),
+            });
+        }
+
         // Phase 1: Pure precondition validation (before write transaction)
         validate_all(&changes)?;
 
@@ -775,12 +837,28 @@ impl StateDb {
     /// # Errors
     ///
     /// Returns [`super::StateError`] if the table cannot be dropped.
-    ///
-    /// # TODO
-    ///
-    /// This is a stub — implementation deferred to snapshot API bead.
     pub fn drop_snapshots_table(&self) -> Result<(), super::StateError> {
-        todo!()
+        let write_tx =
+            self.db
+                .begin_write()
+                .map_err(|e| super::StateError::WriteTransactionFailed {
+                    message: e.to_string(),
+                })?;
+        {
+            let _ = write_tx.delete_table(snapshots_table()).map_err(|e| {
+                super::StateError::StorageError {
+                    operation: "drop_snapshots_table",
+                    message: e.to_string(),
+                }
+            })?;
+        }
+        write_tx
+            .commit()
+            .map_err(|e| super::StateError::CommitFailed {
+                message: e.to_string(),
+            })?;
+
+        Ok(())
     }
 }
 
@@ -790,13 +868,19 @@ impl StateDb {
 
 /// A scoped read transaction. One per command run.
 /// Must be dropped before calling [`StateDb::commit_changes`].
-///
-/// Bulk-load methods (`load_file_states`, etc.) are deferred to a separate bead.
 pub struct StateReadSession<'db> {
     /// Underlying redb read transaction.
-    #[allow(dead_code)]
     read_txn: redb::ReadTransaction,
-    _phantom: std::marker::PhantomData<&'db ()>,
+    /// Reference to the parent `StateDb` for session counting.
+    state_db: &'db StateDb,
+}
+
+impl Drop for StateReadSession<'_> {
+    fn drop(&mut self) {
+        self.state_db
+            .active_read_sessions
+            .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 impl StateReadSession<'_> {
@@ -806,20 +890,55 @@ impl StateReadSession<'_> {
     /// [`ArchivedRaw`] values that own their bytes independently of the
     /// redb transaction lifetime.
     ///
+    /// Each entry is validated as a `Snapshot` archive at load time.
+    /// Missing keys are silently skipped.
+    ///
     /// # Errors
     ///
     /// - [`super::StateError::TableOpenFailed`] if the snapshots table cannot be opened.
     /// - [`super::StateError::StorageError`] if a redb read fails.
     /// - [`super::StateError::ArchiveValidationFailed`] if stored bytes fail rkyv validation.
-    ///
-    /// # TODO
-    ///
-    /// This is a stub — implementation deferred to snapshot API bead.
     pub fn load_snapshots(
         &self,
-        _keys: &[[u8; 32]],
-    ) -> Result<HashMap<[u8; 32], ArchivedRaw>, super::StateError> {
-        todo!()
+        keys: &[[u8; 32]],
+    ) -> Result<std::collections::HashMap<[u8; 32], ArchivedRaw>, super::StateError> {
+        use super::TABLE_NAME_SNAPSHOTS;
+
+        let table = self.read_txn.open_table(snapshots_table()).map_err(|e| {
+            super::StateError::TableOpenFailed {
+                table: TABLE_NAME_SNAPSHOTS,
+                message: e.to_string(),
+            }
+        })?;
+
+        keys.iter()
+            .try_fold(std::collections::HashMap::new(), |mut acc, key| {
+                let bytes = {
+                    let guard =
+                        table
+                            .get(key.as_slice())
+                            .map_err(|e| super::StateError::StorageError {
+                                operation: "load_snapshots::get",
+                                message: e.to_string(),
+                            })?;
+                    match guard {
+                        Some(g) => g.value().to_vec(),
+                        None => return Ok(acc),
+                    }
+                }; // guard dropped here, releasing table borrow
+
+                rkyv::access::<
+                    <crate::watch::Snapshot as rkyv::Archive>::Archived,
+                    rkyv::rancor::Error,
+                >(&bytes)
+                .map_err(|e| super::StateError::ArchiveValidationFailed {
+                    key_hex: hash_to_hex(key),
+                    message: e.to_string(),
+                })?;
+
+                acc.insert(*key, ArchivedRaw::from_bytes(bytes));
+                Ok(acc)
+            })
     }
 }
 
@@ -1152,27 +1271,21 @@ mod tests {
     }
 
     // =======================================================================
-    // Behavior 12: ZeroHashKey in new_snapshots
+    // Behavior 12: ZeroHashKey in new_snapshots is VALID (design decision)
     // =======================================================================
 
     #[test]
-    fn commit_changes_rejects_zero_hash_key_in_snapshots() {
+    fn commit_changes_accepts_zero_hash_key_in_snapshots() {
         let (state_db, _temp_dir) = create_temp_state_db();
         let mut changes = make_minimal_valid_state_changes();
         changes.new_snapshots = vec![([0u8; 32], vec![1])];
 
-        let err = state_db
-            .commit_changes(changes)
-            .expect_err("should reject zero hash");
+        // Zero-hash is intentionally valid for snapshots — it represents
+        // a "no content" sentinel that is meaningful in that context.
+        let result = state_db.commit_changes(changes);
         assert!(
-            matches!(
-                err,
-                CommitError::ZeroHashKey {
-                    table: "snapshots",
-                    index: 0
-                }
-            ),
-            "expected ZeroHashKey(snapshots, 0), got: {err}"
+            result.is_ok(),
+            "zero hash in snapshots should be accepted, got: {result:?}"
         );
     }
 
@@ -2161,7 +2274,7 @@ mod tests {
     }
 
     // =======================================================================
-    // Proptest 1: Zero-hash scan is exhaustive
+    // Proptest 1: Zero-hash scan is exhaustive (except snapshots)
     // =======================================================================
 
     #[test]
@@ -2171,7 +2284,7 @@ mod tests {
         proptest!(|(
             hash_a in proptest::array::uniform32(1u8..=255u8),
             hash_b in proptest::array::uniform32(1u8..=255u8),
-            inject_zero in 0u8..5, // which vec to inject into
+            inject_zero in 0u8..4, // 0-3: analyses, transforms, chunks, scrapes (snapshots exempt)
         )| {
             let mut changes = StateChanges::empty();
             let entries = vec![(hash_a, vec![1]), (hash_b, vec![2])];
@@ -2181,7 +2294,7 @@ mod tests {
                 1 => changes.new_transforms = vec![([0u8; 32], vec![0])],
                 2 => changes.new_chunks = vec![([0u8; 32], vec![0])],
                 3 => changes.new_scrapes = vec![([0u8; 32], vec![0])],
-                4 => changes.new_snapshots = vec![([0u8; 32], vec![0])],
+                // Note: index 4 (snapshots) intentionally excluded — zero hash is valid there
                 _ => {}
             }
 

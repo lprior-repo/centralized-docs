@@ -32,7 +32,10 @@ impl ScrapeDiff {
     /// Total number of pages across all partitions.
     #[must_use]
     pub fn total_len(&self) -> usize {
-        self.new.len() + self.changed.len() + self.unchanged.len()
+        self.new
+            .len()
+            .saturating_add(self.changed.len())
+            .saturating_add(self.unchanged.len())
     }
 }
 

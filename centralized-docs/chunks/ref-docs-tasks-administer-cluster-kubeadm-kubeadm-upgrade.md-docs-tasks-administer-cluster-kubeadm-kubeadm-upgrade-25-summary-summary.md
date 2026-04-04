@@ -1,0 +1,23 @@
+---
+doc_id: ref/docs-tasks-administer-cluster-kubeadm-kubeadm-upgrade.md/docs-tasks-administer-cluster-kubeadm-kubeadm-upgrade
+chunk_id: ref/docs-tasks-administer-cluster-kubeadm-kubeadm-upgrade.md/docs-tasks-administer-cluster-kubeadm-kubeadm-upgrade#25-summary
+chunk_level: summary
+chunk_type: prose
+heading: Upgrading control plane nodes
+token_count: 122
+summary: For systems with DNF: ``` `# replace x in 1.35.x-\* with the latest patch version sudo yum install -y kubeadm-'1.35.x-\*' --disableexcludes=kubernetes ` ``` For systems with DNF5: ``` `# replace x in...
+---
+
+For systems with DNF:
+```
+`# replace x in 1.35.x-\* with the latest patch version
+sudo yum install -y kubeadm-'1.35.x-\*' --disableexcludes=kubernetes
+`
+```
+For systems with DNF5:
+```
+`# replace x in 1.35.x-\* with the latest patch version
+sudo yum install -y kubeadm-'1.35.x-\*' --setopt=disable\_excludes=kubernetes
+`
+```
+2. Verify that the download works and has the expected version:

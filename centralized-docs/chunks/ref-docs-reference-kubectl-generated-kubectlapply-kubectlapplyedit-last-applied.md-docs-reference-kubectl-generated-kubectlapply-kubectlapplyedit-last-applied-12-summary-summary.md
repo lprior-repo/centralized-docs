@@ -1,0 +1,11 @@
+---
+doc_id: ref/docs-reference-kubectl-generated-kubectlapply-kubectlapplyedit-last-applied.md/docs-reference-kubectl-generated-kubectlapply-kubectlapplyedit-last-applied
+chunk_id: ref/docs-reference-kubectl-generated-kubectlapply-kubectlapplyedit-last-applied.md/docs-reference-kubectl-generated-kubectlapply-kubectlapplyedit-last-applied#12-summary
+chunk_level: summary
+chunk_type: prose
+heading: Parent Options Inherited
+token_count: 5
+summary: ## Parent Options Inherited
+---
+
+## Parent Options Inherited

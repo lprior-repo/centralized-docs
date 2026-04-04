@@ -27,7 +27,17 @@ use std::path::Path;
 use crate::scrape::validation::ScrapeResult;
 
 /// A content hash for a single page.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct PageHash {
     /// The canonical URL of the page.
     pub url: String,
@@ -37,12 +47,87 @@ pub struct PageHash {
     pub title: String,
 }
 
+/// rkyv wrapper that serializes [`chrono::DateTime<Utc>`] as an ISO 8601 string.
+///
+/// This bridges the gap between `chrono` (which does not implement rkyv traits)
+/// and the rkyv serialization framework.
+pub struct DateTimeWrap;
+
+impl rkyv::with::ArchiveWith<DateTime<Utc>> for DateTimeWrap {
+    type Archived = rkyv::string::ArchivedString;
+    type Resolver = rkyv::string::StringResolver;
+
+    fn resolve_with(
+        field: &DateTime<Utc>,
+        resolver: Self::Resolver,
+        out: rkyv::Place<Self::Archived>,
+    ) {
+        let iso = field.to_rfc3339();
+        rkyv::string::ArchivedString::resolve_from_str(&iso, resolver, out);
+    }
+}
+
+impl<S> rkyv::with::SerializeWith<DateTime<Utc>, S> for DateTimeWrap
+where
+    S: rkyv::rancor::Fallible + ?Sized,
+    <S as rkyv::rancor::Fallible>::Error: rkyv::rancor::Source,
+    S: rkyv::ser::Writer,
+{
+    fn serialize_with(
+        field: &DateTime<Utc>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, <S as rkyv::rancor::Fallible>::Error> {
+        rkyv::string::ArchivedString::serialize_from_str(&field.to_rfc3339(), serializer)
+    }
+}
+
+impl<D> rkyv::with::DeserializeWith<rkyv::string::ArchivedString, DateTime<Utc>, D> for DateTimeWrap
+where
+    D: rkyv::rancor::Fallible + ?Sized,
+    <D as rkyv::rancor::Fallible>::Error: rkyv::rancor::Source,
+{
+    fn deserialize_with(
+        field: &rkyv::string::ArchivedString,
+        _deserializer: &mut D,
+    ) -> Result<DateTime<Utc>, <D as rkyv::rancor::Fallible>::Error> {
+        let iso = field.as_str();
+        chrono::DateTime::parse_from_rfc3339(iso)
+            .map(|dt| dt.with_timezone(&Utc))
+            .map_err(|e| {
+                #[derive(Debug)]
+                struct ParseError(chrono::ParseError);
+                impl std::fmt::Display for ParseError {
+                    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        std::fmt::Display::fmt(&self.0, f)
+                    }
+                }
+                impl std::error::Error for ParseError {
+                    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                        Some(&self.0)
+                    }
+                }
+                rkyv::rancor::Source::new(ParseError(e))
+            })
+    }
+}
+
 /// A point-in-time snapshot of all scraped pages.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct Snapshot {
     /// The target URL that was scraped.
     pub target_url: String,
     /// When this snapshot was taken.
+    #[rkyv(with = DateTimeWrap)]
     pub timestamp: DateTime<Utc>,
     /// Map of `URL` → `PageHash`, sorted for deterministic output.
     pub pages: BTreeMap<String, PageHash>,
@@ -170,7 +255,7 @@ pub fn format_plan_markdown(plan: &ChangePlan) -> String {
     }
 
     // Pre-allocate estimated capacity: ~80 chars per change line + overhead
-    let estimated = 200 + plan.changes.len() * 80;
+    let estimated = 200usize.saturating_add(plan.changes.len().saturating_mul(80));
     let mut out = String::with_capacity(estimated);
 
     let timestamp_str = plan.timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string();
@@ -236,11 +321,13 @@ pub fn snapshot_from_scrape(target_url: &str, result: &ScrapeResult) -> Snapshot
 
 /// Count changes by kind in a single pass.
 fn count_by_kind(changes: &[PageChange]) -> (usize, usize, usize) {
-    changes.iter().fold((0, 0, 0), |(a, r, m), c| match c.kind {
-        ChangeKind::Added => (a + 1, r, m),
-        ChangeKind::Removed => (a, r + 1, m),
-        ChangeKind::Modified => (a, r, m + 1),
-    })
+    changes
+        .iter()
+        .fold((0usize, 0usize, 0usize), |(a, r, m), c| match c.kind {
+            ChangeKind::Added => (a.saturating_add(1), r, m),
+            ChangeKind::Removed => (a, r.saturating_add(1), m),
+            ChangeKind::Modified => (a, r, m.saturating_add(1)),
+        })
 }
 
 /// Compute the diff between a previous snapshot and a new scrape.
@@ -255,7 +342,11 @@ pub fn compute_plan(
     let current_snapshot = snapshot_from_scrape(target_url, current_scrape);
     let changes = diff_snapshots(previous, &current_snapshot);
     let (added, removed, modified) = count_by_kind(&changes);
-    let unchanged = current_snapshot.pages.len() - added - modified;
+    let unchanged = current_snapshot
+        .pages
+        .len()
+        .saturating_sub(added)
+        .saturating_sub(modified);
 
     ChangePlan {
         target_url: target_url.to_string(),
@@ -348,7 +439,11 @@ pub fn diff_directories(dir_a: &Path, dir_b: &Path) -> Result<ChangePlan, anyhow
 
     let changes = diff_snapshots(&snapshot_a, &snapshot_b);
     let (added, removed, modified) = count_by_kind(&changes);
-    let unchanged = snapshot_b.pages.len() - added - modified;
+    let unchanged = snapshot_b
+        .pages
+        .len()
+        .saturating_sub(added)
+        .saturating_sub(modified);
 
     Ok(ChangePlan {
         target_url: format!("{} → {}", result_a.base_url, result_b.base_url),

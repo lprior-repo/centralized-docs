@@ -731,15 +731,20 @@ pub fn read_url_state_raw(bytes: &[u8]) -> Result<UrlStateRaw, StateError> {
 
 /// Serialize a [`crate::watch::Snapshot`] into rkyv bytes.
 ///
+/// Serializes directly using `Snapshot`'s rkyv `Archive` impl.
+/// The `DateTime<Utc>` field is handled via the `DateTimeWrap` wrapper
+/// which stores timestamps as ISO 8601 strings.
+///
 /// # Errors
 ///
 /// Returns [`StateError::SerializationFailed`] if rkyv serialization fails.
-///
-/// # TODO
-///
-/// This is a stub — implementation deferred to snapshot API bead.
-pub fn serialize_snapshot(_snapshot: &crate::watch::Snapshot) -> Result<Vec<u8>, StateError> {
-    todo!()
+pub fn serialize_snapshot(snapshot: &crate::watch::Snapshot) -> Result<Vec<u8>, StateError> {
+    rkyv::to_bytes::<rkyv::rancor::Error>(snapshot)
+        .map(|aligned| aligned.to_vec())
+        .map_err(|e| StateError::SerializationFailed {
+            type_name: "Snapshot",
+            message: e.to_string(),
+        })
 }
 
 // ---------------------------------------------------------------------------

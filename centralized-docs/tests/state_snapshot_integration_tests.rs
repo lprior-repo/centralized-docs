@@ -5,9 +5,9 @@
 
 //! Integration tests for snapshot APIs on StateReadSession and StateDb.
 //!
-//! NOTE: All tests are #[ignore]d because load_snapshots(), serialize_snapshot(),
-//! and drop_snapshots_table() are not yet implemented on StateReadSession/StateDb.
-//! They will be re-enabled when the snapshot API is implemented.
+//! RED PHASE (cdocs-rwm): All #[ignore] annotations removed. Tests will FAIL
+//! because serialize_snapshot(), load_snapshots(), ArchivedRaw::deserialize(),
+//! and drop_snapshots_table() are stubs (todo!()). This is expected RED behavior.
 
 use chrono::{TimeZone, Utc};
 use doc_transformer::state::{
@@ -76,7 +76,6 @@ fn serialize_and_make_changes(
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_owned_archives_when_hashes_exist_in_table() {
     // Given: StateDb with one snapshot in the table
     let (_dir, db) = open_temp_db();
@@ -109,7 +108,6 @@ fn load_snapshots_returns_owned_archives_when_hashes_exist_in_table() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_omits_missing_hashes_when_not_in_table() {
     // Given: StateDb with empty snapshots table
     let (_dir, db) = open_temp_db();
@@ -132,7 +130,6 @@ fn load_snapshots_omits_missing_hashes_when_not_in_table() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_empty_hashmap_when_hashes_slice_is_empty() {
     // Given: StateDb with populated table
     let (_dir, db) = open_temp_db();
@@ -158,7 +155,6 @@ fn load_snapshots_returns_empty_hashmap_when_hashes_slice_is_empty() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_bytes_independent_of_redb_transaction_lifetime() {
     // Given: StateDb with one snapshot
     let (_dir, db) = open_temp_db();
@@ -193,7 +189,6 @@ fn load_snapshots_returns_bytes_independent_of_redb_transaction_lifetime() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_table_open_failed_when_snapshots_table_missing() {
     // Given: StateDb with snapshots table deleted
     let (_dir, db) = open_temp_db();
@@ -221,7 +216,6 @@ fn load_snapshots_returns_table_open_failed_when_snapshots_table_missing() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_archive_validation_failed_when_bytes_corrupt() {
     // Given: StateDb with corrupt bytes in the snapshots table
     let (_dir, db) = open_temp_db();
@@ -261,7 +255,6 @@ fn load_snapshots_returns_archive_validation_failed_when_bytes_corrupt() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_deserialization_failed_when_bytes_wrong_type() {
     // Given: StateDb with valid rkyv archive but of wrong type (e.g., rkyv-serialized String)
     let (_dir, db) = open_temp_db();
@@ -302,7 +295,6 @@ fn load_snapshots_returns_deserialization_failed_when_bytes_wrong_type() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_storage_error_when_redb_read_fails() {
     // Given: A StateDb in a state that causes redb read failure.
     // NOTE: redb provides strong guarantees for read operations on an open database.
@@ -327,7 +319,6 @@ fn load_snapshots_returns_storage_error_when_redb_read_fails() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_writes_new_snapshots_to_table_when_changes_committed() {
     // Given: Empty StateDb, one snapshot to write
     let (_dir, db) = open_temp_db();
@@ -355,7 +346,6 @@ fn commit_changes_writes_new_snapshots_to_table_when_changes_committed() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_removes_deleted_snapshots_from_table() {
     // Given: StateDb with one snapshot
     let (_dir, db) = open_temp_db();
@@ -385,7 +375,6 @@ fn commit_changes_removes_deleted_snapshots_from_table() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_delete_wins_when_same_key_in_new_and_deleted() {
     // Given: StateDb with no prior snapshot for key
     let (_dir, db) = open_temp_db();
@@ -418,7 +407,6 @@ fn commit_changes_delete_wins_when_same_key_in_new_and_deleted() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_last_entry_wins_when_duplicate_keys_in_new_snapshots() {
     // Given: Two different snapshots with the same key
     let (_dir, db) = open_temp_db();
@@ -461,7 +449,6 @@ fn commit_changes_last_entry_wins_when_duplicate_keys_in_new_snapshots() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_rolls_back_all_snapshot_changes_when_commit_fails() {
     // Given: StateDb with existing snapshot
     let (_dir, db) = open_temp_db();
@@ -532,7 +519,6 @@ fn commit_changes_rolls_back_all_snapshot_changes_when_commit_fails() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_returns_write_transaction_failed_when_begin_write_fails() {
     // Given: A StateDb that cannot start a write transaction
     // NOTE: This is difficult to trigger with redb on a healthy filesystem.
@@ -570,7 +556,6 @@ fn commit_changes_returns_write_transaction_failed_when_begin_write_fails() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_returns_commit_failed_when_redb_commit_fails() {
     // Given: A scenario where write_tx.commit() fails
     // NOTE: Forcing redb commit failure deterministically may require
@@ -604,7 +589,6 @@ fn commit_changes_returns_commit_failed_when_redb_commit_fails() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_partial_map_when_some_hashes_found_and_some_missing() {
     // Given: StateDb with K1 and K2, NOT K3
     let (_dir, db) = open_temp_db();
@@ -640,7 +624,6 @@ fn load_snapshots_returns_partial_map_when_some_hashes_found_and_some_missing() 
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_returns_table_open_failed_when_snapshots_table_missing_for_write() {
     // Given: StateDb with snapshots table deleted
     let (_dir, db) = open_temp_db();
@@ -678,7 +661,6 @@ fn commit_changes_returns_table_open_failed_when_snapshots_table_missing_for_wri
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_returns_storage_error_when_redb_insert_fails_during_commit() {
     // Given: StateDb in a state that causes redb insert/delete to fail
     // NOTE: redb's insert/delete within an open write transaction are typically
@@ -712,7 +694,6 @@ fn commit_changes_returns_storage_error_when_redb_insert_fails_during_commit() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_returns_write_transaction_failed_when_read_session_still_active() {
     // Given: StateDb with an active StateReadSession
     let (_dir, db) = open_temp_db();
@@ -755,7 +736,6 @@ fn commit_changes_returns_write_transaction_failed_when_read_session_still_activ
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_succeeds_with_no_mutations_when_new_and_deleted_snapshots_empty() {
     // Given: StateDb with existing snapshot
     let (_dir, db) = open_temp_db();
@@ -786,7 +766,6 @@ fn commit_changes_succeeds_with_no_mutations_when_new_and_deleted_snapshots_empt
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_all_entries_when_given_10000_hashes() {
     // Given: StateDb with 10,000 snapshots
     let (_dir, db) = open_temp_db();
@@ -864,7 +843,6 @@ fn load_snapshots_returns_all_entries_when_given_10000_hashes() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn commit_changes_writes_10000_snapshots_when_given_10000_new_entries() {
     // Given: Empty StateDb, 10,000 entries to write
     let (_dir, db) = open_temp_db();
@@ -943,7 +921,6 @@ fn commit_changes_writes_10000_snapshots_when_given_10000_new_entries() {
 // ===========================================================================
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_entry_when_key_is_all_zeros() {
     // Given: Snapshot stored under all-zeros key
     let (_dir, db) = open_temp_db();
@@ -967,7 +944,6 @@ fn load_snapshots_returns_entry_when_key_is_all_zeros() {
 }
 
 #[test]
-#[ignore]
 fn load_snapshots_returns_entry_when_key_is_all_0xff() {
     // Given: Snapshot stored under all-0xFF key
     let (_dir, db) = open_temp_db();
@@ -991,7 +967,6 @@ fn load_snapshots_returns_entry_when_key_is_all_0xff() {
 }
 
 #[test]
-#[ignore]
 fn load_snapshots_handles_single_hash_lookup() {
     // Given: One snapshot
     let (_dir, db) = open_temp_db();
@@ -1014,7 +989,6 @@ fn load_snapshots_handles_single_hash_lookup() {
 }
 
 #[test]
-#[ignore]
 fn commit_changes_writes_multiple_new_snapshots_to_table() {
     // Given: Multiple snapshots
     let (_dir, db) = open_temp_db();
@@ -1077,7 +1051,6 @@ prop_compose! {
 
 proptest! {
     #[test]
-    #[ignore]
     fn proptest_serialize_snapshot_roundtrip(snapshot in arb_snapshot()) {
         let bytes = serialize_snapshot(&snapshot)?;
         let archive = ArchivedRaw::from_bytes(bytes);
@@ -1087,7 +1060,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore]
     fn proptest_serialize_snapshot_deterministic(snapshot in arb_snapshot()) {
         let bytes1 = serialize_snapshot(&snapshot)?;
         let bytes2 = serialize_snapshot(&snapshot)?;
@@ -1095,7 +1067,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore]
     fn proptest_load_snapshots_roundtrip(
         entries in prop::collection::vec(
             (any::<[u8; 32]>(), arb_snapshot()),

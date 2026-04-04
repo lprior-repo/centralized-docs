@@ -1,0 +1,51 @@
+---
+version: "1.0"
+project: "kubernetes.io"
+project_version: "0.1.0"
+updated: "2026-04-04"
+documents: 97
+index: "./INDEX.json"
+---
+
+# kubernetes.io
+
+> Documentation scraped from https://kubernetes.io/docs/home/
+
+Key context for AI:
+- Total documents: 97
+- Format: Markdown with YAML frontmatter
+- Chunking: Semantic chunks with context prefix (~170 tokens)
+- Navigation: Knowledge DAG with Jaccard similarity
+
+## Getting Started
+
+- [Kubernetes Documentation](./docs/tutorial-docs-home.md-docs-home.md): Kubernetes is an open source container orchestration engi...
+- [Kubernetes — Dokumentacja](./docs/tutorial-pl-docs-home.md-pl-docs-home.md): Informacje zawarte w tym dokumencie mogą być już nieaktua...
+- [쿠버네티스 문서](./docs/tutorial-ko-docs-home.md-ko-docs-home.md): Information in this document may be out of date This docu...
+- [Service ClusterIP allocation](./docs/tutorial-docs-concepts-services-networking-cluster-ip-allocation.md-docs-concepts-services-networking-cluster-ip-allocation.md): In Kubernetes,  Services  are an abstract way to expose a...
+- [Set up Konnectivity service](./docs/tutorial-docs-tasks-extend-kubernetes-setup-konnectivity.md-docs-tasks-extend-kubernetes-setup-konnectivity.md): The Konnectivity service provides a TCP level proxy for t...
+
+## Core Concepts
+
+- [Careers in Kubernetes](./docs/concept-careers.md-careers.md): 
+- [Docs Tasks Tools Install Kubectl Macos](./docs/concept-docs-tasks-tools-install-kubectl-macos.md-docs-tasks-tools-install-kubectl-macos.md): You must use a kubectl version that is within one minor v...
+- [Docs Tasks Tools Install Kubectl Linux](./docs/concept-docs-tasks-tools-install-kubectl-linux.md-docs-tasks-tools-install-kubectl-linux.md): You must use a kubectl version that is within one minor v...
+- [Training](./docs/concept-training.md-training.md): Kubernetes is at the core of the cloud native movement. T...
+
+## API Reference
+
+- [Binding](./docs/ref-docs-reference-kubernetes-api-workload-resources-binding-v1.md-docs-reference-kubernetes-api-workload-resources-binding-v1.md): Binding ties one object to another; for example, a pod is...
+- [Docs Reference Kubectl Conventions](./docs/ref-docs-reference-kubectl-conventions.md-docs-reference-kubectl-conventions.md): For a stable output in a script:
+- [HorizontalPodAutoscaler](./docs/ref-docs-reference-kubernetes-api-workload-resources-horizontal-pod-autoscaler-v2.md-docs-reference-kubernetes-api-workload-resources-horizontal-pod-autoscaler-v2.md): HorizontalPodAutoscaler is the configuration for a horizo...
+- [Концепции](./docs/ref-ru-docs-concepts.md-ru-docs-concepts.md): Раздел "Концепции" поможет вам узнать о частях системы Ku...
+- [Using RBAC Authorization](./docs/ref-docs-reference-access-authn-authz-rbac.md-docs-reference-access-authn-authz-rbac.md): Role-based access control (RBAC) is a method of regulatin...
+
+## Operations
+
+- [Kubernetes Documentation](./docs/ops-docs-home-print.md-docs-home-print.md): Kubernetes Documentation | Kubernetes This is the multi-p...
+- [Advanced contributing](./docs/ops-docs-contribute-advanced.md-docs-contribute-advanced.md): This page assumes that you understand how to contribute t...
+
+## Machine-Readable Index
+
+- [INDEX.json](./INDEX.json): Complete searchable index with keywords, chunks, and knowledge graph
+- [COMPASS.md](./COMPASS.md): Human-readable navigation guide

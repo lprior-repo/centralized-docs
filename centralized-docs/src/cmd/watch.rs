@@ -8,10 +8,12 @@ use std::path::Path;
 use std::process;
 use tracing::instrument;
 
+use crate::cache::url_hash;
 use crate::cli::config::{DEFAULT_MAX_PAGE_SIZE_BYTES, DEFAULT_MAX_TOTAL_SIZE_BYTES};
-use doc_transformer::cache::{url_hash, CacheConfig, DocCache};
-use doc_transformer::scrape::validation::ScrapeResult;
-use doc_transformer::watch::{
+use crate::scrape::validation::ScrapeResult;
+use crate::state::commit::{StateChanges, StateDb};
+use crate::state::serialize_snapshot;
+use crate::watch::{
     compute_plan, diff_directories, format_plan_json, format_plan_markdown, snapshot_from_scrape,
     write_plan_reports, ChangePlan, Snapshot,
 };
@@ -36,8 +38,8 @@ pub async fn run_watch(
     json_output: bool,
 ) -> Result<()> {
     // ── Actions: I/O boundary ──────────────────────────────────────────
-    let cache = open_cache(cache_path)?;
-    let previous = load_snapshot(&cache, url)?;
+    let state_db = open_state_db(cache_path)?;
+    let previous = load_snapshot(&state_db, url)?;
     print_watch_header(url, &previous);
 
     let scrape_config = build_scrape_config(
@@ -72,8 +74,8 @@ pub async fn run_watch(
 #[instrument(skip_all, fields(url = %url))]
 pub async fn run_apply(url: &str, cache_path: &Path, scrape_dir: &Path, yes: bool) -> Result<()> {
     // ── Actions: load previous + read manifest ─────────────────────────
-    let cache = open_cache(cache_path)?;
-    let previous = load_snapshot(&cache, url)?;
+    let state_db = open_state_db(cache_path)?;
+    let previous = load_snapshot(&state_db, url)?;
     let scrape_result = read_manifest(scrape_dir)?;
 
     // ── Calculation: compute plan to show what changes ──────────────────
@@ -92,7 +94,7 @@ pub async fn run_apply(url: &str, cache_path: &Path, scrape_dir: &Path, yes: boo
     }
 
     let new_snapshot = snapshot_from_scrape(url, &scrape_result);
-    store_snapshot(&cache, url, &new_snapshot)?;
+    store_snapshot(&state_db, url, &new_snapshot)?;
 
     tracing::info!(
         pages = new_snapshot.pages.len(),
@@ -132,24 +134,59 @@ pub fn run_diff(
 // Actions: I/O helpers (thin wrappers, no business logic)
 // ════════════════════════════════════════════════════════════════════════
 
-fn open_cache(cache_path: &Path) -> Result<DocCache> {
-    let config = CacheConfig::new(cache_path);
-    DocCache::open(config)
+fn open_state_db(state_db_path: &Path) -> Result<StateDb> {
+    StateDb::open(state_db_path).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
-fn load_snapshot(cache: &DocCache, url: &str) -> Result<Snapshot> {
+fn load_snapshot(state_db: &StateDb, url: &str) -> Result<Snapshot> {
     let url_key = url_hash(url);
-    let snapshot: Option<Snapshot> = cache.get_snapshot(url_key.as_bytes())?;
-    Ok(snapshot.unwrap_or_else(|| Snapshot {
-        target_url: url.to_string(),
-        timestamp: chrono::Utc::now(),
-        pages: std::collections::BTreeMap::new(),
-    }))
+    let key_bytes: [u8; 32] = url_key.as_bytes().try_into().map_err(|_| {
+        anyhow::anyhow!(
+            "url_hash produced {} bytes, expected 32",
+            url_key.as_bytes().len()
+        )
+    })?;
+
+    let session = state_db.begin_read().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let results = session
+        .load_snapshots(&[key_bytes])
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    // session dropped here — borrow released before any potential write
+
+    Ok(results
+        .get(&key_bytes)
+        .map(|archived| {
+            archived
+                .deserialize::<crate::watch::Snapshot>()
+                .map_err(|e| anyhow::anyhow!("{e}"))
+        })
+        .transpose()?
+        .unwrap_or_else(|| Snapshot {
+            target_url: url.to_string(),
+            timestamp: chrono::Utc::now(),
+            pages: std::collections::BTreeMap::new(),
+        }))
 }
 
-fn store_snapshot(cache: &DocCache, url: &str, snapshot: &Snapshot) -> Result<()> {
+fn store_snapshot(state_db: &StateDb, url: &str, snapshot: &Snapshot) -> Result<()> {
     let url_key = url_hash(url);
-    cache.put_snapshot(url_key.as_bytes(), snapshot)
+    let key_bytes: [u8; 32] = url_key.as_bytes().try_into().map_err(|_| {
+        anyhow::anyhow!(
+            "url_hash produced {} bytes, expected 32",
+            url_key.as_bytes().len()
+        )
+    })?;
+
+    let rkyv_bytes = serialize_snapshot(snapshot).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    let changes = StateChanges {
+        new_snapshots: vec![(key_bytes, rkyv_bytes)],
+        ..StateChanges::empty()
+    };
+
+    state_db
+        .commit_changes(changes)
+        .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 fn read_manifest(scrape_dir: &Path) -> Result<ScrapeResult> {
@@ -161,8 +198,8 @@ fn read_manifest(scrape_dir: &Path) -> Result<ScrapeResult> {
 }
 
 #[instrument(skip_all)]
-async fn execute_scrape(config: &doc_transformer::scrape::ScrapeConfig) -> Result<ScrapeResult> {
-    doc_transformer::scrape::scrape_site(config).await
+async fn execute_scrape(config: &crate::scrape::ScrapeConfig) -> Result<ScrapeResult> {
+    crate::scrape::scrape_site(config).await
 }
 
 fn emit_plan(plan: &ChangePlan, json_output: bool) {
@@ -233,10 +270,10 @@ fn build_scrape_config(
     max_retries: u32,
     redirect_policy: spider::configuration::RedirectPolicy,
     concurrency: usize,
-) -> doc_transformer::scrape::ScrapeConfig {
-    doc_transformer::scrape::ScrapeConfig {
+) -> crate::scrape::ScrapeConfig {
+    crate::scrape::ScrapeConfig {
         base_url: url.to_string(),
-        sitemap_strategy: doc_transformer::scrape::SitemapStrategy::UseSitemap,
+        sitemap_strategy: crate::scrape::SitemapStrategy::UseSitemap,
         path_filter: filter.map(String::from),
         delay_ms: delay,
         max_page_size_bytes: DEFAULT_MAX_PAGE_SIZE_BYTES,

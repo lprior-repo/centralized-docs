@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 222ff1bfc1d301d750fe7406184b229e3028231219cb9c50fa8f4708bc41cb6e # shrinks to snapshot = Snapshot { target_url: "https://aaa.com", timestamp: 1970-01-01T00:00:00Z, pages: {} }
+cc 22f28a530a1a8ad34726f81d7e286b65cd66628f6ee8cadbd7d933b94aaa198d # shrinks to snapshot = Snapshot { target_url: "https://aaa.com", timestamp: 1970-01-01T00:00:00Z, pages: {} }
+cc d7aff10e53344bc20909b1f76ba8a36e26cad11747996d8c16942af07a43f381 # shrinks to entries = []
