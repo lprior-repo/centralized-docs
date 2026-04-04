@@ -80,7 +80,7 @@ pub const TABLE_NAME_METADATA: &str = "metadata";
 /// 168      32    reserved: [u8; 32]       // future-proof padding
 /// Total: 200 bytes
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 #[repr(C)]
 pub struct FileStateRaw {
     /// SHA-256 of file bytes.
@@ -175,7 +175,7 @@ impl FileStateRaw {
 /// 74       46    reserved: [u8; 46]       // future ETag/Last-Modified slot
 /// Total: 120 bytes
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 #[repr(C)]
 pub struct UrlStateRaw {
     /// SHA-256 of scraped markdown content.
