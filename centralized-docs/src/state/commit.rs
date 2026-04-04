@@ -2821,7 +2821,7 @@ mod tests {
     fn proptest_non_empty_string_key_always_accepted() {
         use proptest::prelude::*;
 
-        proptest!(|(key in "[^\t\n\r\x00-\\\x1F\x7F-\\\x7F ]{1,10}")| {
+        proptest!(|(key in "[^\t\n\r\x00-\\\x1F\x7F-\\\x7F  ]{1,10}")| {
             let mut changes = StateChanges::empty();
             changes.updated_files = vec![(key, FileStateRaw::zeroed())];
             let result = validate_no_empty_string_keys(&changes);            prop_assert!(
