@@ -1,8 +1,13 @@
+use crate::calc::scrape_diff::{
+    build_combined_scrape_result, build_scrape_state_changes, classify_scrape_diff,
+};
 use crate::cli::config::{
     ScrapeCommandConfig, DEFAULT_MAX_PAGE_SIZE_BYTES, DEFAULT_MAX_TOTAL_SIZE_BYTES,
 };
 use crate::cli::validation::validate_filter_regex;
 use crate::scrape;
+use crate::state::bulk_load::StateReadSession;
+use crate::state::commit::StateDb;
 use anyhow::Result;
 use std::path::Path;
 use tracing::instrument;
@@ -189,6 +194,15 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
         ..Default::default()
     };
 
+    // --- STATE: Open StateDb, create read session, load stored URL states ---
+    let state_db = StateDb::open(&output.join("state.redb"))
+        .map_err(|e| anyhow::anyhow!("failed to open state database: {e}"))?;
+    let session = StateReadSession::new(state_db.database())
+        .map_err(|e| anyhow::anyhow!("failed to create read session: {e}"))?;
+    let stored_url_states = session
+        .load_url_states()
+        .map_err(|e| anyhow::anyhow!("failed to load URL states: {e}"))?;
+
     tracing::info!("Starting crawl");
     let initial_result = scrape::scrape_site(&scrape_config).await?;
 
@@ -251,17 +265,83 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
 
     tracing::info!(pages = initial_result.success_count, "Pages scraped");
 
+    // --- STATE: Classify scraped pages against stored state ---
+    let scrape_diff = classify_scrape_diff(&stored_url_states, &initial_result.pages);
+
+    // Load persisted scrape outputs for unchanged pages
+    let unchanged_hashes: Vec<[u8; 32]> = scrape_diff
+        .unchanged
+        .iter()
+        .filter_map(|u| stored_url_states.get(u).map(|s| s.url_hash))
+        .filter(|h| *h != [0u8; 32])
+        .collect();
+
+    let persisted_scrapes = if unchanged_hashes.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        session
+            .load_scrapes(&unchanged_hashes)
+            .map_err(|e| anyhow::anyhow!("failed to load scrape outputs: {e}"))?
+    };
+
+    // Convert persisted scrape outputs back to runtime ScrapedPages for reuse
+    let reused_pages: Vec<scrape::ScrapedPage> = scrape_diff
+        .unchanged
+        .iter()
+        .filter_map(|page_url| {
+            let stored = stored_url_states.get(page_url)?;
+            if stored.url_hash == [0u8; 32] {
+                return None;
+            }
+            let archive = persisted_scrapes.get(&stored.url_hash)?;
+            let persisted = rkyv::from_bytes::<
+                crate::persisted::PersistedScrapeResult,
+                rkyv::rancor::Error,
+            >(archive.as_bytes())
+            .ok()?;
+            // Find the matching page in the persisted result
+            persisted
+                .pages
+                .iter()
+                .find(|p| p.url == *page_url)
+                .and_then(|p| crate::persisted::persisted_scraped_page_to_runtime(p).ok())
+        })
+        .collect();
+
+    // Freshly scraped pages (new + changed) from the current crawl
+    let active_urls: std::collections::HashSet<&str> = scrape_diff
+        .new
+        .iter()
+        .chain(scrape_diff.changed.iter())
+        .map(String::as_str)
+        .collect();
+    let fresh_pages: Vec<scrape::ScrapedPage> = initial_result
+        .pages
+        .into_iter()
+        .filter(|p| active_urls.contains(p.url.as_str()))
+        .collect();
+
+    // Build combined ScrapeResult from reused + fresh pages
+    let result = build_combined_scrape_result(reused_pages, fresh_pages, &initial_result.base_url);
+
+    // Drop the read session BEFORE commit (INV-3: redb constraint)
+    drop(session);
+    drop(stored_url_states);
+
+    // Clone pages for state tracking before query filter consumes them
+    let all_pages = result.pages.clone();
+
     // Apply BM25 filtering if query is provided (extracted common logic)
-    let filtered_pages = apply_query_filter(initial_result.pages, query_ref, config.threshold)?;
-    let result = scrape::ScrapeResult {
+    let filtered_pages = apply_query_filter(result.pages, query_ref, config.threshold)?;
+    let filtered_result = scrape::ScrapeResult {
         success_count: filtered_pages.len(),
         pages: filtered_pages,
-        ..initial_result
+        ..result
     };
 
     // Detect potential SPA (JavaScript-rendered site) BEFORE validation
     // This ensures we show helpful message even when scraping fails
-    let spa_detection = scrape::detect_potential_spa(&result);
+    let spa_detection = scrape::detect_potential_spa(&filtered_result);
     if let Some(ref warning) = spa_detection.warning_message {
         println!();
         println!("{}", "=".repeat(70));
@@ -270,19 +350,29 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
     }
 
     // Validate that at least one page was scraped (fail fast on invalid URLs)
-    scrape::validate_scrape_result(&result)?;
+    scrape::validate_scrape_result(&filtered_result)?;
 
     tracing::info!(path = %output.display(), "Saving scrape results");
     std::fs::create_dir_all(output)?;
-    scrape::write_scraped_pages(&result, output)?;
+    scrape::write_scraped_pages(&filtered_result, output)?;
+
+    // --- STATE: Build commit batch and commit atomically ---
+    let now_secs = chrono::Utc::now().timestamp().saturating_abs() as u64;
+
+    // Use the original scrape_diff for state changes (computed against stored state)
+    let state_changes = build_scrape_state_changes(&scrape_diff, &all_pages, now_secs);
+
+    state_db
+        .commit_changes(state_changes)
+        .map_err(|e| anyhow::anyhow!("failed to commit scrape state: {e}"))?;
 
     println!("\n{}", "=".repeat(70));
     tracing::info!("Scrape complete");
     println!("{}", "=".repeat(70));
     println!("Output:  {}", output.display());
-    tracing::info!(pages = result.success_count, "Pages scraped");
-    if result.error_count > 0 {
-        tracing::warn!(errors = result.error_count, "Pages failed");
+    tracing::info!(pages = filtered_result.success_count, "Pages scraped");
+    if filtered_result.error_count > 0 {
+        tracing::warn!(errors = filtered_result.error_count, "Pages failed");
     }
     println!("Files:   .scrape/*.md + manifest.json");
     println!("{}\n", "=".repeat(70));

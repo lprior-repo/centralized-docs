@@ -18,4 +18,5 @@ pub mod e2e;
 pub mod full_pipeline;
 pub mod markdown_transform;
 pub mod proptests;
+pub mod scrape_state_wiring;
 pub mod semantic_search;
