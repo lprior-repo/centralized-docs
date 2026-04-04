@@ -160,6 +160,7 @@ fn read_manifest(scrape_dir: &Path) -> Result<ScrapeResult> {
         .map_err(|e| anyhow::anyhow!("Invalid manifest at {}: {e}", manifest_path.display()))
 }
 
+#[instrument(skip_all)]
 async fn execute_scrape(config: &doc_transformer::scrape::ScrapeConfig) -> Result<ScrapeResult> {
     doc_transformer::scrape::scrape_site(config).await
 }

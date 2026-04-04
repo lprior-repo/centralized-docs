@@ -6,8 +6,10 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use tracing::instrument;
 
 #[tokio::main]
+#[instrument]
 async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 

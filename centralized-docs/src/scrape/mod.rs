@@ -165,6 +165,7 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
 }
 
 /// Execute a single scrape attempt with explicit sitemap strategy
+#[instrument(skip_all)]
 async fn scrape_single_attempt(
     config: &validation::ScrapeConfig,
     strategy: http::ScrapeStrategy,
