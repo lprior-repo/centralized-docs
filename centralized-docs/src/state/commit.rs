@@ -728,10 +728,15 @@ impl StateDb {
             }
         }
 
-        let db = Database::create(path).map_err(|e| CommitError::DatabaseOpen {
-            path: path.display().to_string(),
-            reason: e.to_string(),
-        })?;
+        // Try opening an existing database first. If the file is corrupt or
+        // doesn't exist, fall back to creating a fresh database. This prevents
+        // silently overwriting a corrupt state database (INV-4).
+        let db = Database::open(path)
+            .or_else(|_| Database::create(path))
+            .map_err(|e| CommitError::DatabaseOpen {
+                path: path.display().to_string(),
+                reason: e.to_string(),
+            })?;
 
         super::initialize_tables(&db).map_err(|e| CommitError::TableInit {
             reason: e.to_string(),
@@ -1083,6 +1088,35 @@ mod tests {
         assert!(
             session.is_ok(),
             "begin_read should succeed on valid StateDb"
+        );
+    }
+
+    // =======================================================================
+    // Behavior 1b: StateDb::open returns DatabaseOpen for corrupt database
+    // =======================================================================
+
+    #[test]
+    fn state_db_open_returns_error_on_corrupt_database() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("state.redb");
+
+        // Create a file with garbage bytes to simulate corruption
+        std::fs::write(
+            &db_path,
+            b"THIS IS NOT A VALID REDB DATABASE - CORRUPT DATA!!",
+        )
+        .unwrap();
+
+        let result = StateDb::open(&db_path);
+        let err = result.expect_err("should fail on corrupt database");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("failed to open"),
+            "error should mention open failure: {msg}"
+        );
+        assert!(
+            matches!(err, CommitError::DatabaseOpen { .. }),
+            "should be DatabaseOpen variant, got: {err}"
         );
     }
 

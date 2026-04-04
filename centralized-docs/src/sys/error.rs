@@ -34,6 +34,9 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "invalid data",
         "corrupt",
         "failed to open state database",
+        "failed to begin state read session",
+        "failed to load file states",
+        "failed to initialize tables",
     ];
 
     let is_pipeline_error = pipeline_error_patterns
@@ -202,6 +205,24 @@ mod tests {
     #[test]
     fn test_map_error_to_exit_code_failed_scrape() {
         let err = anyhow::anyhow!("Failed to scrape https://example.com");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_failed_begin_state_read_session() {
+        let err = anyhow::anyhow!("failed to begin state read session: transaction error");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_failed_load_file_states() {
+        let err = anyhow::anyhow!("failed to load file states: malformed row data");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_failed_initialize_tables() {
+        let err = anyhow::anyhow!("failed to initialize tables: table already exists");
         assert_eq!(map_error_to_exit_code(&err), 2);
     }
 }
