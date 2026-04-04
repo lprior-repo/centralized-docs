@@ -1444,10 +1444,12 @@ fn test_scrape_filter_matches_nothing_returns_nonzero_exit() {
     // Check that either stdout or stderr contains an error message
     let output = String::from_utf8_lossy(&result.stdout);
     let stderr = String::from_utf8_lossy(&result.stderr);
-    let has_error = output.contains("Failed")
-        || stderr.contains("Failed")
-        || output.contains("error")
-        || stderr.contains("error")
+    let output_lower = output.to_lowercase();
+    let stderr_lower = stderr.to_lowercase();
+    let has_error = output_lower.contains("error")
+        || stderr_lower.contains("error")
+        || output_lower.contains("failed")
+        || stderr_lower.contains("failed")
         || output.contains("SCRAPE FAILED")
         || stderr.contains("SCRAPE FAILED");
     assert!(

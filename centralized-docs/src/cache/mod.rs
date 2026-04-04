@@ -15,12 +15,12 @@
 
 use crate::errors::CacheError;
 use anyhow::Result;
-use lru::LruCache;
-use parking_lot::RwLock;
-use redb::{Database, ReadTransaction, ReadableTableMetadata, TableDefinition};
+use redb::{
+    backends::InMemoryBackend, Builder, Database, ReadTransaction, ReadableTableMetadata,
+    TableDefinition,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json;
-use std::num::NonZeroUsize;
 use std::path::Path;
 
 // ---------------------------------------------------------------------------
@@ -33,28 +33,17 @@ const MAX_KEY_SIZE: usize = 256;
 /// Maximum allowed value size in bytes (50 MB — per-document chunks can be large).
 const MAX_VALUE_SIZE: usize = 50 * 1024 * 1024;
 
-/// Default LRU cache capacity (blessed lru crate) — bounds in-memory growth.
-const DEFAULT_LRU_CAPACITY: usize = 10_000;
-
 // ---------------------------------------------------------------------------
-// Internal bounded cache using blessed lru crate (memory) or redb (file)
+// Internal cache using redb (memory or file)
 // ---------------------------------------------------------------------------
 
-/// Internal cache backend — uses blessed lru for memory, redb for file.
-/// `RwLock` provides interior mutability + Sync so cache can be shared across threads.
-enum CacheBackendInner {
-    /// Bounded LRU cache (blessed lru crate) for in-memory operation.
-    Lru(RwLock<LruCache<Vec<u8>, Vec<u8>>>),
-    /// Persistent redb database for file-backed operation.
-    Redb(Database),
-}
+/// Internal cache backend — newtype wrapping a redb `Database`.
+/// redb is the sole storage backend; the database may be in-memory or file-backed.
+struct CacheBackendInner(Database);
 
 impl std::fmt::Debug for CacheBackendInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Lru(_) => write!(f, "CacheBackendInner::Lru(..)"),
-            Self::Redb(_) => write!(f, "CacheBackendInner::Redb(..)"),
-        }
+        write!(f, "CacheBackendInner(..)")
     }
 }
 
@@ -295,32 +284,6 @@ fn validate_value_size(bytes: &[u8]) -> Result<(), CacheError> {
     Ok(())
 }
 
-/// Reads from blessed lru cache (bounded in-memory cache).
-fn get_from_lru<V: DeserializeOwned>(
-    cache: &RwLock<LruCache<Vec<u8>, Vec<u8>>>,
-    key: &[u8],
-) -> Result<Option<V>> {
-    let mut cache = cache.write();
-    let Some(value) = cache.get(key) else {
-        return Ok(None);
-    };
-    let value: V = serde_json::from_slice(value)?;
-    Ok(Some(value))
-}
-
-/// Writes to blessed lru cache with size validation.
-fn put_to_lru<V: Serialize>(
-    cache: &RwLock<LruCache<Vec<u8>, Vec<u8>>>,
-    key: &[u8],
-    value: &V,
-) -> Result<()> {
-    validate_key_size(key)?;
-    let bytes = serde_json::to_vec(value)?;
-    validate_value_size(&bytes)?;
-    cache.write().put(key.to_vec(), bytes);
-    Ok(())
-}
-
 /// Reads a cached value from a redb table (I/O boundary).
 fn read_cached<V: DeserializeOwned>(
     read_tx: &ReadTransaction,
@@ -387,7 +350,7 @@ const fn table_for_type(
 // DocCache — thread-safe redb cache (Actions layer)
 // ---------------------------------------------------------------------------
 
-/// Thread-safe cache using blessed lru (memory) or redb MVCC (file).
+/// Thread-safe cache using redb (in-memory or file-backed).
 ///
 /// All public methods take `&self`, enabling safe concurrent access
 /// from multiple threads without external synchronization.
@@ -400,39 +363,27 @@ pub struct DocCache {
 impl DocCache {
     /// Open a cache with the given configuration.
     ///
-    /// - Memory backend: uses blessed `lru::LruCache` (bounded, no eviction needed)
+    /// - Memory backend: uses redb's `InMemoryBackend` (no capacity limit)
     /// - File backend: uses redb (ACID, MVCC, persists to disk)
-    ///
-    /// # Panics
-    ///
-    /// Panics if `DEFAULT_LRU_CAPACITY` is zero (it won't be, it's set to `10_000`).
-    #[allow(clippy::expect_used)] // DEFAULT_LRU_CAPACITY is const and guaranteed non-zero.
     pub fn open(config: CacheConfig) -> Result<Self> {
         let inner = match &config.backend {
             CacheBackend::Memory => {
-                let capacity = NonZeroUsize::new(DEFAULT_LRU_CAPACITY)
-                    .expect("DEFAULT_LRU_CAPACITY is const and non-zero");
-                CacheBackendInner::Lru(RwLock::new(LruCache::new(capacity)))
+                CacheBackendInner(Builder::new().create_with_backend(InMemoryBackend::new())?)
             }
             CacheBackend::File(path) => {
                 if let Some(parent) = path.parent() {
                     std::fs::create_dir_all(parent)?;
                 }
-                CacheBackendInner::Redb(Database::create(path)?)
+                CacheBackendInner(Database::create(path)?)
             }
         };
         let cache = Self { inner, config };
-        if matches!(cache.inner, CacheBackendInner::Redb(_)) {
-            cache.initialize_tables()?;
-        }
+        cache.initialize_tables()?;
         Ok(cache)
     }
 
     fn initialize_tables(&self) -> Result<()> {
-        let CacheBackendInner::Redb(db) = &self.inner else {
-            return Ok(()); // LRU doesn't need table initialization
-        };
-        let write_tx = db.begin_write()?;
+        let write_tx = self.inner.0.begin_write()?;
         {
             let _ = write_tx.open_table(DOCUMENT_TABLE)?;
             let _ = write_tx.open_table(SCRAPE_TABLE)?;
@@ -455,13 +406,8 @@ impl DocCache {
         if !self.config.enabled.is_enabled(cache_type) {
             return Ok(None);
         }
-        match &self.inner {
-            CacheBackendInner::Lru(cache) => get_from_lru(cache, key),
-            CacheBackendInner::Redb(db) => {
-                let read_tx = db.begin_read()?;
-                read_cached(&read_tx, table_for_type(cache_type), key)
-            }
-        }
+        let read_tx = self.inner.0.begin_read()?;
+        read_cached(&read_tx, table_for_type(cache_type), key)
     }
 
     /// Store a value in the given table.
@@ -469,15 +415,10 @@ impl DocCache {
         if !self.config.enabled.is_enabled(cache_type) {
             return Ok(());
         }
-        match &self.inner {
-            CacheBackendInner::Lru(cache) => put_to_lru(cache, key, value),
-            CacheBackendInner::Redb(db) => {
-                let mut write_tx = db.begin_write()?;
-                write_cached(&mut write_tx, table_for_type(cache_type), key, value)?;
-                write_tx.commit()?;
-                Ok(())
-            }
-        }
+        let mut write_tx = self.inner.0.begin_write()?;
+        write_cached(&mut write_tx, table_for_type(cache_type), key, value)?;
+        write_tx.commit()?;
+        Ok(())
     }
 
     /// Get or compute: return cached value or compute if missing.
@@ -530,82 +471,49 @@ impl DocCache {
 
     /// Retrieve a snapshot by key (watch/apply subsystem).
     pub fn get_snapshot<V: DeserializeOwned>(&self, key: &[u8]) -> Result<Option<V>> {
-        match &self.inner {
-            CacheBackendInner::Lru(cache) => get_from_lru(cache, key),
-            CacheBackendInner::Redb(db) => {
-                let read_tx = db.begin_read()?;
-                read_cached(&read_tx, SNAPSHOTS_TABLE, key)
-            }
-        }
+        let read_tx = self.inner.0.begin_read()?;
+        read_cached(&read_tx, SNAPSHOTS_TABLE, key)
     }
 
     /// Store a snapshot by key (watch/apply subsystem).
     pub fn put_snapshot<V: Serialize>(&self, key: &[u8], value: &V) -> Result<()> {
-        match &self.inner {
-            CacheBackendInner::Lru(cache) => put_to_lru(cache, key, value),
-            CacheBackendInner::Redb(db) => {
-                let mut write_tx = db.begin_write()?;
-                write_cached(&mut write_tx, SNAPSHOTS_TABLE, key, value)?;
-                write_tx.commit()?;
-                Ok(())
-            }
-        }
+        let mut write_tx = self.inner.0.begin_write()?;
+        write_cached(&mut write_tx, SNAPSHOTS_TABLE, key, value)?;
+        write_tx.commit()?;
+        Ok(())
     }
 
     // -------------------------------------------------------------------
     // Maintenance
     // -------------------------------------------------------------------
 
-    /// Clear all cache entries (LRU: purge; redb: delete tables + reinit).
+    /// Clear all cache entries (delete tables + reinit).
     pub fn clear_all(&self) -> Result<()> {
-        match &self.inner {
-            CacheBackendInner::Lru(cache) => {
-                cache.write().clear();
-                Ok(())
-            }
-            CacheBackendInner::Redb(db) => {
-                let write_tx = db.begin_write()?;
-                {
-                    write_tx.delete_table(DOCUMENT_TABLE)?;
-                    write_tx.delete_table(SCRAPE_TABLE)?;
-                    write_tx.delete_table(TRANSFORM_TABLE)?;
-                    write_tx.delete_table(SNAPSHOTS_TABLE)?;
-                    write_tx.delete_table(ANALYSIS_TABLE)?;
-                    write_tx.delete_table(CHUNK_TABLE)?;
-                    write_tx.delete_table(METADATA_TABLE)?;
-                }
-                write_tx.commit()?;
-                self.initialize_tables()
-            }
+        let write_tx = self.inner.0.begin_write()?;
+        {
+            write_tx.delete_table(DOCUMENT_TABLE)?;
+            write_tx.delete_table(SCRAPE_TABLE)?;
+            write_tx.delete_table(TRANSFORM_TABLE)?;
+            write_tx.delete_table(SNAPSHOTS_TABLE)?;
+            write_tx.delete_table(ANALYSIS_TABLE)?;
+            write_tx.delete_table(CHUNK_TABLE)?;
+            write_tx.delete_table(METADATA_TABLE)?;
         }
+        write_tx.commit()?;
+        self.initialize_tables()
     }
 
     /// Return entry counts for each table.
     pub fn stats(&self) -> Result<CacheStats> {
-        match &self.inner {
-            CacheBackendInner::Lru(cache) => {
-                let len = cache.read().len() as u64;
-                Ok(CacheStats {
-                    document_entries: len,
-                    scrape_entries: len,
-                    transform_entries: len,
-                    snapshot_entries: len,
-                    analysis_entries: len,
-                    chunk_entries: len,
-                })
-            }
-            CacheBackendInner::Redb(db) => {
-                let read_tx = db.begin_read()?;
-                Ok(CacheStats {
-                    document_entries: table_len(&read_tx, DOCUMENT_TABLE)?,
-                    scrape_entries: table_len(&read_tx, SCRAPE_TABLE)?,
-                    transform_entries: table_len(&read_tx, TRANSFORM_TABLE)?,
-                    snapshot_entries: table_len(&read_tx, SNAPSHOTS_TABLE)?,
-                    analysis_entries: table_len(&read_tx, ANALYSIS_TABLE)?,
-                    chunk_entries: table_len(&read_tx, CHUNK_TABLE)?,
-                })
-            }
-        }
+        let read_tx = self.inner.0.begin_read()?;
+        Ok(CacheStats {
+            document_entries: table_len(&read_tx, DOCUMENT_TABLE)?,
+            scrape_entries: table_len(&read_tx, SCRAPE_TABLE)?,
+            transform_entries: table_len(&read_tx, TRANSFORM_TABLE)?,
+            snapshot_entries: table_len(&read_tx, SNAPSHOTS_TABLE)?,
+            analysis_entries: table_len(&read_tx, ANALYSIS_TABLE)?,
+            chunk_entries: table_len(&read_tx, CHUNK_TABLE)?,
+        })
     }
 }
 

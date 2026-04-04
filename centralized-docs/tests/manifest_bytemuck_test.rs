@@ -166,11 +166,9 @@ fn preexisting_deps_unchanged_when_bytemuck_added() {
     let content = read_cargo_toml();
 
     // When: checking each pre-existing dependency is still present
-    let required_deps: [(&str, &str); 5] = [
+    let required_deps: [(&str, &str); 3] = [
         ("redb", r#"redb = "2""#),
         ("sha2", r#"sha2 = "0.10""#),
-        ("lru", r#"lru = "0.16.3""#),
-        ("parking_lot", r#"parking_lot = "0.12.5""#),
         ("rayon", r#"rayon = "1.11.0""#),
     ];
 
