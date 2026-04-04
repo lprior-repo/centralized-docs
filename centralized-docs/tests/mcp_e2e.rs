@@ -14,6 +14,7 @@ use rmcp::model::CallToolRequestParams;
 use rmcp::{serve_client, serve_server, RoleClient};
 use serde_json::json;
 use tempfile::TempDir;
+use tracing::Instrument;
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -74,16 +75,19 @@ async fn setup_client(dir: &TempDir) -> rmcp::service::RunningService<RoleClient
     let (client_side, server_side) = tokio::io::duplex(4096);
 
     // Server runs in background; errors will surface as client-side transport failures.
-    tokio::spawn(async move {
-        let running = match serve_server(router, server_side).await {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("server init error (may be expected): {e}");
-                return;
-            }
-        };
-        let _ = running.waiting().await;
-    });
+    tokio::spawn(
+        async move {
+            let running = match serve_server(router, server_side).await {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("server init error (may be expected): {e}");
+                    return;
+                }
+            };
+            let _ = running.waiting().await;
+        }
+        .instrument(tracing::info_span!("mcp_e2e_server")),
+    );
 
     serve_client((), client_side)
         .await
