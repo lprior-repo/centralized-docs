@@ -83,7 +83,7 @@ pub async fn run_apply(url: &str, cache_path: &Path, scrape_dir: &Path, yes: boo
     print_apply_summary(url, &plan);
 
     if plan.summary.is_empty() {
-        println!("[APPLY] No changes. Snapshot is already up to date.");
+        tracing::info!("No changes...");
         process::exit(0);
     }
 
@@ -94,10 +94,10 @@ pub async fn run_apply(url: &str, cache_path: &Path, scrape_dir: &Path, yes: boo
     let new_snapshot = snapshot_from_scrape(url, &scrape_result);
     store_snapshot(&cache, url, &new_snapshot)?;
 
-    println!(
-        "[APPLY] Snapshot committed: {} pages at {}",
-        new_snapshot.pages.len(),
-        new_snapshot.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+    tracing::info!(
+        pages = new_snapshot.pages.len(),
+        timestamp = %new_snapshot.timestamp.format("%Y-%m-%d %H:%M:%S UTC"),
+        "Snapshot committed"
     );
 
     process::exit(0);
@@ -168,7 +168,7 @@ fn emit_plan(plan: &ChangePlan, json_output: bool) {
     if json_output {
         match format_plan_json(plan) {
             Ok(json) => println!("{json}"),
-            Err(e) => eprintln!("[ERROR] JSON serialization failed: {e}"),
+            Err(e) => tracing::error!(error = %e, "JSON serialization failed"),
         }
     } else {
         let md = format_plan_markdown(plan);
@@ -181,7 +181,7 @@ fn prompt_confirmation() -> Result<()> {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     if !input.trim().eq_ignore_ascii_case("y") {
-        println!("[APPLY] Aborted.");
+        tracing::info!("Apply aborted by user");
         process::exit(1);
     }
     Ok(())
@@ -190,29 +190,20 @@ fn prompt_confirmation() -> Result<()> {
 // ── Display helpers (pure formatting, no side effects beyond println) ──
 
 fn print_watch_header(url: &str, previous: &Snapshot) {
-    println!("[WATCH] Target: {url}");
-    if previous.pages.is_empty() {
-        println!("[WATCH] Previous snapshot: none (first scrape)");
-    } else {
-        println!(
-            "[WATCH] Previous snapshot: {} pages at {}",
-            previous.pages.len(),
-            previous.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
-        );
-    }
+    tracing::info!(url = %url, "Watch target");
+    tracing::info!(pages = previous.pages.len(), "Previous snapshot");
 }
 
 fn print_watch_footer(output: &Path, plan: &ChangePlan) {
-    println!(
-        "[WATCH] Reports written to: {}/change-plan.json and change-plan.md",
-        output.display()
-    );
+    tracing::info!(dir = %output.display(), "Reports written");
     if plan.summary.is_empty() {
-        println!("[WATCH] No changes detected.");
+        tracing::info!("No changes detected");
     } else {
-        println!(
-            "[WATCH] Changes: {} added, {} removed, {} modified",
-            plan.summary.added, plan.summary.removed, plan.summary.modified
+        tracing::info!(
+            added = plan.summary.added,
+            removed = plan.summary.removed,
+            modified = plan.summary.modified,
+            "Changes detected"
         );
     }
 }

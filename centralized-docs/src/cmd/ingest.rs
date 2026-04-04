@@ -33,7 +33,7 @@ pub async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Resu
     }
 
     // Phase 1: Scrape
-    println!("[PHASE 1] SCRAPE\n");
+    tracing::info!("Starting scrape phase");
 
     let scrape_config = scrape::ScrapeConfig {
         base_url: url.to_string(),
@@ -57,21 +57,21 @@ pub async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Resu
     if initial_scrape_result.error_count > 0 {
         println!();
         println!("{}", "=".repeat(70));
-        println!("SCRAPE COMPLETE (PARTIAL FAILURE)");
+        tracing::warn!("Scrape completed with partial failure");
         println!("{}", "=".repeat(70));
-        println!("Success: {} pages", initial_scrape_result.success_count);
-        println!(
-            "Errors:  {} pages failed",
-            initial_scrape_result.error_count
+        tracing::info!(
+            pages = initial_scrape_result.success_count,
+            "Scrape success"
         );
+        tracing::error!(errors = initial_scrape_result.error_count, "Scrape errors");
         println!("Hint: Check .scrape/manifest.json for error details");
         println!("{}\n", "=".repeat(70));
         // Continue with successful pages instead of exiting
     }
 
-    println!(
-        "  Scraped {} pages from {}",
-        initial_scrape_result.success_count, url
+    tracing::info!(
+        pages = initial_scrape_result.success_count,
+        "Scrape complete"
     );
 
     // Apply BM25 filtering if query is provided (extracted common logic)
@@ -102,7 +102,7 @@ pub async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Resu
     scrape::write_scraped_pages(&scrape_result, output)?;
 
     // Phase 2: Index
-    println!("[PHASE 2] INDEX\n");
+    tracing::info!("Starting index phase");
 
     // Derive project name from URL if not provided
     let name = project_name.map_or_else(

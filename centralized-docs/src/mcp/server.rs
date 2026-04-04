@@ -25,6 +25,7 @@ impl rmcp::ServerHandler for CtdMcpServer {}
 #[tool_router(router = tool_router)]
 impl CtdMcpServer {
     #[tool(name = "search_docs", description = "Search documentation")]
+    #[instrument(skip(self), fields(query = %params.query))]
     async fn tool_search_docs(
         &self,
         Parameters(params): Parameters<SearchDocsParams>,
@@ -41,6 +42,7 @@ impl CtdMcpServer {
     }
 
     #[tool(name = "read_chunk", description = "Read a specific chunk")]
+    #[instrument(skip(self), fields(id = %params.id))]
     async fn tool_read_chunk(
         &self,
         Parameters(params): Parameters<ReadChunkParams>,
@@ -57,6 +59,7 @@ impl CtdMcpServer {
     }
 
     #[tool(name = "get_related_concepts", description = "Get related concepts")]
+    #[instrument(skip(self), fields(id = %params.id))]
     async fn tool_get_related_concepts(
         &self,
         Parameters(params): Parameters<GetRelatedConceptsParams>,

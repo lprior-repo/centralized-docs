@@ -118,16 +118,16 @@ pub fn apply_query_filter(
         .collect();
 
     let removed_count = original_len.saturating_sub(kept_pages.len());
-    println!(
-        "  Kept: {} pages matching \"{}\" (removed: {})",
-        kept_pages.len(),
-        query,
-        removed_count
+    tracing::info!(
+        kept = kept_pages.len(),
+        query = %query,
+        removed = removed_count,
+        "Filtered pages by query"
     );
 
     if kept_pages.is_empty() {
-        println!("\n  WARNING: All pages filtered out by query.");
-        println!("  Consider lowering the --threshold value.");
+        tracing::warn!("All pages filtered out by query");
+        tracing::warn!("Consider lowering the --threshold value");
         anyhow::bail!("All pages filtered out by query '{query}' (threshold: {threshold})");
     }
 
@@ -159,14 +159,15 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
         concurrency = config.concurrency_limit,
         "Starting scrape"
     );
-    println!(
-        "  Redirect: {:?}, page_bytes={:?}, total_bytes={:?}",
-        config.redirect_policy, config.max_page_bytes, config.max_total_bytes
+    tracing::info!(
+        redirect = ?config.redirect_policy,
+        page_bytes = ?config.max_page_bytes,
+        total_bytes = ?config.max_total_bytes,
+        "Scrape config"
     );
     if let Some(ref f) = config.filter {
-        println!("  Filter: {f}");
+        tracing::info!(filter = %f, "Filter configured");
     }
-    println!();
 
     let scrape_config = scrape::ScrapeConfig {
         base_url: url.to_string(),
@@ -188,7 +189,7 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
         ..Default::default()
     };
 
-    println!("[SCRAPE] Starting crawl...");
+    tracing::info!("Starting crawl");
     let initial_result = scrape::scrape_site(&scrape_config).await?;
 
     // Check if domain was reachable BEFORE checking for partial failures
@@ -196,7 +197,7 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
     if initial_result.total_urls == 0 && initial_result.success_count == 0 {
         println!();
         println!("{}", "=".repeat(70));
-        println!("SCRAPE FAILED - Domain unreachable");
+        tracing::error!("Domain unreachable: {}", initial_result.base_url);
         println!("{}", "=".repeat(70));
         println!(
             "Could not reach '{}'. The domain may not exist or DNS resolution failed.",
@@ -216,7 +217,7 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
         if initial_result.total_urls == 0 {
             println!();
             println!("{}", "=".repeat(70));
-            println!("SCRAPE FAILED");
+            tracing::error!("Scrape failed - DNS or connection error");
             println!("{}", "=".repeat(70));
             println!("Failed to reach '{url}'. The domain may not exist or DNS resolution failed.");
             println!("Please verify:");
@@ -229,6 +230,8 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
         if initial_result.total_urls == 5 {
             println!();
             println!("{}", "=".repeat(70));
+            tracing::warn!("No pages extracted from '{url}' - site may be a JavaScript SPA");
+            println!("{}", "=".repeat(70));
             println!("No pages extracted from '{url}'.");
             println!("The site may be a JavaScript SPA (Single Page Application)");
             println!("Consider using --spa-mode or --browser for dynamic rendering");
@@ -236,17 +239,17 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
             anyhow::bail!("No pages extracted from '{url}': site may require JavaScript rendering");
         }
         // Partial success: some pages failed, but we got results
-        println!();
-        println!(
-            "  Scraped: {} pages ({} errors)",
-            initial_result.success_count, initial_result.error_count
+        tracing::info!(
+            pages = initial_result.success_count,
+            errors = initial_result.error_count,
+            "Scraped pages (with errors)"
         );
     } else {
         // Total success: continue normally
-        println!("  Scraped: {} pages", initial_result.success_count);
+        tracing::info!(pages = initial_result.success_count, "Pages scraped");
     }
 
-    println!("  Scraped: {} pages", initial_result.success_count);
+    tracing::info!(pages = initial_result.success_count, "Pages scraped");
 
     // Apply BM25 filtering if query is provided (extracted common logic)
     let filtered_pages = apply_query_filter(initial_result.pages, query_ref, config.threshold)?;
@@ -269,17 +272,17 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
     // Validate that at least one page was scraped (fail fast on invalid URLs)
     scrape::validate_scrape_result(&result)?;
 
-    println!("\n[WRITE] Saving to {}", output.display());
+    tracing::info!(path = %output.display(), "Saving scrape results");
     std::fs::create_dir_all(output)?;
     scrape::write_scraped_pages(&result, output)?;
 
     println!("\n{}", "=".repeat(70));
-    println!("SCRAPE COMPLETE");
+    tracing::info!("Scrape complete");
     println!("{}", "=".repeat(70));
     println!("Output:  {}", output.display());
-    println!("Pages:   {} scraped", result.success_count);
+    tracing::info!(pages = result.success_count, "Pages scraped");
     if result.error_count > 0 {
-        println!("Errors:  {} pages failed", result.error_count);
+        tracing::warn!(errors = result.error_count, "Pages failed");
     }
     println!("Files:   .scrape/*.md + manifest.json");
     println!("{}\n", "=".repeat(70));
