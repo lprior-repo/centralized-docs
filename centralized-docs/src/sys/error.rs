@@ -29,6 +29,11 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "git clone failed",
         "no pages extracted",
         "failed to scrape",
+        // Database corruption errors
+        "i/o error",
+        "invalid data",
+        "corrupt",
+        "failed to open state database",
     ];
 
     let is_pipeline_error = pipeline_error_patterns
@@ -183,6 +188,14 @@ mod tests {
     #[test]
     fn test_map_error_to_exit_code_no_pages_extracted() {
         let err = anyhow::anyhow!("No pages extracted from https://example.com");
+        assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_corrupt_database() {
+        let err = anyhow::anyhow!(
+            "failed to open state database at /path/to/state.redb: I/O error: invalid data"
+        );
         assert_eq!(map_error_to_exit_code(&err), 2);
     }
 
