@@ -247,7 +247,13 @@ pub async fn execute_scrape_with_website(
     }
 
     // Verify pages were actually scraped
+    // Note: spider API returns () from scrape(), errors are internal
+    // If no pages extracted, something went wrong during scraping
     if website.get_pages().is_none() {
+        tracing::warn!(
+            strategy = ?strategy,
+            "Scraping completed but no pages were extracted"
+        );
         return Err(HttpError::ScrapeFailed(
             "Scraping completed but no pages were extracted".to_string(),
         ));
