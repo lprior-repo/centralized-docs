@@ -73,6 +73,7 @@ pulldown-cmark = { version = "0.13", default-features = false, features = ["html
 readability = "0.3"
 hnsw_rs = "0.3"
 thiserror = "1.0"
+tracing = { version = "0.1", features = ["attributes"] }
 
 # Embedding providers (OpenAI, Cohere)
 async-trait = "0.1"

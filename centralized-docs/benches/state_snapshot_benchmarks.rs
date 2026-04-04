@@ -106,6 +106,14 @@ fn bench_commit_changes(c: &mut Criterion) {
                             .collect();
 
                         let changes = StateChanges {
+                            updated_files: vec![],
+                            deleted_files: vec![],
+                            new_analyses: vec![],
+                            new_transforms: vec![],
+                            new_chunks: vec![],
+                            updated_urls: vec![],
+                            deleted_urls: vec![],
+                            new_scrapes: vec![],
                             new_snapshots,
                             deleted_snapshots: vec![],
                         };
@@ -113,7 +121,7 @@ fn bench_commit_changes(c: &mut Criterion) {
                         (dir, db, changes)
                     },
                     |(_dir, db, changes)| {
-                        let _ = black_box(db.commit_changes(black_box(&changes)));
+                        let _ = black_box(db.commit_changes(black_box(changes)));
                     },
                 );
             },
@@ -153,10 +161,18 @@ fn bench_load_snapshots(c: &mut Criterion) {
                             .collect();
 
                         let changes = StateChanges {
+                            updated_files: vec![],
+                            deleted_files: vec![],
+                            new_analyses: vec![],
+                            new_transforms: vec![],
+                            new_chunks: vec![],
+                            updated_urls: vec![],
+                            deleted_urls: vec![],
+                            new_scrapes: vec![],
                             new_snapshots,
                             deleted_snapshots: vec![],
                         };
-                        db.commit_changes(&changes).unwrap();
+                        db.commit_changes(changes).unwrap();
 
                         let keys: Vec<[u8; 32]> = (0..n).map(make_key).collect();
 

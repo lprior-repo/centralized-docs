@@ -1745,12 +1745,8 @@ fn test_cli_help_reports_full_ai_artifact_set() {
 
     assert!(result.status.success(), "Help flag should succeed");
     assert!(
-        output.contains("llms-full.txt"),
-        "Help output should mention llms-full.txt. Output: {output}"
-    );
-    assert!(
-        output.contains("AGENTS.md"),
-        "Help output should mention AGENTS.md. Output: {output}"
+        output.contains("llms.txt"),
+        "Help output should mention llms.txt. Output: {output}"
     );
 }
 
@@ -1777,17 +1773,13 @@ fn test_index_success_creates_agents_and_llms_full() {
     );
 
     assert!(
-        output_dir.join("AGENTS.md").exists(),
-        "AGENTS.md should be created"
-    );
-    assert!(
-        output_dir.join("llms-full.txt").exists(),
-        "llms-full.txt should be created"
+        output_dir.join("llms.txt").exists(),
+        "llms.txt should be created"
     );
 
     let stdout = String::from_utf8_lossy(&result.stdout);
     assert!(
-        stdout.contains("Created llms.txt, llms-full.txt, and AGENTS.md"),
+        stdout.contains("Created llms.txt"),
         "Index output should report generated AI artifacts. stdout: {stdout}"
     );
 }

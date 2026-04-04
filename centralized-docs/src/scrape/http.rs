@@ -23,6 +23,7 @@ use super::validation::{RobotsPolicy, ScrapeConfig, StealthMode};
 use rayon::prelude::*;
 use std::time::Duration;
 use thiserror::Error;
+use tracing::instrument;
 use url::Url;
 
 /// Domain errors for the HTTP scrape module.
@@ -231,6 +232,7 @@ pub fn build_website_base(
 }
 
 /// Execute scrape operation with configurable strategy.
+#[instrument(skip_all, fields(strategy = ?strategy))]
 pub async fn execute_scrape_with_website(
     website: &mut spider::website::Website,
     strategy: ScrapeStrategy,
