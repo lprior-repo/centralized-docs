@@ -103,7 +103,7 @@ fn make_unchanged_entry(path: &str) -> (DiscoveryFile, FileStateRaw) {
             transform_hash: make_hash(0xDD),
             chunk_hash: make_hash(0xEE),
             last_processed_secs: 1_699_999_999,
-            _reserved: [0u8; 32],
+            reserved: [0u8; 32],
         },
     )
 }
@@ -332,7 +332,7 @@ fn integration_state_changes_structure_is_correct_for_commit() {
             state.last_processed_secs, outputs.now_secs,
             "now_secs must match"
         );
-        assert_eq!(state._reserved, [0u8; 32], "_reserved must be zeroed");
+        assert_eq!(state.reserved, [0u8; 32], "reserved must be zeroed");
     }
 
     // URL state fields are empty

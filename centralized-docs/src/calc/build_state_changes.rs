@@ -35,7 +35,7 @@ pub struct FileStateRaw {
     pub transform_hash: [u8; 32],
     pub chunk_hash: [u8; 32],
     pub last_processed_secs: u64,
-    pub _reserved: [u8; 32],
+    pub reserved: [u8; 32],
 }
 
 // Static assertion: FileStateRaw is exactly 200 bytes.
@@ -44,7 +44,7 @@ const _: () = assert!(std::mem::size_of::<FileStateRaw>() == 200);
 /// Placeholder type for URL state rows (populated by a separate bead).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UrlStateRaw {
-    pub _placeholder: [u8; 0],
+    pub placeholder: [u8; 0],
 }
 
 /// Batch of updated file rows, deleted file keys, and new payload blobs.
@@ -67,13 +67,13 @@ pub struct StateChanges {
 /// Groups all pipeline outputs needed to derive the commit batch.
 #[derive(Debug, Clone)]
 pub struct PipelineOutputs {
-    /// Analysis results keyed by source_path.
+    /// Analysis results keyed by `source_path`.
     pub analyses: HashMap<String, Analysis>,
-    /// Transformed markdown content keyed by source_path.
+    /// Transformed markdown content keyed by `source_path`.
     pub transforms: HashMap<String, String>,
-    /// Chunked output keyed by source_path.
+    /// Chunked output keyed by `source_path`.
     pub chunks: HashMap<String, Vec<Chunk>>,
-    /// SHA-256 of each file's current bytes, keyed by source_path.
+    /// SHA-256 of each file's current bytes, keyed by `source_path`.
     pub content_hashes: HashMap<String, [u8; 32]>,
     /// SHA-256 of the category config used for this run.
     pub config_hash: [u8; 32],
@@ -116,11 +116,11 @@ pub enum BatchBuildError {
     #[error("rkyv serialization failed for chunks of {path}: {reason}")]
     ChunkSerializationFailed { path: String, reason: String },
 
-    /// A duplicate source_path was detected across diff categories.
+    /// A duplicate `source_path` was detected across diff categories.
     #[error("duplicate source_path in diff: {path} appears in multiple categories")]
     DuplicateSourcePath { path: String },
 
-    /// The input FileDiff was empty (no files in any category).
+    /// The input `FileDiff` was empty (no files in any category).
     #[error("file diff is empty: no unchanged, changed, new, or deleted files")]
     EmptyDiff,
 }
@@ -161,7 +161,7 @@ pub fn serialize_and_hash<T: Serialize + ?Sized>(
 /// Construct a `FileStateRaw` from individual hash components.
 ///
 /// All hash fields are set to the provided values, `last_processed_secs` to `now_secs`,
-/// and `_reserved` is zeroed. Total struct size is exactly 200 bytes.
+/// and `reserved` is zeroed. Total struct size is exactly 200 bytes.
 #[allow(clippy::too_many_arguments)]
 #[must_use]
 pub fn build_file_state_raw(
@@ -179,7 +179,7 @@ pub fn build_file_state_raw(
         transform_hash,
         chunk_hash,
         last_processed_secs: now_secs,
-        _reserved: [0u8; 32],
+        reserved: [0u8; 32],
     }
 }
 
@@ -510,7 +510,7 @@ mod tests {
                 transform_hash: make_hash(0xDD),
                 chunk_hash: make_hash(0xEE),
                 last_processed_secs: 1_699_999_999,
-                _reserved: [0u8; 32],
+                reserved: [0u8; 32],
             },
         )
     }
@@ -897,11 +897,11 @@ mod tests {
     }
 
     // ===================================================================
-    // B13: _reserved is zeroed
+    // B13: reserved is zeroed
     // ===================================================================
 
     #[test]
-    fn build_changes_zeroes_reserved_field_in_file_state_raw() {
+    fn build_changes_zeroesreserved_field_in_file_state_raw() {
         // Given
         let path = "docs/a.md";
         let diff = make_diff_with_changed(&[path]);
@@ -913,8 +913,8 @@ mod tests {
         // Then
         let changes = result.expect("should succeed");
         assert_eq!(
-            changes.updated_files[0].1._reserved, [0u8; 32],
-            "_reserved must be all zeros"
+            changes.updated_files[0].1.reserved, [0u8; 32],
+            "reserved must be all zeros"
         );
     }
 
@@ -1893,10 +1893,10 @@ mod tests {
         );
     }
 
-    // B37: Zeroes _reserved field
+    // B37: Zeroes reserved field
 
     #[test]
-    fn build_file_state_raw_zeroes_reserved_field() {
+    fn build_file_state_raw_zeroesreserved_field() {
         // Given: any inputs
         let raw = build_file_state_raw(
             make_hash(0xFF),
@@ -1908,7 +1908,7 @@ mod tests {
         );
 
         // Then
-        assert_eq!(raw._reserved, [0u8; 32], "_reserved must be all zeros");
+        assert_eq!(raw.reserved, [0u8; 32], "reserved must be all zeros");
     }
 
     // B38: Struct size is exactly 200 bytes (verified through the function)
@@ -1945,7 +1945,7 @@ mod tests {
         assert_eq!(raw.transform_hash, [0u8; 32]);
         assert_eq!(raw.chunk_hash, [0u8; 32]);
         assert_eq!(raw.last_processed_secs, 0);
-        assert_eq!(raw._reserved, [0u8; 32]);
+        assert_eq!(raw.reserved, [0u8; 32]);
     }
 
     #[test]
@@ -1955,7 +1955,7 @@ mod tests {
         assert_eq!(raw.content_hash, max_hash);
         assert_eq!(raw.config_hash, max_hash);
         assert_eq!(raw.last_processed_secs, u64::MAX);
-        assert_eq!(raw._reserved, [0u8; 32]);
+        assert_eq!(raw.reserved, [0u8; 32]);
     }
 
     // ===================================================================
@@ -2045,7 +2045,7 @@ mod tests {
             prop_assert_eq!(raw.transform_hash, transform);
             prop_assert_eq!(raw.chunk_hash, chunk);
             prop_assert_eq!(raw.last_processed_secs, now_secs);
-            prop_assert_eq!(raw._reserved, [0u8; 32]);
+            prop_assert_eq!(raw.reserved, [0u8; 32]);
         }
     }
 
@@ -2279,7 +2279,7 @@ mod verification {
         let now: u64 = kani::any();
         let raw = build_file_state_raw(content, config, analysis, transform, chunk, now);
         assert!(std::mem::size_of_val(&raw) == 200);
-        assert!(raw._reserved == [0u8; 32]);
+        assert!(raw.reserved == [0u8; 32]);
     }
 
     #[kani::proof]
@@ -2309,6 +2309,6 @@ mod verification {
         assert!(raw.transform_hash == transform);
         assert!(raw.chunk_hash == chunk);
         assert!(raw.last_processed_secs == now);
-        assert!(raw._reserved == [0u8; 32]);
+        assert!(raw.reserved == [0u8; 32]);
     }
 }

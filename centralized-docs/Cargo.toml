@@ -179,6 +179,9 @@ harness = false
 #   - control: Advanced control features
 # ===========================================================================
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
+
 [features]
 console = []
 localembed = []

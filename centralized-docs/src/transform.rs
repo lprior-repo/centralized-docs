@@ -747,7 +747,7 @@ pub struct TransformArtifact {
     pub source_path: String,
     /// SHA-256 of the original file bytes at the time of transformation.
     pub content_hash: ContentHash,
-    /// SHA-256 fingerprint of the link_map used during transformation.
+    /// SHA-256 fingerprint of the `link_map` used during transformation.
     pub link_map_fingerprint: ContentHash,
     /// The fully-transformed markdown output (frontmatter + content).
     pub transformed_markdown: String,
@@ -768,7 +768,7 @@ impl TransformArtifactKey {
     /// # Preconditions
     /// - `source_path` is non-empty and valid UTF-8.
     /// - `content_hash` is the SHA-256 of the original file bytes.
-    /// - `link_map_fingerprint` is the SHA-256 of the serialized link_map.
+    /// - `link_map_fingerprint` is the SHA-256 of the serialized `link_map`.
     ///
     /// # Postconditions
     /// - The returned key is exactly 32 bytes (SHA-256 output).
@@ -812,12 +812,12 @@ pub enum TransformArtifactError {
     MissingIdMapping { source_path: String },
 
     /// The link map fingerprint could not be computed.
-    /// This is a serialization failure -- IdMapping must be Serializable.
+    /// This is a serialization failure -- `IdMapping` must be Serializable.
     #[error("failed to serialize link map for fingerprinting: {message}")]
     LinkMapFingerprintFailed { message: String },
 
     /// Cache read failed during artifact lookup.
-    /// Wraps the underlying CacheError or redb error.
+    /// Wraps the underlying `CacheError` or redb error.
     #[error("cache read failed for transform artifact (source: {source_path}): {message}")]
     CacheReadFailed {
         source_path: String,
@@ -825,7 +825,7 @@ pub enum TransformArtifactError {
     },
 
     /// Cache write failed during artifact storage.
-    /// Wraps the underlying CacheError or redb error.
+    /// Wraps the underlying `CacheError` or redb error.
     #[error("cache write failed for transform artifact (source: {source_path}): {message}")]
     CacheWriteFailed {
         source_path: String,
@@ -865,9 +865,9 @@ pub enum TransformArtifactError {
     },
 }
 
-/// Compute a deterministic fingerprint of the link_map for cache invalidation.
+/// Compute a deterministic fingerprint of the `link_map` for cache invalidation.
 ///
-/// The link_map is serialized to a canonical JSON representation and then SHA-256 hashed.
+/// The `link_map` is serialized to a canonical JSON representation and then SHA-256 hashed.
 /// This ensures that any change to ID assignments invalidates the cached transform.
 ///
 /// # Determinism
@@ -893,7 +893,7 @@ pub fn compute_link_map_fingerprint(
 
 /// Attempt to load a cached transform artifact for a single source path.
 ///
-/// I/O boundary: reads from DocCache.
+/// I/O boundary: reads from `DocCache`.
 ///
 /// # Errors
 /// - `TransformArtifactError::CacheReadFailed`
@@ -936,7 +936,7 @@ pub fn load_cached_artifact(
 
 /// Persist a transform artifact to cache.
 ///
-/// I/O boundary: writes to DocCache.
+/// I/O boundary: writes to `DocCache`.
 ///
 /// # Errors
 /// - `TransformArtifactError::CacheWriteFailed`
@@ -1003,7 +1003,7 @@ pub fn write_artifact_to_output(
 ///
 /// For each analysis:
 ///   1. Compute content hash of original file bytes.
-///   2. Compute artifact key from (source_path, content_hash, link_map_fingerprint).
+///   2. Compute artifact key from (`source_path`, `content_hash`, `link_map_fingerprint`).
 ///   3. Check cache: if hit, write cached markdown to output file.
 ///   4. If miss, run fresh transform, store artifact to cache, write to output file.
 ///
@@ -1107,35 +1107,32 @@ fn process_single_cached(
     // I/O: attempt cache load
     let cached = load_cached_artifact(cache, &analysis.source_path, &content_hash, link_map_fp)?;
 
-    match cached {
-        Some(artifact) => {
-            // Cache hit: write cached markdown to output (I/O)
-            write_artifact_to_output(&artifact, link_map, docs_dir)
-        }
-        None => {
-            // Cache miss: fresh transform
-            let mapping = link_map.get(&analysis.source_path).ok_or_else(|| {
-                TransformArtifactError::MissingIdMapping {
-                    source_path: analysis.source_path.clone(),
-                }
-            })?;
-
-            // Pure: compute transformed content
-            let transformed = transform_to_content(analysis, mapping, link_map, filename_map);
-
-            let artifact = TransformArtifact {
+    if let Some(artifact) = cached {
+        // Cache hit: write cached markdown to output (I/O)
+        write_artifact_to_output(&artifact, link_map, docs_dir)
+    } else {
+        // Cache miss: fresh transform
+        let mapping = link_map.get(&analysis.source_path).ok_or_else(|| {
+            TransformArtifactError::MissingIdMapping {
                 source_path: analysis.source_path.clone(),
-                content_hash,
-                link_map_fingerprint: *link_map_fp,
-                transformed_markdown: transformed,
-            };
+            }
+        })?;
 
-            // I/O: store artifact to cache
-            store_artifact(cache, &artifact, link_map_fp)?;
+        // Pure: compute transformed content
+        let transformed = transform_to_content(analysis, mapping, link_map, filename_map);
 
-            // I/O: write to output file
-            write_artifact_to_output(&artifact, link_map, docs_dir)
-        }
+        let artifact = TransformArtifact {
+            source_path: analysis.source_path.clone(),
+            content_hash,
+            link_map_fingerprint: *link_map_fp,
+            transformed_markdown: transformed,
+        };
+
+        // I/O: store artifact to cache
+        store_artifact(cache, &artifact, link_map_fp)?;
+
+        // I/O: write to output file
+        write_artifact_to_output(&artifact, link_map, docs_dir)
     }
 }
 

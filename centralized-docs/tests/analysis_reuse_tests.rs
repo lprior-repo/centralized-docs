@@ -886,18 +886,14 @@ fn analyze_with_reuse_records_failed_files_for_unanalyzable_input() {
     let temp_dir = TempDir::new().unwrap();
     let (_db_dir, db) = fresh_db();
 
-    // Create one valid markdown file and one binary file
+    // Create one valid markdown file and one file with invalid UTF-8
     std::fs::write(
         temp_dir.path().join("valid.md"),
         "# Valid\n\nValid content.",
     )
     .unwrap();
-    // Create a file with NUL bytes (binary content)
-    std::fs::write(
-        temp_dir.path().join("binary.md"),
-        b"# Binary\n\n\x00\x00\x00",
-    )
-    .unwrap();
+    // Create a file with invalid UTF-8 bytes (0xFF 0xFE is not valid UTF-8)
+    std::fs::write(temp_dir.path().join("binary.md"), b"# Binary\n\n\xff\xfe").unwrap();
 
     let files = vec![
         DiscoveryFile {
@@ -987,10 +983,12 @@ fn analyze_with_reuse_forwards_category_config_path_when_provided() {
     let temp_dir = TempDir::new().unwrap();
     let (_db_dir, db) = fresh_db();
 
-    // Create a categories.toml file
+    // Create a categories.toml file (valid YAML with required default_category)
     let categories_content = r#"
-[categories]
-ref = ["api"]
+default_category: "docs"
+rules:
+  - category: "ref"
+    filename: ["api"]
 "#;
     std::fs::write(temp_dir.path().join("categories.toml"), categories_content).unwrap();
 

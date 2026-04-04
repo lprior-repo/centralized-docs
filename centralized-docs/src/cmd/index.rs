@@ -281,3 +281,8 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Tests (cfg(test)) — extracted to index_tests.rs for file-length compliance.
+// ---------------------------------------------------------------------------
+include!("index_tests.rs");

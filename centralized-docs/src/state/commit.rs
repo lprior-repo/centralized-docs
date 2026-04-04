@@ -799,7 +799,7 @@ pub struct StateReadSession<'db> {
     _phantom: std::marker::PhantomData<&'db ()>,
 }
 
-impl<'db> StateReadSession<'db> {
+impl StateReadSession<'_> {
     /// Bulk-load archived snapshots for the requested hash keys.
     ///
     /// Returns a `HashMap` keyed by the same `[u8; 32]` hashes, with
@@ -2821,7 +2821,7 @@ mod tests {
     fn proptest_non_empty_string_key_always_accepted() {
         use proptest::prelude::*;
 
-        proptest!(|(key in "[^\t\n\r\x00-\\\x1F\x7F-\\\x7F  ]{1,10}")| {
+        proptest!(|(key in r"[^\p{White_Space}\x00-\x1F\x7F]{1,10}")| {
             let mut changes = StateChanges::empty();
             changes.updated_files = vec![(key, FileStateRaw::zeroed())];
             let result = validate_no_empty_string_keys(&changes);            prop_assert!(
