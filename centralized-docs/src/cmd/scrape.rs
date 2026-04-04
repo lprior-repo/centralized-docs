@@ -5,6 +5,7 @@ use crate::cli::validation::validate_filter_regex;
 use crate::scrape;
 use anyhow::Result;
 use std::path::Path;
+use tracing::instrument;
 
 /// Validate query length to prevent `DoS` attacks and resource exhaustion
 ///
@@ -136,6 +137,7 @@ pub fn apply_query_filter(
 include!("scrape_tests.rs");
 
 /// Run the scrape command
+#[instrument(skip_all, fields(url = %url))]
 pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) -> Result<()> {
     let _validated_url = scrape::validate_url(url)?;
 
@@ -148,14 +150,14 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
         validate_filter_regex(filter).map_err(|e: String| anyhow::anyhow!(e))?;
     }
 
-    println!("[SCRAPE] Target: {url}");
-    println!(
-        "  Options: sitemap={:?}, delay={}ms, timeout={}s, retries={}, concurrency={}",
-        config.sitemap_strategy,
-        config.delay,
-        config.request_timeout_secs,
-        config.max_retries,
-        config.concurrency_limit
+    tracing::info!(
+        url = %url,
+        sitemap = ?config.sitemap_strategy,
+        delay_ms = config.delay,
+        timeout_s = config.request_timeout_secs,
+        retries = config.max_retries,
+        concurrency = config.concurrency_limit,
+        "Starting scrape"
     );
     println!(
         "  Redirect: {:?}, page_bytes={:?}, total_bytes={:?}",

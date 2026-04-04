@@ -579,7 +579,7 @@ pub fn embeddings_to_vectors(embeddings: &[Embedding]) -> Vec<Vec<f32>> {
 #[cfg(feature = "localembed")]
 pub struct LocalFastEmbedProvider {
     model_name: String,
-    model: tokio::sync::Arc<tokio::sync::Mutex<TextEmbedding>>,
+    model: std::sync::Arc<std::sync::Mutex<TextEmbedding>>,
     dim: usize,
 }
 
@@ -598,7 +598,7 @@ impl Clone for LocalFastEmbedProvider {
     fn clone(&self) -> Self {
         Self {
             model_name: self.model_name.clone(),
-            model: tokio::sync::Arc::clone(&self.model),
+            model: std::sync::Arc::clone(&self.model),
             dim: self.dim,
         }
     }
@@ -618,7 +618,7 @@ impl LocalFastEmbedProvider {
 
         Ok(Self {
             model_name: "bge-small-en-v1.5".to_string(),
-            model: tokio::sync::Arc::new(tokio::sync::Mutex::new(model)),
+            model: std::sync::Arc::new(std::sync::Mutex::new(model)),
             dim: 384, // BGE-small has 384 dimensions
         })
     }

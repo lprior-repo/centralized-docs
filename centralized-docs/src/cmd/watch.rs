@@ -6,6 +6,7 @@
 use anyhow::Result;
 use std::path::Path;
 use std::process;
+use tracing::instrument;
 
 use crate::cli::config::{DEFAULT_MAX_PAGE_SIZE_BYTES, DEFAULT_MAX_TOTAL_SIZE_BYTES};
 use doc_transformer::cache::{url_hash, CacheConfig, DocCache};
@@ -21,6 +22,7 @@ use doc_transformer::watch::{
 /// - **Preconditions**: url is valid, `cache_path` writable, output writable
 /// - **Postconditions**: change-plan.json + change-plan.md written, snapshot NOT mutated
 /// - **Invariant**: calling watch twice with same content produces identical plans
+#[instrument(skip_all, fields(url = %url))]
 pub async fn run_watch(
     url: &str,
     output: &Path,
@@ -67,6 +69,7 @@ pub async fn run_watch(
 /// - **Preconditions**: `scrape_dir` contains valid manifest.json, cache writable
 /// - **Postconditions**: snapshot stored in redb, idempotent on re-run
 /// - **Invariant**: apply twice with same content is a no-op
+#[instrument(skip_all, fields(url = %url))]
 pub async fn run_apply(url: &str, cache_path: &Path, scrape_dir: &Path, yes: bool) -> Result<()> {
     // ── Actions: load previous + read manifest ─────────────────────────
     let cache = open_cache(cache_path)?;

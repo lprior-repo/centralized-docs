@@ -49,8 +49,10 @@ use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches};
 use cli::{Cli, Commands, McpCommand};
 use std::process;
+use tracing::instrument;
 
 #[tokio::main]
+#[instrument(skip_all)]
 async fn main() -> Result<()> {
     let cmd = Cli::command();
 

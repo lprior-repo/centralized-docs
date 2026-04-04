@@ -18,6 +18,7 @@
 //! - Data transformations (via `transformers`)
 
 use anyhow::{Context, Result};
+use tracing::instrument;
 
 pub mod filtering;
 pub mod html_parser;
@@ -61,6 +62,7 @@ fn derive_scrape_plan(config: &ScrapeConfig, sitemap_found: bool) -> ScrapePlan 
 ///
 /// # Errors
 /// Returns an error if the scrape operation fails after all retries are exhausted.
+#[instrument(skip_all, fields(base_url = %config.base_url, max_pages = config.max_pages))]
 pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
     const BASE_DELAY_MS: u64 = 2000;
 
@@ -80,9 +82,9 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
         let pages_found = test_result.as_ref().is_ok_and(|r| r.success_count > 0);
 
         if pages_found {
-            println!("[SCRAPE] Sitemap found, using sitemap strategy...");
+            tracing::info!("Sitemap found, using sitemap strategy");
         } else {
-            println!("[SCRAPE] No URLs found in sitemap, falling back to crawling...");
+            tracing::info!("No URLs found in sitemap, falling back to crawling");
         }
         derive_scrape_plan(config, pages_found)
     } else {
@@ -111,18 +113,23 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                     && attempt <= max_retries
                 {
                     let delay_ms = calculate_backoff_delay(BASE_DELAY_MS, attempt);
-                    println!(
-                        "[RATE LIMIT] High error rate detected ({} errors / {} total)",
-                        result.error_count, total_requests
+                    tracing::warn!(
+                        error_count = result.error_count,
+                        total_requests = total_requests,
+                        "High error rate detected"
                     );
-                    println!("[RETRY] Waiting {delay_ms}ms before retry {attempt}...");
+                    tracing::warn!(
+                        delay_ms = delay_ms,
+                        attempt = attempt,
+                        "Waiting before retry"
+                    );
 
                     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                     continue;
                 }
 
                 if attempt > 1 {
-                    println!("[SUCCESS] Scrape completed after {attempt} attempts");
+                    tracing::info!(attempt = attempt, "Scrape completed after retry attempts");
                 }
 
                 return Ok(result);
@@ -140,7 +147,13 @@ pub async fn scrape_site(config: &ScrapeConfig) -> Result<ScrapeResult> {
                     && attempt <= max_retries
                 {
                     let delay_ms = calculate_backoff_delay(BASE_DELAY_MS, attempt);
-                    println!("[RETRY] Transient error: {error_msg}. Retrying in {delay_ms}ms (attempt {attempt}/{max_retries})");
+                    tracing::warn!(
+                        error_msg = %error_msg,
+                        delay_ms = delay_ms,
+                        attempt = attempt,
+                        max_retries = max_retries,
+                        "Transient error, retrying"
+                    );
                     tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                     continue;
                 }

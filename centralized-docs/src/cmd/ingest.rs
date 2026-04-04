@@ -7,8 +7,10 @@ use crate::cmd::scrape::{apply_query_filter, validate_query_length};
 use crate::scrape::{self, SitemapStrategy};
 use anyhow::Result;
 use std::path::Path;
+use tracing::instrument;
 
 /// Run the ingest command (scrape + index)
+#[instrument(skip_all, fields(url = %url))]
 pub async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Result<()> {
     let _validated_url = scrape::validate_url(url)?;
 

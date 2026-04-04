@@ -6,10 +6,12 @@ pub mod server;
 pub mod types;
 
 use std::path::PathBuf;
+use tracing::instrument;
 
 pub use error::CtdMcpError;
 pub use server::CtdMcpServer;
 
+#[instrument(skip_all, fields(index_dir = %index_dir.display()))]
 pub async fn run(index_dir: PathBuf) -> Result<(), CtdMcpError> {
     run_mcp_serve(&index_dir).await.map_err(|e| {
         if let Some(err) = e.downcast_ref::<CtdMcpError>() {
@@ -23,6 +25,7 @@ pub async fn run(index_dir: PathBuf) -> Result<(), CtdMcpError> {
     })
 }
 
+#[instrument(skip_all, fields(index_dir = %index_dir.display()))]
 pub async fn run_mcp_serve(index_dir: &std::path::Path) -> anyhow::Result<()> {
     let server = CtdMcpServer::new(index_dir.to_path_buf()).map_err(|e| anyhow::anyhow!(e))?;
     let mut router = rmcp::handler::server::router::Router::new(server.clone());

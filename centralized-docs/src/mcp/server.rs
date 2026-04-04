@@ -4,6 +4,7 @@ use crate::mcp::types::{GetRelatedConceptsParams, ReadChunkParams, SearchDocsPar
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::{tool, tool_handler, tool_router};
 use std::path::PathBuf;
+use tracing::instrument;
 
 #[derive(Debug, Clone)]
 pub struct CtdMcpServer {
@@ -113,6 +114,7 @@ impl CtdMcpServer {
         })
     }
 
+    #[instrument(skip(self))]
     async fn get_state(&self) -> Result<&ServerState, CtdMcpError> {
         self.state
             .get_or_try_init(|| async {
@@ -126,6 +128,7 @@ impl CtdMcpServer {
             .await
     }
 
+    #[instrument(skip_all)]
     async fn load_index_data(index_dir: &std::path::Path) -> Result<IndexData, CtdMcpError> {
         let path = index_dir.join("INDEX.json");
         if !path.exists() {
@@ -227,6 +230,7 @@ impl CtdMcpServer {
         })
     }
 
+    #[instrument(skip(self), fields(query = %params.query))]
     pub async fn search_docs(&self, params: SearchDocsParams) -> Result<ToolResult, CtdMcpError> {
         let valid_query = crate::mcp::types::ValidQuery::parse(&params.query)
             .map_err(|e| CtdMcpError::InvalidInput { detail: e })?;
@@ -258,6 +262,7 @@ impl CtdMcpServer {
         Ok(ToolResult::text(formatted))
     }
 
+    #[instrument(skip(self), fields(id = %params.id))]
     pub async fn read_chunk(&self, params: ReadChunkParams) -> Result<ToolResult, CtdMcpError> {
         let valid_id = crate::mcp::types::ValidId::parse(&params.id, "ID")
             .map_err(|e| CtdMcpError::InvalidInput { detail: e })?;
@@ -282,6 +287,7 @@ impl CtdMcpServer {
         )))
     }
 
+    #[instrument(skip(self), fields(id = %params.id))]
     pub async fn get_related_concepts(
         &self,
         params: GetRelatedConceptsParams,
