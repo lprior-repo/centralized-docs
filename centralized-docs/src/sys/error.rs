@@ -89,12 +89,9 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         return 1;
     }
 
-    // "no results found" is NOT an error - it's a valid result state
-    // Exit code 0 means success (even with empty results)
-    // Exit code 1 is for actual errors (invalid index, missing args, etc.)
+    // "no results found" is a user input error — exit 1 so pipelines can detect it
     if error_string_lower.contains("no results found") {
-        // No results is a valid result -> exit 0 (success)
-        return 0;
+        return 1;
     }
 
     // Pipeline error -> exit 2
@@ -158,7 +155,7 @@ mod tests {
     #[test]
     fn test_map_error_to_exit_code_no_results() {
         let err = anyhow::anyhow!("no results found for 'test'");
-        assert_eq!(map_error_to_exit_code(&err), 0);
+        assert_eq!(map_error_to_exit_code(&err), 1);
     }
 
     #[test]

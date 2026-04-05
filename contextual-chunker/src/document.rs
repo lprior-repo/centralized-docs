@@ -1,4 +1,4 @@
-//! Input document representation for chunking
+//! Input document representation for chunking.
 //!
 //! Design by Contract:
 //! - Invariants: id and title are non-empty; content can be empty but is valid UTF-8
@@ -7,45 +7,45 @@
 
 use serde::{Deserialize, Serialize};
 
-/// A document to be chunked into semantic segments
+/// Validation error for document construction.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DocumentValidationError {
+    /// Document id must be non-empty.
+    EmptyId,
+    /// Document title must be non-empty.
+    EmptyTitle,
+}
+
+impl std::fmt::Display for DocumentValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DocumentValidationError::EmptyId => f.write_str("document id must be non-empty"),
+            DocumentValidationError::EmptyTitle => f.write_str("document title must be non-empty"),
+        }
+    }
+}
+
+impl std::error::Error for DocumentValidationError {}
+
+/// A document to be chunked into semantic segments.
 ///
 /// This is the primary input type for the chunking engine.
 /// It encapsulates the minimal information needed for semantic chunking:
 /// unique identification, presentation, and content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Document {
-    /// Unique identifier for the document (e.g., file path, URL slug)
-    ///
-    /// Used to generate chunk IDs and establish relationships.
-    /// Must be unique within a chunking session.
-    /// Example: "guides/getting-started" or "api-reference"
+    /// Unique identifier for the document (e.g., file path, URL slug).
     pub id: String,
-
-    /// Human-readable document title
-    ///
-    /// Used in chunk metadata and summaries.
-    /// Should be descriptive but concise (< 200 chars recommended).
-    /// Example: "Getting Started Guide" or "API Reference"
+    /// Human-readable document title.
     pub title: String,
-
-    /// The actual document content (markdown format recommended)
-    ///
-    /// Can be empty for testing purposes.
-    /// Expected to be valid UTF-8 (panics on invalid UTF-8 indicate corruption).
-    /// Supports:
-    /// - Markdown (recommended): H2 headings (##) as natural chunk boundaries
-    /// - HTML: Ignored but preserved
-    /// - Plain text: Chunked by token count alone
+    /// The actual document content (markdown format recommended).
     pub content: String,
 }
 
 impl Document {
-    /// Create a new document
+    /// Create a new document without validation.
     ///
-    /// # Arguments
-    /// * `id` - Unique identifier for the document
-    /// * `title` - Human-readable document title
-    /// * `content` - Document content (usually markdown)
+    /// Prefer [`Document::try_new`] for validated construction.
     ///
     /// # Examples
     ///
@@ -63,18 +63,50 @@ impl Document {
         Document { id, title, content }
     }
 
-    /// Validate document has required fields
+    /// Create a new document with validation (C6: parse at the boundary).
+    ///
+    /// Returns `Err(DocumentValidationError)` if id or title is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use contextual_chunker::Document;
+    ///
+    /// let doc = Document::try_new(
+    ///     "guides/intro".to_string(),
+    ///     "Introduction Guide".to_string(),
+    ///     "## Getting Started\n\nContent.".to_string(),
+    /// );
+    /// assert!(doc.is_ok());
+    ///
+    /// let bad = Document::try_new("".to_string(), "Title".to_string(), "content".to_string());
+    /// assert!(bad.is_err());
+    /// ```
+    pub fn try_new(
+        id: String,
+        title: String,
+        content: String,
+    ) -> Result<Self, DocumentValidationError> {
+        if id.is_empty() {
+            return Err(DocumentValidationError::EmptyId);
+        }
+        if title.is_empty() {
+            return Err(DocumentValidationError::EmptyTitle);
+        }
+        Ok(Document { id, title, content })
+    }
+
+    /// Validate document has required fields.
     ///
     /// Returns true if id and title are non-empty.
     /// Content can be empty for test documents.
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         !self.id.is_empty() && !self.title.is_empty()
     }
 
-    /// Calculate rough content size in tokens
-    ///
-    /// Uses simple estimation: ~4 characters per token.
-    /// Useful for determining if document is within expected range.
+    /// Calculate rough content size in tokens (~4 characters per token).
+    #[must_use]
     pub fn estimated_tokens(&self) -> usize {
         (self.content.len() / 4).max(1)
     }
@@ -94,6 +126,31 @@ mod tests {
         assert_eq!(doc.id, "test-doc");
         assert_eq!(doc.title, "Test Document");
         assert!(doc.is_valid());
+    }
+
+    #[test]
+    fn test_document_try_new_valid() {
+        let doc = Document::try_new("id".to_string(), "title".to_string(), "content".to_string());
+        assert!(doc.is_ok());
+        assert_eq!(doc.as_ref().unwrap().id, "id");
+    }
+
+    #[test]
+    fn test_document_try_new_empty_id() {
+        let err = Document::try_new("".to_string(), "title".to_string(), "content".to_string());
+        assert_eq!(err.unwrap_err(), DocumentValidationError::EmptyId);
+    }
+
+    #[test]
+    fn test_document_try_new_empty_title() {
+        let err = Document::try_new("id".to_string(), "".to_string(), "content".to_string());
+        assert_eq!(err.unwrap_err(), DocumentValidationError::EmptyTitle);
+    }
+
+    #[test]
+    fn test_document_try_new_both_empty() {
+        let err = Document::try_new("".to_string(), "".to_string(), "content".to_string());
+        assert_eq!(err.unwrap_err(), DocumentValidationError::EmptyId);
     }
 
     #[test]

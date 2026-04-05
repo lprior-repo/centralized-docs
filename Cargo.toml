@@ -1,5 +1,5 @@
 [workspace]
-members = ["centralized-docs", "contextual-chunker", "llms-txt-parser", "benchmark_server"]
+members = ["centralized-docs", "centralized-docs-pod", "contextual-chunker", "llms-txt-parser", "benchmark_server"]
 exclude = ["centralized-docs/fuzz"]
 resolver = "2"
 

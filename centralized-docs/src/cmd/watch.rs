@@ -5,7 +5,6 @@
 
 use anyhow::Result;
 use std::path::Path;
-use std::process;
 use tracing::instrument;
 
 use crate::cache::url_hash;
@@ -18,12 +17,25 @@ use crate::watch::{
     write_plan_reports, ChangePlan, Snapshot,
 };
 
+/// Output format for plan display.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutputFormat {
+    /// Machine-readable JSON output.
+    Json,
+    /// Human-readable Markdown output.
+    Markdown,
+}
+
+/// Confirmation mode for the apply command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConfirmMode {
+    /// Skip interactive confirmation and apply immediately.
+    AutoConfirm,
+    /// Prompt the user for confirmation before applying.
+    Interactive,
+}
+
 /// Run the `watch` command: scrape + diff → change plan (terraform plan equivalent).
-///
-/// # Contract
-/// - **Preconditions**: url is valid, `cache_path` writable, output writable
-/// - **Postconditions**: change-plan.json + change-plan.md written, snapshot NOT mutated
-/// - **Invariant**: calling watch twice with same content produces identical plans
 #[instrument(skip_all, fields(url = %url))]
 pub async fn run_watch(
     url: &str,
@@ -35,9 +47,8 @@ pub async fn run_watch(
     max_retries: u32,
     redirect_policy: spider::configuration::RedirectPolicy,
     concurrency: usize,
-    json_output: bool,
+    output_format: OutputFormat,
 ) -> Result<()> {
-    // ── Actions: I/O boundary ──────────────────────────────────────────
     let state_db = open_state_db(cache_path)?;
     let previous = load_snapshot(&state_db, url)?;
     print_watch_header(url, &previous);
@@ -53,43 +64,36 @@ pub async fn run_watch(
     );
     let scrape_result = execute_scrape(&scrape_config).await?;
 
-    // ── Calculations: pure, no I/O ─────────────────────────────────────
     let plan = compute_plan(url, &previous, &scrape_result);
 
-    // ── Actions: write reports + output ─────────────────────────────────
     write_plan_reports(&plan, output)?;
-    emit_plan(&plan, json_output);
-
+    emit_plan(&plan, output_format);
     print_watch_footer(output, &plan);
 
-    process::exit(i32::from(!plan.summary.is_empty()));
+    Ok(())
 }
 
-/// Run the `apply` command: commit current scrape as new snapshot (terraform apply).
-///
-/// # Contract
-/// - **Preconditions**: `scrape_dir` contains valid manifest.json, cache writable
-/// - **Postconditions**: snapshot stored in redb, idempotent on re-run
-/// - **Invariant**: apply twice with same content is a no-op
+/// Run the `apply` command: commit current scrape as new snapshot.
 #[instrument(skip_all, fields(url = %url))]
-pub async fn run_apply(url: &str, cache_path: &Path, scrape_dir: &Path, yes: bool) -> Result<()> {
-    // ── Actions: load previous + read manifest ─────────────────────────
+pub async fn run_apply(
+    url: &str,
+    cache_path: &Path,
+    scrape_dir: &Path,
+    confirm_mode: ConfirmMode,
+) -> Result<()> {
     let state_db = open_state_db(cache_path)?;
     let previous = load_snapshot(&state_db, url)?;
     let scrape_result = read_manifest(scrape_dir)?;
 
-    // ── Calculation: compute plan to show what changes ──────────────────
     let plan = compute_plan(url, &previous, &scrape_result);
-
-    // ── Actions: display, confirm, commit ───────────────────────────────
     print_apply_summary(url, &plan);
 
     if plan.summary.is_empty() {
         tracing::info!("No changes...");
-        process::exit(0);
+        return Ok(());
     }
 
-    if !yes {
+    if confirm_mode == ConfirmMode::Interactive {
         prompt_confirmation()?;
     }
 
@@ -102,37 +106,26 @@ pub async fn run_apply(url: &str, cache_path: &Path, scrape_dir: &Path, yes: boo
         "Snapshot committed"
     );
 
-    process::exit(0);
+    Ok(())
 }
 
 /// Run the `diff` command: compare two .scrape directories.
-///
-/// # Contract
-/// - **Preconditions**: both dirs contain valid manifest.json
-/// - **Postconditions**: plan emitted to stdout (and optionally to files)
 pub fn run_diff(
     dir_a: &Path,
     dir_b: &Path,
     output: Option<&Path>,
-    json_output: bool,
+    output_format: OutputFormat,
 ) -> Result<()> {
-    // ── Calculation: pure diff ──────────────────────────────────────────
     let plan = diff_directories(dir_a, dir_b)?;
 
-    // ── Actions: write + emit ───────────────────────────────────────────
     if let Some(out_dir) = output {
         write_plan_reports(&plan, out_dir)?;
         println!("[DIFF] Reports written to: {}/", out_dir.display());
     }
 
-    emit_plan(&plan, json_output);
-
-    process::exit(i32::from(!plan.summary.is_empty()));
+    emit_plan(&plan, output_format);
+    Ok(())
 }
-
-// ════════════════════════════════════════════════════════════════════════
-// Actions: I/O helpers (thin wrappers, no business logic)
-// ════════════════════════════════════════════════════════════════════════
 
 fn open_state_db(state_db_path: &Path) -> Result<StateDb> {
     StateDb::open(state_db_path).map_err(|e| anyhow::anyhow!("{e}"))
@@ -151,7 +144,6 @@ fn load_snapshot(state_db: &StateDb, url: &str) -> Result<Snapshot> {
     let results = session
         .load_snapshots(&[key_bytes])
         .map_err(|e| anyhow::anyhow!("{e}"))?;
-    // session dropped here — borrow released before any potential write
 
     Ok(results
         .get(&key_bytes)
@@ -202,15 +194,16 @@ async fn execute_scrape(config: &crate::scrape::ScrapeConfig) -> Result<ScrapeRe
     crate::scrape::scrape_site(config).await
 }
 
-fn emit_plan(plan: &ChangePlan, json_output: bool) {
-    if json_output {
-        match format_plan_json(plan) {
+fn emit_plan(plan: &ChangePlan, output_format: OutputFormat) {
+    match output_format {
+        OutputFormat::Json => match format_plan_json(plan) {
             Ok(json) => println!("{json}"),
             Err(e) => tracing::error!(error = %e, "JSON serialization failed"),
+        },
+        OutputFormat::Markdown => {
+            let md = format_plan_markdown(plan);
+            println!("\n{md}");
         }
-    } else {
-        let md = format_plan_markdown(plan);
-        println!("\n{md}");
     }
 }
 
@@ -220,12 +213,10 @@ fn prompt_confirmation() -> Result<()> {
     std::io::stdin().read_line(&mut input)?;
     if !input.trim().eq_ignore_ascii_case("y") {
         tracing::info!("Apply aborted by user");
-        process::exit(1);
+        anyhow::bail!("Apply aborted by user");
     }
     Ok(())
 }
-
-// ── Display helpers (pure formatting, no side effects beyond println) ──
 
 fn print_watch_header(url: &str, previous: &Snapshot) {
     tracing::info!(url = %url, "Watch target");
@@ -259,8 +250,6 @@ fn print_apply_summary(url: &str, plan: &ChangePlan) {
         );
     }
 }
-
-// ── Config builder (pure calculation, returns data) ─────────────────────
 
 fn build_scrape_config(
     url: &str,

@@ -58,6 +58,34 @@ pub struct FileDiff {
     pub deleted: HashSet<String>,
 }
 
+impl FileDiff {
+    /// Validate the 4-Set mutual exclusivity invariant.
+    ///
+    /// Asserts that every path appears in exactly one bucket. Returns an error
+    /// if any path is found in two or more buckets simultaneously.
+    pub fn validate(&self) -> Result<(), DiffError> {
+        let all_paths: Vec<&String> = self
+            .unchanged
+            .iter()
+            .chain(self.changed.iter())
+            .chain(self.new.iter())
+            .chain(self.deleted.iter())
+            .collect();
+
+        let mut seen: HashSet<&str> = HashSet::new();
+        for path in &all_paths {
+            if !seen.insert(path.as_str()) {
+                return Err(DiffError::PathTraversal {
+                    path: format!(
+                        "FileDiff invariant violated: '{path}' appears in multiple buckets"
+                    ),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Error type for diff computation.
 #[derive(Debug, Error)]
 pub enum DiffError {
@@ -82,6 +110,8 @@ pub enum DiffError {
 // ---------------------------------------------------------------------------
 
 /// Compute a deterministic SHA-256 hash of the category config file contents.
+///
+/// **I/O boundary function**: reads file bytes from disk.
 ///
 /// Returns `content_hash(b"")` when `category_config_path` is `None`
 /// or when the file cannot be read (e.g., deleted between runs).
@@ -161,12 +191,16 @@ pub fn compute_file_diff(
         .cloned()
         .collect();
 
-    Ok(FileDiff {
+    let diff = FileDiff {
         unchanged,
         changed,
         new: new_files,
         deleted,
-    })
+    };
+
+    diff.validate()?;
+
+    Ok(diff)
 }
 
 // ---------------------------------------------------------------------------

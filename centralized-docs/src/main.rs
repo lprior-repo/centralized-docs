@@ -1,14 +1,4 @@
-#![allow(clippy::pedantic)]
-#![allow(clippy::nursery)]
-#![allow(clippy::complexity)]
 //! `ctd` v0.6.1 — AI-Optimized Documentation Indexer
-//!
-//! CLI entry point for the `ctd` pipeline. Exposes four sub-commands
-//! that can be composed to go from a raw documentation source (local files **or**
-//! a live website) to a fully indexed, AI-queryable knowledge base.
-//!
-
-// Strict functional programming constraints
 #![allow(clippy::all)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::panic)]
@@ -46,65 +36,21 @@ pub mod cli;
 pub mod cmd;
 pub mod sys;
 
-use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches};
 use cli::{Cli, Commands, McpCommand};
-use std::process;
+use std::process::ExitCode;
 use tracing::instrument;
-
 #[tokio::main]
 #[instrument(skip_all)]
-async fn main() -> Result<()> {
+async fn main() -> ExitCode {
     let cmd = Cli::command();
-
     let cli_matches = match cmd.try_get_matches() {
         Ok(matches) => matches,
-        Err(e) => {
-            if e.kind() == clap::error::ErrorKind::DisplayHelp
-                || e.kind() == clap::error::ErrorKind::DisplayVersion
-            {
-                eprintln!("{e}");
-                process::exit(0);
-            }
-            let validation_errors = [
-                clap::error::ErrorKind::ValueValidation,
-                clap::error::ErrorKind::InvalidValue,
-            ];
-            let err_str: String = e.to_string().to_lowercase();
-            let exit_code = if validation_errors.contains(&e.kind()) {
-                if err_str.contains("limit must be") {
-                    1
-                } else {
-                    2
-                }
-            } else {
-                1
-            };
-            eprintln!("{e}");
-            process::exit(exit_code);
-        }
+        Err(e) => return exit_clap(e),
     };
-
     let cli_app = match Cli::from_arg_matches(&cli_matches) {
         Ok(c) => c,
-        Err(e) => {
-            let validation_errors = [
-                clap::error::ErrorKind::ValueValidation,
-                clap::error::ErrorKind::InvalidValue,
-            ];
-            let err_str: String = e.to_string().to_lowercase();
-            let exit_code = if validation_errors.contains(&e.kind()) {
-                if err_str.contains("limit must be") {
-                    1
-                } else {
-                    2
-                }
-            } else {
-                1
-            };
-            eprintln!("{e}");
-            process::exit(exit_code);
-        }
+        Err(e) => return exit_clap(e),
     };
 
     let (result, search_context) = match cli_app.command {
@@ -114,13 +60,10 @@ async fn main() -> Result<()> {
             limit,
             no_color,
             json,
-        } => {
-            let ctx = Some((json, query.clone()));
-            (
-                cmd::search::run_search(&query, &index_dir, limit, !no_color, json),
-                ctx,
-            )
-        }
+        } => (
+            cmd::search::run_search(&query, &index_dir, limit, !no_color, json),
+            Some((json, query.clone())),
+        ),
         Commands::Mcp { command } => match command {
             McpCommand::Serve { index_dir } => (cmd::mcp::run_mcp_serve(&index_dir).await, None),
         },
@@ -246,63 +189,112 @@ async fn main() -> Result<()> {
             redirect_policy,
             concurrency,
             json,
-        } => (
-            cmd::watch::run_watch(
-                &url,
-                &output,
-                &cache,
-                filter.as_deref(),
-                delay,
-                request_timeout_secs,
-                max_retries,
-                redirect_policy,
-                concurrency,
-                json,
+        } => {
+            let fmt = if json {
+                cmd::watch::OutputFormat::Json
+            } else {
+                cmd::watch::OutputFormat::Markdown
+            };
+            (
+                cmd::watch::run_watch(
+                    &url,
+                    &output,
+                    &cache,
+                    filter.as_deref(),
+                    delay,
+                    request_timeout_secs,
+                    max_retries,
+                    redirect_policy,
+                    concurrency,
+                    fmt,
+                )
+                .await,
+                None,
             )
-            .await,
-            None,
-        ),
+        }
         Commands::Apply {
             url,
             cache,
             scrape_dir,
             yes,
-        } => (
-            cmd::watch::run_apply(&url, &cache, &scrape_dir, yes).await,
-            None,
-        ),
+        } => {
+            let mode = if yes {
+                cmd::watch::ConfirmMode::AutoConfirm
+            } else {
+                cmd::watch::ConfirmMode::Interactive
+            };
+            (
+                cmd::watch::run_apply(&url, &cache, &scrape_dir, mode).await,
+                None,
+            )
+        }
         Commands::Diff {
             dir_a,
             dir_b,
             output,
             json,
-        } => (
-            cmd::watch::run_diff(&dir_a, &dir_b, output.as_deref(), json),
-            None,
-        ),
+        } => {
+            let fmt = if json {
+                cmd::watch::OutputFormat::Json
+            } else {
+                cmd::watch::OutputFormat::Markdown
+            };
+            (
+                cmd::watch::run_diff(&dir_a, &dir_b, output.as_deref(), fmt),
+                None,
+            )
+        }
     };
 
     match result {
-        Ok(()) => Ok(()),
-        Err(err) => {
-            if let Some((json_mode, search_query)) = search_context {
-                if json_mode {
-                    let error_message: String = err.to_string();
-                    if error_message.starts_with(cmd::search::SEARCH_JSON_ALREADY_EMITTED_PREFIX) {
-                        process::exit(0);
-                    }
-                    let json_error = serde_json::json!({
-                        "status": "error",
-                        "query": search_query,
-                        "error": error_message,
-                    });
-                    println!("{}", serde_json::to_string_pretty(&json_error)?);
-                    process::exit(1);
-                }
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => handle_error(err, search_context),
+    }
+}
+
+fn handle_error(err: anyhow::Error, search_context: Option<(bool, String)>) -> ExitCode {
+    if let Some((json_mode, search_query)) = search_context {
+        if json_mode {
+            let msg = err.to_string();
+            if msg.starts_with(cmd::search::SEARCH_JSON_ALREADY_EMITTED_PREFIX) {
+                return ExitCode::SUCCESS;
             }
-            let exit_code = sys::error::map_error_to_exit_code(&err);
-            eprintln!("Error: {err}");
-            process::exit(exit_code);
+            let json = serde_json::json!({"status": "error", "query": search_query, "error": msg});
+            match serde_json::to_string_pretty(&json) {
+                Ok(s) => println!("{s}"),
+                Err(_) => eprintln!("Error: {err}"),
+            }
+            return ExitCode::FAILURE;
         }
+    }
+    let code = sys::error::map_error_to_exit_code(&err);
+    eprintln!("Error: {err}");
+    match code {
+        0 => ExitCode::SUCCESS,
+        2 => ExitCode::from(2),
+        _ => ExitCode::FAILURE,
+    }
+}
+
+fn exit_clap(e: clap::error::Error) -> ExitCode {
+    let is_help = matches!(
+        e.kind(),
+        clap::error::ErrorKind::DisplayHelp | clap::error::ErrorKind::DisplayVersion
+    );
+    let is_val = matches!(
+        e.kind(),
+        clap::error::ErrorKind::ValueValidation | clap::error::ErrorKind::InvalidValue
+    );
+    eprintln!("{e}");
+    match if is_help {
+        0
+    } else if is_val && !e.to_string().to_lowercase().contains("limit must be") {
+        2
+    } else {
+        1
+    } {
+        0 => ExitCode::SUCCESS,
+        2 => ExitCode::from(2),
+        _ => ExitCode::FAILURE,
     }
 }

@@ -12,6 +12,9 @@ use anyhow::Result;
 use std::path::Path;
 use tracing::instrument;
 
+/// Number of URLs spider discovers before suspecting a JavaScript SPA.
+const SPA_DETECTION_THRESHOLD: usize = 5;
+
 /// Validate query length to prevent `DoS` attacks and resource exhaustion
 ///
 /// Constraints:
@@ -139,7 +142,9 @@ pub fn apply_query_filter(
     Ok(kept_pages)
 }
 
-include!("scrape_tests.rs");
+#[cfg(test)]
+#[path = "scrape_tests.rs"]
+mod tests;
 
 /// Run the scrape command
 #[instrument(skip_all, fields(url = %url))]
@@ -226,22 +231,10 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
     }
 
     // Check for total failure BEFORE further processing
-    // Exit with code 2 if NO pages were scraped successfully
+    // Note: total_urls == 0 && success_count == 0 already handled above,
+    // so only total_urls > 0 && success_count == 0 reaches here.
     if initial_result.success_count == 0 {
-        if initial_result.total_urls == 0 {
-            println!();
-            println!("{}", "=".repeat(70));
-            tracing::error!("Scrape failed - DNS or connection error");
-            println!("{}", "=".repeat(70));
-            println!("Failed to reach '{url}'. The domain may not exist or DNS resolution failed.");
-            println!("Please verify:");
-            println!("  - The URL is correct and accessible in a browser");
-            println!("  - The domain exists and is spelled correctly");
-            println!("{}\n", "=".repeat(70));
-            anyhow::bail!("Failed to reach '{url}': DNS or connection error");
-        }
-
-        if initial_result.total_urls == 5 {
+        if initial_result.total_urls == SPA_DETECTION_THRESHOLD {
             println!();
             println!("{}", "=".repeat(70));
             tracing::warn!("No pages extracted from '{url}' - site may be a JavaScript SPA");
@@ -262,8 +255,6 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
         // Total success: continue normally
         tracing::info!(pages = initial_result.success_count, "Pages scraped");
     }
-
-    tracing::info!(pages = initial_result.success_count, "Pages scraped");
 
     // --- STATE: Classify scraped pages against stored state ---
     let scrape_diff = classify_scrape_diff(&stored_url_states, &initial_result.pages);
@@ -293,18 +284,48 @@ pub async fn run_scrape(url: &str, output: &Path, config: &ScrapeCommandConfig) 
             if stored.url_hash == [0u8; 32] {
                 return None;
             }
-            let archive = persisted_scrapes.get(&stored.url_hash)?;
-            let persisted = rkyv::from_bytes::<
+            let archive = match persisted_scrapes.get(&stored.url_hash) {
+                Some(a) => a,
+                None => {
+                    tracing::warn!(
+                        url = %page_url,
+                        "Persisted scrape not found in state DB — re-scraping"
+                    );
+                    return None;
+                }
+            };
+            let persisted = match rkyv::from_bytes::<
                 crate::persisted::PersistedScrapeResult,
                 rkyv::rancor::Error,
             >(archive.as_bytes())
-            .ok()?;
+            {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::warn!(
+                        url = %page_url,
+                        error = %e,
+                        "Failed to deserialize persisted scrape data — re-scraping"
+                    );
+                    return None;
+                }
+            };
             // Find the matching page in the persisted result
             persisted
                 .pages
                 .iter()
                 .find(|p| p.url == *page_url)
-                .and_then(|p| crate::persisted::persisted_scraped_page_to_runtime(p).ok())
+                .and_then(|p| {
+                    crate::persisted::persisted_scraped_page_to_runtime(p)
+                        .map_err(|e| {
+                            tracing::warn!(
+                                url = %page_url,
+                                error = %e,
+                                "Failed to convert persisted page to runtime — re-scraping"
+                            );
+                            e
+                        })
+                        .ok()
+                })
         })
         .collect();
 
