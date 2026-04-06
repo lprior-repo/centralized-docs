@@ -1,106 +1,141 @@
+//! Benchmarks for centralized-docs state database operations.
+//!
+//! # Running
+//!
+//! ```bash
+//! cargo bench -p centralized-docs --bench state_db_benchmarks
+//! ```
+
 #![allow(clippy::pedantic)]
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use doc_transformer::state::{StateBatch, StateDb};
-use std::path::Path;
+use doc_transformer::state::FileStateRaw;
+use doc_transformer::state::{StateChanges, StateDb};
 
-fn bench_state_db_construction(c: &mut Criterion) {
+fn bench_state_db_open(c: &mut Criterion) {
     let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
 
-    c.bench_function("state_db_new", |b| {
+    c.bench_function("state_db_open", |b| {
         b.iter(|| {
-            let _ = StateDb::new(black_box(dir.path()));
+            let _ = StateDb::open(black_box(dir.path()));
         })
     });
 }
 
-fn bench_record_file_hash(c: &mut Criterion) {
-    let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
-
-    c.bench_function("record_file_hash_single", |b| {
+fn bench_state_changes_empty(c: &mut Criterion) {
+    c.bench_function("state_changes_empty", |b| {
         b.iter(|| {
-            let mut db = StateDb::new(dir.path()).expect("StateDb::new should succeed");
-            let _ = db.record_file_hash(black_box("src/guide.md"), black_box("sha256:abc123"));
+            let _ = StateChanges::empty();
         })
     });
 }
 
-fn bench_record_file_hash_batch(c: &mut Criterion) {
-    let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+fn bench_file_state_raw_zeroed(c: &mut Criterion) {
+    c.bench_function("file_state_raw_zeroed", |b| {
+        b.iter(|| {
+            let _ = FileStateRaw::zeroed();
+        })
+    });
+}
 
-    let mut group = c.benchmark_group("record_file_hash_batch");
-    for size in [10, 100, 1000] {
-        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, &size| {
+fn bench_file_state_raw_serialization(c: &mut Criterion) {
+    let file_state = FileStateRaw::zeroed();
+
+    c.bench_function("file_state_raw_to_bytes", |b| {
+        b.iter(|| {
+            let _ = black_box(&file_state).to_bytes();
+        })
+    });
+
+    c.bench_function("file_state_raw_from_bytes", |b| {
+        let bytes = file_state.to_bytes();
+        b.iter(|| {
+            let _ = FileStateRaw::from_bytes(black_box(&bytes));
+        })
+    });
+}
+
+fn bench_commit_empty_changes(c: &mut Criterion) {
+    let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+    let db = StateDb::open(dir.path()).expect("StateDb::open should succeed");
+
+    c.bench_function("commit_empty_changes", |b| {
+        b.iter(|| {
+            let changes = StateChanges::empty();
+            let _ = db.commit_changes(changes);
+        })
+    });
+}
+
+fn bench_commit_changes_with_files(c: &mut Criterion) {
+    let file_counts = [10, 100];
+
+    let mut group = c.benchmark_group("commit_changes_with_files");
+    for count in file_counts {
+        group.bench_with_input(BenchmarkId::from_parameter(count), &count, |b, &count| {
+            let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
+            let db = StateDb::open(dir.path()).expect("StateDb::open should succeed");
+
             b.iter(|| {
-                let mut db = StateDb::new(dir.path()).expect("StateDb::new should succeed");
-                for i in 0..size {
-                    let _ = db.record_file_hash(&format!("file_{i}.md"), &format!("hash_{i}"));
+                let mut changes = StateChanges::empty();
+                for i in 0..count {
+                    let path = format!("docs/file_{i}.md");
+                    let mut file_state = FileStateRaw::zeroed();
+                    // Set content_hash to a pseudo-random value based on i
+                    file_state.content_hash = [
+                        (i & 0xff) as u8,
+                        ((i >> 8) & 0xff) as u8,
+                        ((i >> 16) & 0xff) as u8,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                    ];
+                    file_state.last_processed_secs = 1_700_000_000 + i as u64;
+                    changes.updated_files.push((path, file_state));
                 }
+                let _ = db.commit_changes(changes);
             })
         });
     }
     group.finish();
 }
 
-fn bench_commit_changes(c: &mut Criterion) {
-    let dir = tempfile::TempDir::new().expect("Failed to create temp dir");
-
-    c.bench_function("commit_changes_with_100_files", |b| {
-        b.iter(|| {
-            let mut db = StateDb::new(dir.path()).expect("StateDb::new should succeed");
-            db.set_document_count(100)
-                .expect("set_document_count should succeed");
-            db.set_chunk_count(500)
-                .expect("set_chunk_count should succeed");
-            for i in 0..100 {
-                db.record_file_hash(&format!("file_{i}.md"), &format!("hash_{i}"))
-                    .expect("record_file_hash should succeed");
-            }
-            let _ = db.commit_changes();
-        })
-    });
-}
-
-fn bench_state_batch_serialization(c: &mut Criterion) {
-    let batch = StateBatch {
-        run_id: doc_transformer::state::RunId("bench-run-001".to_string()),
-        source_path: "/source".to_string(),
-        output_path: "/output".to_string(),
-        document_count: 100,
-        chunk_count: 500,
-        file_hashes: (0..100)
-            .map(|i| doc_transformer::state::FileHashRecord {
-                relative_path: format!("file_{i}.md"),
-                content_hash: format!("sha256:{i:016x}"),
-            })
-            .collect(),
-        created_at_unix_secs: 1_700_000_000,
-    };
-
-    c.bench_function("state_batch_serialize_json", |b| {
-        b.iter(|| {
-            let _ = serde_json::to_vec(black_box(&batch));
-        })
-    });
-
-    c.bench_function("state_batch_deserialize_json", |b| {
-        let serialized = serde_json::to_vec(&batch).expect("serialization should succeed");
-        b.iter(|| {
-            let _: StateBatch = serde_json::from_slice(black_box(&serialized))
-                .expect("deserialization should succeed");
-        })
-    });
-}
-
 criterion_group!(
     benches,
-    bench_state_db_construction,
-    bench_record_file_hash,
-    bench_record_file_hash_batch,
-    bench_commit_changes,
-    bench_state_batch_serialization,
+    bench_state_db_open,
+    bench_state_changes_empty,
+    bench_file_state_raw_zeroed,
+    bench_file_state_raw_serialization,
+    bench_commit_empty_changes,
+    bench_commit_changes_with_files,
 );
 criterion_main!(benches);

@@ -63,9 +63,9 @@ fn test_concurrent_chunk_all_calls() {
     );
 
     // Verify each result is non-empty and valid
-    assert!(result1.chunks.len() > 0);
-    assert!(result2.chunks.len() > 0);
-    assert!(result3.chunks.len() > 0);
+    assert!(!result1.chunks.is_empty());
+    assert!(!result2.chunks.is_empty());
+    assert!(!result3.chunks.is_empty());
 }
 
 #[test]
@@ -314,7 +314,7 @@ fn test_work_stealing_balance() {
     );
 
     assert!(huge_count > tiny_count * 10);
-    assert!(result.chunks.len() > 0);
+    assert!(!result.chunks.is_empty());
 }
 
 #[test]

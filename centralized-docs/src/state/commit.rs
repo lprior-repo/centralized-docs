@@ -2662,11 +2662,12 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn state_db_open_returns_database_open_error_on_read_only_parent() {
+        use std::os::unix::fs::PermissionsExt;
+
         let temp_dir = TempDir::new().unwrap();
         let readonly_dir = temp_dir.path().join("readonly");
         std::fs::create_dir(&readonly_dir).unwrap();
 
-        use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&readonly_dir, std::fs::Permissions::from_mode(0o444)).unwrap();
 
         let db_path = readonly_dir.join("state.redb");

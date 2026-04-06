@@ -13,9 +13,10 @@
 //! - **Actions**: [`StateReadSession::new`] (opens read transaction),
 //!   bulk loader methods (reads from redb)
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(
+    not(test),
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
@@ -24,7 +25,15 @@
 #![allow(clippy::return_self_not_must_use)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::min_ident_chars)]
-
+#[cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::arithmetic_side_effects
+    )
+)]
 use crate::persisted::{
     PersistedAnalyzeResult, PersistedChunksResult, PersistedScrapeResult, PersistedTransformResult,
 };
@@ -575,7 +584,7 @@ mod tests {
         write_tx.commit().unwrap();
     }
 
-    /// Write a raw (potentially malformed) byte value to the file_state table.
+    /// Write a raw (potentially malformed) byte value to the `file_state` table.
     fn write_raw_file_row(db: &Database, key: &str, value: &[u8]) {
         let write_tx = db.begin_write().unwrap();
         {
@@ -585,7 +594,7 @@ mod tests {
         write_tx.commit().unwrap();
     }
 
-    /// Write a raw (potentially malformed) byte value to the url_state table.
+    /// Write a raw (potentially malformed) byte value to the `url_state` table.
     fn write_raw_url_row(db: &Database, key: &str, value: &[u8]) {
         let write_tx = db.begin_write().unwrap();
         {
@@ -1814,7 +1823,7 @@ mod tests {
         assert!(
             encoded
                 .chars()
-                .filter(|c| c.is_ascii_alphabetic())
+                .filter(char::is_ascii_alphabetic)
                 .all(|c| c.is_ascii_lowercase()),
             "hex_encode output should be lowercase"
         );
@@ -1831,7 +1840,7 @@ mod tests {
             let encoded = hex_encode(&bytes);
             prop_assert_eq!(encoded.len(), bytes.len() * 2);
             prop_assert!(encoded.chars().all(|c| c.is_ascii_hexdigit()));
-            prop_assert!(encoded.chars().filter(|c| c.is_ascii_alphabetic()).all(|c| c.is_ascii_lowercase()));
+            prop_assert!(encoded.chars().filter(char::is_ascii_alphabetic).all(|c| c.is_ascii_lowercase()));
         });
     }
 

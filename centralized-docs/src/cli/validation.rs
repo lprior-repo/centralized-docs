@@ -156,6 +156,27 @@ pub fn validate_timeout_secs(s: &str) -> Result<u64, String> {
         .map_err(|_| format!("timeout value too large: {value}"))
 }
 
+/// Validate connect timeout seconds (1-60)
+pub fn validate_connect_timeout_secs(s: &str) -> Result<u64, String> {
+    let value = s
+        .parse::<i64>()
+        .map_err(|_| format!("connect timeout must be an integer, got '{s}'"))?;
+
+    if value < 1 {
+        return Err("connect timeout must be at least 1 second".to_string());
+    }
+
+    if value > 60 {
+        return Err(format!(
+            "connect timeout must be at most 60 seconds, got {value}"
+        ));
+    }
+
+    value
+        .try_into()
+        .map_err(|_| format!("connect timeout value too large: {value}"))
+}
+
 /// Validate positive byte limits (>=1)
 pub fn validate_positive_bytes(s: &str) -> Result<u64, String> {
     let value = s

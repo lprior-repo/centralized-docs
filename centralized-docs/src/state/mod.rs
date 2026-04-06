@@ -1589,7 +1589,7 @@ mod tests {
                 transform_hash,
                 chunk_hash,
                 last_processed_secs,
-                reserved: reserved,
+                reserved,
             };
 
             let bytes = state.to_bytes();
@@ -1621,7 +1621,7 @@ mod tests {
                 url_hash,
                 last_fetched_secs,
                 status_code,
-                reserved: reserved,
+                reserved,
             };
 
             let bytes = state.to_bytes();
@@ -1657,7 +1657,7 @@ mod tests {
                 transform_hash,
                 chunk_hash,
                 last_processed_secs,
-                reserved: reserved,
+                reserved,
             };
 
             let bytes = state.to_bytes();
@@ -1692,7 +1692,7 @@ mod tests {
                 url_hash,
                 last_fetched_secs,
                 status_code,
-                reserved: reserved,
+                reserved,
             };
 
             let bytes = state.to_bytes();

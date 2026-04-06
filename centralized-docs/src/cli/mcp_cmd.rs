@@ -40,8 +40,6 @@ mod tests {
         let cmd = McpCommand::Serve {
             index_dir: PathBuf::from("/test"),
         };
-        let McpCommand::Serve { .. } = cmd else {
-            panic!("expected Serve variant");
-        };
+        let McpCommand::Serve { .. } = cmd;
     }
 }

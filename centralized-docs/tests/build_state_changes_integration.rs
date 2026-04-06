@@ -8,8 +8,7 @@
 
 use doc_transformer::analyze::Analysis;
 use doc_transformer::calc::{
-    build_file_state_changes, hash_payload, BatchBuildError, FileDiff, FileStateRaw,
-    PipelineOutputs, StateChanges, UrlStateRaw,
+    build_file_state_changes, hash_payload, FileDiff, FileStateRaw, PipelineOutputs,
 };
 use doc_transformer::chunking_adapter::Chunk;
 use doc_transformer::discover::DiscoveryFile;

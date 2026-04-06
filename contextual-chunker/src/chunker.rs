@@ -236,10 +236,10 @@ mod tests {
         let content = "# U\n\n## S\n\n".to_string() + &"😀 ".repeat(1000);
         let doc = Document::new("uni".to_string(), "U".to_string(), content.clone());
         let chunks = chunk(&doc, ChunkLevel::Standard).expect("Failed to chunk");
-        chunks.iter().for_each(|c| {
+        for c in &chunks {
             assert!(c.content.is_char_boundary(0));
             assert!(c.content.is_char_boundary(c.content.len()));
-        });
+        }
         let all: String = chunks.iter().map(|c| c.content.as_str()).collect();
         assert!(all.matches('😀').count() >= content.matches('😀').count());
     }

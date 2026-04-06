@@ -2032,7 +2032,7 @@ mod transform_artifact_tests {
             fn proptest_composite_hash_always_32_bytes(
                 parts in prop::collection::vec(any::<Vec<u8>>(), 1..10)
             ) {
-                let refs: Vec<&[u8]> = parts.iter().map(|v| v.as_slice()).collect();
+                let refs: Vec<&[u8]> = parts.iter().map(std::vec::Vec::as_slice).collect();
                 let hash = composite_hash(&refs);
                 prop_assert_eq!(hash.as_bytes().len(), 32);
             }

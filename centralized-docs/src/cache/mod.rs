@@ -885,8 +885,8 @@ mod tests {
             let config = CacheConfig::new(&db_path);
             let cache = DocCache::open(config)?;
 
-            let key = format!("key_cycle_{}", cycle);
-            let value = format!("value_cycle_{}", cycle);
+            let key = format!("key_cycle_{cycle}");
+            let value = format!("value_cycle_{cycle}");
             cache.put_document(key.as_bytes(), &value)?;
 
             // Verify data visible within same open
@@ -894,8 +894,7 @@ mod tests {
             assert_eq!(
                 retrieved,
                 Some(value),
-                "Data should be visible within cycle {}",
-                cycle
+                "Data should be visible within cycle {cycle}"
             );
         }
 
@@ -904,14 +903,13 @@ mod tests {
         let final_cache = DocCache::open(config)?;
 
         for cycle in 0..10 {
-            let key = format!("key_cycle_{}", cycle);
-            let expected_value = format!("value_cycle_{}", cycle);
+            let key = format!("key_cycle_{cycle}");
+            let expected_value = format!("value_cycle_{cycle}");
             let retrieved: Option<String> = final_cache.get_document(key.as_bytes())?;
             assert_eq!(
                 retrieved,
                 Some(expected_value),
-                "Data from cycle {} should persist",
-                cycle
+                "Data from cycle {cycle} should persist"
             );
         }
 
@@ -928,8 +926,8 @@ mod tests {
             let config = CacheConfig::new(&db_path);
             let cache = DocCache::open(config)?;
 
-            let key = format!("stress_key_{}", cycle);
-            let value = format!("stress_value_{}", cycle);
+            let key = format!("stress_key_{cycle}");
+            let value = format!("stress_value_{cycle}");
             cache.put_document(key.as_bytes(), &value)?;
         }
 
@@ -938,14 +936,13 @@ mod tests {
         let final_cache = DocCache::open(config)?;
 
         for cycle in 0..100 {
-            let key = format!("stress_key_{}", cycle);
-            let expected_value = format!("stress_value_{}", cycle);
+            let key = format!("stress_key_{cycle}");
+            let expected_value = format!("stress_value_{cycle}");
             let retrieved: Option<String> = final_cache.get_document(key.as_bytes())?;
             assert_eq!(
                 retrieved,
                 Some(expected_value),
-                "Data from cycle {} should persist",
-                cycle
+                "Data from cycle {cycle} should persist"
             );
         }
 
@@ -1053,7 +1050,7 @@ mod tests {
             name: "test".to_string(),
             items: vec![1, 2, 3, 4, 5],
             nested: NestedData {
-                value: 3.14159,
+                value: std::f64::consts::PI,
                 flag: true,
             },
         };

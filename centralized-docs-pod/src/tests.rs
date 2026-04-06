@@ -842,8 +842,8 @@ fn pod_state_error_version_mismatch_displays_correct_message() {
         msg.contains("UrlStateRaw"),
         "expected 'UrlStateRaw' in: {msg}"
     );
-    assert!(msg.contains("5"), "expected '5' in: {msg}");
-    assert!(msg.contains("1"), "expected '1' in: {msg}");
+    assert!(msg.contains('5'), "expected '5' in: {msg}");
+    assert!(msg.contains('1'), "expected '1' in: {msg}");
 }
 
 #[test]
@@ -874,6 +874,28 @@ fn file_state_raw_is_copy_send_sync() {
 fn url_state_raw_is_copy_send_sync() {
     fn assert_copy_send_sync<T: Copy + Send + Sync>() {}
     assert_copy_send_sync::<UrlStateRaw>();
+}
+
+// =======================================================================
+// Test helpers
+// =======================================================================
+
+/// Create a valid 104-byte array representing a `FileStateRaw`.
+fn make_valid_file_state_bytes() -> [u8; FILE_STATE_RAW_SIZE] {
+    let raw = FileStateRaw::new([0u8; 32], 0, 0, FileStateStatus::Unknown);
+    let src = raw.as_bytes();
+    let mut arr = [0u8; FILE_STATE_RAW_SIZE];
+    arr.copy_from_slice(src);
+    arr
+}
+
+/// Create a valid 112-byte array representing a `UrlStateRaw`.
+fn make_valid_url_state_bytes() -> [u8; URL_STATE_RAW_SIZE] {
+    let raw = UrlStateRaw::new([0u8; 32], 0, 0, 0, UrlStateStatus::Unknown);
+    let src = raw.as_bytes();
+    let mut arr = [0u8; URL_STATE_RAW_SIZE];
+    arr.copy_from_slice(src);
+    arr
 }
 
 // =======================================================================
@@ -978,26 +1000,4 @@ mod proptests {
             prop_assert!(corrupted.validate().is_err());
         }
     }
-}
-
-// =======================================================================
-// Test helpers
-// =======================================================================
-
-/// Create a valid 104-byte array representing a `FileStateRaw`.
-fn make_valid_file_state_bytes() -> [u8; FILE_STATE_RAW_SIZE] {
-    let raw = FileStateRaw::new([0u8; 32], 0, 0, FileStateStatus::Unknown);
-    let src = raw.as_bytes();
-    let mut arr = [0u8; FILE_STATE_RAW_SIZE];
-    arr.copy_from_slice(src);
-    arr
-}
-
-/// Create a valid 112-byte array representing a `UrlStateRaw`.
-fn make_valid_url_state_bytes() -> [u8; URL_STATE_RAW_SIZE] {
-    let raw = UrlStateRaw::new([0u8; 32], 0, 0, 0, UrlStateStatus::Unknown);
-    let src = raw.as_bytes();
-    let mut arr = [0u8; URL_STATE_RAW_SIZE];
-    arr.copy_from_slice(src);
-    arr
 }

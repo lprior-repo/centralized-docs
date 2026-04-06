@@ -959,12 +959,12 @@ mod tests {
         }
     }
 
-    /// Helper: create a test link_map entry.
+    /// Helper: create a test `link_map` entry.
     fn make_link_map(analyses: &[Analysis]) -> HashMap<String, IdMapping> {
         analyses
             .iter()
             .map(|a| {
-                let slug = a.source_path.split('/').last().map_or_else(
+                let slug = a.source_path.split('/').next_back().map_or_else(
                     || "untitled".to_string(),
                     |s| s.trim_end_matches(".md").to_string(),
                 );
@@ -1003,7 +1003,7 @@ mod tests {
             previous_chunk_id: None,
             next_chunk_id: None,
             related_chunk_ids: vec![],
-            summary: format!("Summary for {}", chunk_id),
+            summary: format!("Summary for {chunk_id}"),
             chunk_level,
             parent_chunk_id: None,
             child_chunk_ids: vec![],
@@ -1343,7 +1343,7 @@ mod tests {
                 path.display()
             );
         } else {
-            panic!("expected ChunkWriteFailed variant, got {:?}", reuse_err);
+            panic!("expected ChunkWriteFailed variant, got {reuse_err:?}");
         }
 
         // Cleanup: restore permissions so tempdir can clean up
@@ -1392,7 +1392,7 @@ mod tests {
             assert_eq!(*content_size, 2000);
             assert_eq!(*max_bytes, 1000);
         } else {
-            panic!("expected DocumentExceedsSizeLimit, got {:?}", reuse_err);
+            panic!("expected DocumentExceedsSizeLimit, got {reuse_err:?}");
         }
     }
 
@@ -1476,7 +1476,7 @@ mod tests {
         let b_chunks: Vec<&Chunk> = result
             .chunks_metadata
             .iter()
-            .filter(|c| c.doc_id.contains("b"))
+            .filter(|c| c.doc_id.contains('b'))
             .collect();
         assert!(!b_chunks.is_empty(), "B should have fresh chunks");
     }
@@ -1544,7 +1544,7 @@ mod tests {
         for (name, doc_id) in &[("a.md", "concept/a"), ("b.md", "concept/b")] {
             let cached = vec![
                 make_test_chunk(
-                    &format!("{}#0", doc_id),
+                    &format!("{doc_id}#0"),
                     *doc_id,
                     0,
                     contextual_chunker::ChunkLevel::Standard,
@@ -1552,7 +1552,7 @@ mod tests {
                     Some("H0"),
                 ),
                 make_test_chunk(
-                    &format!("{}#1", doc_id),
+                    &format!("{doc_id}#1"),
                     *doc_id,
                     1,
                     contextual_chunker::ChunkLevel::Standard,
@@ -1560,8 +1560,8 @@ mod tests {
                     Some("H1"),
                 ),
             ];
-            let analysis = analyses.iter().find(|a| a.source_path == *name).unwrap();
-            let key = chunk_cache_key(name, analysis.content.as_ref(), &config_hash);
+            let matching = analyses.iter().find(|a| a.source_path == *name).unwrap();
+            let key = chunk_cache_key(name, matching.content.as_ref(), &config_hash);
             cache
                 .put(CacheType::Chunk, key.as_bytes(), &cached)
                 .unwrap();
@@ -1580,8 +1580,8 @@ mod tests {
         let chunks_dir = temp_dir.path().join("chunks");
         let md_files: Vec<_> = fs::read_dir(&chunks_dir)
             .unwrap()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |ext| ext == "md"))
+            .filter_map(std::result::Result::ok)
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"))
             .collect();
 
         assert_eq!(
@@ -1743,7 +1743,7 @@ mod tests {
         let b_count = result
             .chunks_metadata
             .iter()
-            .filter(|c| c.doc_id.contains("b"))
+            .filter(|c| c.doc_id.contains('b'))
             .count();
         let c_count = result
             .chunks_metadata
@@ -1762,13 +1762,12 @@ mod tests {
         for i in 0..a_end {
             assert_eq!(
                 result.chunks_metadata[i].doc_id, "concept/a",
-                "chunk {} should belong to A",
-                i
+                "chunk {i} should belong to A"
             );
         }
         for i in a_end..b_end {
             assert!(
-                result.chunks_metadata[i].doc_id.contains("b"),
+                result.chunks_metadata[i].doc_id.contains('b'),
                 "chunk {} should belong to B, got {}",
                 i,
                 result.chunks_metadata[i].doc_id
@@ -1777,8 +1776,7 @@ mod tests {
         for i in b_end..result.chunks_metadata.len() {
             assert_eq!(
                 result.chunks_metadata[i].doc_id, "concept/c",
-                "chunk {} should belong to C",
-                i
+                "chunk {i} should belong to C"
             );
         }
     }
@@ -1797,9 +1795,9 @@ mod tests {
         let analyses: Vec<Analysis> = (0..5)
             .map(|i| {
                 make_analysis(
-                    &format!("doc{}.md", i),
-                    &format!("Doc {}", i),
-                    &format!("# Doc {}\nContent {}", i, i),
+                    &format!("doc{i}.md"),
+                    &format!("Doc {i}"),
+                    &format!("# Doc {i}\nContent {i}"),
                     "concept",
                 )
             })
@@ -1945,8 +1943,8 @@ mod tests {
                 &config_hash,
             );
             let chunks = vec![make_test_chunk(
-                &format!("d{}#0", i),
-                &format!("d{}", i),
+                &format!("d{i}#0"),
+                &format!("d{i}"),
                 0,
                 contextual_chunker::ChunkLevel::Standard,
                 "body",
@@ -2011,8 +2009,7 @@ mod tests {
         let contents = fs::read_to_string(file_path).unwrap();
         assert!(
             !contents.contains("heading:"),
-            "frontmatter should NOT contain 'heading:' field. Contents: {}",
-            contents
+            "frontmatter should NOT contain 'heading:' field. Contents: {contents}"
         );
         assert!(
             contents.contains("body"),
@@ -2049,7 +2046,10 @@ mod tests {
         let contents = fs::read_to_string(file_path).unwrap();
         assert!(contents.starts_with("---"), "should start with frontmatter");
         assert!(contents.contains("---\n"), "should have closing ---");
-        assert!(contents.len() > 0, "file should have content (frontmatter)");
+        assert!(
+            !contents.is_empty(),
+            "file should have content (frontmatter)"
+        );
     }
 
     // -------------------------------------------------------------------
@@ -2149,7 +2149,7 @@ mod tests {
         assert!(chunks_dir.exists(), "chunks dir should exist");
         let entries: Vec<_> = fs::read_dir(&chunks_dir)
             .unwrap()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .collect();
         assert!(entries.is_empty(), "chunks dir should be empty");
     }
@@ -2224,7 +2224,7 @@ mod tests {
         proptest!(|(max_bytes in any::<u64>())| {
             let h1 = compute_chunker_config_hash(max_bytes);
             let h2 = compute_chunker_config_hash(max_bytes);
-            assert_eq!(h1, h2, "idempotent for max_bytes={}", max_bytes);
+            assert_eq!(h1, h2, "idempotent for max_bytes={max_bytes}");
         });
     }
 
@@ -2239,8 +2239,7 @@ mod tests {
                 assert_ne!(
                     compute_chunker_config_hash(a),
                     compute_chunker_config_hash(b),
-                    "different inputs should produce different hashes: {} vs {}",
-                    a, b
+                    "different inputs should produce different hashes: {a} vs {b}"
                 );
             }
         });
@@ -2260,7 +2259,7 @@ mod tests {
                 content.as_bytes(),
                 config_hash.as_bytes(),
             ]);
-            assert_eq!(key, expected, "chunk_cache_key should match composite_hash for path={}, content={}", path, content);
+            assert_eq!(key, expected, "chunk_cache_key should match composite_hash for path={path}, content={content}");
         });
     }
 }

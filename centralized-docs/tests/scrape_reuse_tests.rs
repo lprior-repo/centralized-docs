@@ -5,6 +5,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
+#![allow(clippy::type_complexity)]
 
 use std::collections::HashMap;
 
@@ -13,9 +14,8 @@ use doc_transformer::persisted::{
 };
 use doc_transformer::scrape::validation::{Header, PageFilterStatus, ScrapeResult, ScrapedPage};
 use doc_transformer::scrape_reuse::{
-    classify_scraped_pages, compute_page_content_hash, load_archived_scrape_pages,
-    merge_scrape_pages_in_order, scrape_with_reuse, ScrapePageDiff, ScrapeReuseError,
-    ScrapeReuseStats,
+    compute_page_content_hash, load_archived_scrape_pages, scrape_with_reuse, ScrapePageDiff,
+    ScrapeReuseError, ScrapeReuseStats,
 };
 use doc_transformer::state::bulk_load::StateReadSession;
 use doc_transformer::state::{

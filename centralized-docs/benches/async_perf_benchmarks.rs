@@ -10,9 +10,9 @@
 //! cargo bench -p centralized-docs --bench async_perf_benchmarks
 //! ```
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+#![allow(clippy::panic)]
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use doc_transformer::embeddings::{Embedding, EmbeddingProvider, EmbeddingProviderError};

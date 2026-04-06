@@ -34,7 +34,7 @@ fn get_memory_usage_kb() -> Option<usize> {
     let status = std::fs::read_to_string("/proc/self/status").ok()?;
     status.lines().find_map(|line| {
         line.strip_prefix("VmRSS:")
-            .and_then(|rest| rest.trim().split_whitespace().next())
+            .and_then(|rest| rest.split_whitespace().next())
             .and_then(|kb| kb.parse::<usize>().ok())
     })
 }
@@ -73,7 +73,7 @@ fn test_memory_pressure_small_corpus() {
         );
     }
 
-    assert!(result.chunks.len() > 0, "Should produce chunks");
+    assert!(!result.chunks.is_empty(), "Should produce chunks");
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn test_memory_pressure_medium_corpus() {
         );
     }
 
-    assert!(result.chunks.len() > 0, "Should produce chunks");
+    assert!(!result.chunks.is_empty(), "Should produce chunks");
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn test_memory_pressure_large_corpus() {
         );
     }
 
-    assert!(result.chunks.len() > 0, "Should produce chunks");
+    assert!(!result.chunks.is_empty(), "Should produce chunks");
 }
 
 #[test]

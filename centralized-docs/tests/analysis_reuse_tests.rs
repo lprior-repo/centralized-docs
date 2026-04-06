@@ -19,12 +19,12 @@ use std::sync::Arc;
 
 use doc_transformer::analyze::{Analysis, AnalyzeResult, FailedFile};
 use doc_transformer::cache::ContentHash;
-use doc_transformer::diff::{compute_config_hash, FileDiff, StoredHashes};
+use doc_transformer::diff::{compute_config_hash, FileDiff};
 use doc_transformer::discover::DiscoveryFile;
 use doc_transformer::persisted::{analyze_result_to_persisted, PersistedAnalyzeResult};
 use doc_transformer::state::bulk_load::StateReadSession;
 use doc_transformer::state::{initialize_tables, FileStateRaw, StateLoadError};
-use redb::{Database, ReadableTable, TableDefinition};
+use redb::Database;
 use tempfile::TempDir;
 
 // ===========================================================================

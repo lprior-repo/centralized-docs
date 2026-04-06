@@ -103,7 +103,7 @@ fn serialize_snapshot_produces_non_empty_bytes_for_non_trivial_snapshot() {
 
     let bytes = serialize_snapshot(&snapshot).expect("serialize_snapshot should succeed");
     assert!(
-        bytes.len() > 0,
+        !bytes.is_empty(),
         "bytes must be non-empty for non-trivial snapshot"
     );
 }
@@ -812,7 +812,7 @@ prop_compose! {
                       )) -> Snapshot {
         Snapshot {
             target_url,
-            timestamp: Utc.timestamp_opt(timestamp_secs, 0).single().unwrap_or_else(|| Utc::now()),
+            timestamp: Utc.timestamp_opt(timestamp_secs, 0).single().unwrap_or_else(Utc::now),
             pages,
         }
     }
@@ -838,7 +838,7 @@ proptest! {
     #[test]
     fn proptest_serialize_snapshot_non_empty(snapshot in arb_snapshot()) {
         let bytes = serialize_snapshot(&snapshot)?;
-        prop_assert!(bytes.len() > 0);
+        prop_assert!(!bytes.is_empty());
     }
 }
 

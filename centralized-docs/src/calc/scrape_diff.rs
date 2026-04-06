@@ -3,11 +3,20 @@
 //! Pure functions that classify scraped pages against stored URL state
 //! and build atomic `StateChanges` batches for the scrape commit phase.
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(
+    not(test),
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
 #![forbid(unsafe_code)]
-
+#[cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::arithmetic_side_effects
+    )
+)]
 use crate::scrape::validation::{ScrapeResult, ScrapedPage};
 use crate::state::commit::StateChanges;
 use sha2::{Digest, Sha256};

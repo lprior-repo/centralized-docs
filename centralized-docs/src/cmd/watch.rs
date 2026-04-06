@@ -10,6 +10,7 @@ use tracing::instrument;
 use crate::cache::url_hash;
 use crate::cli::config::{DEFAULT_MAX_PAGE_SIZE_BYTES, DEFAULT_MAX_TOTAL_SIZE_BYTES};
 use crate::scrape::validation::ScrapeResult;
+use crate::scrape::SitemapStrategy;
 use crate::state::commit::{StateChanges, StateDb};
 use crate::state::serialize_snapshot;
 use crate::watch::{
@@ -48,6 +49,7 @@ pub async fn run_watch(
     redirect_policy: spider::configuration::RedirectPolicy,
     concurrency: usize,
     output_format: OutputFormat,
+    sitemap_strategy: SitemapStrategy,
 ) -> Result<()> {
     let state_db = open_state_db(cache_path)?;
     let previous = load_snapshot(&state_db, url)?;
@@ -61,8 +63,16 @@ pub async fn run_watch(
         max_retries,
         redirect_policy,
         concurrency,
+        sitemap_strategy,
     );
     let scrape_result = execute_scrape(&scrape_config).await?;
+
+    // Check if domain was reachable BEFORE computing plan
+    // If total_urls == 0, the domain couldn't be reached (DNS failure, connection refused, etc.)
+    if scrape_result.total_urls == 0 && scrape_result.success_count == 0 {
+        tracing::error!("Domain unreachable: {}", scrape_result.base_url);
+        anyhow::bail!("Domain unreachable: {}", scrape_result.base_url);
+    }
 
     let plan = compute_plan(url, &previous, &scrape_result);
 
@@ -259,10 +269,11 @@ fn build_scrape_config(
     max_retries: u32,
     redirect_policy: spider::configuration::RedirectPolicy,
     concurrency: usize,
+    sitemap_strategy: SitemapStrategy,
 ) -> crate::scrape::ScrapeConfig {
     crate::scrape::ScrapeConfig {
         base_url: url.to_string(),
-        sitemap_strategy: crate::scrape::SitemapStrategy::UseSitemap,
+        sitemap_strategy,
         path_filter: filter.map(String::from),
         delay_ms: delay,
         max_page_size_bytes: DEFAULT_MAX_PAGE_SIZE_BYTES,

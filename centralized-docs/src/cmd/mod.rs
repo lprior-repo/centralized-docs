@@ -3,5 +3,6 @@ pub mod index;
 pub mod ingest;
 pub mod mcp;
 pub mod scrape;
+pub mod scrape_query;
 pub mod search;
 pub mod watch;

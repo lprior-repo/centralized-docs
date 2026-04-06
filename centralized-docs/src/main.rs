@@ -1,9 +1,23 @@
 //! `ctd` v0.6.1 — AI-Optimized Documentation Indexer
 #![allow(clippy::all)]
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::panic)]
-#![deny(clippy::arithmetic_side_effects)]
-#![deny(clippy::expect_used)]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::panic,
+        clippy::arithmetic_side_effects,
+        clippy::expect_used
+    )
+)]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::arithmetic_side_effects
+    )
+)]
 
 pub mod analyze;
 pub mod assign;
@@ -76,6 +90,7 @@ async fn main() -> ExitCode {
             query,
             threshold,
             request_timeout_secs,
+            connect_timeout_secs,
             max_retries,
             redirect_policy,
             max_page_bytes,
@@ -93,6 +108,7 @@ async fn main() -> ExitCode {
                 query,
                 threshold,
                 request_timeout_secs,
+                connect_timeout_secs,
                 max_retries,
                 redirect_policy,
                 max_page_bytes,
@@ -154,6 +170,7 @@ async fn main() -> ExitCode {
             filter,
             delay,
             request_timeout_secs,
+            connect_timeout_secs,
             max_retries,
             redirect_policy,
             max_page_bytes,
@@ -170,6 +187,7 @@ async fn main() -> ExitCode {
                 threshold,
                 project_name,
                 request_timeout_secs,
+                connect_timeout_secs,
                 max_retries,
                 redirect_policy,
                 max_page_bytes,
@@ -182,6 +200,7 @@ async fn main() -> ExitCode {
             url,
             output,
             cache,
+            no_sitemap,
             filter,
             delay,
             request_timeout_secs,
@@ -195,6 +214,11 @@ async fn main() -> ExitCode {
             } else {
                 cmd::watch::OutputFormat::Markdown
             };
+            let sitemap_strategy = if no_sitemap {
+                scrape::SitemapStrategy::CrawlOnly
+            } else {
+                scrape::SitemapStrategy::UseSitemap
+            };
             (
                 cmd::watch::run_watch(
                     &url,
@@ -207,6 +231,7 @@ async fn main() -> ExitCode {
                     redirect_policy,
                     concurrency,
                     fmt,
+                    sitemap_strategy,
                 )
                 .await,
                 None,

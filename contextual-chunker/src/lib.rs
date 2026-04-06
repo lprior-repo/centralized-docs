@@ -197,7 +197,7 @@ mod tests {
             .expect("Failed to chunk summary");
         summary_chunks
             .iter()
-            .for_each(|c| assert_eq!(c.chunk_level, ChunkLevel::Summary));
+            .all(|c| c.chunk_level == ChunkLevel::Summary);
 
         let standard_chunker = ContextualChunker::standard();
         let standard_chunks = standard_chunker
@@ -205,7 +205,7 @@ mod tests {
             .expect("Failed to chunk standard");
         standard_chunks
             .iter()
-            .for_each(|c| assert_eq!(c.chunk_level, ChunkLevel::Standard));
+            .all(|c| c.chunk_level == ChunkLevel::Standard);
 
         let detailed_chunker = ContextualChunker::detailed();
         let detailed_chunks = detailed_chunker
@@ -213,7 +213,7 @@ mod tests {
             .expect("Failed to chunk detailed");
         detailed_chunks
             .iter()
-            .for_each(|c| assert_eq!(c.chunk_level, ChunkLevel::Detailed));
+            .all(|c| c.chunk_level == ChunkLevel::Detailed);
     }
 
     #[test]

@@ -73,9 +73,10 @@
 //! index::index_documents(out, out, None)?;
 //! ```
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(
+    not(test),
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 #![cfg_attr(
@@ -83,6 +84,7 @@
     allow(
         clippy::unwrap_used,
         clippy::expect_used,
+        clippy::arithmetic_side_effects,
         clippy::float_cmp,
         clippy::field_reassign_with_default,
         clippy::too_many_arguments,

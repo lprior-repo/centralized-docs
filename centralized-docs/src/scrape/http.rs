@@ -137,16 +137,117 @@ impl UrlSet {
     }
 }
 
-/// Structured error for scrape failures.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ScrapeError {
-    pub url: String,
-    pub message: String,
+/// Domain errors for scrape failures.
+///
+/// Variants capture the specific failure mode to enable precise error handling
+/// and informative user messages. The `ConnectionSilentlyDropped` variant is
+/// critical for detecting TCP blackholes where spider-rs cannot distinguish
+/// between a slow connection and a silently dropping connection.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ScrapeError {
+    #[error("Invalid URL: {0}")]
+    InvalidUrl(String),
+
+    #[error("Request timeout for {url} after {timeout_secs}s")]
+    RequestTimeout { url: String, timeout_secs: u64 },
+
+    #[error("DNS error for {url}: {message}")]
+    DnsError { url: String, message: String },
+
+    #[error("Connection refused for {url}")]
+    ConnectionRefused { url: String },
+
+    #[error("Connection silently dropped for {url} — peer unreachable")]
+    ConnectionSilentlyDropped { url: String },
+
+    #[error("Too many redirects for {url}")]
+    TooManyRedirects { url: String },
+
+    #[error("HTTP {status} error for {url}")]
+    HttpError { url: String, status: u16 },
+
+    #[error("SSL error for {url}: {message}")]
+    SslError { url: String, message: String },
+
+    #[error("I/O error: {0}")]
+    IoError(String),
+
+    /// Generic application-level error with URL and message.
+    /// Used for errors that don't fit network-specific categories (e.g., empty page, size limits).
+    #[error("{message}")]
+    Generic { url: String, message: String },
 }
 
 impl ScrapeError {
-    pub fn new(url: String, message: String) -> Self {
-        Self { url, message }
+    /// Create a connection silently dropped error — the critical variant for TCP blackholes.
+    #[must_use]
+    pub fn connection_silently_dropped(url: String) -> Self {
+        Self::ConnectionSilentlyDropped { url }
+    }
+
+    /// Create an I/O error.
+    #[must_use]
+    pub fn io_error(msg: impl Into<String>) -> Self {
+        Self::IoError(msg.into())
+    }
+
+    /// Create a DNS error.
+    #[must_use]
+    pub fn dns_error(url: String, message: String) -> Self {
+        Self::DnsError { url, message }
+    }
+
+    /// Create a connection refused error.
+    #[must_use]
+    pub fn connection_refused(url: String) -> Self {
+        Self::ConnectionRefused { url }
+    }
+
+    /// Create a request timeout error.
+    #[must_use]
+    pub fn request_timeout(url: String, timeout_secs: u64) -> Self {
+        Self::RequestTimeout { url, timeout_secs }
+    }
+
+    /// Create an HTTP error with status code.
+    #[must_use]
+    pub fn http_error(url: String, status: u16) -> Self {
+        Self::HttpError { url, status }
+    }
+
+    /// Create an SSL error.
+    #[must_use]
+    pub fn ssl_error(url: String, message: String) -> Self {
+        Self::SslError { url, message }
+    }
+
+    /// Create a too many redirects error.
+    #[must_use]
+    pub fn too_many_redirects(url: String) -> Self {
+        Self::TooManyRedirects { url }
+    }
+
+    /// Create a generic scrape error with URL and message (for application-level errors).
+    #[must_use]
+    pub fn generic(url: String, message: String) -> Self {
+        Self::Generic { url, message }
+    }
+
+    /// Extract the URL from this error, if present.
+    #[must_use]
+    pub fn url(&self) -> Option<&str> {
+        match self {
+            Self::InvalidUrl(url)
+            | Self::RequestTimeout { url, .. }
+            | Self::DnsError { url, .. }
+            | Self::ConnectionRefused { url }
+            | Self::ConnectionSilentlyDropped { url }
+            | Self::TooManyRedirects { url }
+            | Self::HttpError { url, .. }
+            | Self::SslError { url, .. }
+            | Self::Generic { url, .. } => Some(url),
+            Self::IoError(_) => None,
+        }
     }
 }
 
@@ -178,6 +279,9 @@ fn apply_timing_and_retry_options(website: &mut spider::website::Website, config
 
     website.configuration.request_timeout =
         Some(Box::new(Duration::from_secs(config.request_timeout_secs)));
+
+    website.configuration.default_http_connect_timeout =
+        Some(Duration::from_secs(config.connect_timeout_secs));
 }
 
 /// Apply policy and limits configuration options.
@@ -305,7 +409,7 @@ fn initial_extraction_state() -> ExtractionState {
 fn append_error(errors: Vec<ScrapeError>, url: String, msg: String) -> Vec<ScrapeError> {
     errors
         .into_iter()
-        .chain(std::iter::once(ScrapeError::new(url, msg)))
+        .chain(std::iter::once(ScrapeError::generic(url, msg)))
         .collect()
 }
 
@@ -558,7 +662,11 @@ fn build_scrape_result(
         errors: final_state
             .errors
             .into_iter()
-            .map(|e| (e.url, e.message))
+            .map(|e| {
+                let url = e.url().unwrap_or("unknown").to_string();
+                let message = e.to_string();
+                (url, message)
+            })
             .collect(),
         base_url,
     }
@@ -655,9 +763,9 @@ mod tests {
 
     #[test]
     fn test_scrape_error_new() {
-        let err = ScrapeError::new("http://example.com".to_string(), "Test error".to_string());
-        assert_eq!(err.url, "http://example.com");
-        assert_eq!(err.message, "Test error".to_string());
+        let err = ScrapeError::generic("http://example.com".to_string(), "Test error".to_string());
+        assert_eq!(err.url(), Some("http://example.com"));
+        assert!(err.to_string().contains("Test error"));
     }
 
     #[test]
@@ -679,7 +787,7 @@ mod tests {
         let errors = vec![];
         let result = append_error(errors, "url1".to_string(), "msg1".to_string());
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].url, "url1");
+        assert_eq!(result[0].url(), Some("url1"));
 
         let result = append_error(result, "url2".to_string(), "msg2".to_string());
         assert_eq!(result.len(), 2);
@@ -808,9 +916,9 @@ mod tests {
 
     #[test]
     fn test_scrape_error_equality() {
-        let a = ScrapeError::new("url".to_string(), "msg".to_string());
-        let b = ScrapeError::new("url".to_string(), "msg".to_string());
-        let c = ScrapeError::new("url2".to_string(), "msg2".to_string());
+        let a = ScrapeError::generic("url".to_string(), "msg".to_string());
+        let b = ScrapeError::generic("url".to_string(), "msg".to_string());
+        let c = ScrapeError::generic("url2".to_string(), "msg2".to_string());
         assert_eq!(a, b);
         assert_ne!(a, c);
     }

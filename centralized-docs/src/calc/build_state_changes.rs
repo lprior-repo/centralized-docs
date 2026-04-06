@@ -410,7 +410,7 @@ mod tests {
     fn make_analysis(path: &str) -> Analysis {
         Analysis {
             source_path: path.to_string(),
-            title: format!("Title for {}", path),
+            title: format!("Title for {path}"),
             frontmatter: None,
             headings: vec![],
             links: vec![],
@@ -426,11 +426,11 @@ mod tests {
     fn make_chunk(doc_id: &str, index: usize) -> Chunk {
         use contextual_chunker::ChunkType;
         Chunk {
-            chunk_id: format!("{}#{}", doc_id, index),
+            chunk_id: format!("{doc_id}#{index}"),
             doc_id: doc_id.to_string(),
-            doc_title: format!("Title for {}", doc_id),
+            doc_title: format!("Title for {doc_id}"),
             chunk_index: index,
-            content: format!("Chunk {} content", index),
+            content: format!("Chunk {index} content"),
             token_count: 50,
             heading: None,
             heading_path: vec![],
@@ -438,7 +438,7 @@ mod tests {
             previous_chunk_id: None,
             next_chunk_id: None,
             related_chunk_ids: vec![],
-            summary: format!("Summary for chunk {}", index),
+            summary: format!("Summary for chunk {index}"),
             chunk_level: contextual_chunker::ChunkLevel::Standard,
             parent_chunk_id: None,
             child_chunk_ids: vec![],
@@ -458,7 +458,7 @@ mod tests {
 
         for &path in paths {
             analyses.insert(path.to_string(), make_analysis(path));
-            transforms.insert(path.to_string(), format!("transformed {}", path));
+            transforms.insert(path.to_string(), format!("transformed {path}"));
             chunks.insert(path.to_string(), vec![make_chunk(path, 0)]);
             content_hashes.insert(path.to_string(), make_hash(1));
         }
@@ -496,7 +496,7 @@ mod tests {
             unchanged: vec![],
             changed: vec![],
             new_files: vec![],
-            deleted: paths.iter().map(|p| p.to_string()).collect(),
+            deleted: paths.iter().map(std::string::ToString::to_string).collect(),
         }
     }
 
@@ -734,8 +734,7 @@ mod tests {
         for uc_path in &unchanged_paths {
             assert!(
                 !updated_paths.contains(uc_path),
-                "unchanged file {} must not appear in updated_files",
-                uc_path
+                "unchanged file {uc_path} must not appear in updated_files"
             );
         }
     }
@@ -1104,9 +1103,9 @@ mod tests {
         );
         match err {
             BatchBuildError::MissingAnalysis { path: p } => {
-                assert_eq!(p, "docs/missing_analysis.md")
+                assert_eq!(p, "docs/missing_analysis.md");
             }
-            other => panic!("expected MissingAnalysis, got {:?}", other),
+            other => panic!("expected MissingAnalysis, got {other:?}"),
         }
     }
 
@@ -1128,7 +1127,7 @@ mod tests {
             Err(BatchBuildError::MissingTransform { path: p }) => {
                 assert_eq!(p, "docs/no_transform.md");
             }
-            other => panic!("expected MissingTransform, got {:?}", other),
+            other => panic!("expected MissingTransform, got {other:?}"),
         }
     }
 
@@ -1150,7 +1149,7 @@ mod tests {
             Err(BatchBuildError::MissingChunk { path: p }) => {
                 assert_eq!(p, "docs/no_chunk.md");
             }
-            other => panic!("expected MissingChunk, got {:?}", other),
+            other => panic!("expected MissingChunk, got {other:?}"),
         }
     }
 
@@ -1172,7 +1171,7 @@ mod tests {
             Err(BatchBuildError::MissingContentHash { path: p }) => {
                 assert_eq!(p, "docs/no_hash.md");
             }
-            other => panic!("expected MissingContentHash, got {:?}", other),
+            other => panic!("expected MissingContentHash, got {other:?}"),
         }
     }
 
@@ -1194,7 +1193,7 @@ mod tests {
             Err(BatchBuildError::MissingAnalysis { path: p }) => {
                 assert_eq!(p, "brand_new.md");
             }
-            other => panic!("expected MissingAnalysis, got {:?}", other),
+            other => panic!("expected MissingAnalysis, got {other:?}"),
         }
     }
 
@@ -1216,7 +1215,7 @@ mod tests {
             Err(BatchBuildError::MissingTransform { path: p }) => {
                 assert_eq!(p, "brand_new.md");
             }
-            other => panic!("expected MissingTransform, got {:?}", other),
+            other => panic!("expected MissingTransform, got {other:?}"),
         }
     }
 
@@ -1238,7 +1237,7 @@ mod tests {
             Err(BatchBuildError::MissingChunk { path: p }) => {
                 assert_eq!(p, "brand_new.md");
             }
-            other => panic!("expected MissingChunk, got {:?}", other),
+            other => panic!("expected MissingChunk, got {other:?}"),
         }
     }
 
@@ -1260,7 +1259,7 @@ mod tests {
             Err(BatchBuildError::MissingContentHash { path: p }) => {
                 assert_eq!(p, "brand_new.md");
             }
-            other => panic!("expected MissingContentHash, got {:?}", other),
+            other => panic!("expected MissingContentHash, got {other:?}"),
         }
     }
 
@@ -1286,7 +1285,7 @@ mod tests {
             Err(BatchBuildError::DuplicateSourcePath { path: p }) => {
                 assert_eq!(p, "docs/dup.md");
             }
-            other => panic!("expected DuplicateSourcePath, got {:?}", other),
+            other => panic!("expected DuplicateSourcePath, got {other:?}"),
         }
     }
 
@@ -1312,7 +1311,7 @@ mod tests {
             Err(BatchBuildError::DuplicateSourcePath { path: p }) => {
                 assert_eq!(p, "docs/stale.md");
             }
-            other => panic!("expected DuplicateSourcePath, got {:?}", other),
+            other => panic!("expected DuplicateSourcePath, got {other:?}"),
         }
     }
 
@@ -1338,7 +1337,7 @@ mod tests {
             Err(BatchBuildError::DuplicateSourcePath { path: p }) => {
                 assert_eq!(p, "docs/existing.md");
             }
-            other => panic!("expected DuplicateSourcePath, got {:?}", other),
+            other => panic!("expected DuplicateSourcePath, got {other:?}"),
         }
     }
 
@@ -1371,7 +1370,7 @@ mod tests {
             Err(BatchBuildError::DuplicateSourcePath { path: p }) => {
                 assert_eq!(p, "docs/ghost.md");
             }
-            other => panic!("expected DuplicateSourcePath, got {:?}", other),
+            other => panic!("expected DuplicateSourcePath, got {other:?}"),
         }
     }
 
@@ -1397,7 +1396,7 @@ mod tests {
             Err(BatchBuildError::DuplicateSourcePath { path: p }) => {
                 assert_eq!(p, "docs/contradiction.md");
             }
-            other => panic!("expected DuplicateSourcePath, got {:?}", other),
+            other => panic!("expected DuplicateSourcePath, got {other:?}"),
         }
     }
 
@@ -1423,7 +1422,7 @@ mod tests {
             Err(BatchBuildError::DuplicateSourcePath { path: p }) => {
                 assert_eq!(p, "docs/impossible.md");
             }
-            other => panic!("expected DuplicateSourcePath, got {:?}", other),
+            other => panic!("expected DuplicateSourcePath, got {other:?}"),
         }
     }
 
@@ -1453,7 +1452,7 @@ mod tests {
         // Then
         match result {
             Err(BatchBuildError::EmptyDiff) => {}
-            other => panic!("expected EmptyDiff, got {:?}", other),
+            other => panic!("expected EmptyDiff, got {other:?}"),
         }
     }
 
@@ -1532,7 +1531,7 @@ mod tests {
                 assert_eq!(p, "docs/fail.md");
                 assert!(!reason.is_empty(), "reason must be non-empty");
             }
-            other => panic!("expected AnalysisSerializationFailed, got {:?}", other),
+            other => panic!("expected AnalysisSerializationFailed, got {other:?}"),
         }
     }
 
@@ -1553,7 +1552,7 @@ mod tests {
                 assert_eq!(p, "docs/fail_transform.md");
                 assert!(!reason.is_empty(), "reason must be non-empty");
             }
-            other => panic!("expected TransformSerializationFailed, got {:?}", other),
+            other => panic!("expected TransformSerializationFailed, got {other:?}"),
         }
     }
 
@@ -1574,7 +1573,7 @@ mod tests {
                 assert_eq!(p, "docs/fail_chunks.md");
                 assert!(!reason.is_empty(), "reason must be non-empty");
             }
-            other => panic!("expected ChunkSerializationFailed, got {:?}", other),
+            other => panic!("expected ChunkSerializationFailed, got {other:?}"),
         }
     }
 
@@ -1597,10 +1596,7 @@ mod tests {
             Err(BatchBuildError::MissingAnalysis { path: p }) => {
                 assert_eq!(p, "docs/multi_missing.md");
             }
-            other => panic!(
-                "expected MissingAnalysis (first missing wins), got {:?}",
-                other
-            ),
+            other => panic!("expected MissingAnalysis (first missing wins), got {other:?}"),
         }
     }
 
@@ -1773,7 +1769,7 @@ mod tests {
                 );
             }
             Err(other) => {
-                panic!("wrong error variant: {:?}", other);
+                panic!("wrong error variant: {other:?}");
             }
         }
     }
@@ -2062,18 +2058,18 @@ mod tests {
             prop_assume!(changed_count + new_count + deleted_count > 0);
 
             let changed_paths: Vec<String> = (0..changed_count)
-                .map(|i| format!("changed/{}.md", i))
+                .map(|i| format!("changed/{i}.md"))
                 .collect();
             let new_paths: Vec<String> = (0..new_count)
-                .map(|i| format!("new/{}.md", i))
+                .map(|i| format!("new/{i}.md"))
                 .collect();
             let deleted_paths: Vec<String> = (0..deleted_count)
-                .map(|i| format!("deleted/{}.md", i))
+                .map(|i| format!("deleted/{i}.md"))
                 .collect();
 
             let all_active: Vec<&str> = changed_paths.iter()
                 .chain(new_paths.iter())
-                .map(|s| s.as_str())
+                .map(std::string::String::as_str)
                 .collect();
 
             let diff = FileDiff {
@@ -2118,15 +2114,15 @@ mod tests {
             new_count in 0usize..3,
         ) {
             let changed_paths: Vec<String> = (0..changed_count)
-                .map(|i| format!("c/{}.md", i))
+                .map(|i| format!("c/{i}.md"))
                 .collect();
             let new_paths: Vec<String> = (0..new_count)
-                .map(|i| format!("n/{}.md", i))
+                .map(|i| format!("n/{i}.md"))
                 .collect();
 
             let all_active: Vec<&str> = changed_paths.iter()
                 .chain(new_paths.iter())
-                .map(|s| s.as_str())
+                .map(std::string::String::as_str)
                 .collect();
 
             let diff = FileDiff {
@@ -2185,9 +2181,9 @@ mod tests {
             file_count in 1usize..5,
         ) {
             let paths: Vec<String> = (0..file_count)
-                .map(|i| format!("det/{}.md", i))
+                .map(|i| format!("det/{i}.md"))
                 .collect();
-            let path_refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
+            let path_refs: Vec<&str> = paths.iter().map(std::string::String::as_str).collect();
 
             let diff = make_diff_with_changed(&path_refs);
             let outputs = make_pipeline_outputs_for(&path_refs);
@@ -2214,13 +2210,13 @@ mod tests {
             changed_count in 1usize..5,
         ) {
             let unchanged_paths: Vec<String> = (0..unchanged_count)
-                .map(|i| format!("unchanged/{}.md", i))
+                .map(|i| format!("unchanged/{i}.md"))
                 .collect();
             let changed_paths: Vec<String> = (0..changed_count)
-                .map(|i| format!("changed/{}.md", i))
+                .map(|i| format!("changed/{i}.md"))
                 .collect();
 
-            let active_refs: Vec<&str> = changed_paths.iter().map(|s| s.as_str()).collect();
+            let active_refs: Vec<&str> = changed_paths.iter().map(std::string::String::as_str).collect();
 
             let diff = FileDiff {
                 unchanged: unchanged_paths.iter().map(|p| make_unchanged_entry(p)).collect(),

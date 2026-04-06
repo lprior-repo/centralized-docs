@@ -10,15 +10,12 @@
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
 
-use doc_transformer::calc::scrape_diff::{
-    build_combined_scrape_result, build_scrape_state_changes, classify_scrape_diff,
-};
-use doc_transformer::persisted::PersistedScrapeResult;
-use doc_transformer::scrape::validation::{PageFilterStatus, ScrapeResult, ScrapedPage};
+use doc_transformer::calc::scrape_diff::{build_scrape_state_changes, classify_scrape_diff};
+use doc_transformer::scrape::validation::{PageFilterStatus, ScrapedPage};
 use doc_transformer::state::bulk_load::StateReadSession;
 use doc_transformer::state::commit::StateChanges;
 use doc_transformer::state::commit::StateDb;
-use doc_transformer::state::{StateLoadError, UrlStateRaw};
+use doc_transformer::state::UrlStateRaw;
 use redb::ReadableTableMetadata;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -218,7 +215,7 @@ async fn run_scrape_reuses_unchanged_pages_from_persisted_scrape_outputs() {
     let changes_first = build_scrape_state_changes(&diff_first, &pages_first, 1_700_000_000);
 
     // Record the url_hashes that were committed
-    let url_hashes: Vec<[u8; 32]> = changes_first
+    let _url_hashes: Vec<[u8; 32]> = changes_first
         .updated_urls
         .iter()
         .map(|(_, state)| state.url_hash)

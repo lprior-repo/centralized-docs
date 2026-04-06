@@ -8,8 +8,8 @@ use clap::{Parser, Subcommand};
 use spider::configuration::RedirectPolicy;
 use std::path::PathBuf;
 use validation::{
-    parse_redirect_policy, validate_concurrency_limit, validate_delay,
-    validate_hnsw_ef_construction, validate_hnsw_m, validate_limit_cli,
+    parse_redirect_policy, validate_concurrency_limit, validate_connect_timeout_secs,
+    validate_delay, validate_hnsw_ef_construction, validate_hnsw_m, validate_limit_cli,
     validate_max_chunk_keywords, validate_max_related_chunks, validate_positive_bytes,
     validate_retry_count, validate_threshold, validate_timeout_secs,
 };
@@ -108,6 +108,10 @@ pub enum Commands {
         /// Request timeout in seconds (1-600)
         #[arg(long, default_value = "30", value_parser = validate_timeout_secs, allow_hyphen_values = true)]
         request_timeout_secs: u64,
+
+        /// TCP connect timeout in seconds (1-60, default: 10)
+        #[arg(long, default_value = "10", value_parser = validate_connect_timeout_secs, allow_hyphen_values = true)]
+        connect_timeout_secs: u64,
 
         /// Max spider retries (0 disables spider retry)
         #[arg(long, default_value = "3", value_parser = validate_retry_count, allow_hyphen_values = true)]
@@ -238,6 +242,10 @@ pub enum Commands {
         #[arg(long, default_value = "30", value_parser = validate_timeout_secs, allow_hyphen_values = true)]
         request_timeout_secs: u64,
 
+        /// TCP connect timeout in seconds (1-60, default: 10)
+        #[arg(long, default_value = "10", value_parser = validate_connect_timeout_secs, allow_hyphen_values = true)]
+        connect_timeout_secs: u64,
+
         /// Max spider retries (0 disables spider retry)
         #[arg(long, default_value = "3", value_parser = validate_retry_count, allow_hyphen_values = true)]
         max_retries: u32,
@@ -284,6 +292,10 @@ pub enum Commands {
         /// Path to the redb cache file for snapshots
         #[arg(long, default_value = ".cache/ctd_cache.redb")]
         cache: PathBuf,
+
+        /// Disable sitemap.xml discovery (use crawling instead)
+        #[arg(long = "no-sitemap", action = clap::ArgAction::SetTrue)]
+        no_sitemap: bool,
 
         /// Regex pattern to filter URLs by path
         #[arg(short, long, value_name = "REGEX")]

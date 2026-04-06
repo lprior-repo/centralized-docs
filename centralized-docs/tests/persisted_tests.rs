@@ -353,10 +353,7 @@ fn chunk_to_persisted_schema_version_1() {
     assert_eq!(p.token_count, 10);
     assert_eq!(p.chunk_type, PersistedChunkType::Prose);
     assert_eq!(p.chunk_level, PersistedChunkLevel::Standard);
-    assert_eq!(
-        p.context_prefix.as_ref().map(String::as_str),
-        Some("Previous context...")
-    );
+    assert_eq!(p.context_prefix.as_deref(), Some("Previous context..."));
 }
 
 #[test]

@@ -8,12 +8,21 @@
 //! - Deleted URLs produce only delete entries
 //! - Unchanged URLs produce no output
 
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::panic)]
+#![cfg_attr(
+    not(test),
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
-
+#[cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::arithmetic_side_effects
+    )
+)]
 use crate::calc::build_state_changes::hash_payload;
 use crate::state::commit::StateChanges;
 use crate::state::UrlStateRaw;

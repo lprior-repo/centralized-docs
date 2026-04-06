@@ -1,6 +1,6 @@
-// Tests for cmd::scrape — extracted from scrape.rs for file-length compliance (<300 lines).
+// Tests for cmd::scrape_query — extracted from scrape.rs for file-length compliance (<300 lines).
 
-use crate::cmd::scrape::{apply_query_filter, validate_query_length};
+use crate::cmd::scrape_query::{apply_query_filter, validate_query_length};
 use crate::scrape;
 
 fn make_scraped_page(url: &str, markdown: &str, word_count: usize) -> scrape::ScrapedPage {

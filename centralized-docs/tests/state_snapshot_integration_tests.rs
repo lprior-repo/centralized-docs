@@ -1043,7 +1043,7 @@ prop_compose! {
                       )) -> Snapshot {
         Snapshot {
             target_url,
-            timestamp: Utc.timestamp_opt(timestamp_secs, 0).single().unwrap_or_else(|| Utc::now()),
+            timestamp: Utc.timestamp_opt(timestamp_secs, 0).single().unwrap_or_else(Utc::now),
             pages,
         }
     }

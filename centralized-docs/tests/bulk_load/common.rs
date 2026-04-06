@@ -4,6 +4,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
 #![allow(clippy::panic)]
+#![allow(clippy::type_complexity)]
 
 use doc_transformer::persisted::{
     PersistedAnalysis, PersistedAnalyzeResult, PersistedChunk, PersistedChunkLevel,

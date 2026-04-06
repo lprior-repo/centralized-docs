@@ -119,6 +119,99 @@ pub enum StealthMode {
     Disabled,
 }
 
+/// TCP connect timeout in seconds.
+///
+/// Type-safe wrapper that enforces the 1-60 second range.
+/// Connection timeouts are typically short because they indicate
+/// the server is unreachable or actively refusing connections.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConnectTimeoutSecs(u64);
+
+impl ConnectTimeoutSecs {
+    /// Create a new ConnectTimeoutSecs, validating the range 1-60.
+    ///
+    /// # Errors
+    /// Returns an error if value is not in range 1-60.
+    pub fn new(value: u64) -> Result<Self, String> {
+        if value < 1 {
+            Err("connect timeout must be at least 1 second".to_string())
+        } else if value > 60 {
+            Err("connect timeout must be at most 60 seconds".to_string())
+        } else {
+            Ok(Self(value))
+        }
+    }
+
+    /// Create a ConnectTimeoutSecs without validation (for trusted sources).
+    ///
+    /// # Safety
+    /// Caller must ensure value is in range 1-60.
+    #[must_use]
+    pub const fn new_unchecked(value: u64) -> Self {
+        Self(value)
+    }
+
+    /// Return the underlying value.
+    #[must_use]
+    pub const fn as_u64(self) -> u64 {
+        self.0
+    }
+}
+
+impl Default for ConnectTimeoutSecs {
+    fn default() -> Self {
+        // 10 seconds is a reasonable default for TCP connect timeout
+        Self(10)
+    }
+}
+
+/// HTTP request timeout in seconds.
+///
+/// Type-safe wrapper that enforces the 1-600 second range.
+/// Request timeouts are typically longer than connect timeouts because
+/// they include the time to establish a connection, send the request,
+/// and receive the response.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestTimeoutSecs(u64);
+
+impl RequestTimeoutSecs {
+    /// Create a new RequestTimeoutSecs, validating the range 1-600.
+    ///
+    /// # Errors
+    /// Returns an error if value is not in range 1-600.
+    pub fn new(value: u64) -> Result<Self, String> {
+        if value < 1 {
+            Err("request timeout must be at least 1 second".to_string())
+        } else if value > 600 {
+            Err("request timeout must be at most 600 seconds (10 minutes)".to_string())
+        } else {
+            Ok(Self(value))
+        }
+    }
+
+    /// Create a RequestTimeoutSecs without validation (for trusted sources).
+    ///
+    /// # Safety
+    /// Caller must ensure value is in range 1-600.
+    #[must_use]
+    pub const fn new_unchecked(value: u64) -> Self {
+        Self(value)
+    }
+
+    /// Return the underlying value.
+    #[must_use]
+    pub const fn as_u64(self) -> u64 {
+        self.0
+    }
+}
+
+impl Default for RequestTimeoutSecs {
+    fn default() -> Self {
+        // 30 seconds is a reasonable default for HTTP request timeout
+        Self(30)
+    }
+}
+
 /// Configuration for scraping a documentation site
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScrapeConfig {
@@ -138,6 +231,7 @@ pub struct ScrapeConfig {
     pub stealth_mode: StealthMode,
     pub concurrency_limit: usize,
     pub request_timeout_secs: u64,
+    pub connect_timeout_secs: u64,
     pub max_retries: u32,
     pub redirect_policy: spider::configuration::RedirectPolicy,
     pub spider_max_page_bytes: Option<u64>,
@@ -163,6 +257,7 @@ impl Default for ScrapeConfig {
             stealth_mode: StealthMode::Enabled,
             concurrency_limit: 4,
             request_timeout_secs: 30,
+            connect_timeout_secs: 10,
             max_retries: 3,
             redirect_policy: spider::configuration::RedirectPolicy::Loose,
             spider_max_page_bytes: None,

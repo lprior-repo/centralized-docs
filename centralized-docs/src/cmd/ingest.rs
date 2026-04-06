@@ -45,6 +45,7 @@ pub async fn run_ingest(url: &str, output: &Path, config: &IngestConfig) -> Resu
         spider_max_page_bytes: max_page_bytes,
         spider_max_total_bytes: max_total_bytes,
         request_timeout_secs: config.request_timeout_secs,
+        connect_timeout_secs: config.connect_timeout_secs,
         max_retries: config.max_retries,
         redirect_policy: config.redirect_policy.clone(),
         concurrency_limit: config.concurrency_limit,
