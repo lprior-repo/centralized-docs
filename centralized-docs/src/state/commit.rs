@@ -19,7 +19,8 @@
 
 use super::{
     analysis_outputs_table, chunk_outputs_table, file_state_table, scrape_outputs_table,
-    snapshots_table, transform_outputs_table, url_state_table, FileStateRaw, UrlStateRaw,
+    snapshots_table, transform_outputs_table, url_state_table, DurabilityConfig, FileStateRaw,
+    UrlStateRaw,
 };
 use redb::{Database, ReadableTable, TableDefinition, WriteTransaction};
 use std::collections::{HashMap, HashSet};
@@ -673,6 +674,152 @@ impl ArchivedRaw {
 }
 
 // ---------------------------------------------------------------------------
+// StateDbBuilder — builder pattern for StateDb construction
+// ---------------------------------------------------------------------------
+
+/// Default cache size: 64 `MiB` (67108864 bytes).
+const DEFAULT_CACHE_SIZE: usize = 64 * 1024 * 1024;
+
+/// Builder for [`StateDb`] with configurable cache size and durability.
+///
+/// # Defaults
+///
+/// - `cache_size`: 64 `MiB` (67108864 bytes)
+/// - `durability`: [`DurabilityConfig::Default`]
+///
+/// # Example
+///
+/// ```ignore
+/// let db = StateDbBuilder::new()
+///     .cache_size(128 * 1024 * 1024)
+///     .durability(DurabilityConfig::Paranoid)
+///     .open(path)?;
+/// ```
+#[derive(Debug)]
+pub struct StateDbBuilder {
+    cache_size: usize,
+    durability: DurabilityConfig,
+}
+
+impl StateDbBuilder {
+    /// Create a new builder with defaults (64 `MiB` cache, Default durability).
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            cache_size: DEFAULT_CACHE_SIZE,
+            durability: DurabilityConfig::Default,
+        }
+    }
+
+    /// Set the redb page cache size in bytes.
+    ///
+    /// Passing 0 uses redb's internal default (1 `GiB`).
+    /// redb splits the cache 90/10 between read/write internally.
+    #[must_use]
+    pub fn cache_size(mut self, bytes: usize) -> Self {
+        self.cache_size = bytes;
+        self
+    }
+
+    /// Set the durability configuration for write transactions.
+    #[must_use]
+    pub fn durability(mut self, config: DurabilityConfig) -> Self {
+        self.durability = config;
+        self
+    }
+
+    /// Open or create the state database at `path` with configured settings.
+    ///
+    /// Preserves the fallback pattern: try `Builder::open`, then `Builder::create`.
+    /// Creates parent directories if they do not exist.
+    /// Initializes all 8 redb tables.
+    ///
+    /// # Errors
+    ///
+    /// - [`CommitError::DatabaseOpen`] if redb cannot create/open the file.
+    /// - [`CommitError::TableInit`] if any table cannot be created.
+    pub fn open(self, path: &Path) -> Result<StateDb, CommitError> {
+        create_parent_dirs(path)?;
+
+        let mut builder = redb::Builder::new();
+        builder.set_cache_size(self.cache_size);
+
+        let db = builder
+            .open(path)
+            .or_else(|_| builder.create(path))
+            .map_err(|e| CommitError::DatabaseOpen {
+                path: path.display().to_string(),
+                reason: e.to_string(),
+            })?;
+
+        super::initialize_tables(&db).map_err(|e| CommitError::TableInit {
+            reason: e.to_string(),
+        })?;
+
+        Ok(StateDb {
+            db,
+            active_read_sessions: std::sync::atomic::AtomicUsize::new(0),
+            durability_config: self.durability,
+        })
+    }
+
+    /// Open an in-memory state database (no file on disk).
+    ///
+    /// Uses `redb::backends::InMemoryBackend`. Data does not persist beyond
+    /// the lifetime of the `StateDb`. Useful for testing and ephemeral workloads.
+    ///
+    /// # Errors
+    ///
+    /// - [`CommitError::DatabaseOpen`] if redb cannot create the in-memory database.
+    /// - [`CommitError::TableInit`] if any table cannot be created.
+    pub fn open_in_memory(self) -> Result<StateDb, CommitError> {
+        let mut builder = redb::Builder::new();
+        builder.set_cache_size(self.cache_size);
+
+        let backend = redb::backends::InMemoryBackend::new();
+        let db = builder
+            .create_with_backend(backend)
+            .map_err(|e| CommitError::DatabaseOpen {
+                path: ":memory:".to_string(),
+                reason: e.to_string(),
+            })?;
+
+        super::initialize_tables(&db).map_err(|e| CommitError::TableInit {
+            reason: e.to_string(),
+        })?;
+
+        Ok(StateDb {
+            db,
+            active_read_sessions: std::sync::atomic::AtomicUsize::new(0),
+            durability_config: self.durability,
+        })
+    }
+}
+
+impl Default for StateDbBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Pure Calculation: parent directory creation helper
+// ---------------------------------------------------------------------------
+
+/// Create parent directories for the database path if they do not exist.
+fn create_parent_dirs(path: &Path) -> Result<(), CommitError> {
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|e| CommitError::DatabaseOpen {
+                path: path.display().to_string(),
+                reason: e.to_string(),
+            })?;
+        }
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // StateDb — newtype wrapper over redb::Database
 // ---------------------------------------------------------------------------
 
@@ -692,6 +839,8 @@ pub struct StateDb {
     /// Number of active `StateReadSession` instances. Enforces the
     /// one-read, one-write invariant.
     active_read_sessions: std::sync::atomic::AtomicUsize,
+    /// Durability configuration applied to every write transaction.
+    durability_config: DurabilityConfig,
 }
 
 impl std::fmt::Debug for StateDb {
@@ -704,12 +853,16 @@ impl std::fmt::Debug for StateDb {
                     .active_read_sessions
                     .load(std::sync::atomic::Ordering::Relaxed),
             )
+            .field("durability_config", &self.durability_config)
             .finish()
     }
 }
 
 impl StateDb {
-    /// Open the state database at the given path.
+    /// Open the state database at the given path with default settings.
+    ///
+    /// Equivalent to `StateDbBuilder::new().open(path)`.
+    /// Default: 64 `MiB` cache, `DurabilityConfig::Default`.
     ///
     /// Creates the database and all required tables if they do not exist.
     /// Parent directories are created automatically.
@@ -719,33 +872,26 @@ impl StateDb {
     /// - [`CommitError::DatabaseOpen`] if redb cannot create/open the file.
     /// - [`CommitError::TableInit`] if any table cannot be created.
     pub fn open(path: &Path) -> Result<Self, CommitError> {
-        if let Some(parent) = path.parent() {
-            if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent).map_err(|e| CommitError::DatabaseOpen {
-                    path: path.display().to_string(),
-                    reason: e.to_string(),
-                })?;
-            }
-        }
+        StateDbBuilder::new().open(path)
+    }
 
-        // Try opening an existing database first. If the file is corrupt or
-        // doesn't exist, fall back to creating a fresh database. This prevents
-        // silently overwriting a corrupt state database (INV-4).
-        let db = Database::open(path)
-            .or_else(|_| Database::create(path))
-            .map_err(|e| CommitError::DatabaseOpen {
-                path: path.display().to_string(),
-                reason: e.to_string(),
-            })?;
+    /// Open an in-memory state database with default settings.
+    ///
+    /// Equivalent to `StateDbBuilder::new().open_in_memory()`.
+    /// Data does not persist beyond the lifetime of the `StateDb`.
+    ///
+    /// # Errors
+    ///
+    /// - [`CommitError::DatabaseOpen`] if redb cannot create the in-memory database.
+    /// - [`CommitError::TableInit`] if any table cannot be created.
+    pub fn open_in_memory() -> Result<Self, CommitError> {
+        StateDbBuilder::new().open_in_memory()
+    }
 
-        super::initialize_tables(&db).map_err(|e| CommitError::TableInit {
-            reason: e.to_string(),
-        })?;
-
-        Ok(Self {
-            db,
-            active_read_sessions: std::sync::atomic::AtomicUsize::new(0),
-        })
+    /// Returns the active durability configuration.
+    #[must_use]
+    pub fn durability_config(&self) -> DurabilityConfig {
+        self.durability_config
     }
 
     /// Open a single shared read transaction for the command's lifetime.
@@ -771,6 +917,9 @@ impl StateDb {
     }
 
     /// Commit all state changes in exactly one redb write transaction.
+    ///
+    /// When `self.durability_config == DurabilityConfig::Paranoid`, calls
+    /// `write_tx.set_two_phase_commit(true)` before applying writes.
     ///
     /// # Preconditions (validated before opening write transaction)
     ///
@@ -812,12 +961,17 @@ impl StateDb {
         validate_all(&changes)?;
 
         // Phase 2: Open write transaction
-        let write_tx = self
+        let mut write_tx = self
             .db
             .begin_write()
             .map_err(|e| CommitError::WriteTransaction {
                 reason: e.to_string(),
             })?;
+
+        // Phase 2b: Apply durability configuration
+        if self.durability_config == DurabilityConfig::Paranoid {
+            write_tx.set_two_phase_commit(true);
+        }
 
         // Phase 3: Apply all writes within transaction
         apply_all_writes(&write_tx, &changes)?;
@@ -3123,5 +3277,627 @@ mod tests {
                 Err(other) => panic!("unexpected error variant: {other:?}"),
             }
         }
+    }
+
+    // =======================================================================
+    // B1: DurabilityConfig satisfies required traits
+    // =======================================================================
+
+    #[test]
+    fn durability_config_satisfies_debug_clone_copy_partial_eq() {
+        use crate::state::DurabilityConfig;
+        fn assert_traits<T: std::fmt::Debug + Clone + Copy + PartialEq + Eq>() {}
+        assert_traits::<DurabilityConfig>();
+    }
+
+    // =======================================================================
+    // B2: DurabilityConfig::default() returns Default variant
+    // =======================================================================
+
+    #[test]
+    fn durability_config_default_returns_default_variant() {
+        assert_eq!(DurabilityConfig::default(), DurabilityConfig::Default);
+    }
+
+    // =======================================================================
+    // B4: StateDbBuilder::new() has correct defaults
+    // =======================================================================
+
+    #[test]
+    fn state_db_builder_new_has_64mib_cache_and_default_durability() {
+        let builder = StateDbBuilder::new();
+        assert_eq!(builder.cache_size, 67_108_864);
+        assert_eq!(builder.durability, DurabilityConfig::Default);
+    }
+
+    // =======================================================================
+    // B5: StateDbBuilder::default() equals new()
+    // =======================================================================
+
+    #[test]
+    fn state_db_builder_default_equals_new() {
+        let a = StateDbBuilder::new();
+        let b = StateDbBuilder::default();
+        assert_eq!(a.cache_size, b.cache_size);
+        assert_eq!(a.durability, b.durability);
+    }
+
+    // =======================================================================
+    // B6: StateDbBuilder::cache_size(n) sets cache
+    // =======================================================================
+
+    #[test]
+    fn state_db_builder_cache_size_returns_updated_builder() {
+        let builder = StateDbBuilder::new().cache_size(128 * 1024 * 1024);
+        assert_eq!(builder.cache_size, 134_217_728);
+    }
+
+    // =======================================================================
+    // B7: StateDbBuilder::cache_size(0) accepted
+    // =======================================================================
+
+    #[test]
+    fn state_db_builder_cache_size_zero_is_accepted() {
+        let builder = StateDbBuilder::new().cache_size(0);
+        assert_eq!(builder.cache_size, 0);
+    }
+
+    // =======================================================================
+    // B8: StateDbBuilder::durability(config) sets durability
+    // =======================================================================
+
+    #[test]
+    fn state_db_builder_durability_returns_updated_builder() {
+        let builder = StateDbBuilder::new().durability(DurabilityConfig::Paranoid);
+        assert_eq!(builder.durability, DurabilityConfig::Paranoid);
+    }
+
+    // =======================================================================
+    // B10: StateDbBuilder::open creates parent directories when absent
+    // =======================================================================
+
+    #[test]
+    fn state_db_builder_open_creates_parent_directories_when_absent() {
+        let temp_dir = TempDir::new().unwrap();
+        let nested_path = temp_dir.path().join("does_not_exist_xxx/sub/state.redb");
+
+        let state_db = StateDbBuilder::new()
+            .open(&nested_path)
+            .expect("builder open should succeed");
+
+        assert!(
+            temp_dir.path().join("does_not_exist_xxx/sub").is_dir(),
+            "parent directories should be created"
+        );
+        assert!(nested_path.exists(), "state.redb file should exist");
+
+        let _session = state_db.begin_read().expect("begin_read should succeed");
+    }
+
+    // =======================================================================
+    // B11: StateDbBuilder::open returns configured StateDb
+    // =======================================================================
+
+    #[test]
+    fn state_db_builder_open_returns_state_db_with_configured_durability() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("configured.redb");
+
+        let state_db = StateDbBuilder::new()
+            .cache_size(32 * 1024 * 1024)
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("builder open should succeed");
+
+        assert_eq!(state_db.durability_config(), DurabilityConfig::Paranoid);
+    }
+
+    // =======================================================================
+    // B12: StateDbBuilder::open returns DatabaseOpen on failure
+    // =======================================================================
+
+    #[test]
+    fn state_db_builder_open_returns_database_open_when_path_invalid() {
+        let path = std::path::Path::new("/nonexistent_root_xyz_cdocs/deeply/nested/state.redb");
+        let result = StateDbBuilder::new().open(path);
+        let err = result.expect_err("should fail for nonexistent root");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("nonexistent_root_xyz_cdocs"),
+            "error should reference path: {msg}"
+        );
+        assert!(
+            matches!(err, CommitError::DatabaseOpen { .. }),
+            "should be DatabaseOpen variant, got: {err}"
+        );
+    }
+
+    // =======================================================================
+    // B14: StateDbBuilder::open preserves fallback pattern
+    // =======================================================================
+
+    #[test]
+    fn state_db_builder_open_preserves_fallback_open_then_create_pattern() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("fallback.redb");
+
+        // Create a file with garbage bytes to simulate corruption
+        std::fs::write(
+            &db_path,
+            b"THIS IS NOT A VALID REDB DATABASE - CORRUPT DATA!!",
+        )
+        .unwrap();
+
+        let result = StateDbBuilder::new().open(&db_path);
+        let err = result.expect_err("should fail on corrupt database");
+        assert!(
+            matches!(err, CommitError::DatabaseOpen { .. }),
+            "should be DatabaseOpen variant, got: {err}"
+        );
+    }
+
+    // =======================================================================
+    // B15: StateDb::open backward compatible
+    // =======================================================================
+
+    #[test]
+    fn state_db_open_returns_default_durability_for_backward_compat() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("compat.redb");
+
+        let state_db = StateDb::open(&db_path).expect("open should succeed");
+
+        assert_eq!(
+            state_db.durability_config(),
+            DurabilityConfig::Default,
+            "backward-compatible open should use Default durability"
+        );
+    }
+
+    // =======================================================================
+    // B16: StateDb::open equivalent to builder new().open()
+    // =======================================================================
+
+    #[test]
+    fn state_db_open_is_equivalent_to_builder_new_open() {
+        let temp_dir_a = TempDir::new().unwrap();
+        let temp_dir_b = TempDir::new().unwrap();
+        let path_a = temp_dir_a.path().join("a.redb");
+        let path_b = temp_dir_b.path().join("b.redb");
+
+        let db_a = StateDb::open(&path_a).expect("StateDb::open should succeed");
+        let db_b = StateDbBuilder::new()
+            .open(&path_b)
+            .expect("StateDbBuilder::new().open() should succeed");
+
+        assert_eq!(
+            db_a.durability_config(),
+            db_b.durability_config(),
+            "both should return Default durability"
+        );
+    }
+
+    // =======================================================================
+    // B17: durability_config() accessor
+    // =======================================================================
+
+    #[test]
+    fn state_db_durability_config_returns_configured_value() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("accessor.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        assert_eq!(state_db.durability_config(), DurabilityConfig::Paranoid);
+    }
+
+    // =======================================================================
+    // B18: commit_changes with Default durability commits successfully
+    // =======================================================================
+
+    #[test]
+    fn commit_changes_with_default_durability_commits_successfully() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("default_commit.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Default)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        let hash_key = [1u8; 32];
+        let payload = vec![10, 20, 30];
+        let mut changes = StateChanges::empty();
+        changes.new_analyses = vec![(hash_key, payload.clone())];
+
+        state_db
+            .commit_changes(changes)
+            .expect("commit should succeed");
+
+        let db = state_db.database();
+        let stored = read_hash_table(db, analysis_outputs_table(), &hash_key);
+        assert_eq!(stored, Some(payload));
+    }
+
+    // =======================================================================
+    // B19: commit_changes with Paranoid durability commits and data readable
+    // =======================================================================
+
+    #[test]
+    fn commit_changes_with_paranoid_durability_commits_and_data_readable() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("paranoid_commit.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        let hash_key = [1u8; 32];
+        let payload = vec![42, 43, 44];
+        let mut changes = StateChanges::empty();
+        changes.new_analyses = vec![(hash_key, payload.clone())];
+
+        state_db
+            .commit_changes(changes)
+            .expect("paranoid commit should succeed");
+
+        let db = state_db.database();
+        let stored = read_hash_table(db, analysis_outputs_table(), &hash_key);
+        assert_eq!(
+            stored,
+            Some(payload),
+            "data should be readable after paranoid commit"
+        );
+    }
+
+    // =======================================================================
+    // B20: Paranoid commit data survives database re-open (E2E)
+    // =======================================================================
+
+    #[test]
+    fn paranoid_commit_data_survives_database_reopen_cycle() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("paranoid_reopen.redb");
+
+        let key = "test.md";
+        let original_state = FileStateRaw {
+            content_hash: [0xAB; 32],
+            config_hash: [0xCD; 32],
+            analysis_hash: [0u8; 32],
+            transform_hash: [0u8; 32],
+            chunk_hash: [0u8; 32],
+            last_processed_secs: 999,
+            reserved: [0u8; 32],
+        };
+
+        // Write with Paranoid durability
+        {
+            let state_db = StateDbBuilder::new()
+                .durability(DurabilityConfig::Paranoid)
+                .open(&db_path)
+                .expect("open should succeed");
+
+            let mut changes = StateChanges::empty();
+            changes.updated_files = vec![(key.to_string(), original_state)];
+            state_db
+                .commit_changes(changes)
+                .expect("paranoid commit should succeed");
+        }
+
+        // Re-open with default durability and verify data
+        let state_db = StateDb::open(&db_path).expect("reopen should succeed");
+        let db = state_db.database();
+        let stored = read_string_table(db, file_state_table(), key);
+        assert!(stored.is_some(), "data should survive reopen");
+        let restored = FileStateRaw::from_bytes(&stored.unwrap()).unwrap();
+        assert_eq!(
+            restored, original_state,
+            "data should be byte-identical after reopen"
+        );
+    }
+
+    // =======================================================================
+    // B21: Preconditions still enforced with Paranoid durability
+    // =======================================================================
+
+    #[test]
+    fn commit_changes_with_paranoid_rejects_zero_hash_key() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("paranoid_zero.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        let mut changes = StateChanges::empty();
+        changes.new_analyses = vec![([0u8; 32], vec![1, 2, 3])];
+
+        let err = state_db
+            .commit_changes(changes)
+            .expect_err("should reject zero hash");
+        assert!(
+            matches!(
+                err,
+                CommitError::ZeroHashKey {
+                    table: "analysis_outputs",
+                    index: 0
+                }
+            ),
+            "expected ZeroHashKey(analysis_outputs, 0), got: {err}"
+        );
+    }
+
+    #[test]
+    fn commit_changes_with_paranoid_rejects_empty_string_key() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("paranoid_empty.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        let mut changes = StateChanges::empty();
+        changes.updated_files = vec![(String::new(), FileStateRaw::zeroed())];
+
+        let err = state_db
+            .commit_changes(changes)
+            .expect_err("should reject empty key");
+        assert!(
+            matches!(
+                err,
+                CommitError::EmptyStringKey {
+                    table: "file_state",
+                    index: 0
+                }
+            ),
+            "expected EmptyStringKey(file_state, 0), got: {err}"
+        );
+    }
+
+    #[test]
+    fn commit_changes_with_paranoid_rejects_duplicate_keys() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("paranoid_dup.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        let mut changes = StateChanges::empty();
+        changes.updated_files = vec![
+            ("dup.md".to_string(), FileStateRaw::zeroed()),
+            ("dup.md".to_string(), FileStateRaw::zeroed()),
+        ];
+
+        let err = state_db
+            .commit_changes(changes)
+            .expect_err("should reject duplicate");
+        assert!(
+            matches!(
+                err,
+                CommitError::DuplicateStateKey { table: "file_state", ref key }
+                if key == "dup.md"
+            ),
+            "expected DuplicateStateKey(file_state, dup.md), got: {err}"
+        );
+    }
+
+    #[test]
+    fn commit_changes_with_paranoid_rejects_oversized_payload() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("paranoid_oversize.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        let mut changes = StateChanges::empty();
+        changes.new_analyses = vec![([1u8; 32], vec![0u8; MAX_VALUE_SIZE + 1])];
+
+        let err = state_db
+            .commit_changes(changes)
+            .expect_err("should reject oversized payload");
+        assert!(
+            matches!(
+                err,
+                CommitError::PayloadTooLarge {
+                    table: "analysis_outputs",
+                    size: 52428801,
+                    max: 52428800,
+                }
+            ),
+            "expected PayloadTooLarge(analysis_outputs), got: {err}"
+        );
+    }
+
+    #[test]
+    fn commit_changes_with_paranoid_rejects_missing_reference() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("paranoid_missing_ref.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        let mut changes = StateChanges::empty();
+        changes.updated_files = vec![(
+            "src/main.rs".to_string(),
+            make_file_state_raw([1u8; 32], [0u8; 32], [0u8; 32]),
+        )];
+        // new_analyses is empty — [1u8; 32] not found
+
+        let err = state_db
+            .commit_changes(changes)
+            .expect_err("should reject missing ref");
+        assert!(
+            matches!(
+                err,
+                CommitError::MissingReference {
+                    table: "file_state",
+                    field: "analysis_hash",
+                    payload_table: "analysis_outputs",
+                    ..
+                }
+            ),
+            "expected MissingReference(analysis_hash), got: {err}"
+        );
+    }
+
+    // =======================================================================
+    // B22: Rollback on validation failure with Paranoid
+    // =======================================================================
+
+    #[test]
+    fn commit_changes_with_paranoid_rolls_back_on_validation_failure() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("paranoid_rollback.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        let mut changes = StateChanges::empty();
+        changes.updated_files = vec![("valid.rs".to_string(), FileStateRaw::zeroed())];
+        changes.new_analyses = vec![([0u8; 32], vec![1, 2, 3])];
+
+        let result = state_db.commit_changes(changes);
+        assert!(
+            matches!(result, Err(CommitError::ZeroHashKey { .. })),
+            "should fail with ZeroHashKey: {result:?}"
+        );
+
+        let db = state_db.database();
+        assert!(
+            read_string_table(db, file_state_table(), "valid.rs").is_none(),
+            "no writes should be visible after validation failure"
+        );
+    }
+
+    // =======================================================================
+    // B23: Read session rejection with Paranoid
+    // =======================================================================
+
+    #[test]
+    fn commit_changes_with_paranoid_rejects_when_read_session_active() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("paranoid_read_session.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        let _session = state_db.begin_read().expect("begin_read should succeed");
+
+        let changes = StateChanges::empty();
+        let err = state_db
+            .commit_changes(changes)
+            .expect_err("should reject with active session");
+
+        assert!(
+            matches!(err, CommitError::WriteTransaction { .. }),
+            "should be WriteTransaction: {err}"
+        );
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("read session"),
+            "error should mention read session: {msg}"
+        );
+    }
+
+    // =======================================================================
+    // B27: ReadSession Drop still decrements counter (Paranoid)
+    // =======================================================================
+
+    #[test]
+    fn read_session_drop_enables_commit_with_paranoid_durability() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("paranoid_session_drop.redb");
+
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open(&db_path)
+            .expect("open should succeed");
+
+        {
+            let _session = state_db.begin_read().expect("begin_read should succeed");
+        }
+
+        let changes = StateChanges::empty();
+        let result = state_db.commit_changes(changes);
+        assert!(
+            result.is_ok(),
+            "commit should succeed after session dropped: {result:?}"
+        );
+    }
+
+    // =======================================================================
+    // In-memory database: StateDb::open_in_memory works
+    // =======================================================================
+
+    #[test]
+    fn state_db_open_in_memory_succeeds() {
+        let state_db = StateDb::open_in_memory().expect("in-memory open should succeed");
+        assert_eq!(state_db.durability_config(), DurabilityConfig::Default);
+        let _session = state_db.begin_read().expect("begin_read should succeed");
+    }
+
+    #[test]
+    fn state_db_builder_open_in_memory_with_paranoid_succeeds() {
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open_in_memory()
+            .expect("in-memory open should succeed");
+
+        assert_eq!(state_db.durability_config(), DurabilityConfig::Paranoid);
+    }
+
+    #[test]
+    fn state_db_in_memory_commit_and_read() {
+        let state_db = StateDb::open_in_memory().expect("in-memory open should succeed");
+
+        let hash_key = [1u8; 32];
+        let payload = vec![10, 20, 30];
+        let mut changes = StateChanges::empty();
+        changes.new_analyses = vec![(hash_key, payload.clone())];
+
+        state_db
+            .commit_changes(changes)
+            .expect("commit should succeed");
+
+        let db = state_db.database();
+        let stored = read_hash_table(db, analysis_outputs_table(), &hash_key);
+        assert_eq!(stored, Some(payload));
+    }
+
+    #[test]
+    fn state_db_in_memory_paranoid_commit_and_read() {
+        let state_db = StateDbBuilder::new()
+            .durability(DurabilityConfig::Paranoid)
+            .open_in_memory()
+            .expect("in-memory open should succeed");
+
+        let hash_key = [2u8; 32];
+        let payload = vec![99, 88, 77];
+        let mut changes = StateChanges::empty();
+        changes.new_analyses = vec![(hash_key, payload.clone())];
+
+        state_db
+            .commit_changes(changes)
+            .expect("paranoid commit should succeed");
+
+        let db = state_db.database();
+        let stored = read_hash_table(db, analysis_outputs_table(), &hash_key);
+        assert_eq!(stored, Some(payload));
     }
 }

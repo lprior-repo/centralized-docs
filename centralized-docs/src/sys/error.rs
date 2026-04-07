@@ -56,6 +56,7 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "missing",
         "required",
         "no such file",
+        "file not found",
         "must be at least",
         "must be at most",
         "must be positive",
@@ -143,6 +144,12 @@ mod tests {
     #[test]
     fn test_map_error_to_exit_code_user_input_missing() {
         let err = anyhow::anyhow!("no such file or directory");
+        assert_eq!(map_error_to_exit_code(&err), 1);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_file_not_found() {
+        let err = anyhow::anyhow!("file not found: /path/to/file.txt");
         assert_eq!(map_error_to_exit_code(&err), 1);
     }
 

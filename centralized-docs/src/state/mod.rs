@@ -31,6 +31,45 @@ use redb::{Database, TableDefinition};
 use std::mem::size_of;
 
 // ---------------------------------------------------------------------------
+// DurabilityConfig — domain enum for write-transaction crash safety
+// ---------------------------------------------------------------------------
+
+/// Crash-safety configuration for [`commit::StateDb`] write transactions.
+///
+/// Controls whether each `commit_changes` call performs an extra fsync
+/// (two-phase commit) for maximum durability guarantees.
+///
+/// # Variants
+///
+/// - [`Default`](DurabilityConfig::Default): redb's built-in `Immediate` durability.
+///   Single fsync on commit. Fastest safe option.
+/// - [`Paranoid`](DurabilityConfig::Paranoid): enables redb two-phase commit
+///   (`set_two_phase_commit(true)`). Extra fsync after every commit for
+///   maximum crash safety.
+///
+/// # Extensibility
+///
+/// This enum is `#[non_exhaustive]` to allow future variants (e.g., `Eventual`)
+/// without breaking downstream matches.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DurabilityConfig {
+    /// Default redb durability (`Immediate`). Single fsync on commit.
+    /// Fastest safe option. Suitable for most workloads.
+    Default,
+    /// Paranoid mode: enables redb two-phase commit (`set_two_phase_commit(true)`).
+    /// Extra fsync after every commit for maximum crash safety.
+    /// Use when data loss from a single commit is unacceptable.
+    Paranoid,
+}
+
+impl Default for DurabilityConfig {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Static size assertions (compile-time)
 // ---------------------------------------------------------------------------
 

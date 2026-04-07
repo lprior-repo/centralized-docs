@@ -547,9 +547,9 @@ pub fn search_index(
     let mut query_parser = QueryParser::for_index(index, vec![fields.title, fields.content]);
     query_parser.set_field_boost(fields.title, 3.0); // Boost title matches significantly
 
-    let query = query_parser
-        .parse_query(&escaped_query)
-        .map_err(|e| SearchError::QueryParseError(format!("Invalid query: {e}")))?;
+    let query = query_parser.parse_query(&escaped_query).map_err(|_e| {
+        SearchError::QueryParseError("Search query contains unsupported syntax.".to_string())
+    })?;
 
     // Execute search and get top results
     let top_docs = searcher
