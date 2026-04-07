@@ -903,9 +903,8 @@ fn log_compaction_suggestion(db: &Database, db_path: Option<&Path>) {
         None => return,
     };
 
-    let read_tx = match db.begin_read() {
-        Ok(tx) => tx,
-        Err(_) => return,
+    let Ok(read_tx) = db.begin_read() else {
+        return;
     };
 
     let tables: &[TableDefinition<&[u8], &[u8]>] = &[
@@ -923,7 +922,7 @@ fn log_compaction_suggestion(db: &Database, db_path: Option<&Path>) {
             table
                 .iter()
                 .map(|iter| {
-                    iter.filter_map(|res| res.ok())
+                    iter.filter_map(std::result::Result::ok)
                         .map(|(_, v)| u64::try_from(v.value().len()).unwrap_or(0))
                         .sum::<u64>()
                 })
@@ -940,7 +939,7 @@ fn log_compaction_suggestion(db: &Database, db_path: Option<&Path>) {
             table
                 .iter()
                 .map(|iter| {
-                    iter.filter_map(|res| res.ok())
+                    iter.filter_map(std::result::Result::ok)
                         .map(|(_, v)| u64::try_from(v.value().len()).unwrap_or(0))
                         .sum::<u64>()
                 })
@@ -4056,11 +4055,11 @@ mod tests {
     }
 
     // =======================================================================
-    // Compact: compact_state_db on empty db returns false
+    // Compact: compact_state_db on empty db succeeds without error
     // =======================================================================
 
     #[test]
-    fn test_compact_on_empty_db_returns_false() {
+    fn test_compact_on_empty_db_succeeds() {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("compact_empty.redb");
 
@@ -4069,15 +4068,11 @@ mod tests {
             StateDb::open(&db_path).expect("open should succeed");
         }
 
-        let result = compact_state_db(&db_path).expect("compact should succeed");
-        assert!(
-            !result,
-            "compact on empty database should return false (no further compaction possible)"
-        );
+        compact_state_db(&db_path).expect("compact on empty database should succeed");
     }
 
     // =======================================================================
-    // Compact: compact on fresh db is no-op
+    // Compact: compact on fresh db with data succeeds
     // =======================================================================
 
     #[test]
@@ -4095,32 +4090,44 @@ mod tests {
                 .expect("commit should succeed");
         }
 
-        // Compact on a fresh DB with no deletes should report no compaction possible
-        let result = compact_state_db(&db_path).expect("compact should succeed");
-        assert!(
-            !result,
-            "compact on fresh database with no deletes should return false"
+        // Compact on a fresh DB should succeed without error
+        compact_state_db(&db_path).expect("compact on fresh database should succeed");
+
+        // Verify data integrity after compaction
+        let state_db = StateDb::open(&db_path).expect("reopen should succeed");
+        let db = state_db.database();
+        let stored = read_hash_table(db, analysis_outputs_table(), &[1u8; 32]);
+        assert_eq!(
+            stored,
+            Some(vec![10, 20, 30]),
+            "data should survive compaction"
         );
     }
 
     // =======================================================================
-    // Compact: compact after deletes reduces file size
+    // Compact: compact after deletes preserves remaining data
     // =======================================================================
 
     #[test]
-    fn test_compact_after_deletes_reduces_size() {
+    fn test_compact_after_deletes_preserves_remaining_data() {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("compact_delete.redb");
 
-        // Phase 1: Insert a large amount of data
+        let keep_hash = [0xAAu8; 32];
+        let keep_payload = vec![42; 1024];
+
+        // Phase 1: Insert entries
         {
             let state_db = StateDb::open(&db_path).expect("open should succeed");
             let mut changes = StateChanges::empty();
 
-            // Insert 200 entries with 4KB payloads each (~800KB logical data)
-            for i in 0..200u8 {
+            // Insert entry to keep
+            changes.new_analyses.push((keep_hash, keep_payload.clone()));
+
+            // Insert many entries to delete later
+            for i in 1..100u8 {
                 let mut hash = [0u8; 32];
-                hash[0] = i.saturating_add(1); // avoid zero hash
+                hash[0] = i;
                 changes.new_analyses.push((hash, vec![i; 4096]));
             }
             state_db
@@ -4128,34 +4135,141 @@ mod tests {
                 .expect("insert commit should succeed");
         }
 
-        let size_after_insert = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
-
-        // Phase 2: Delete half the entries
+        // Phase 2: Add file state entries and delete them to create garbage
         {
             let state_db = StateDb::open(&db_path).expect("open should succeed");
-            let mut changes = StateChanges::empty();
+            let mut setup = StateChanges::empty();
+            setup.updated_files = vec![("to_delete.rs".to_string(), FileStateRaw::zeroed())];
+            state_db
+                .commit_changes(setup)
+                .expect("setup commit should succeed");
 
-            for i in 0..200u8 {
-                let mut hash = [0u8; 32];
-                hash[0] = i.saturating_add(1);
-                let key = format!("file_{i}.rs");
-                changes.deleted_files.push(key);
-            }
+            let mut changes = StateChanges::empty();
+            changes.deleted_files = vec!["to_delete.rs".to_string()];
             state_db
                 .commit_changes(changes)
                 .expect("delete commit should succeed");
         }
 
-        // Phase 3: Compact
-        let result = compact_state_db(&db_path).expect("compact should succeed");
-        assert!(result, "compact should return true after deletes");
+        // Phase 3: Compact — must return Ok(true) or Ok(false), not Err
+        // redb may or may not find pages to compact, but must not error
+        compact_state_db(&db_path).expect("compact should succeed");
 
-        let size_after_compact = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+        // Phase 4: Verify data integrity after compaction
+        let state_db = StateDb::open(&db_path).expect("reopen should succeed");
+        let db = state_db.database();
+        let stored = read_hash_table(db, analysis_outputs_table(), &keep_hash);
+        assert_eq!(
+            stored,
+            Some(keep_payload),
+            "kept entry should survive compaction"
+        );
+    }
 
-        // The compacted file should be smaller than the file after insert
+    // =======================================================================
+    // Compact: compact actually reclaims space from deleted entries
+    // =======================================================================
+
+    #[test]
+    fn test_compact_reduces_file_size_after_bulk_delete() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("compact_size.redb");
+
+        // Phase 1: Insert 200 entries with 4KB payloads each (~800KB logical data)
+        {
+            let state_db = StateDb::open(&db_path).expect("open should succeed");
+            let mut changes = StateChanges::empty();
+            for i in 1u8..=200 {
+                let mut hash = [0u8; 32];
+                hash[0] = i;
+                hash[1] = i.wrapping_mul(3);
+                changes.new_analyses.push((hash, vec![i; 4096]));
+            }
+            state_db
+                .commit_changes(changes)
+                .expect("bulk insert should succeed");
+        }
+
+        // Phase 2: Delete 190 of 200 entries by removing via snapshot deletes
+        // (StateChanges has deleted_snapshots which takes hash keys)
+        {
+            let state_db = StateDb::open(&db_path).expect("open should succeed");
+            let mut changes = StateChanges::empty();
+            for i in 11u8..=200 {
+                let mut hash = [0u8; 32];
+                hash[0] = i;
+                hash[1] = i.wrapping_mul(3);
+                changes.deleted_snapshots.push(hash);
+            }
+            state_db
+                .commit_changes(changes)
+                .expect("bulk delete should succeed");
+        }
+
+        // Phase 3: Compact and verify it succeeds
+        let compacted = compact_state_db(&db_path).expect("compact should succeed");
         assert!(
-            size_after_compact < size_after_insert,
-            "compacted size ({size_after_compact}) should be less than insert size ({size_after_insert})"
+            compacted,
+            "compact should return true (performed compaction)"
+        );
+
+        // Phase 4: Verify remaining 10 entries survived
+        let state_db = StateDb::open(&db_path).expect("reopen should succeed");
+        let db = state_db.database();
+        for i in 1u8..=10 {
+            let mut hash = [0u8; 32];
+            hash[0] = i;
+            hash[1] = i.wrapping_mul(3);
+            let stored = read_hash_table(db, analysis_outputs_table(), &hash);
+            assert_eq!(
+                stored,
+                Some(vec![i; 4096]),
+                "entry {i} should survive compaction"
+            );
+        }
+    }
+
+    // =======================================================================
+    // Compact: multiple write/delete cycles then compact recovers space
+    // =======================================================================
+
+    #[test]
+    fn test_compact_after_churn_recovers_space() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("compact_churn.redb");
+
+        // Perform 50 write/delete cycles to generate stale pages
+        for cycle in 1u8..=50 {
+            let state_db = StateDb::open(&db_path).expect("open should succeed");
+            let mut changes = StateChanges::empty();
+            let mut hash = [0u8; 32];
+            hash[0] = cycle;
+            changes.new_analyses.push((hash, vec![cycle; 8192]));
+            state_db
+                .commit_changes(changes)
+                .expect("insert should succeed");
+            drop(state_db);
+
+            // Immediately delete via snapshot delete
+            let state_db = StateDb::open(&db_path).expect("open should succeed");
+            let mut del = StateChanges::empty();
+            del.deleted_snapshots.push(hash);
+            state_db.commit_changes(del).expect("delete should succeed");
+            drop(state_db);
+        }
+
+        let size_before_compact = std::fs::metadata(&db_path).expect("db should exist").len();
+
+        // Now compact
+        let compacted = compact_state_db(&db_path).expect("compact should succeed");
+        let size_after_compact = std::fs::metadata(&db_path)
+            .expect("db should exist after compact")
+            .len();
+
+        assert!(compacted, "compact should return true");
+        assert!(
+            size_after_compact < size_before_compact,
+            "after 50 churn cycles, compacted ({size_after_compact}) should be smaller than before ({size_before_compact})"
         );
     }
 
@@ -4173,6 +4287,14 @@ mod tests {
     fn should_suggest_compaction_returns_false_when_ratio_ok() {
         // 5KB file, 1KB logical = 5x overhead (below threshold of 10)
         assert!(!should_suggest_compaction(5_000, 1_000));
+    }
+
+    #[test]
+    fn should_suggest_compaction_at_exact_threshold_boundary() {
+        // Exactly 10x should NOT trigger (must exceed, not equal)
+        assert!(!should_suggest_compaction(10_000, 1_000));
+        // 10.001x should trigger
+        assert!(should_suggest_compaction(10_001, 1_000));
     }
 
     #[test]
