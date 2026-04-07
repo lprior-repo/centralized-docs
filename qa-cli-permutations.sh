@@ -473,9 +473,15 @@ out=$(run_net "$CTD" watch https://example.com -o "$TMPDIR/w1" --no-sitemap 2>&1
 record_pass "watch --no-sitemap parsed ok (exit=$rc)"
 
 out=$(run_net "$CTD" watch https://example.com -o "$TMPDIR/w1" \
-  --delay 50 --concurrency 2 --request-timeout-secs 10 --max-retries 1 \
+  --delay 50 --concurrency 2 --request-timeout-secs 10 --connect-timeout-secs 5 --max-retries 1 \
   --redirect-policy strict --filter "^/docs/" 2>&1); rc=$?
 record_pass "watch all shared flags parsed ok (exit=$rc)"
+
+out=$("$CTD" watch https://example.com -o "$TMPDIR/w1" --connect-timeout-secs 0 2>&1); rc=$?
+assert_nonzero "watch --connect-timeout-secs 0 rejected" "$rc"
+
+out=$("$CTD" watch https://example.com -o "$TMPDIR/w1" --connect-timeout-secs 61 2>&1); rc=$?
+assert_nonzero "watch --connect-timeout-secs 61 rejected" "$rc"
 
 out=$("$CTD" watch https://example.com -o "$TMPDIR/w1" --delay -1 2>&1); rc=$?
 assert_nonzero "watch --delay -1 rejected" "$rc"
