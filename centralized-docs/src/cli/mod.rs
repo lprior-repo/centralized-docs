@@ -309,10 +309,6 @@ pub enum Commands {
         #[arg(long, default_value = "30", value_parser = validate_timeout_secs, allow_hyphen_values = true)]
         request_timeout_secs: u64,
 
-        /// TCP connect timeout in seconds (1-60, default: 10)
-        #[arg(long, default_value = "10", value_parser = validate_connect_timeout_secs, allow_hyphen_values = true)]
-        connect_timeout_secs: u64,
-
         /// Max spider retries (0 disables spider retry)
         #[arg(long, default_value = "3", value_parser = validate_retry_count, allow_hyphen_values = true)]
         max_retries: u32,
@@ -321,7 +317,7 @@ pub enum Commands {
         #[arg(long, default_value = "loose", value_parser = parse_redirect_policy)]
         redirect_policy: RedirectPolicy,
 
-        /// Concurrency (1-128, default 4) capped for politeness
+        /// Concurrency (1-128, default: 4)
         #[arg(long, default_value = "4", value_parser = validate_concurrency_limit, allow_hyphen_values = true)]
         concurrency: usize,
 
@@ -366,5 +362,12 @@ pub enum Commands {
         /// Output structured JSON to stdout
         #[arg(long)]
         json: bool,
+    },
+
+    /// Compact the state database to reclaim disk space
+    Compact {
+        /// Path to the state database file (e.g., .cache/ctd_cache.redb)
+        #[arg(value_name = "STATE_DB_PATH")]
+        path: PathBuf,
     },
 }

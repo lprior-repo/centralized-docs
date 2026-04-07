@@ -38,6 +38,8 @@ pub enum HttpError {
     ExecutionFailed(String),
     #[error("Scrape failed: {0}")]
     ScrapeFailed(String),
+    #[error("Connect timeout after {timeout_secs}s to host '{host}'")]
+    ConnectTimeout { host: String, timeout_secs: u64 },
 }
 
 /// A validated URL ensuring semantic correctness before passing to the scraper.
@@ -282,6 +284,40 @@ fn apply_timing_and_retry_options(website: &mut spider::website::Website, config
 
     website.configuration.default_http_connect_timeout =
         Some(Duration::from_secs(config.connect_timeout_secs));
+}
+
+/// Check if the host is reachable within the connect timeout.
+///
+/// This performs a pre-check TCP connection attempt to enforce application-level
+/// connect timeout, since spider's internal HTTP client doesn't properly apply
+/// `default_http_connect_timeout` to TCP connect operations.
+pub async fn check_connectivity_with_timeout(
+    url: &ValidatedUrl,
+    connect_timeout: Duration,
+) -> Result<(), HttpError> {
+    let parsed = url::Url::parse(url.as_str())
+        .map_err(|_| HttpError::InvalidUrl(url.as_str().to_string()))?;
+
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| HttpError::InvalidUrl("No host in URL".to_string()))?;
+
+    let port = parsed.port().unwrap_or(80);
+
+    let addr = format!("{}:{}", host, port);
+
+    let connect_result =
+        tokio::time::timeout(connect_timeout, tokio::net::TcpStream::connect(&addr))
+            .await
+            .map_err(|_| HttpError::ConnectTimeout {
+                host: host.to_string(),
+                timeout_secs: connect_timeout.as_secs() as u64,
+            })?;
+
+    // Flatten: connect_result is Result<T, io::Error>, we just care if it succeeded
+    connect_result.map_err(|e| HttpError::ExecutionFailed(format!("TCP connect failed: {e}")))?;
+
+    Ok(())
 }
 
 /// Apply policy and limits configuration options.

@@ -174,6 +174,15 @@ async fn scrape_single_attempt(
 
     let valid_url_wrapper = http::ValidatedUrl::try_new(validated_url.as_str())
         .map_err(|e| anyhow::anyhow!("Invalid URL: {e}"))?;
+
+    // Pre-check connectivity with application-level connect timeout
+    // This enforces our connect_timeout_secs even when spider's internal
+    // HTTP client doesn't properly apply default_http_connect_timeout
+    let connect_timeout = std::time::Duration::from_secs(config.connect_timeout_secs);
+    http::check_connectivity_with_timeout(&valid_url_wrapper, connect_timeout)
+        .await
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+
     #[allow(unused_mut)] // I/O boundary: spider::Website requires &mut for scrape operations
     let mut website = build_website_base(&valid_url_wrapper, config)
         .map_err(|e| anyhow::anyhow!("Config error: {e}"))?;

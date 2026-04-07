@@ -1,3 +1,4 @@
+pub mod compact;
 pub mod git;
 pub mod index;
 pub mod ingest;

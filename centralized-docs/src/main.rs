@@ -204,7 +204,6 @@ async fn main() -> ExitCode {
             filter,
             delay,
             request_timeout_secs,
-            connect_timeout_secs,
             max_retries,
             redirect_policy,
             concurrency,
@@ -228,7 +227,6 @@ async fn main() -> ExitCode {
                     filter.as_deref(),
                     delay,
                     request_timeout_secs,
-                    connect_timeout_secs,
                     max_retries,
                     redirect_policy,
                     concurrency,
@@ -271,6 +269,7 @@ async fn main() -> ExitCode {
                 None,
             )
         }
+        Commands::Compact { path } => (cmd::compact::run_compact(&path), None),
     };
 
     match result {

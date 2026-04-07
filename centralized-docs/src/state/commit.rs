@@ -179,6 +179,9 @@ pub enum CommitError {
     /// A read from a redb table failed.
     #[error("read failed for table '{table}': {reason}")]
     ReadFailed { table: &'static str, reason: String },
+    /// Compaction of the state database failed.
+    #[error("compaction failed for database at {path}: {reason}")]
+    CompactFailed { path: String, reason: String },
 }
 
 // ---------------------------------------------------------------------------
@@ -674,6 +677,71 @@ impl ArchivedRaw {
 }
 
 // ---------------------------------------------------------------------------
+// Constants: Compaction threshold
+// ---------------------------------------------------------------------------
+
+/// Ratio threshold for compaction warning. If the database file is larger
+/// than `logical_size * COMPACTION_THRESHOLD_RATIO`, a warning is logged
+/// suggesting the user run `ctd compact`.
+pub const COMPACTION_THRESHOLD_RATIO: f64 = 10.0;
+
+// ---------------------------------------------------------------------------
+// Pure Calculation: compaction threshold check
+// ---------------------------------------------------------------------------
+
+/// Returns `true` when the file size exceeds the logical data size by the
+/// configured ratio, indicating significant garbage from deletes/updates.
+///
+/// # Pure function
+///
+/// No side effects. Deterministic for all inputs.
+#[must_use]
+pub fn should_suggest_compaction(file_size: u64, logical_data_size: u64) -> bool {
+    if logical_data_size == 0 || file_size == 0 {
+        return false;
+    }
+    let ratio = f64::from(u32::try_from(file_size).unwrap_or(u32::MAX))
+        / f64::from(u32::try_from(logical_data_size).unwrap_or(u32::MAX));
+    ratio > COMPACTION_THRESHOLD_RATIO
+}
+
+// ---------------------------------------------------------------------------
+// Action: compact_state_db — exclusive compaction of an on-disk database
+// ---------------------------------------------------------------------------
+
+/// Compact an on-disk redb state database, reclaiming space from deleted
+/// and updated entries.
+///
+/// Opens the database exclusively at `path`, calls [`Database::compact`],
+/// then drops the handle. This avoids the `&mut self` issue on [`StateDb`]
+/// (which wraps `Database` behind `&self` methods).
+///
+/// Returns `Ok(true)` if compaction was performed, `Ok(false)` if no
+/// further compaction was possible (database already compact).
+///
+/// # Errors
+///
+/// - [`CommitError::CompactFailed`] if the database cannot be opened or
+///   compaction fails (e.g., live transactions, savepoints).
+pub fn compact_state_db(path: &Path) -> Result<bool, CommitError> {
+    let mut builder = redb::Builder::new();
+    builder.set_cache_size(DEFAULT_CACHE_SIZE);
+
+    let mut db = builder
+        .open(path)
+        .or_else(|_| builder.create(path))
+        .map_err(|e| CommitError::CompactFailed {
+            path: path.display().to_string(),
+            reason: format!("failed to open database: {e}"),
+        })?;
+
+    db.compact().map_err(|e| CommitError::CompactFailed {
+        path: path.display().to_string(),
+        reason: e.to_string(),
+    })
+}
+
+// ---------------------------------------------------------------------------
 // StateDbBuilder — builder pattern for StateDb construction
 // ---------------------------------------------------------------------------
 
@@ -760,6 +828,7 @@ impl StateDbBuilder {
             db,
             active_read_sessions: std::sync::atomic::AtomicUsize::new(0),
             durability_config: self.durability,
+            db_path: Some(path.to_path_buf()),
         })
     }
 
@@ -792,6 +861,7 @@ impl StateDbBuilder {
             db,
             active_read_sessions: std::sync::atomic::AtomicUsize::new(0),
             durability_config: self.durability,
+            db_path: None,
         })
     }
 }
@@ -819,6 +889,78 @@ fn create_parent_dirs(path: &Path) -> Result<(), CommitError> {
     Ok(())
 }
 
+/// Check if the database file has significant overhead relative to its
+/// logical content, and log a warning suggesting `ctd compact` if so.
+///
+/// This is an I/O action (reads file metadata + iterates table stats).
+/// It silently ignores errors — compaction suggestion is advisory, not critical.
+fn log_compaction_suggestion(db: &Database, db_path: Option<&Path>) {
+    let path_str = db_path.map_or_else(|| "<in-memory>".to_string(), |p| p.display().to_string());
+
+    // In-memory databases don't need compaction
+    let file_size = match db_path.and_then(|p| std::fs::metadata(p).ok()) {
+        Some(meta) => meta.len(),
+        None => return,
+    };
+
+    let read_tx = match db.begin_read() {
+        Ok(tx) => tx,
+        Err(_) => return,
+    };
+
+    let tables: &[TableDefinition<&[u8], &[u8]>] = &[
+        analysis_outputs_table(),
+        transform_outputs_table(),
+        chunk_outputs_table(),
+        scrape_outputs_table(),
+        snapshots_table(),
+    ];
+
+    let hash_payload_size: u64 = tables
+        .iter()
+        .filter_map(|def| read_tx.open_table(*def).ok())
+        .map(|table| {
+            table
+                .iter()
+                .map(|iter| {
+                    iter.filter_map(|res| res.ok())
+                        .map(|(_, v)| u64::try_from(v.value().len()).unwrap_or(0))
+                        .sum::<u64>()
+                })
+                .unwrap_or(0)
+        })
+        .sum();
+
+    let state_tables: &[TableDefinition<&str, &[u8]>] = &[file_state_table(), url_state_table()];
+
+    let state_payload_size: u64 = state_tables
+        .iter()
+        .filter_map(|def| read_tx.open_table(*def).ok())
+        .map(|table| {
+            table
+                .iter()
+                .map(|iter| {
+                    iter.filter_map(|res| res.ok())
+                        .map(|(_, v)| u64::try_from(v.value().len()).unwrap_or(0))
+                        .sum::<u64>()
+                })
+                .unwrap_or(0)
+        })
+        .sum();
+
+    let logical_size = hash_payload_size.saturating_add(state_payload_size);
+
+    if should_suggest_compaction(file_size, logical_size) {
+        tracing::warn!(
+            file_size_mb = file_size / (1024 * 1024),
+            logical_size_kb = logical_size / 1024,
+            db_path = %path_str,
+            "State database has high overhead. Consider running `ctd compact {}` to reclaim space.",
+            path_str
+        );
+    }
+}
+
 // ---------------------------------------------------------------------------
 // StateDb — newtype wrapper over redb::Database
 // ---------------------------------------------------------------------------
@@ -841,6 +983,8 @@ pub struct StateDb {
     active_read_sessions: std::sync::atomic::AtomicUsize,
     /// Durability configuration applied to every write transaction.
     durability_config: DurabilityConfig,
+    /// Path to the on-disk database file. `None` for in-memory databases.
+    db_path: Option<std::path::PathBuf>,
 }
 
 impl std::fmt::Debug for StateDb {
@@ -854,6 +998,7 @@ impl std::fmt::Debug for StateDb {
                     .load(std::sync::atomic::Ordering::Relaxed),
             )
             .field("durability_config", &self.durability_config)
+            .field("db_path", &self.db_path)
             .finish()
     }
 }
@@ -981,6 +1126,9 @@ impl StateDb {
             reason: e.to_string(),
         })?;
 
+        // Phase 5: Post-commit compaction suggestion check
+        log_compaction_suggestion(&self.db, self.db_path.as_deref());
+
         Ok(())
     }
 
@@ -989,6 +1137,12 @@ impl StateDb {
     #[must_use]
     pub fn database(&self) -> &Database {
         &self.db
+    }
+
+    /// Returns the on-disk path of the database, or `None` for in-memory databases.
+    #[must_use]
+    pub fn db_path(&self) -> Option<&Path> {
+        self.db_path.as_deref()
     }
 
     /// Drop the snapshots table.
@@ -3899,5 +4053,184 @@ mod tests {
         let db = state_db.database();
         let stored = read_hash_table(db, analysis_outputs_table(), &hash_key);
         assert_eq!(stored, Some(payload));
+    }
+
+    // =======================================================================
+    // Compact: compact_state_db on empty db returns false
+    // =======================================================================
+
+    #[test]
+    fn test_compact_on_empty_db_returns_false() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("compact_empty.redb");
+
+        // Create and initialize the database
+        {
+            StateDb::open(&db_path).expect("open should succeed");
+        }
+
+        let result = compact_state_db(&db_path).expect("compact should succeed");
+        assert!(
+            !result,
+            "compact on empty database should return false (no further compaction possible)"
+        );
+    }
+
+    // =======================================================================
+    // Compact: compact on fresh db is no-op
+    // =======================================================================
+
+    #[test]
+    fn test_compact_on_fresh_db_is_noop() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("compact_fresh.redb");
+
+        // Create, initialize, write one entry
+        {
+            let state_db = StateDb::open(&db_path).expect("open should succeed");
+            let mut changes = StateChanges::empty();
+            changes.new_analyses = vec![([1u8; 32], vec![10, 20, 30])];
+            state_db
+                .commit_changes(changes)
+                .expect("commit should succeed");
+        }
+
+        // Compact on a fresh DB with no deletes should report no compaction possible
+        let result = compact_state_db(&db_path).expect("compact should succeed");
+        assert!(
+            !result,
+            "compact on fresh database with no deletes should return false"
+        );
+    }
+
+    // =======================================================================
+    // Compact: compact after deletes reduces file size
+    // =======================================================================
+
+    #[test]
+    fn test_compact_after_deletes_reduces_size() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("compact_delete.redb");
+
+        // Phase 1: Insert a large amount of data
+        {
+            let state_db = StateDb::open(&db_path).expect("open should succeed");
+            let mut changes = StateChanges::empty();
+
+            // Insert 200 entries with 4KB payloads each (~800KB logical data)
+            for i in 0..200u8 {
+                let mut hash = [0u8; 32];
+                hash[0] = i.saturating_add(1); // avoid zero hash
+                changes.new_analyses.push((hash, vec![i; 4096]));
+            }
+            state_db
+                .commit_changes(changes)
+                .expect("insert commit should succeed");
+        }
+
+        let size_after_insert = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+
+        // Phase 2: Delete half the entries
+        {
+            let state_db = StateDb::open(&db_path).expect("open should succeed");
+            let mut changes = StateChanges::empty();
+
+            for i in 0..200u8 {
+                let mut hash = [0u8; 32];
+                hash[0] = i.saturating_add(1);
+                let key = format!("file_{i}.rs");
+                changes.deleted_files.push(key);
+            }
+            state_db
+                .commit_changes(changes)
+                .expect("delete commit should succeed");
+        }
+
+        // Phase 3: Compact
+        let result = compact_state_db(&db_path).expect("compact should succeed");
+        assert!(result, "compact should return true after deletes");
+
+        let size_after_compact = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+
+        // The compacted file should be smaller than the file after insert
+        assert!(
+            size_after_compact < size_after_insert,
+            "compacted size ({size_after_compact}) should be less than insert size ({size_after_insert})"
+        );
+    }
+
+    // =======================================================================
+    // Compact: should_suggest_compaction pure function
+    // =======================================================================
+
+    #[test]
+    fn should_suggest_compaction_returns_true_when_ratio_exceeded() {
+        // 100KB file, 1KB logical = 100x overhead
+        assert!(should_suggest_compaction(100_000, 1_000));
+    }
+
+    #[test]
+    fn should_suggest_compaction_returns_false_when_ratio_ok() {
+        // 5KB file, 1KB logical = 5x overhead (below threshold of 10)
+        assert!(!should_suggest_compaction(5_000, 1_000));
+    }
+
+    #[test]
+    fn should_suggest_compaction_returns_false_for_zero_sizes() {
+        assert!(!should_suggest_compaction(0, 1_000));
+        assert!(!should_suggest_compaction(1_000, 0));
+        assert!(!should_suggest_compaction(0, 0));
+    }
+
+    // =======================================================================
+    // Compact: CompactFailed error variant display
+    // =======================================================================
+
+    #[test]
+    fn commit_error_compact_failed_display_contains_path_and_reason() {
+        let err = CommitError::CompactFailed {
+            path: "/tmp/state.redb".to_string(),
+            reason: "transaction in progress".to_string(),
+        };
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("compaction failed"),
+            "CompactFailed display should mention compaction: {msg}"
+        );
+        assert!(
+            msg.contains("/tmp/state.redb"),
+            "CompactFailed display should contain path: {msg}"
+        );
+        assert!(
+            msg.contains("transaction in progress"),
+            "CompactFailed display should contain reason: {msg}"
+        );
+    }
+
+    // =======================================================================
+    // Compact: db_path() accessor returns correct path
+    // =======================================================================
+
+    #[test]
+    fn state_db_db_path_returns_path_for_on_disk_database() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("path_test.redb");
+
+        let state_db = StateDb::open(&db_path).expect("open should succeed");
+        let returned = state_db.db_path();
+        assert_eq!(
+            returned,
+            Some(db_path.as_path()),
+            "db_path() should return the on-disk path"
+        );
+    }
+
+    #[test]
+    fn state_db_db_path_returns_none_for_in_memory_database() {
+        let state_db = StateDb::open_in_memory().expect("in-memory open should succeed");
+        assert!(
+            state_db.db_path().is_none(),
+            "db_path() should return None for in-memory databases"
+        );
     }
 }
