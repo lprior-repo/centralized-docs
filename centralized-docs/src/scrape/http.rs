@@ -58,6 +58,11 @@ impl ValidatedUrl {
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
+
+    /// Return the parsed URL for direct access (avoids re-parsing).
+    pub(crate) fn inner(&self) -> &Url {
+        &self.0
+    }
 }
 
 /// A limit guaranteed to be representable precisely as an f64.
@@ -295,8 +300,7 @@ pub async fn check_connectivity_with_timeout(
     url: &ValidatedUrl,
     connect_timeout: Duration,
 ) -> Result<(), HttpError> {
-    let parsed = url::Url::parse(url.as_str())
-        .map_err(|_| HttpError::InvalidUrl(url.as_str().to_string()))?;
+    let parsed = url.inner();
 
     let host = parsed
         .host_str()
@@ -306,7 +310,7 @@ pub async fn check_connectivity_with_timeout(
         .port()
         .unwrap_or_else(|| if parsed.scheme() == "https" { 443 } else { 80 });
 
-    let addr = format!("{}:{}", host, port);
+    let addr = format!("{host}:{port}");
 
     let connect_result =
         tokio::time::timeout(connect_timeout, tokio::net::TcpStream::connect(&addr))
@@ -321,6 +325,9 @@ pub async fn check_connectivity_with_timeout(
 
     Ok(())
 }
+
+/// Maximum pages to crawl per site. 10,000 balances completeness vs. resource usage.
+const DEFAULT_CRAWL_DEPTH_LIMIT: usize = 10_000;
 
 /// Apply policy and limits configuration options.
 fn apply_policy_and_limits(
@@ -344,7 +351,7 @@ fn apply_policy_and_limits(
     website.configuration.with_limit(page_limit);
 
     website.configuration.normalize = true;
-    website.configuration.depth = 10000; // Large depth
+    website.configuration.depth = DEFAULT_CRAWL_DEPTH_LIMIT;
 
     Ok(())
 }

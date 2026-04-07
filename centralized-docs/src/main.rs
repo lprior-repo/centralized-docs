@@ -210,32 +210,26 @@ async fn main() -> ExitCode {
             concurrency,
             json,
         } => {
-            let fmt = if json {
-                cmd::watch::OutputFormat::Json
-            } else {
-                cmd::watch::OutputFormat::Markdown
-            };
-            let sitemap_strategy = if no_sitemap {
-                scrape::SitemapStrategy::CrawlOnly
-            } else {
-                scrape::SitemapStrategy::UseSitemap
+            let config = cmd::watch::WatchConfig {
+                delay,
+                request_timeout_secs,
+                connect_timeout_secs,
+                max_retries,
+                redirect_policy,
+                concurrency,
+                output_format: if json {
+                    cmd::watch::OutputFormat::Json
+                } else {
+                    cmd::watch::OutputFormat::Markdown
+                },
+                sitemap_strategy: if no_sitemap {
+                    scrape::SitemapStrategy::CrawlOnly
+                } else {
+                    scrape::SitemapStrategy::UseSitemap
+                },
             };
             (
-                cmd::watch::run_watch(
-                    &url,
-                    &output,
-                    &cache,
-                    filter.as_deref(),
-                    delay,
-                    request_timeout_secs,
-                    connect_timeout_secs,
-                    max_retries,
-                    redirect_policy,
-                    concurrency,
-                    fmt,
-                    sitemap_strategy,
-                )
-                .await,
+                cmd::watch::run_watch(&url, &output, &cache, filter.as_deref(), &config).await,
                 None,
             )
         }

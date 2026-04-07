@@ -18,6 +18,19 @@ use crate::watch::{
     write_plan_reports, ChangePlan, Snapshot,
 };
 
+/// Configuration for the watch command, grouping network and scrape parameters.
+#[derive(Debug, Clone)]
+pub struct WatchConfig {
+    pub delay: u64,
+    pub request_timeout_secs: u64,
+    pub connect_timeout_secs: u64,
+    pub max_retries: u32,
+    pub redirect_policy: spider::configuration::RedirectPolicy,
+    pub concurrency: usize,
+    pub output_format: OutputFormat,
+    pub sitemap_strategy: SitemapStrategy,
+}
+
 /// Output format for plan display.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputFormat {
@@ -43,30 +56,13 @@ pub async fn run_watch(
     output: &Path,
     cache_path: &Path,
     filter: Option<&str>,
-    delay: u64,
-    request_timeout_secs: u64,
-    connect_timeout_secs: u64,
-    max_retries: u32,
-    redirect_policy: spider::configuration::RedirectPolicy,
-    concurrency: usize,
-    output_format: OutputFormat,
-    sitemap_strategy: SitemapStrategy,
+    config: &WatchConfig,
 ) -> Result<()> {
     let state_db = open_state_db(cache_path)?;
     let previous = load_snapshot(&state_db, url)?;
     print_watch_header(url, &previous);
 
-    let scrape_config = build_scrape_config(
-        url,
-        filter,
-        delay,
-        request_timeout_secs,
-        connect_timeout_secs,
-        max_retries,
-        redirect_policy,
-        concurrency,
-        sitemap_strategy,
-    );
+    let scrape_config = build_scrape_config(url, filter, config);
     let scrape_result = execute_scrape(&scrape_config).await?;
 
     // Check if domain was reachable BEFORE computing plan
@@ -79,7 +75,7 @@ pub async fn run_watch(
     let plan = compute_plan(url, &previous, &scrape_result);
 
     write_plan_reports(&plan, output)?;
-    emit_plan(&plan, output_format);
+    emit_plan(&plan, config.output_format);
     print_watch_footer(output, &plan);
 
     Ok(())
@@ -266,28 +262,22 @@ fn print_apply_summary(url: &str, plan: &ChangePlan) {
 fn build_scrape_config(
     url: &str,
     filter: Option<&str>,
-    delay: u64,
-    request_timeout_secs: u64,
-    connect_timeout_secs: u64,
-    max_retries: u32,
-    redirect_policy: spider::configuration::RedirectPolicy,
-    concurrency: usize,
-    sitemap_strategy: SitemapStrategy,
+    config: &WatchConfig,
 ) -> crate::scrape::ScrapeConfig {
     crate::scrape::ScrapeConfig {
         base_url: url.to_string(),
-        sitemap_strategy,
+        sitemap_strategy: config.sitemap_strategy.clone(),
         path_filter: filter.map(String::from),
-        delay_ms: delay,
+        delay_ms: config.delay,
         max_page_size_bytes: DEFAULT_MAX_PAGE_SIZE_BYTES,
         max_total_size_bytes: DEFAULT_MAX_TOTAL_SIZE_BYTES,
         spider_max_page_bytes: None,
         spider_max_total_bytes: None,
-        request_timeout_secs,
-        connect_timeout_secs,
-        max_retries,
-        redirect_policy,
-        concurrency_limit: concurrency,
+        request_timeout_secs: config.request_timeout_secs,
+        connect_timeout_secs: config.connect_timeout_secs,
+        max_retries: config.max_retries,
+        redirect_policy: config.redirect_policy.clone(),
+        concurrency_limit: config.concurrency,
         ..Default::default()
     }
 }
