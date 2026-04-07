@@ -309,6 +309,10 @@ pub enum Commands {
         #[arg(long, default_value = "30", value_parser = validate_timeout_secs, allow_hyphen_values = true)]
         request_timeout_secs: u64,
 
+        /// TCP connect timeout in seconds (1-60, default: 10)
+        #[arg(long, default_value = "10", value_parser = validate_connect_timeout_secs, allow_hyphen_values = true)]
+        connect_timeout_secs: u64,
+
         /// Max spider retries (0 disables spider retry)
         #[arg(long, default_value = "3", value_parser = validate_retry_count, allow_hyphen_values = true)]
         max_retries: u32,
