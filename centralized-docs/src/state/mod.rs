@@ -1,9 +1,10 @@
 //! State database table definitions and Pod types for raw state storage.
 //!
-//! Defines all 8 redb table definitions for the state database schema:
+//! Defines all 9 redb table definitions for the state database schema:
 //! - **Pod state tables**: `file_state`, `url_state` (fixed-size values, `&str` keys)
 //! - **rkyv output tables**: `analysis_outputs`, `transform_outputs`, `chunk_outputs`,
 //!   `scrape_outputs`, `snapshots` (variable-size values, `&[u8]` hash keys)
+//! - **Multimap table**: `source_path_chunks` (`source_path -> [chunk_hash]`, one-to-many)
 //! - **Metadata table**: `metadata` (`&str` keys, `&str` values)
 //!
 //! # Pod Structs
@@ -15,7 +16,7 @@
 //!
 //! # Table Definitions
 //!
-//! All 8 tables are declared as `const` [`redb::TableDefinition`] values. Accessor functions
+//! All 9 tables are declared as `const` [`redb::TableDefinition`]/[`redb::MultimapTableDefinition`] values. Accessor functions
 //! (`file_state_table()`, etc.) return these constants. [`initialize_tables`] creates all
 //! tables in a single write transaction.
 
@@ -27,7 +28,7 @@
 
 pub mod bulk_load;
 
-use redb::{Database, TableDefinition};
+use redb::{Database, MultimapTableDefinition, TableDefinition};
 use std::mem::size_of;
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,8 @@ pub const TABLE_NAME_SCRAPE_OUTPUTS: &str = "scrape_outputs";
 pub const TABLE_NAME_SNAPSHOTS: &str = "snapshots";
 /// Table name: `"metadata"`.
 pub const TABLE_NAME_METADATA: &str = "metadata";
+/// Table name: `"source_path_chunks"`.
+pub const TABLE_NAME_SOURCE_PATH_CHUNKS: &str = "source_path_chunks";
 
 // ---------------------------------------------------------------------------
 // Pod type: FileStateRaw (200 bytes)
@@ -541,6 +544,11 @@ const SNAPSHOTS_TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new(TABL
 /// Metadata table: well-known string key -> string value.
 const METADATA_TABLE: TableDefinition<&str, &str> = TableDefinition::new(TABLE_NAME_METADATA);
 
+/// Multimap table: source file path -> 32-byte chunk hash (one-to-many).
+/// Enables O(1) deletion of all chunks belonging to a file without scanning.
+const SOURCE_PATH_CHUNKS_TABLE: MultimapTableDefinition<&str, &[u8]> =
+    MultimapTableDefinition::new(TABLE_NAME_SOURCE_PATH_CHUNKS);
+
 // ---------------------------------------------------------------------------
 // Table accessor functions
 // ---------------------------------------------------------------------------
@@ -595,15 +603,25 @@ pub const fn metadata_table() -> TableDefinition<'static, &'static str, &'static
     METADATA_TABLE
 }
 
+/// Returns the `SOURCE_PATH_CHUNKS_TABLE` multimap definition.
+///
+/// Maps `source_path -> [chunk_hash]` for O(1) chunk deletion when a file is deleted.
+/// Used by `commit_changes` to maintain the reverse index and clean up orphaned chunks.
+#[must_use]
+pub const fn source_path_chunks_table(
+) -> MultimapTableDefinition<'static, &'static str, &'static [u8]> {
+    SOURCE_PATH_CHUNKS_TABLE
+}
+
 // ---------------------------------------------------------------------------
 // Database initialization
 // ---------------------------------------------------------------------------
 
-/// Create all 8 tables in a single write transaction.
+/// Create all 9 tables in a single write transaction.
 ///
 /// Called once during `StateDb::open()` on a new database. Idempotent: redb's
-/// `open_table` on a `WriteTransaction` creates the table if absent, succeeds
-/// silently if present.
+/// `open_table`/`open_multimap_table` on a `WriteTransaction` creates the table
+/// if absent, succeeds silently if present.
 ///
 /// # Errors
 ///
@@ -666,6 +684,12 @@ pub fn initialize_tables(db: &Database) -> Result<(), StateError> {
             .open_table(METADATA_TABLE)
             .map_err(|e| StateError::TableOpenFailed {
                 table: TABLE_NAME_METADATA,
+                message: e.to_string(),
+            })?;
+        let _ = write_tx
+            .open_multimap_table(SOURCE_PATH_CHUNKS_TABLE)
+            .map_err(|e| StateError::TableOpenFailed {
+                table: TABLE_NAME_SOURCE_PATH_CHUNKS,
                 message: e.to_string(),
             })?;
     }
@@ -793,7 +817,7 @@ pub fn serialize_snapshot(snapshot: &crate::watch::Snapshot) -> Result<Vec<u8>, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use redb::{ReadableTableMetadata, TableHandle};
+    use redb::{MultimapTableHandle, ReadableMultimapTable, ReadableTableMetadata, TableHandle};
     use tempfile::TempDir;
 
     // =======================================================================
@@ -933,6 +957,7 @@ mod tests {
         let t6 = scrape_outputs_table();
         let t7 = snapshots_table();
         let t8 = metadata_table();
+        let t9 = source_path_chunks_table();
 
         let names: HashSet<&str> = [
             t1.name(),
@@ -943,11 +968,12 @@ mod tests {
             t6.name(),
             t7.name(),
             t8.name(),
+            t9.name(),
         ]
         .into_iter()
         .collect();
 
-        assert_eq!(names.len(), 8, "expected exactly 8 unique table names");
+        assert_eq!(names.len(), 9, "expected exactly 9 unique table names");
     }
 
     // =======================================================================
@@ -964,6 +990,7 @@ mod tests {
         assert_eq!(scrape_outputs_table().name(), "scrape_outputs");
         assert_eq!(snapshots_table().name(), "snapshots");
         assert_eq!(metadata_table().name(), "metadata");
+        assert_eq!(source_path_chunks_table().name(), "source_path_chunks");
     }
 
     // =======================================================================
@@ -1066,7 +1093,7 @@ mod tests {
     }
 
     // =======================================================================
-    // B24: initialize_tables creates all 8 tables on fresh database
+    // B24: initialize_tables creates all 9 tables on fresh database
     // =======================================================================
 
     #[test]
@@ -1086,6 +1113,9 @@ mod tests {
         read_tx.open_table(scrape_outputs_table()).unwrap();
         read_tx.open_table(snapshots_table()).unwrap();
         read_tx.open_table(metadata_table()).unwrap();
+        read_tx
+            .open_multimap_table(source_path_chunks_table())
+            .unwrap();
     }
 
     // =======================================================================
@@ -1127,7 +1157,7 @@ mod tests {
     }
 
     // =======================================================================
-    // B28: All 8 tables survive database reopen
+    // B28: All 9 tables survive database reopen
     // =======================================================================
 
     #[test]
@@ -1181,6 +1211,16 @@ mod tests {
             meta_table.len().unwrap(),
             0,
             "metadata table should be empty"
+        );
+
+        // Multimap table (&str keys, &[u8] values)
+        let multimap_table = read_tx
+            .open_multimap_table(source_path_chunks_table())
+            .unwrap();
+        assert_eq!(
+            multimap_table.len().unwrap(),
+            0,
+            "source_path_chunks table should be empty"
         );
     }
 

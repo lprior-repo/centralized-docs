@@ -302,7 +302,9 @@ pub async fn check_connectivity_with_timeout(
         .host_str()
         .ok_or_else(|| HttpError::InvalidUrl("No host in URL".to_string()))?;
 
-    let port = parsed.port().unwrap_or(80);
+    let port = parsed
+        .port()
+        .unwrap_or_else(|| if parsed.scheme() == "https" { 443 } else { 80 });
 
     let addr = format!("{}:{}", host, port);
 
