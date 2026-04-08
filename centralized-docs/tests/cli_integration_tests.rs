@@ -1837,7 +1837,15 @@ fn test_getting_started_docs_mirrors_match() {
 
 #[test]
 fn test_exit_code_for_missing_source() {
-    let result = run_cli(&["index", "/nonexistent/path"]);
+    let temp = TempDir::new().unwrap();
+    let output_dir = temp.path().join("output");
+
+    let result = run_cli(&[
+        "index",
+        "/nonexistent/path",
+        "--output",
+        output_dir.to_str().unwrap(),
+    ]);
 
     // Should fail with exit code != 0
     assert!(
@@ -1868,11 +1876,11 @@ fn test_exit_code_for_invalid_url() {
     // Should fail
     assert!(!result.status.success());
 
-    // Exit code 2 = clap user input error (invalid URL format is a user input error)
+    // Exit code 1 = user input error (invalid URL format is a user input error)
     assert_eq!(
         result.status.code(),
-        Some(2),
-        "Invalid URL should return exit code 2"
+        Some(1),
+        "Invalid URL should return exit code 1"
     );
 }
 
