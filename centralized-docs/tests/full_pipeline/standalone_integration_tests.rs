@@ -417,6 +417,7 @@ fn generate_large_doc(word_count: usize) -> String {
 // =============================================================================
 
 #[test]
+#[ignore = "documentation-only test with no assertions"]
 fn test_coverage_documentation() {
     println!("\n");
     println!("╔════════════════════════════════════════════════════════════════════════╗");

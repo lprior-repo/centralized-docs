@@ -59,7 +59,7 @@ fn test_builder_cache() {
             assert!(config.cache.is_some());
             assert!(config.cache.as_ref().is_some_and(|c| c.enabled));
         })
-        .ok();
+        .unwrap();
 }
 
 #[cfg(feature = "enhanced")]
@@ -72,7 +72,7 @@ fn test_builder_filtering() {
             assert!(config.filtering.is_some());
             assert!(!config.filtering.as_ref().is_none_or(|f| f.allow.is_empty()));
         })
-        .ok();
+        .unwrap();
 }
 
 #[test]
@@ -89,7 +89,7 @@ fn test_cache_config_enabled_with_ttl() {
             assert!(config.enabled);
             assert_eq!(config.ttl.seconds(), 600);
         })
-        .ok();
+        .unwrap();
 }
 
 #[test]
@@ -107,7 +107,7 @@ fn test_filtering_config_with_allow() {
             assert!(!config.allow.is_empty());
             assert_eq!(config.allow.len(), 1);
         })
-        .ok();
+        .unwrap();
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn test_filtering_config_with_deny() {
             assert!(!config.deny.is_empty());
             assert_eq!(config.deny.len(), 1);
         })
-        .ok();
+        .unwrap();
 }
 
 #[cfg(feature = "javascript")]
@@ -130,7 +130,7 @@ fn test_javascript_config_smart() {
             assert_eq!(config.mode, RenderMode::Smart);
             assert_eq!(config.timeout.millis(), 30000);
         })
-        .ok();
+        .unwrap();
 }
 
 #[cfg(feature = "javascript")]
@@ -141,7 +141,7 @@ fn test_javascript_config_never() {
             assert_eq!(config.mode, RenderMode::Never);
             assert_eq!(config.timeout.millis(), 1000);
         })
-        .ok();
+        .unwrap();
 }
 
 #[cfg(feature = "javascript")]
@@ -155,7 +155,7 @@ fn test_javascript_config_with_timeout() {
             };
             assert_eq!(config.timeout.millis(), 5000);
         })
-        .ok();
+        .unwrap();
 }
 
 #[cfg(feature = "anti-detection")]
@@ -195,7 +195,7 @@ fn test_feature_config_with_cache() {
             assert!(!config.is_empty());
             assert!(config.cache.is_some());
         })
-        .ok();
+        .unwrap();
 }
 
 #[cfg(feature = "enhanced")]
@@ -216,27 +216,19 @@ fn test_feature_config_with_javascript() {
             assert!(!config.is_empty());
             assert!(config.javascript.is_some());
         })
-        .ok();
+        .unwrap();
 }
 
-#[cfg(feature = "anti-detection")]
+#[cfg(feature = "javascript")]
 #[test]
-fn test_feature_config_with_anti_detection() {
-    let ad_config = AntiDetectionConfig::full_stealth();
-    let config = FeatureConfig::new().with_anti_detection(ad_config);
-    assert!(!config.is_empty());
-    assert!(config.anti_detection.is_some());
-}
-
-#[cfg(feature = "enhanced")]
-#[test]
-fn test_cache_ttl_enhanced() {
-    CacheTtl::new(120)
-        .map(|ttl| {
-            let duration = ttl.as_duration();
-            assert_eq!(duration.as_secs(), 120);
+fn test_feature_config_with_javascript() {
+    JavascriptConfig::smart()
+        .map(|js_config| {
+            let config = FeatureConfig::new().with_javascript(js_config);
+            assert!(!config.is_empty());
+            assert!(config.javascript.is_some());
         })
-        .ok();
+        .unwrap();
 }
 
 #[test]
@@ -251,7 +243,16 @@ fn test_regex_pattern_as_str() {
         .map(|pattern| {
             assert_eq!(pattern.as_str(), r"\d+");
         })
-        .ok();
+        .unwrap();
+}
+
+#[test]
+fn test_regex_pattern_as_str() {
+    RegexPattern::new(r"\d+".to_string())
+        .map(|pattern| {
+            assert_eq!(pattern.as_str(), r"\d+");
+        })
+        .unwrap();
 }
 
 #[test]
@@ -260,5 +261,5 @@ fn test_glob_pattern_as_str() {
         .map(|pattern| {
             assert_eq!(pattern.as_str(), "/docs/*");
         })
-        .ok();
+        .unwrap();
 }

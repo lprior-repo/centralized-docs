@@ -71,6 +71,11 @@ fn test_memory_pressure_small_corpus() {
             "Memory per chunk: {:.2} KB",
             delta_kb as f64 / result.chunks.len() as f64
         );
+        assert!(
+            delta_kb < 500_000,
+            "Memory should not exceed 500MB for this workload, got {}KB",
+            delta_kb
+        );
     }
 
     assert!(!result.chunks.is_empty(), "Should produce chunks");
@@ -103,6 +108,11 @@ fn test_memory_pressure_medium_corpus() {
             "Memory per chunk: {:.2} KB",
             delta_kb as f64 / result.chunks.len() as f64
         );
+        assert!(
+            delta_kb < 500_000,
+            "Memory should not exceed 500MB for this workload, got {}KB",
+            delta_kb
+        );
     }
 
     assert!(!result.chunks.is_empty(), "Should produce chunks");
@@ -134,6 +144,11 @@ fn test_memory_pressure_large_corpus() {
         println!(
             "Memory per chunk: {:.2} KB",
             delta_kb as f64 / result.chunks.len() as f64
+        );
+        assert!(
+            delta_kb < 500_000,
+            "Memory should not exceed 500MB for this workload, got {}KB",
+            delta_kb
         );
     }
 

@@ -487,8 +487,14 @@ async fn blackhole_ip_5s_timeout_fails_within_5_seconds() {
     };
 
     let start = Instant::now();
-    let _result = doc_transformer::scrape::scrape_site(&config).await;
+    let result = doc_transformer::scrape::scrape_site(&config).await;
     let elapsed = start.elapsed();
+
+    assert!(
+        result.is_err(),
+        "Scrape to blackhole IP should fail, got: {:?}",
+        result
+    );
 
     // Should fail in ~5s, not ~40s
     assert!(

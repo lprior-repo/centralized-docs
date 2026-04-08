@@ -30,10 +30,17 @@ fn no_lru_imports_remain_in_cache_module() {
     // The real compile-time enforcement is: `cargo build 2>&1 | grep -i lru`
     // must return empty. We test the behavioral consequence here.
     let cache = DocCache::open(CacheConfig::in_memory()).expect("in-memory open should succeed");
-    // After migration, in-memory cache should use redb InMemoryBackend.
-    // LRU would have a 10_000 capacity limit; redb does not.
-    // We prove this by writing 10_001 entries and checking the first survives.
-    drop(cache);
+    cache
+        .put_document(b"lru_probe", &"lru_value".to_string())
+        .expect("put should succeed");
+    let result: Option<String> = cache
+        .get_document(b"lru_probe")
+        .expect("get should succeed");
+    assert_eq!(
+        result,
+        Some("lru_value".to_string()),
+        "in-memory cache must support put/get roundtrip"
+    );
 }
 
 // ---------------------------------------------------------------------------

@@ -50,7 +50,8 @@ fn proptest_duplicate_detection_order_independent() {
         let has_dupes = keys.len() != keys.iter().collect::<HashSet<_>>().len();
         let result = validate_no_duplicate_keys(&changes);
         if has_dupes {
-            assert!(matches!(result, Err(CommitError::DuplicateStateKey { .. })));
+            let is_dup_key = matches!(result, Err(CommitError::DuplicateStateKey { .. }));
+            prop_assert!(is_dup_key);
         } else {
             prop_assert!(result.is_ok());
         }
@@ -76,7 +77,8 @@ fn proptest_reference_integrity_complete() {
         )];
         let result = validate_reference_integrity(&changes);
         if omit_analysis {
-            assert!(matches!(result, Err(CommitError::MissingReference { field: "analysis_hash", .. })));
+            let is_missing_ref = matches!(result, Err(CommitError::MissingReference { field: "analysis_hash", .. }));
+            prop_assert!(is_missing_ref);
         } else {
             prop_assert!(result.is_ok());
         }
@@ -99,7 +101,8 @@ fn proptest_atomicity_mixed_batches() {
         let mut invalid = StateChanges::empty();
         invalid.new_analyses = vec![([0u8; 32], vec![99])];
         let err = state_db.commit_changes(invalid);
-        assert!(matches!(err, Err(CommitError::ZeroHashKey { .. })));
+        let is_zero_hash = matches!(err, Err(CommitError::ZeroHashKey { .. }));
+        prop_assert!(is_zero_hash);
         let db = state_db.database();
         let stored = read_hash_table(db, analysis_outputs_table(), &valid_hash);
         prop_assert_eq!(stored, Some(valid_bytes));

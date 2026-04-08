@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_truncate_summary_nbsp() {
         // Test non-breaking space (1 byte)
-        let summary = "Hello&nbsp;world";
+        let summary = "Hello\u{00A0}world";
         let truncated = llms::truncate_summary(summary, 6);
         assert_eq!(truncated.len(), 6);
     }

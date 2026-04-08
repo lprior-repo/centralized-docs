@@ -801,6 +801,7 @@ Content here.
 
 /// Document the test coverage for integration tests
 #[test]
+#[ignore = "documentation-only test with no assertions"]
 fn test_coverage_summary() {
     println!("\n{}", "=".repeat(70));
     println!("INTEGRATION TEST COVERAGE SUMMARY");

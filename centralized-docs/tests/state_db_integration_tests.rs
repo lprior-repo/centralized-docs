@@ -1,3 +1,4 @@
+// DEPRECATED: This entire file tests an abandoned API design.
 #![allow(clippy::pedantic)]
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]

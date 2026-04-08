@@ -313,10 +313,7 @@ fn integration_state_changes_structure_is_correct_for_commit() {
 
     // Every FileStateRaw has valid fields
     for (path, state) in &changes.updated_files {
-        assert!(
-            !path.is_empty() || path.is_empty(),
-            "path is a valid string"
-        );
+        assert!(!path.is_empty(), "path should be non-empty: {path}");
         assert_eq!(
             state.config_hash, outputs.config_hash,
             "config_hash must match"

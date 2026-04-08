@@ -355,7 +355,7 @@ fn test_document_with_duplicate_document_ids() {
         .output()
         .unwrap();
 
-    let _args2 = [
+    let args2 = [
         "ctd",
         "document",
         "duplicate.md",
@@ -365,13 +365,13 @@ fn test_document_with_duplicate_document_ids() {
         "title: Test",
     ];
 
-    let output = std::process::Command::new(ctd_bin()).args(&args).output();
+    let output = std::process::Command::new(ctd_bin()).args(&args2).output();
 
     match output {
         Ok(out) => {
             assert!(
                 out.status.code() != Some(0),
-                "Expected error for extremely long content"
+                "Expected error for duplicate document IDs"
             );
         }
         Err(e) => {

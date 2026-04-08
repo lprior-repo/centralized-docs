@@ -189,6 +189,25 @@ assert_no_ansi() {
   fi
 }
 
+# Assert that a flag/argument was accepted at parse time (no clap or validation rejection).
+# For network commands: the command may still fail at runtime, but if exit=2 (clap error)
+# or output contains a validation rejection, that's a FAIL.
+assert_flag_accepted() {
+  local desc="$1" rc="$2" output="$3"
+  TOTAL_TESTS=$((TOTAL_TESTS+1))
+  if [ "$rc" -eq 2 ] 2>/dev/null; then
+    FAIL=$((FAIL+1)); RESULTS+=("FAIL  $desc — argument rejected by parser (exit=2)")
+    red "  ✗ FAIL: $desc — argument rejected by parser (exit=2)"
+    red "         $(echo "$output" | head -3)"
+  elif echo "$output" | grep -qi "invalid value\|out of range\|must be between\|validation failed\|error:.*value"; then
+    FAIL=$((FAIL+1)); RESULTS+=("FAIL  $desc — argument rejected by validation")
+    red "  ✗ FAIL: $desc — argument rejected by validation"
+    red "         $(echo "$output" | head -3)"
+  else
+    PASS=$((PASS+1)); RESULTS+=("PASS  $desc")
+  fi
+}
+
 section() { printf '\n\033[35m══════════════════════════════════════════════════════════════\033[0m\n\033[35m  %s\033[0m\n\033[35m══════════════════════════════════════════════════════════════\033[0m\n' "$1"; }
 
 # Run network commands with timeout to avoid hangs
@@ -341,7 +360,7 @@ assert_nonzero "index: /dev/null (not dir) rejected" "$rc"
 # Empty directory (valid but may produce warning)
 mkdir -p "$TMPDIR/empty-src"
 out=$("$CTD" index "$TMPDIR/empty-src" -o "$TMPDIR/ix-emptysrc" 2>&1); rc=$?
-record_pass "index: empty source dir handled (exit=$rc)"
+assert_exit "index: empty source dir exits 0" 0 "$rc"
 
 # -- 3c. --max-related-chunks (range: 1-100)
 for val in 0 -1 -100; do
@@ -446,6 +465,9 @@ for val in abc "1MB" "1k"; do
   assert_nonzero "index: --max-document-bytes '$val' rejected (non-integer)" "$rc"
 done
 
+out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$TMPDIR/ix-mdb-min" --max-document-bytes 1 2>&1); rc=$?
+assert_exit "index: --max-document-bytes 1 accepted (boundary min)" 0 "$rc"
+
 out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$TMPDIR/ix-mdb-small" --max-document-bytes 10000 2>&1); rc=$?
 assert_exit "index: --max-document-bytes 10000 accepted" 0 "$rc"
 
@@ -454,7 +476,20 @@ assert_exit "index: --max-document-bytes 10485760 accepted" 0 "$rc"
 
 # -- 3h. --category-config
 out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$TMPDIR/ix-cc-noent" --category-config "/nonexistent/file.yaml" 2>&1); rc=$?
-if [ "$rc" -ne 0 ]; then record_pass "index: --category-config nonexistent rejected"; else record_pass "index: --category-config nonexistent handled gracefully (exit=0)"; fi
+# May succeed (warns) or fail — commit to: should succeed with warning (non-fatal config)
+assert_exit "index: --category-config nonexistent handled gracefully" 0 "$rc"
+
+# Valid category config file
+mkdir -p "$TMPDIR/config"
+cat > "$TMPDIR/config/categories.yaml" <<'YAMLEOF'
+categories:
+  - name: guides
+    patterns: ["guide*", "getting-started*"]
+  - name: api
+    patterns: ["api*"]
+YAMLEOF
+out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$TMPDIR/ix-cc-valid" --category-config "$TMPDIR/config/categories.yaml" 2>&1); rc=$?
+assert_exit "index: --category-config valid YAML accepted" 0 "$rc"
 
 # -- 3i. --project-name and --project-desc
 out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$TMPDIR/ix-pn" --llms-txt --project-name "Test Project" 2>&1); rc=$?
@@ -465,7 +500,7 @@ assert_exit "index: --project-name + --project-desc accepted" 0 "$rc"
 
 # Empty strings
 out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$TMPDIR/ix-pn-empty" --llms-txt --project-name "" 2>&1); rc=$?
-record_pass "index: --project-name '' handled (exit=$rc)"
+assert_exit "index: --project-name '' accepted" 0 "$rc"
 
 # Unicode in project name
 out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$TMPDIR/ix-pn-uni" --llms-txt --project-name "プロジェクト" --project-desc "Café naïve 🦀" 2>&1); rc=$?
@@ -482,7 +517,7 @@ assert_file_exists "index: --with-agents creates AGENTS.md" "$TMPDIR/ix-agents/A
 
 # --with-agents without --llms-txt
 out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$TMPDIR/ix-agents-nollms" --with-agents 2>&1); rc=$?
-record_pass "index: --with-agents without --llms-txt (exit=$rc)"
+assert_exit "index: --with-agents without --llms-txt accepted" 0 "$rc"
 
 # =============================================================================
 # SECTION 4: INDEX — HAPPY PATH WITH ARTIFACT VERIFICATION
@@ -505,9 +540,14 @@ import sys, json
 d = json.load(sys.stdin)
 assert 'documents' in d, 'Missing documents key'
 assert 'chunks' in d, 'Missing chunks key'
-print('OK')
-" 2>&1 > /dev/null
-TOTAL_TESTS=$((TOTAL_TESTS+1)); PASS=$((PASS+1)); RESULTS+=("PASS  index: INDEX.json has documents+chunks keys")
+" 2>/dev/null; py_rc=$?
+TOTAL_TESTS=$((TOTAL_TESTS+1))
+if [ "$py_rc" -eq 0 ]; then
+  PASS=$((PASS+1)); RESULTS+=("PASS  index: INDEX.json has documents+chunks keys")
+else
+  FAIL=$((FAIL+1)); RESULTS+=("FAIL  index: INDEX.json missing documents or chunks keys")
+  red "  ✗ FAIL: INDEX.json structure check failed"
+fi
 
 # Idempotency: re-run same command
 OUTDIR2="$TMPDIR/index-idempotent"
@@ -605,17 +645,17 @@ assert_nonzero "search: empty query rejected" "$rc"
 
 # Special characters in query (should not crash)
 out=$("$CTD" search 'rust & async | tokio' -i "$IDX" 2>&1); rc=$?
-record_pass "search: special chars in query handled (exit=$rc)"
+assert_exit "search: special chars in query accepted" 0 "$rc"
 
 out=$("$CTD" search 'rust"async' -i "$IDX" 2>&1); rc=$?
-record_pass "search: quotes in query handled (exit=$rc)"
+assert_exit "search: quotes in query accepted" 0 "$rc"
 
 out=$("$CTD" search 'rust*async+test' -i "$IDX" 2>&1); rc=$?
-record_pass "search: regex-like chars in query handled (exit=$rc)"
+assert_exit "search: regex-like chars in query accepted" 0 "$rc"
 
 # Unicode query
 out=$("$CTD" search 'ドキュメント' -i "$IDX" 2>&1); rc=$?
-record_pass "search: Unicode query handled (exit=$rc)"
+assert_exit "search: Unicode query accepted" 0 "$rc"
 
 # Very long query (>1024 bytes should be rejected)
 LONG_QUERY=$(python3 -c "print('a' * 1025)" 2>/dev/null)
@@ -625,7 +665,7 @@ assert_nonzero "search: very long query (>1024 bytes) rejected" "$rc"
 # Query at exactly 1024 bytes
 LONG_QUERY_OK=$(python3 -c "print('a' * 1024)" 2>/dev/null)
 out=$("$CTD" search "$LONG_QUERY_OK" -i "$IDX" -n 1 2>&1); rc=$?
-record_pass "search: query at 1024-byte boundary handled (exit=$rc)"
+assert_exit "search: query at 1024-byte boundary accepted" 0 "$rc"
 
 # -- 6e. Flag combinations
 declare -a SEARCH_COMBOS=(
@@ -685,10 +725,10 @@ for val in -1 -100 60001 70000 abc "0.5" "NaN" "inf" ""; do
 done
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --delay 0 --request-timeout-secs 1 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --delay 0 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --delay 0 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --delay 60000 --request-timeout-secs 1 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --delay 60000 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --delay 60000 parsed ok" "$rc" "$out"
 
 # -- 7c. --request-timeout-secs (range: 1-600)
 for val in 0 -1 601 999 abc "30.5"; do
@@ -697,10 +737,10 @@ for val in 0 -1 601 999 abc "30.5"; do
 done
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --request-timeout-secs 1 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --request-timeout-secs 1 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --request-timeout-secs 1 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --request-timeout-secs 600 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --request-timeout-secs 600 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --request-timeout-secs 600 parsed ok" "$rc" "$out"
 
 # -- 7d. --connect-timeout-secs (range: 1-60)
 for val in 0 -1 61 999 abc "10.5"; do
@@ -709,10 +749,10 @@ for val in 0 -1 61 999 abc "10.5"; do
 done
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --connect-timeout-secs 1 --request-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --connect-timeout-secs 1 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --connect-timeout-secs 1 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --connect-timeout-secs 60 --request-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --connect-timeout-secs 60 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --connect-timeout-secs 60 parsed ok" "$rc" "$out"
 
 # -- 7e. --concurrency (range: 1-128)
 for val in 0 -1 129 999 abc "4.5"; do
@@ -721,10 +761,10 @@ for val in 0 -1 129 999 abc "4.5"; do
 done
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --concurrency 1 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --concurrency 1 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --concurrency 1 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --concurrency 128 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --concurrency 128 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --concurrency 128 parsed ok" "$rc" "$out"
 
 # -- 7f. --max-retries (range: 0-255)
 for val in -1 256 999 abc "3.0"; do
@@ -733,21 +773,21 @@ for val in -1 256 999 abc "3.0"; do
 done
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --max-retries 0 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --max-retries 0 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --max-retries 0 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --max-retries 255 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --max-retries 255 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --max-retries 255 parsed ok" "$rc" "$out"
 
 # -- 7g. --redirect-policy (enum: loose|strict|none)
 for policy in loose strict none; do
   out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --redirect-policy "$policy" --connect-timeout-secs 1 2>&1); rc=$?
-  record_pass "scrape: --redirect-policy $policy parsed ok (exit=$rc)"
+  assert_flag_accepted "scrape: --redirect-policy $policy parsed ok" "$rc" "$out"
 done
 
 # Case insensitivity
 for policy in LOOSE Strict NONE; do
   out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --redirect-policy "$policy" --connect-timeout-secs 1 2>&1); rc=$?
-  record_pass "scrape: --redirect-policy '$policy' (case) handled (exit=$rc)"
+  assert_flag_accepted "scrape: --redirect-policy '$policy' (case) parsed ok" "$rc" "$out"
 done
 
 for val in invalid random blah 123; do
@@ -762,20 +802,20 @@ for val in -0.1 -1.0 10.1 11.0 abc "NaN" "inf" ""; do
 done
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --threshold 0.0 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --threshold 0.0 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --threshold 0.0 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --threshold 10.0 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --threshold 10.0 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --threshold 10.0 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --threshold 5.5 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --threshold 5.5 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --threshold 5.5 parsed ok" "$rc" "$out"
 
 # -- 7i. --filter regex
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --filter "^/docs/" --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --filter valid regex parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --filter valid regex parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --filter "/api/v[0-9]+/" --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --filter complex regex parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --filter complex regex parsed ok" "$rc" "$out"
 
 out=$("$CTD" scrape https://example.com -o "$TMPDIR/s1" --filter "[invalid" 2>&1); rc=$?
 assert_nonzero "scrape: --filter invalid regex rejected" "$rc"
@@ -798,23 +838,23 @@ for val in 0 -1 -999 abc; do
 done
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --max-page-bytes 1 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --max-page-bytes 1 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --max-page-bytes 1 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --max-page-bytes 100000000 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --max-page-bytes 100MB parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --max-page-bytes 100MB parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --max-total-bytes 1 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --max-total-bytes 1 parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --max-total-bytes 1 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --max-total-bytes 1000000000 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --max-total-bytes 1GB parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --max-total-bytes 1GB parsed ok" "$rc" "$out"
 
 # -- 7k. --no-sitemap and --query
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --no-sitemap --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --no-sitemap parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --no-sitemap parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --query "rust async" --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --query parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: --query parsed ok" "$rc" "$out"
 
 # -- 7l. ALL scrape flags combined
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" \
@@ -822,11 +862,11 @@ out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" \
   --max-retries 1 --redirect-policy strict --filter "^/docs/" \
   --threshold 0.5 --query "test" --no-sitemap \
   --max-page-bytes 5000000 --max-total-bytes 50000000 2>&1); rc=$?
-record_pass "scrape: ALL flags combined parsed ok (exit=$rc)"
+assert_flag_accepted "scrape: ALL flags combined parsed ok" "$rc" "$out"
 
 # -- 7m. --threshold without --query
 out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s1" --threshold 5.0 --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "scrape: --threshold without --query handled (exit=$rc)"
+assert_flag_accepted "scrape: --threshold without --query parsed ok" "$rc" "$out"
 
 # =============================================================================
 # SECTION 8: SCRAPE — FLAG COMBINATION PERMUTATIONS
@@ -860,7 +900,7 @@ declare -a SCRAPE_COMBOS=(
 for i in "${!SCRAPE_COMBOS[@]}"; do
   flags="${SCRAPE_COMBOS[$i]}"
   out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/scrape-combo-$i" $flags 2>&1); rc=$?
-  record_pass "scrape combo[$i] (exit=$rc)"
+  assert_flag_accepted "scrape combo[$i] ($flags)" "$rc" "$out"
 done
 
 # =============================================================================
@@ -919,10 +959,10 @@ assert_nonzero "ingest: --filter invalid regex rejected" "$rc"
 
 # -- 9c. Ingest-specific: --project-name
 out=$(run_net "$CTD" ingest https://example.com -o "$TMPDIR/ig1" --project-name "MyProject" --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "ingest: --project-name parsed ok (exit=$rc)"
+assert_flag_accepted "ingest: --project-name parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" ingest https://example.com -o "$TMPDIR/ig1" --project-name "プロジェクト 🦀" --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "ingest: --project-name Unicode parsed ok (exit=$rc)"
+assert_flag_accepted "ingest: --project-name Unicode parsed ok" "$rc" "$out"
 
 # -- 9d. All flags combined
 out=$(run_net "$CTD" ingest https://example.com -o "$TMPDIR/ig1" \
@@ -930,7 +970,7 @@ out=$(run_net "$CTD" ingest https://example.com -o "$TMPDIR/ig1" \
   --max-retries 1 --redirect-policy strict --filter "^/docs/" \
   --threshold 0.5 --query "test" --project-name "TestProject" \
   --max-page-bytes 5000000 --max-total-bytes 50000000 2>&1); rc=$?
-record_pass "ingest: ALL flags combined parsed ok (exit=$rc)"
+assert_flag_accepted "ingest: ALL flags combined parsed ok" "$rc" "$out"
 
 # =============================================================================
 # SECTION 10: INGEST-GIT — EXHAUSTIVE FLAG VALIDATION
@@ -949,25 +989,25 @@ assert_nonzero "ingest-git: missing REPO_URL rejected" "$rc"
 
 # -- 10b. --branch, --depth, --project-name, --filter
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g1" --branch main 2>&1); rc=$?
-record_pass "ingest-git: --branch main parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --branch main parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g1" --branch "feature/my-branch" 2>&1); rc=$?
-record_pass "ingest-git: --branch with slash parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --branch with slash parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g1" --depth 0 2>&1); rc=$?
-record_pass "ingest-git: --depth 0 (full clone) parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --depth 0 (full clone) parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g1" --depth 1 2>&1); rc=$?
-record_pass "ingest-git: --depth 1 (shallow) parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --depth 1 (shallow) parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g1" --depth 50 2>&1); rc=$?
-record_pass "ingest-git: --depth 50 parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --depth 50 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g1" --project-name "GitProj" 2>&1); rc=$?
-record_pass "ingest-git: --project-name parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --project-name parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g1" --filter "^docs/" 2>&1); rc=$?
-record_pass "ingest-git: --filter valid regex parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --filter valid regex parsed ok" "$rc" "$out"
 
 # Invalid filter
 out=$("$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g1" --filter "[invalid" 2>&1); rc=$?
@@ -976,7 +1016,7 @@ assert_nonzero "ingest-git: --filter invalid regex rejected" "$rc"
 # -- 10c. All flags combined
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g1" \
   --branch main --depth 1 --project-name "GitProj" --filter "^docs/" 2>&1); rc=$?
-record_pass "ingest-git: ALL flags combined parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: ALL flags combined parsed ok" "$rc" "$out"
 
 # =============================================================================
 # SECTION 11: WATCH — EXHAUSTIVE FLAG VALIDATION
@@ -995,13 +1035,13 @@ assert_nonzero "watch: missing URL rejected" "$rc"
 
 # -- 11b. Watch-specific flags
 out=$(run_net "$CTD" watch https://example.com -o "$TMPDIR/w1" --cache "$TMPDIR/test_cache.redb" --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "watch: --cache parsed ok (exit=$rc)"
+assert_flag_accepted "watch: --cache parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" watch https://example.com -o "$TMPDIR/w1" --json --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "watch: --json parsed ok (exit=$rc)"
+assert_flag_accepted "watch: --json parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" watch https://example.com -o "$TMPDIR/w1" --no-sitemap --connect-timeout-secs 1 2>&1); rc=$?
-record_pass "watch: --no-sitemap parsed ok (exit=$rc)"
+assert_flag_accepted "watch: --no-sitemap parsed ok" "$rc" "$out"
 
 # -- 11c. Shared SpiderCoreArgs validation
 for val in -1 60001 abc; do
@@ -1049,7 +1089,7 @@ out=$(run_net "$CTD" watch https://example.com -o "$TMPDIR/w1" \
   --cache "$TMPDIR/test_cache.redb" --json --no-sitemap \
   --delay 50 --concurrency 2 --request-timeout-secs 10 --connect-timeout-secs 5 --max-retries 1 \
   --redirect-policy strict --filter "^/docs/" 2>&1); rc=$?
-record_pass "watch: ALL flags combined parsed ok (exit=$rc)"
+assert_flag_accepted "watch: ALL flags combined parsed ok" "$rc" "$out"
 
 # =============================================================================
 # SECTION 12: APPLY — EXHAUSTIVE FLAG VALIDATION
@@ -1068,13 +1108,13 @@ assert_nonzero "apply: missing URL rejected" "$rc"
 
 # -- 12b. All flags individually and combined
 out=$("$CTD" apply https://example.com --scrape-dir "$TMPDIR/a1" --cache "$TMPDIR/test_cache.redb" 2>&1); rc=$?
-record_pass "apply: --cache parsed ok (exit=$rc)"
+assert_flag_accepted "apply: --cache parsed ok" "$rc" "$out"
 
 out=$("$CTD" apply https://example.com --scrape-dir "$TMPDIR/a1" --yes 2>&1); rc=$?
-record_pass "apply: --yes parsed ok (exit=$rc)"
+assert_flag_accepted "apply: --yes parsed ok" "$rc" "$out"
 
 out=$("$CTD" apply https://example.com --scrape-dir "$TMPDIR/a1" --cache "$TMPDIR/test_cache.redb" --yes 2>&1); rc=$?
-record_pass "apply: ALL flags combined parsed ok (exit=$rc)"
+assert_flag_accepted "apply: ALL flags combined parsed ok" "$rc" "$out"
 
 # Unknown flags
 out=$("$CTD" apply https://example.com --scrape-dir "$TMPDIR/a1" --unknown 2>&1); rc=$?
@@ -1096,23 +1136,27 @@ assert_nonzero "diff: missing DIR_B rejected" "$rc"
 
 # -- 13b. Happy paths
 out=$("$CTD" diff "$TMPDIR/scrape-a" "$TMPDIR/scrape-b" 2>&1); rc=$?
-if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then record_pass "diff: two empty dirs ok (exit=$rc)"; else record_fail "diff: two empty dirs" "exit=$rc"; fi
+TOTAL_TESTS=$((TOTAL_TESTS+1))
+if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); RESULTS+=("PASS  diff: two empty dirs ok (exit=$rc)"); else FAIL=$((FAIL+1)); RESULTS+=("FAIL  diff: two empty dirs (exit=$rc)"); red "  ✗ FAIL: diff two empty dirs — unexpected exit=$rc"; fi
 
 out=$("$CTD" diff "$TMPDIR/scrape-a" "$TMPDIR/scrape-b" -o "$TMPDIR/diff-out" 2>&1); rc=$?
-if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then record_pass "diff: --output ok (exit=$rc)"; else record_fail "diff: --output" "exit=$rc"; fi
+TOTAL_TESTS=$((TOTAL_TESTS+1))
+if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); RESULTS+=("PASS  diff: --output ok (exit=$rc)"); else FAIL=$((FAIL+1)); RESULTS+=("FAIL  diff: --output (exit=$rc)"); red "  ✗ FAIL: diff --output — unexpected exit=$rc"; fi
 
 out=$("$CTD" diff "$TMPDIR/scrape-a" "$TMPDIR/scrape-b" --json 2>&1); rc=$?
-if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then record_pass "diff: --json ok (exit=$rc)"; else record_fail "diff: --json" "exit=$rc"; fi
+TOTAL_TESTS=$((TOTAL_TESTS+1))
+if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); RESULTS+=("PASS  diff: --json ok (exit=$rc)"); else FAIL=$((FAIL+1)); RESULTS+=("FAIL  diff: --json (exit=$rc)"); red "  ✗ FAIL: diff --json — unexpected exit=$rc"; fi
 
 out=$("$CTD" diff "$TMPDIR/scrape-a" "$TMPDIR/scrape-b" -o "$TMPDIR/diff-out2" --json 2>&1); rc=$?
-if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then record_pass "diff: --output + --json ok (exit=$rc)"; else record_fail "diff: --output + --json" "exit=$rc"; fi
+TOTAL_TESTS=$((TOTAL_TESTS+1))
+if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then PASS=$((PASS+1)); RESULTS+=("PASS  diff: --output + --json ok (exit=$rc)"); else FAIL=$((FAIL+1)); RESULTS+=("FAIL  diff: --output + --json (exit=$rc)"); red "  ✗ FAIL: diff --output + --json — unexpected exit=$rc"; fi
 
 # -- 13c. Nonexistent dirs
 out=$("$CTD" diff /nonexistent/a /nonexistent/b 2>&1); rc=$?
-record_pass "diff: nonexistent dirs handled (exit=$rc)"
+assert_nonzero "diff: nonexistent dirs rejected" "$rc"
 
 out=$("$CTD" diff "$TMPDIR/scrape-a" /nonexistent/b 2>&1); rc=$?
-record_pass "diff: one valid one invalid handled (exit=$rc)"
+assert_nonzero "diff: one valid one invalid rejected" "$rc"
 
 # -- 13d. Too many args
 out=$("$CTD" diff "$TMPDIR/scrape-a" "$TMPDIR/scrape-b" "$TMPDIR/scrape-a" 2>&1); rc=$?
@@ -1165,11 +1209,17 @@ assert_nonzero "mcp serve: nonexistent dir rejected" "$rc"
 
 # -- 15c. Valid index dir (starts server, we must timeout)
 out=$(timeout 2 "$CTD" mcp serve "$TMPDIR/index-canonical" 2>&1); rc=$?
-record_pass "mcp serve: valid index dir starts without crash (exit=$rc)"
+# timeout returns 124 when it kills the process, which means the server started successfully
+if [ "$rc" -eq 124 ] || [ "$rc" -eq 0 ]; then
+  TOTAL_TESTS=$((TOTAL_TESTS+1)); PASS=$((PASS+1)); RESULTS+=("PASS  mcp serve: valid index dir starts without crash (exit=$rc)")
+else
+  TOTAL_TESTS=$((TOTAL_TESTS+1)); FAIL=$((FAIL+1)); RESULTS+=("FAIL  mcp serve: valid index dir crashed (exit=$rc)")
+  red "  ✗ FAIL: mcp serve: valid index dir should start (exit=$rc)"
+fi
 
 # -- 15d. mcp without subcommand
 out=$("$CTD" mcp 2>&1); rc=$?
-record_pass "mcp (no subcommand) handled (exit=$rc)"
+assert_nonzero "mcp (no subcommand) rejected" "$rc"
 
 # -- 15e. ctd-mcp standalone binary
 if [ -x "$CTD_MCP" ]; then
@@ -1180,10 +1230,16 @@ if [ -x "$CTD_MCP" ]; then
   assert_exit "ctd-mcp --version exits 0" 0 "$rc"
 
   out=$("$CTD_MCP" 2>&1); rc=$?
-  record_pass "ctd-mcp (no args) handled (exit=$rc)"
+  assert_nonzero "ctd-mcp (no args) rejected" "$rc"
 
   out=$(timeout 2 "$CTD_MCP" "$TMPDIR/index-canonical" 2>&1); rc=$?
-  record_pass "ctd-mcp valid index starts (exit=$rc)"
+  # timeout 124 = killed by timeout = server started ok
+  if [ "$rc" -eq 124 ] || [ "$rc" -eq 0 ]; then
+    TOTAL_TESTS=$((TOTAL_TESTS+1)); PASS=$((PASS+1)); RESULTS+=("PASS  ctd-mcp valid index starts (exit=$rc)")
+  else
+    TOTAL_TESTS=$((TOTAL_TESTS+1)); FAIL=$((FAIL+1)); RESULTS+=("FAIL  ctd-mcp valid index crashed (exit=$rc)")
+    red "  ✗ FAIL: ctd-mcp valid index should start (exit=$rc)"
+  fi
 
   out=$(timeout 2 "$CTD_MCP" /nonexistent 2>&1); rc=$?
   assert_nonzero "ctd-mcp nonexistent dir rejected" "$rc"
@@ -1213,10 +1269,10 @@ done
 # -- 16b. SpiderCrawlArgs only on scrape/ingest (NOT watch)
 for flag_val in "--max-page-bytes 1000" "--max-total-bytes 1000" "--query test" "--threshold 1.0"; do
   out=$("$CTD" scrape https://example.com -o "$TMPDIR/cross-scrape" $flag_val 2>&1); rc=$?
-  record_pass "scrape accepts $flag_val (exit=$rc)"
+  assert_flag_accepted "scrape accepts $flag_val" "$rc" "$out"
 
   out=$("$CTD" ingest https://example.com -o "$TMPDIR/cross-ingest" $flag_val 2>&1); rc=$?
-  record_pass "ingest accepts $flag_val (exit=$rc)"
+  assert_flag_accepted "ingest accepts $flag_val" "$rc" "$out"
 
   out=$("$CTD" watch https://example.com -o "$TMPDIR/cross-watch" $flag_val 2>&1); rc=$?
   assert_nonzero "watch rejects $flag_val (not a watch flag)" "$rc"
@@ -1231,6 +1287,41 @@ for cmd in scrape ingest watch ingest-git; do
   fi
   assert_nonzero "$cmd: --filter invalid regex rejected" "$rc"
 done
+
+# -- 16d. Short flag aliases (-d, -f, -q, -o) must be accepted
+# scrape: -d (delay), -f (filter), -q (query), -o (output)
+out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/short-scrape-d" -d 50 --connect-timeout-secs 1 2>&1); rc=$?
+assert_flag_accepted "scrape: -d 50 (short --delay) accepted" "$rc" "$out"
+
+out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/short-scrape-f" -f "^/docs/" --connect-timeout-secs 1 2>&1); rc=$?
+assert_flag_accepted "scrape: -f '^/docs/' (short --filter) accepted" "$rc" "$out"
+
+out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/short-scrape-q" -q "test" --connect-timeout-secs 1 2>&1); rc=$?
+assert_flag_accepted "scrape: -q test (short --query) accepted" "$rc" "$out"
+
+# ingest: -d, -f, -q
+out=$(run_net "$CTD" ingest https://example.com -o "$TMPDIR/short-ingest-d" -d 50 --connect-timeout-secs 1 2>&1); rc=$?
+assert_flag_accepted "ingest: -d 50 (short --delay) accepted" "$rc" "$out"
+
+out=$(run_net "$CTD" ingest https://example.com -o "$TMPDIR/short-ingest-f" -f "^/docs/" --connect-timeout-secs 1 2>&1); rc=$?
+assert_flag_accepted "ingest: -f '^/docs/' (short --filter) accepted" "$rc" "$out"
+
+out=$(run_net "$CTD" ingest https://example.com -o "$TMPDIR/short-ingest-q" -q "test" --connect-timeout-secs 1 2>&1); rc=$?
+assert_flag_accepted "ingest: -q test (short --query) accepted" "$rc" "$out"
+
+# watch: -d, -f (no -q)
+out=$(run_net "$CTD" watch https://example.com -o "$TMPDIR/short-watch-d" -d 50 --connect-timeout-secs 1 2>&1); rc=$?
+assert_flag_accepted "watch: -d 50 (short --delay) accepted" "$rc" "$out"
+
+out=$(run_net "$CTD" watch https://example.com -o "$TMPDIR/short-watch-f" -f "^/docs/" --connect-timeout-secs 1 2>&1); rc=$?
+assert_flag_accepted "watch: -f '^/docs/' (short --filter) accepted" "$rc" "$out"
+
+# ingest-git: -f
+out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/short-ig-f" -f "^docs/" 2>&1); rc=$?
+assert_flag_accepted "ingest-git: -f '^docs/' (short --filter) accepted" "$rc" "$out"
+
+# search: -n (limit) — already tested extensively with -n above, but test -i explicitly
+# -i is used throughout the suite already; verified by the 30+ search tests above
 
 # =============================================================================
 # SECTION 17: EDGE CASES & SPECIAL CHARACTERS
@@ -1259,12 +1350,17 @@ assert_exit "index: output to existing dir ok" 0 "$rc"
 # -- 17d. Very long output path
 LONG_DIR="$TMPDIR/$(python3 -c "print('x' * 200)" 2>/dev/null)"
 out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$LONG_DIR" 2>&1); rc=$?
-record_pass "index: very long output path handled (exit=$rc)"
+if [ "$rc" -eq 0 ]; then
+  TOTAL_TESTS=$((TOTAL_TESTS+1)); PASS=$((PASS+1)); RESULTS+=("PASS  index: very long output path accepted (exit=0)")
+else
+  TOTAL_TESTS=$((TOTAL_TESTS+1)); FAIL=$((FAIL+1)); RESULTS+=("FAIL  index: very long output path rejected (exit=$rc)")
+  red "  ✗ FAIL: index: very long output path should be accepted (exit=$rc)"
+fi
 
 # -- 17e. Redirect policy case sensitivity
 for policy in LOOSE Loose strict Strict NONE None; do
   out=$(run_net "$CTD" scrape https://example.com -o "$TMPDIR/s-rp-$policy" --redirect-policy "$policy" --connect-timeout-secs 1 2>&1); rc=$?
-  record_pass "scrape: redirect-policy '$policy' case handling (exit=$rc)"
+  assert_flag_accepted "scrape: redirect-policy '$policy' case accepted" "$rc" "$out"
 done
 
 # -- 17f. Very large numeric values at boundaries
@@ -1342,7 +1438,7 @@ if [ -x "$VALIDATOR" ]; then
   assert_exit "validator --version" 0 "$rc"
 
   out=$("$VALIDATOR" 2>&1); rc=$?
-  record_pass "validator no args handled (exit=$rc)"
+  assert_nonzero "validator no args rejected" "$rc"
 
   LLMTXT="$TMPDIR/ix-llms/llms.txt"
   if [ -f "$LLMTXT" ]; then
@@ -1379,11 +1475,11 @@ fi
 section "20. Signal handling & robustness"
 
 # -- 20a. Pipe to head (SIGPIPE)
-out=$("$CTD" --help 2>&1 | head -1); rc=$?
-record_pass "ctd --help | head (SIGPIPE) handled (exit=$rc)"
+out=$("$CTD" --help 2>&1 | head -1)
+TOTAL_TESTS=$((TOTAL_TESTS+1)); PASS=$((PASS+1)); RESULTS+=("PASS  ctd --help | head (SIGPIPE) handled")
 
-out=$("$CTD" --version 2>&1 | head -1); rc=$?
-record_pass "ctd --version | head (SIGPIPE) handled (exit=$rc)"
+out=$("$CTD" --version 2>&1 | head -1)
+TOTAL_TESTS=$((TOTAL_TESTS+1)); PASS=$((PASS+1)); RESULTS+=("PASS  ctd --version | head (SIGPIPE) handled")
 
 # -- 20b. Redirect stderr/stdout
 "$CTD" --version > /dev/null 2>&1; rc=$?
@@ -1397,7 +1493,7 @@ assert_nonzero "ctd (no args) stderr suppressed" "$rc"
 
 # -- 20c. Search JSON piped
 out=$("$CTD" search "rust" -i "$IDX" --json 2>/dev/null | python3 -c "import sys,json; json.load(sys.stdin)" 2>&1); rc=$?
-record_pass "search --json piped to python json.load (exit=$rc)"
+assert_exit "search --json piped to python json.load" 0 "$rc"
 
 # =============================================================================
 # SECTION 21: SEARCH — ALL FLAG COMBINATION PERMUTATIONS
@@ -1434,7 +1530,7 @@ done
 
 # Search with no results
 out=$("$CTD" search "notfoundquery12345" -i "$IDX" 2>&1); rc=$?
-if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then record_pass "search: no-results query handled gracefully (exit=$rc)"; else record_fail "search: no-results query" "unexpected exit=$rc"; fi
+assert_exit "search: no-results query exits 0" 0 "$rc"
 
 # Various valid query types
 declare -a QUERY_TYPES=(
@@ -1469,7 +1565,7 @@ out=$("$CTD" search $'rust\x01\x02async' -i "$IDX" 2>&1); rc=$?
 assert_nonzero "security: control chars in query rejected" "$rc"
 
 out=$("$CTD" search $'rust\x00async' -i "$IDX" 2>&1); rc=$?
-record_pass "security: null byte in query handled (exit=$rc)"
+assert_nonzero "security: null byte in query rejected" "$rc"
 
 # -- 22c. SQL injection in search
 out=$("$CTD" search "'; DROP TABLE docs; --" -i "$IDX" 2>&1); rc=$?
@@ -1548,7 +1644,6 @@ assert_no_ansi "search --no-color output has no ANSI codes" "$out"
 # -- 23c. Default output may contain ANSI codes (color enabled by default)
 out=$("$CTD" search "rust" -i "$IDX" 2>&1); rc=$?
 assert_exit "search default output exits 0" 0 "$rc"
-record_pass "search default output (may contain color) (exit=$rc)"
 
 # -- 23d. JSON + no-color combined
 out=$("$CTD" search "rust" -i "$IDX" --json --no-color 2>&1); rc=$?
@@ -1557,14 +1652,8 @@ assert_json_valid "search --json --no-color valid JSON" "$out"
 
 # -- 23e. Error output in JSON format when query fails
 out=$("$CTD" search "'; DROP TABLE docs; --" -i "$IDX" --json 2>&1); rc=$?
-# This should produce JSON error output or non-zero exit
-TOTAL_TESTS=$((TOTAL_TESTS+1))
-if echo "$out" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'error' in d or 'status' in d" 2>/dev/null; then
-  PASS=$((PASS+1)); RESULTS+=("PASS  search --json error output is valid JSON with error field")
-else
-  # If the query is rejected at clap level, stderr won't be JSON
-  record_pass "search --json error handled (exit=$rc, output: $(echo "$out" | head -1))"
-fi
+# SQL injection query should be rejected — verify it fails
+assert_nonzero "search --json rejects SQL injection query" "$rc"
 
 # =============================================================================
 # SECTION 24: INDEX BOOLEAN FLAG EDGE CASES
@@ -1576,7 +1665,8 @@ out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$TMPDIR/ix-no-llms" --llms-txt=fa
 if [ "$rc" -eq 0 ]; then
   assert_file_not_exists "index: --llms-txt=false suppresses llms.txt" "$TMPDIR/ix-no-llms/llms.txt"
 else
-  record_pass "index: --llms-txt=false rejected (exit=$rc) — clap handles bool flags differently"
+  TOTAL_TESTS=$((TOTAL_TESTS+1)); FAIL=$((FAIL+1)); RESULTS+=("FAIL  index: --llms-txt=false rejected (exit=$rc)")
+  red "  ✗ FAIL: index: --llms-txt=false should be accepted (exit=$rc)"
 fi
 
 # -- 24b. --no-llms-txt (clap auto-generates this for bool with default=true)
@@ -1584,7 +1674,8 @@ out=$("$CTD" index "$TMPDIR/fixtures/docs" -o "$TMPDIR/ix-no-llms2" --no-llms-tx
 if [ "$rc" -eq 0 ]; then
   assert_file_not_exists "index: --no-llms-txt suppresses llms.txt" "$TMPDIR/ix-no-llms2/llms.txt"
 else
-  record_pass "index: --no-llms-txt rejected (exit=$rc) — clap handles bool flags differently"
+  TOTAL_TESTS=$((TOTAL_TESTS+1)); FAIL=$((FAIL+1)); RESULTS+=("FAIL  index: --no-llms-txt rejected (exit=$rc)")
+  red "  ✗ FAIL: index: --no-llms-txt should be accepted (exit=$rc)"
 fi
 
 # -- 24c. Verify default behavior creates llms.txt (llms_txt defaults to true)
@@ -1609,13 +1700,13 @@ section "25. ingest-git --depth boundary + invalid values"
 
 # -- 25a. Depth boundary: min=0 (full clone), max=u32::MAX
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g-depth-0" --depth 0 2>&1); rc=$?
-record_pass "ingest-git: --depth 0 parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --depth 0 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g-depth-1" --depth 1 2>&1); rc=$?
-record_pass "ingest-git: --depth 1 parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --depth 1 parsed ok" "$rc" "$out"
 
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g-depth-max" --depth 4294967295 2>&1); rc=$?
-record_pass "ingest-git: --depth u32::MAX parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --depth u32::MAX parsed ok" "$rc" "$out"
 
 # -- 25b. Negative values (should fail parse)
 out=$("$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g-depth-neg" --depth -1 2>&1); rc=$?
@@ -1634,7 +1725,7 @@ assert_nonzero "ingest-git: --depth overflow rejected (> u32::MAX)" "$rc"
 
 # -- 25e. Branch name edge cases
 out=$(run_net "$CTD" ingest-git https://github.com/example/repo -o "$TMPDIR/g-branch-uni" --branch "日本語ブランチ" 2>&1); rc=$?
-record_pass "ingest-git: --branch Unicode parsed ok (exit=$rc)"
+assert_flag_accepted "ingest-git: --branch Unicode parsed ok" "$rc" "$out"
 
 # =============================================================================
 # SECTION 26: INGEST + WATCH PAIRWISE FLAG PERMUTATIONS
@@ -1658,7 +1749,7 @@ declare -a INGEST_COMBOS=(
 for i in "${!INGEST_COMBOS[@]}"; do
   flags="${INGEST_COMBOS[$i]}"
   out=$(run_net "$CTD" ingest https://example.com -o "$TMPDIR/ingest-combo-$i" $flags 2>&1); rc=$?
-  record_pass "ingest combo[$i] (exit=$rc)"
+  assert_flag_accepted "ingest combo[$i] ($flags)" "$rc" "$out"
 done
 
 section "26b. Watch pairwise flag permutations"
@@ -1681,7 +1772,7 @@ declare -a WATCH_COMBOS=(
 for i in "${!WATCH_COMBOS[@]}"; do
   flags="${WATCH_COMBOS[$i]}"
   out=$(run_net "$CTD" watch https://example.com -o "$TMPDIR/watch-combo-$i" $flags 2>&1); rc=$?
-  record_pass "watch combo[$i] (exit=$rc)"
+  assert_flag_accepted "watch combo[$i] ($flags)" "$rc" "$out"
 done
 
 # =============================================================================
@@ -1698,22 +1789,22 @@ echo "# Page 1 Version B" > "$TMPDIR/diff-b/.scrape/page1.md"
 echo "# Page 2 New" > "$TMPDIR/diff-b/.scrape/page2.md"
 
 out=$("$CTD" diff "$TMPDIR/diff-a" "$TMPDIR/diff-b" 2>&1); rc=$?
-if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then record_pass "diff: populated dirs ok (exit=$rc)"; else record_fail "diff: populated dirs" "exit=$rc"; fi
+if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then TOTAL_TESTS=$((TOTAL_TESTS+1)); PASS=$((PASS+1)); RESULTS+=("PASS  diff: populated dirs ok (exit=$rc)"); else TOTAL_TESTS=$((TOTAL_TESTS+1)); FAIL=$((FAIL+1)); RESULTS+=("FAIL  diff: populated dirs (exit=$rc)"); red "  ✗ FAIL: diff populated dirs — unexpected exit=$rc"; fi
 
 # JSON diff
 out=$("$CTD" diff "$TMPDIR/diff-a" "$TMPDIR/diff-b" --json 2>&1); rc=$?
 if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then
-  record_pass "diff: populated dirs --json ok (exit=$rc)"
+  TOTAL_TESTS=$((TOTAL_TESTS+1)); PASS=$((PASS+1)); RESULTS+=("PASS  diff: populated dirs --json ok (exit=$rc)")
   if [ -n "$out" ] && [ "$rc" -eq 0 ]; then
     assert_json_valid "diff: --json output is valid JSON" "$out"
   fi
 else
-  record_fail "diff: populated dirs --json" "exit=$rc"
+  TOTAL_TESTS=$((TOTAL_TESTS+1)); FAIL=$((FAIL+1)); RESULTS+=("FAIL  diff: populated dirs --json (exit=$rc)"); red "  ✗ FAIL: diff populated dirs --json — unexpected exit=$rc";
 fi
 
 # Identical dirs
 out=$("$CTD" diff "$TMPDIR/diff-a" "$TMPDIR/diff-a" 2>&1); rc=$?
-if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then record_pass "diff: identical dirs ok (exit=$rc)"; else record_fail "diff: identical dirs" "exit=$rc"; fi
+if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then TOTAL_TESTS=$((TOTAL_TESTS+1)); PASS=$((PASS+1)); RESULTS+=("PASS  diff: identical dirs ok (exit=$rc)"); else TOTAL_TESTS=$((TOTAL_TESTS+1)); FAIL=$((FAIL+1)); RESULTS+=("FAIL  diff: identical dirs (exit=$rc)"); red "  ✗ FAIL: diff identical dirs — unexpected exit=$rc"; fi
 
 # =============================================================================
 # SECTION 28: END-TO-END PIPELINE (index → search → validate)
@@ -1909,13 +2000,12 @@ fi
 out=$("$CTD" search "API" -i "$IDX" 2>&1); rc=$?
 assert_exit "relevance: search 'API' exits 0" 0 "$rc"
 # Results should mention API (either in title or snippet)
-TOTAL_TESTS=$((TOTAL_TESTS+1))
-if echo "$out" | grep -qi "api"; then
-  PASS=$((PASS+1)); RESULTS+=("PASS  relevance: 'API' results contain 'API'")
-else
-  # May still be valid if results show doc IDs but not the term directly
-  record_pass "relevance: 'API' results don't contain 'API' in output (may be structured differently)"
-fi
+  TOTAL_TESTS=$((TOTAL_TESTS+1))
+  if echo "$out" | grep -qi "api"; then
+    PASS=$((PASS+1)); RESULTS+=("PASS  relevance: 'API' results contain 'API'")
+  else
+    FAIL=$((FAIL+1)); RESULTS+=("FAIL  relevance: 'API' results don't contain 'API'")
+  fi
 
 # =============================================================================
 # SECTION 32: IDEMPOTENCY + DETERMINISM VERIFICATION
@@ -1933,15 +2023,24 @@ assert_exit "determinism: second index run" 0 "$rc"
 # Compare structural equality (normalize JSON, ignoring key ordering and
 # non-deterministic fields like timestamps or hash-derived IDs)
 TOTAL_TESTS=$((TOTAL_TESTS+1))
-json_a=$(cat "$RUNA/INDEX.json" 2>/dev/null)
-json_b=$(cat "$RUNB/INDEX.json" 2>/dev/null)
-# Compare document count and chunk count as structural proxy
-docs_a=$(echo "$json_a" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('documents',[])), len(d.get('chunks',[])))" 2>/dev/null)
-docs_b=$(echo "$json_b" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('documents',[])), len(d.get('chunks',[])))" 2>/dev/null)
-if [ "$docs_a" = "$docs_b" ]; then
-  PASS=$((PASS+1)); RESULTS+=("PASS  determinism: INDEX.json structurally identical ($docs_a)")
+# Compare normalized JSON: sorted keys, same document titles, same chunk counts
+determinism_result=$(python3 -c "
+import sys, json
+a = json.load(open(sys.argv[1]))
+b = json.load(open(sys.argv[2]))
+docs_a = sorted([d.get('title','') for d in a.get('documents',[])])
+docs_b = sorted([d.get('title','') for d in b.get('documents',[])])
+chunks_a = len(a.get('chunks',[]))
+chunks_b = len(b.get('chunks',[]))
+if docs_a == docs_b and chunks_a == chunks_b:
+    print('MATCH')
+else:
+    print(f'MISMATCH docs={docs_a} vs {docs_b} chunks={chunks_a} vs {chunks_b}')
+" "$RUNA/INDEX.json" "$RUNB/INDEX.json" 2>/dev/null)
+if [ "$determinism_result" = "MATCH" ]; then
+  PASS=$((PASS+1)); RESULTS+=("PASS  determinism: INDEX.json structurally identical")
 else
-  FAIL=$((FAIL+1)); RESULTS+=("FAIL  determinism: INDEX.json structure differs ($docs_a vs $docs_b)")
+  FAIL=$((FAIL+1)); RESULTS+=("FAIL  determinism: INDEX.json structure differs ($determinism_result)")
 fi
 
 # -- 32b. Overwriting output dir produces valid results
@@ -1956,11 +2055,9 @@ assert_file_exists "determinism: overwrite creates INDEX.json" "$OUTDIR_OVERWRIT
 section "33. Validator --url flag edge case"
 
 if [ -x "$VALIDATOR" ]; then
-  # The doc comment mentions --url but the code may not implement it
+  # --url is NOT implemented — binary treats --url as a positional path, which fails
   out=$("$VALIDATOR" --url https://example.com/llms.txt 2>&1); rc=$?
-  # If --url is implemented: should fetch and validate (exit 0 or 1)
-  # If not implemented: should reject (exit 1)
-  record_pass "validator: --url flag handled (exit=$rc)"
+  assert_nonzero "validator: --url rejected (not implemented, treated as path)" "$rc"
 
   # Validator with empty path
   out=$("$VALIDATOR" "" 2>&1); rc=$?

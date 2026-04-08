@@ -14,6 +14,10 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use tempfile::TempDir;
 
+/// Path to the ctd binary for CLI integration tests.
+/// Uses CARGO_BIN_EXE_ctd for reliable binary resolution instead of `cargo run`.
+const CTDBIN: &str = env!("CARGO_BIN_EXE_ctd");
+
 fn create_test_index(dir: &Path) -> anyhow::Result<()> {
     let docs = vec![doc_transformer::index::IndexDocument {
         id: "test/doc1".to_string(),
@@ -32,23 +36,6 @@ fn create_test_index(dir: &Path) -> anyhow::Result<()> {
     let mut writer = index.writer(50_000_000)?;
     doc_transformer::search::index_documents(&mut writer, &docs)?;
     writer.commit()?;
-    Ok(())
-}
-
-fn create_test_files(dir: &Path) -> anyhow::Result<()> {
-    use std::fs;
-    let docs_dir = dir.join("docs");
-    fs::create_dir_all(&docs_dir)?;
-
-    let content = r#"# Test Document
-
-This is a test document with content.
-
-## Section 1
-
-Some content here.
-"#;
-    fs::write(docs_dir.join("test.md"), content)?;
     Ok(())
 }
 
@@ -174,38 +161,27 @@ fn test_error_message_provides_guidance() {
     );
 }
 
+// TODO: These two CLI special-character tests test behavior that has NOT been implemented yet.
+// The CLI search command does not currently produce "special character" or "fallback" error
+// messages. When the sanitize_query / special-character fallback feature is implemented,
+// remove these #[ignore] attributes and fix the assertions.
+// See: doc-tx-6aq (sanitize_query deferred), doc-tx-247 (special char error handling)
+
 #[test]
+#[ignore = "CLI special-character error messaging not yet implemented (doc-tx-247)"]
 fn test_cli_special_character_error_message() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
-    let output_dir = temp_dir.path().join("output");
+    let index_dir = temp_dir.path();
 
-    create_test_files(temp_dir.path()).expect("Failed to create test files");
+    // Use library to create test index (avoids broken `transform` subcommand)
+    create_test_index(index_dir).expect("Failed to create test index");
 
-    let transform_status = Command::new("cargo")
+    let mut child = Command::new(CTDBIN)
         .args([
-            "run",
-            "--quiet",
-            "transform",
-            temp_dir.path().to_str().unwrap(),
-            output_dir.to_str().unwrap(),
-        ])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-
-    if !transform_status.map(|s| s.success()).unwrap_or(false) {
-        println!("Warning: transform failed, skipping CLI test");
-        return;
-    }
-
-    let mut child = Command::new("cargo")
-        .args([
-            "run",
-            "--quiet",
             "search",
             "test<script>alert(1)</script>",
             "--index-dir",
-            output_dir.to_str().unwrap(),
+            index_dir.to_str().unwrap(),
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -243,37 +219,20 @@ fn test_cli_special_character_error_message() {
 }
 
 #[test]
+#[ignore = "CLI special-character error messaging not yet implemented (doc-tx-247)"]
 fn test_cli_error_message_explicit_about_special_chars() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
-    let output_dir = temp_dir.path().join("output");
+    let index_dir = temp_dir.path();
 
-    create_test_files(temp_dir.path()).expect("Failed to create test files");
+    // Use library to create test index (avoids broken `transform` subcommand)
+    create_test_index(index_dir).expect("Failed to create test index");
 
-    let transform_status = Command::new("cargo")
+    let mut child = Command::new(CTDBIN)
         .args([
-            "run",
-            "--quiet",
-            "transform",
-            temp_dir.path().to_str().unwrap(),
-            output_dir.to_str().unwrap(),
-        ])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-
-    if !transform_status.map(|s| s.success()).unwrap_or(false) {
-        println!("Warning: transform failed, skipping CLI test");
-        return;
-    }
-
-    let mut child = Command::new("cargo")
-        .args([
-            "run",
-            "--quiet",
             "search",
             "test<script>alert(1)</script>",
             "--index-dir",
-            output_dir.to_str().unwrap(),
+            index_dir.to_str().unwrap(),
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -376,36 +335,13 @@ fn test_whitespace_only_query_returns_proper_error() {
 #[test]
 fn test_cli_empty_query_shows_error_message() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
-    let output_dir = temp_dir.path().join("output");
+    let index_dir = temp_dir.path();
 
-    create_test_files(temp_dir.path()).expect("Failed to create test files");
+    // Use library to create test index (avoids broken `transform` subcommand)
+    create_test_index(index_dir).expect("Failed to create test index");
 
-    let transform_status = Command::new("cargo")
-        .args([
-            "run",
-            "--quiet",
-            "transform",
-            temp_dir.path().to_str().unwrap(),
-            output_dir.to_str().unwrap(),
-        ])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-
-    if !transform_status.map(|s| s.success()).unwrap_or(false) {
-        println!("Warning: transform failed, skipping CLI test");
-        return;
-    }
-
-    let mut child = Command::new("cargo")
-        .args([
-            "run",
-            "--quiet",
-            "search",
-            "",
-            "--index-dir",
-            output_dir.to_str().unwrap(),
-        ])
+    let mut child = Command::new(CTDBIN)
+        .args(["search", "", "--index-dir", index_dir.to_str().unwrap()])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

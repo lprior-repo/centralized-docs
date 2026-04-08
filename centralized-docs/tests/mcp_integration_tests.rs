@@ -34,7 +34,11 @@ async fn run_returns_ok_when_index_dir_is_min_length_and_exists() {
     let new_path = dir.path().join("a");
     std::fs::create_dir(&new_path).unwrap();
     let result = doc_transformer::mcp::run(new_path).await;
-    assert!(result.is_ok() || result.is_err(), "red phase");
+    assert!(
+        result.is_ok(),
+        "MCP run should succeed on valid directory with EOF stdin: {:?}",
+        result
+    );
 }
 
 #[tokio::test]
@@ -51,7 +55,11 @@ async fn run_returns_ok_when_index_dir_is_max_length_and_exists() {
     let path = dir.path().join("a".repeat(200));
     std::fs::create_dir(&path).unwrap_or(());
     let result = doc_transformer::mcp::run(path).await;
-    assert!(result.is_ok() || result.is_err(), "red phase");
+    assert!(
+        result.is_ok(),
+        "MCP run should succeed on valid directory with EOF stdin: {:?}",
+        result
+    );
 }
 
 #[tokio::test]

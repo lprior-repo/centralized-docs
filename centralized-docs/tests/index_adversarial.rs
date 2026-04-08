@@ -73,8 +73,15 @@ fn test_index_malformed_json() {
         None,
     );
     assert!(
-        result.is_ok() || result.is_err(),
-        "Should handle malformed JSON, got: {result:?}",
+        result.is_ok(),
+        "Should overwrite malformed INDEX.json with valid index, got: {result:?}",
+    );
+    let written = fs::read_to_string(index_path.join("INDEX.json")).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&written).expect("INDEX.json should be valid JSON after rebuild");
+    assert_eq!(
+        parsed["version"], "5.0",
+        "INDEX.json should have valid schema"
     );
 }
 
@@ -116,8 +123,15 @@ fn test_index_missing_required_fields() {
         None,
     );
     assert!(
-        result.is_ok() || result.is_err(),
-        "Should handle missing chunks result, got: {result:?}",
+        result.is_ok(),
+        "Should overwrite incomplete INDEX.json with valid index, got: {result:?}",
+    );
+    let written = fs::read_to_string(index_path.join("INDEX.json")).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&written).expect("INDEX.json should be valid JSON after rebuild");
+    assert!(
+        parsed.get("documents").is_some(),
+        "INDEX.json should contain documents field",
     );
 }
 
@@ -175,12 +189,10 @@ fn test_index_invalid_hnsw_parameters() {
             ef_construction,
             None,
         );
-        // Should either fail gracefully or handle invalid parameters
         assert!(
-            result.is_ok() || result.is_err(),
-            "Should handle invalid HNSW params (m={m}, ef={ef}), got: {result:?}",
-            m = hnsw_m.unwrap_or(0),
-            ef = ef_construction.unwrap_or(0),
+            result.is_ok(),
+            "Should succeed regardless of HNSW params (unused in current impl), \
+             got err for m={hnsw_m:?}, ef={ef_construction:?}: {result:?}",
         );
     }
 }
@@ -457,7 +469,12 @@ fn test_index_very_long_project_name() {
     );
 
     assert!(
-        result.is_ok() || result.is_err(),
-        "Should handle empty documents array, got: {result:?}",
+        result.is_ok(),
+        "Should handle very long project name, got: {result:?}",
+    );
+    let written = fs::read_to_string(index_path.join("INDEX.json")).unwrap();
+    assert!(
+        written.contains(&long_name),
+        "INDEX.json should contain the long project name",
     );
 }

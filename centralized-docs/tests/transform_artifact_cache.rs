@@ -763,17 +763,22 @@ fn transform_all_cached_returns_transform_computation_failed_on_failure() {
     let result = transform_all_cached(&analyses, &link_map, &output_dir, &cache);
 
     // Then: if it fails, it should be TransformComputationFailed
-    if let Err(e) = result {
-        match e {
-            TransformArtifactError::TransformComputationFailed {
-                source_path,
-                message,
-            } => {
-                assert_eq!(source_path, "bad.md");
-                assert!(!message.is_empty());
-            }
-            other => panic!("Expected TransformComputationFailed, got: {:?}", other),
+    match result {
+        Err(TransformArtifactError::TransformComputationFailed {
+            source_path,
+            message,
+        }) => {
+            assert_eq!(source_path, "bad.md");
+            assert!(!message.is_empty());
         }
+        Ok(transform_result) => {
+            // On a healthy system with well-formed input, the transform may succeed.
+            // Verify the result is valid rather than silently passing.
+            assert_eq!(transform_result.success_count, 1);
+            assert_eq!(transform_result.total_count, 1);
+            assert_eq!(transform_result.error_count, 0);
+        }
+        Err(other) => panic!("Expected TransformComputationFailed, got: {:?}", other),
     }
 }
 
@@ -798,13 +803,22 @@ fn transform_all_cached_returns_cache_write_failed_on_store_failure() {
     let result = transform_all_cached(&analyses, &link_map, &output_dir, &cache);
 
     // Then: may succeed or fail; if it fails with CacheWriteFailed, verify fields
-    if let Err(TransformArtifactError::CacheWriteFailed {
-        source_path,
-        message,
-    }) = result
-    {
-        assert_eq!(source_path, "big.md");
-        assert!(!message.is_empty());
+    match result {
+        Err(TransformArtifactError::CacheWriteFailed {
+            source_path,
+            message,
+        }) => {
+            assert_eq!(source_path, "big.md");
+            assert!(!message.is_empty());
+        }
+        Ok(transform_result) => {
+            // On a healthy system with small input, the transform succeeds.
+            // Verify the result is valid rather than silently passing.
+            assert_eq!(transform_result.success_count, 1);
+            assert_eq!(transform_result.total_count, 1);
+            assert_eq!(transform_result.error_count, 0);
+        }
+        Err(other) => panic!("Expected CacheWriteFailed or Ok, got: {:?}", other),
     }
 }
 

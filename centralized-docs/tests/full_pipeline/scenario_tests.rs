@@ -762,6 +762,7 @@ fn scenario_empty_directory_handling() -> anyhow::Result<()> {
 // =============================================================================
 
 #[test]
+#[ignore = "documentation-only test with no assertions"]
 fn scenario_coverage_report() {
     println!("\n{}", "=".repeat(70));
     println!("SCENARIO TEST COVERAGE REPORT");

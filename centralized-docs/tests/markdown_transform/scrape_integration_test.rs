@@ -64,11 +64,11 @@ fn test_scrape_pipeline_simulation() {
     println!("This simulation confirms all components are ready for real use.");
 }
 
+// Intentional structural test: verifies source code contains expected type names and
+// field names. This is NOT a behavioral test — it catches missing struct definitions,
+// re-exports, and field regressions at the source level.
 #[test]
 fn test_scrape_config_validation() {
-    // Test that ScrapeConfig can be created with valid parameters
-    // This ensures the data structures match PLAN.md specification
-
     println!("=== Testing ScrapeConfig Structure ===");
 
     // Verify the scrape module compiles and types are available
@@ -140,11 +140,11 @@ fn test_scrape_config_validation() {
     println!("✅ Configuration matches PLAN.md specification");
 }
 
+// Intentional structural test: verifies source code contains expected enum variants.
+// This is NOT a behavioral test — it catches missing type definitions at the source
+// level rather than exercising the filter at runtime.
 #[test]
 fn test_filter_functions_exist() {
-    // Verify filter module has the required filtering types
-    // FilterStrategy is defined in src/filter/types.rs
-
     println!("=== Testing Filter Functions ===");
 
     let filter_types_src =

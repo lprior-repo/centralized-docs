@@ -103,7 +103,7 @@ fn watch_accepts_no_sitemap_flag_when_provided() {
 /// NOTE: This test verifies the integration through the CLI. The actual
 /// sitemap_strategy value is verified via tracing/log output.
 #[test]
-fn watch_uses_crawl_only_when_no_sitemap_flag_provided() {
+fn watch_accepts_no_sitemap_flag_without_cli_error() {
     let temp = TempDir::new().unwrap();
     let output_dir = temp.path().join("output");
     let cache_dir = temp.path().join("cache");
@@ -144,7 +144,7 @@ fn watch_uses_crawl_only_when_no_sitemap_flag_provided() {
 /// When: User runs `ctd watch <URL> --output <DIR>` without `--no-sitemap`
 /// Then: The command executes without CLI argument errors
 #[test]
-fn watch_uses_use_sitemap_when_no_sitemap_flag_absent() {
+fn watch_runs_without_cli_error_when_no_sitemap_absent() {
     let temp = TempDir::new().unwrap();
     let output_dir = temp.path().join("output");
     let cache_dir = temp.path().join("cache");
@@ -183,7 +183,7 @@ fn watch_uses_use_sitemap_when_no_sitemap_flag_absent() {
 /// This is verified by checking that the CLI accepts the flag and doesn't hard-error.
 /// The actual config building is tested via unit tests in cmd/watch.rs.
 #[test]
-fn run_watch_passes_no_sitemap_bool_to_build_scrape_config() {
+fn watch_accepts_flag_with_and_without_no_sitemap_without_cli_error() {
     let temp = TempDir::new().unwrap();
     let output_dir = temp.path().join("output");
     let cache_dir = temp.path().join("cache");
@@ -351,7 +351,7 @@ fn watch_help_shows_no_sitemap_flag() {
 /// Mutation: Boolean inversion (if no_sitemap → if !no_sitemap)
 /// This test ensures that providing --no-sitemap is different from not providing it.
 #[test]
-fn watch_flag_produces_different_behavior_when_present_vs_absent() {
+fn watch_flag_accepted_with_and_without_no_sitemap_no_cli_error() {
     let temp = TempDir::new().unwrap();
     let output_dir = temp.path().join("output");
     let cache_dir = temp.path().join("cache");

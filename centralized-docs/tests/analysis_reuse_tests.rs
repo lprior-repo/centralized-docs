@@ -582,12 +582,12 @@ fn analyze_with_reuse_propagates_bulk_load_error_when_analyses_corrupt() {
     write_tx.commit().unwrap();
 
     let session = StateReadSession::new(&db).unwrap();
-    // This should trigger a BulkLoad error when trying to load corrupt analyses
-    // However, the implementation might handle this gracefully (re-analyze).
-    // The test plan says B08 tests fatal BulkLoad error propagation.
-    // For RED phase, we write the test expecting the error.
-    let _result = analyze_with_reuse(&files, temp_dir.path(), None, &session);
-    // The exact assertion depends on implementation — this test validates the function exists
+    let result = analyze_with_reuse(&files, temp_dir.path(), None, &session);
+    let err = result.expect_err("should fail with BulkLoad error for corrupt rkyv data");
+    assert!(
+        matches!(err, ReuseAnalysisError::BulkLoad(_)),
+        "expected BulkLoad error, got: {err:?}"
+    );
 }
 
 // ===========================================================================
@@ -1485,9 +1485,11 @@ fn load_archived_analyses_propagates_bulk_load_error_on_fatal_failure() {
     let session = StateReadSession::new(&db).unwrap();
     let result = load_archived_analyses(&reusable_paths, &file_states, &session);
 
-    // The error should be a BulkLoadError propagated as ReuseAnalysisError::BulkLoad
-    // For RED phase, we just verify the function is callable with the right signature
-    let _ = result;
+    let err = result.expect_err("should fail with BulkLoad error when tables missing");
+    assert!(
+        matches!(err, ReuseAnalysisError::BulkLoad(_)),
+        "expected BulkLoad error, got: {err:?}"
+    );
 }
 
 // ===========================================================================

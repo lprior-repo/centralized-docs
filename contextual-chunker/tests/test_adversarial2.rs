@@ -9,6 +9,15 @@ fn test_adversarial_create_chunks_at_level() {
 
     let doc = Document::new("doc1".to_string(), "Title".to_string(), long_content);
 
-    // This should not panic if properly fixed!
-    let _result = chunk(&doc, ChunkLevel::Standard);
+    let result = chunk(&doc, ChunkLevel::Standard);
+    assert!(
+        result.is_ok(),
+        "chunk should succeed on large input: {:?}",
+        result.err()
+    );
+    let chunks = result.unwrap();
+    assert!(
+        !chunks.is_empty(),
+        "chunk should produce at least one chunk for 2M chars of input"
+    );
 }

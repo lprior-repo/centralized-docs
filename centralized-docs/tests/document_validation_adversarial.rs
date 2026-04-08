@@ -82,16 +82,19 @@ fn test_document_validation_missing_required_fields() {
             None,
             None,
         );
-        // Should either fail gracefully or handle missing fields
+        // CURRENT BEHAVIOR: build_and_write_index accepts empty required fields.
+        // TODO: When validation is added, change to is_err().
         assert!(
-            result.is_ok() || result.is_err(),
-            "Should handle document with missing fields, got: {result:?}",
+            result.is_ok(),
+            "build_and_write_index currently accepts empty required fields. \
+             If this changes to reject them, update this assertion to is_err(). \
+             Got: {result:?}",
         );
     }
 }
 
 /// Test 2: Documents with only whitespace
-/// Expected: Should be handled gracefully
+/// CURRENT BEHAVIOR: Accepted without validation.
 #[test]
 fn test_document_validation_whitespace_only() {
     let dir = TempDir::new().expect("Failed to create temp dir");
@@ -150,9 +153,13 @@ fn test_document_validation_whitespace_only() {
             None,
             None,
         );
+        // CURRENT BEHAVIOR: build_and_write_index accepts whitespace-only fields.
+        // TODO: When validation is added, change to is_err().
         assert!(
-            result.is_ok() || result.is_err(),
-            "Should handle whitespace-only document, got: {result:?}",
+            result.is_ok(),
+            "build_and_write_index currently accepts whitespace-only fields. \
+             If this changes to reject them, update this assertion to is_err(). \
+             Got: {result:?}",
         );
     }
 }
@@ -415,14 +422,18 @@ fn test_document_validation_extremely_long_link_urls() {
     let index_path = dir.path();
 
     // Create documents with extremely long link URLs
-    let _long_url = "https://example.com".repeat(1000); // Very long URL
+    let long_url = format!("[Link]({})", "https://example.com".repeat(1000)); // Very long URL
     let docs = vec![doc_transformer::analyze::Analysis {
         source_path: "test.md".to_string(),
         title: "Test".to_string(),
         category: "ref".to_string(),
         frontmatter: None,
         headings: vec![],
-        links: vec![],
+        links: vec![doc_transformer::analyze::Link {
+            text: "Long link".to_string(),
+            target: long_url.clone(),
+            kind: doc_transformer::analyze::LinkKind::External,
+        }],
         first_paragraph: "Test paragraph".to_string(),
         word_count: 100,
         has_code: false,
@@ -462,14 +473,14 @@ fn test_document_validation_extremely_long_link_urls() {
     );
 }
 
-/// Test 9: Documents with negative word count
+/// Test 9: Documents with extreme word count
 /// Expected: Should be handled gracefully
 #[test]
-fn test_document_validation_negative_word_count() {
+fn test_document_validation_extreme_word_count() {
     let dir = TempDir::new().expect("Failed to create temp dir");
     let index_path = dir.path();
 
-    // Create documents with negative word count
+    // Create documents with extreme word count (usize::MAX)
     let docs = vec![doc_transformer::analyze::Analysis {
         source_path: "test.md".to_string(),
         title: "Test".to_string(),
@@ -478,7 +489,7 @@ fn test_document_validation_negative_word_count() {
         headings: vec![],
         links: vec![],
         first_paragraph: "Test paragraph".to_string(),
-        word_count: 100,
+        word_count: usize::MAX,
         has_code: false,
         has_tables: false,
         content: "Test content".to_string().into(),
@@ -529,7 +540,7 @@ fn test_document_validation_zero_word_count() {
         headings: vec![],
         links: vec![],
         first_paragraph: "Test paragraph".to_string(),
-        word_count: 100,
+        word_count: 0,
         has_code: false,
         has_tables: false,
         content: "Test content".to_string().into(),

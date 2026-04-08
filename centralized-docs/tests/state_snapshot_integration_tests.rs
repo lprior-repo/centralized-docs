@@ -308,10 +308,16 @@ fn load_snapshots_returns_storage_error_when_redb_read_fails() {
     // When: Attempt to read (with a db that should be healthy)
     let result = session.load_snapshots(&[key]);
 
-    // Then: This test is a placeholder — if redb reads are infallible on healthy dbs,
-    // the implementation should still map any redb error to StorageError correctly.
-    // For RED phase, this fails because todo!() in load_snapshots.
-    let _ = result;
+    // Then: redb reads on a healthy database are infallible in practice.
+    // There is no deterministic mechanism to trigger StorageError from a
+    // well-functioning redb instance. This test verifies the operation completes
+    // without panic and returns a valid result (Ok with empty map — no data committed).
+    let map = result.expect("load_snapshots on healthy db should succeed");
+    assert!(
+        map.is_empty(),
+        "no data was committed; map should be empty, got {} entries",
+        map.len()
+    );
 }
 
 // ===========================================================================
@@ -536,11 +542,15 @@ fn commit_changes_returns_write_transaction_failed_when_begin_write_fails() {
     // (On a healthy db this should succeed; this test enforces error variant)
     let result = db.commit_changes(changes);
 
-    // Then: Should either succeed or return exact error variant
+    // Then: Should either succeed or return exact error variant.
+    // On a healthy filesystem commit succeeds; verify data was persisted.
     match result {
         Ok(()) => {
-            // Healthy db — commit succeeds. The error path is tested via
-            // adversarial conditions (read-only fs, lock contention).
+            let session = db.begin_read().expect("begin read");
+            let map = session.load_snapshots(&[key]).expect("load");
+            assert_eq!(map.len(), 1, "committed snapshot should be readable");
+            let restored: Snapshot = map[&key].deserialize().expect("deserialize");
+            assert_eq!(restored, snapshot, "data must round-trip correctly");
         }
         Err(CommitError::WriteTransaction { reason }) => {
             assert!(!reason.is_empty());
@@ -572,9 +582,15 @@ fn commit_changes_returns_commit_failed_when_redb_commit_fails() {
     // When
     let result = db.commit_changes(changes);
 
-    // Then: Exact variant if error
+    // Then: Exact variant if error. On healthy db, commit succeeds — verify data.
     match result {
-        Ok(()) => {}
+        Ok(()) => {
+            let session = db.begin_read().expect("begin read");
+            let map = session.load_snapshots(&[key]).expect("load");
+            assert_eq!(map.len(), 1, "committed snapshot should be readable");
+            let restored: Snapshot = map[&key].deserialize().expect("deserialize");
+            assert_eq!(restored, snapshot, "data must round-trip correctly");
+        }
         Err(CommitError::CommitFailed { reason }) => {
             assert!(!reason.is_empty());
         }
@@ -640,10 +656,14 @@ fn commit_changes_returns_table_open_failed_when_snapshots_table_missing_for_wri
     // When: Attempt commit
     let result = db.commit_changes(changes);
 
-    // Then: Exact error variant
+    // Then: Exact error variant. On healthy db with table re-created, commit succeeds.
     match result {
         Ok(()) => {
-            // If table exists (normal case), commit succeeds
+            let session = db.begin_read().expect("begin read");
+            let map = session.load_snapshots(&[key]).expect("load");
+            assert_eq!(map.len(), 1, "committed snapshot should be readable");
+            let restored: Snapshot = map[&key].deserialize().expect("deserialize");
+            assert_eq!(restored, snapshot, "data must round-trip correctly");
         }
         Err(CommitError::WriteFailed { table, reason }) => {
             // Table open failed during write — accept this variant
@@ -676,9 +696,15 @@ fn commit_changes_returns_storage_error_when_redb_insert_fails_during_commit() {
     // When
     let result = db.commit_changes(changes);
 
-    // Then: Verify error mapping
+    // Then: Verify error mapping. On healthy db, commit succeeds — verify data.
     match result {
-        Ok(()) => {}
+        Ok(()) => {
+            let session = db.begin_read().expect("begin read");
+            let map = session.load_snapshots(&[key]).expect("load");
+            assert_eq!(map.len(), 1, "committed snapshot should be readable");
+            let restored: Snapshot = map[&key].deserialize().expect("deserialize");
+            assert_eq!(restored, snapshot, "data must round-trip correctly");
+        }
         Err(CommitError::WriteFailed { table, reason }) => {
             assert!(!table.is_empty());
             assert!(!reason.is_empty());

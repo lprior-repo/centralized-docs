@@ -11,6 +11,7 @@
 //! These tests are stubbed out pending implementation of sanitize_query function.
 
 #[test]
+#[ignore = "sanitize_query not yet implemented"]
 fn test_sanitize_query_basic_special_chars() {
     // Stubbed - sanitize_query not yet implemented
     // Original tests:
@@ -28,6 +29,7 @@ fn test_sanitize_query_basic_special_chars() {
 }
 
 #[test]
+#[ignore = "sanitize_query not yet implemented"]
 fn test_sanitize_query_html_tags() {
     // Stubbed - sanitize_query not yet implemented
     // Original tests:
@@ -42,6 +44,7 @@ fn test_sanitize_query_html_tags() {
 }
 
 #[test]
+#[ignore = "sanitize_query not yet implemented"]
 fn test_sanitize_query_boolean_operators() {
     // Stubbed - sanitize_query not yet implemented
     // Original tests:
@@ -51,6 +54,7 @@ fn test_sanitize_query_boolean_operators() {
 }
 
 #[test]
+#[ignore = "sanitize_query not yet implemented"]
 fn test_sanitize_query_xss_examples() {
     // Stubbed - sanitize_query not yet implemented
     // Original tests:
@@ -65,6 +69,7 @@ fn test_sanitize_query_xss_examples() {
 }
 
 #[test]
+#[ignore = "sanitize_query not yet implemented"]
 fn test_sanitize_query_normal_text() {
     // Stubbed - sanitize_query not yet implemented
     // Original tests:

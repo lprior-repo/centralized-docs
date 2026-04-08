@@ -404,14 +404,10 @@ async fn run_scrape_propagates_load_scrapes_failure() {
 
 // Behavior 43: StateReadSession::new failure propagates
 #[tokio::test]
-async fn run_scrape_propagates_read_session_creation_failure() {
-    // It's hard to force StateReadSession::new to fail on a healthy DB.
-    // The error variant is BulkLoadError::StorageError.
-    // We test that the error type is constructible and wraps correctly.
+async fn run_scrape_creates_readable_session_on_healthy_db() {
     let temp_dir = TempDir::new().expect("tempdir");
     let db = open_state_db(&temp_dir);
 
-    // Session creation should succeed on healthy DB
     let result = StateReadSession::new(db.database());
     assert!(result.is_ok(), "session should succeed on healthy DB");
 }
