@@ -25,10 +25,13 @@ mod types;
 mod checks;
 
 pub(crate) use checks::{validate_index_json, validate_llms_txt};
+#[cfg(test)]
 pub(crate) use types::{
     make_error, validate_links_in_content, validation_result, Severity, ValidationError,
     ValidationResult,
 };
+#[cfg(not(test))]
+pub(crate) use types::{Severity, ValidationResult};
 
 /// Print validation results
 /// Returns the error count for exit code determination

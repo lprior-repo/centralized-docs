@@ -239,13 +239,13 @@ pub enum Commands {
         yes: bool,
     },
 
-    /// Compare two .scrape directories and show diff
+    /// Compare two scrape directories and show diff (requires manifest.json)
     Diff {
-        /// First .scrape directory
+        /// First scrape directory (created by `ctd scrape`, must contain manifest.json)
         #[arg(value_name = "DIR_A")]
         dir_a: PathBuf,
 
-        /// Second .scrape directory
+        /// Second scrape directory (created by `ctd scrape`, must contain manifest.json)
         #[arg(value_name = "DIR_B")]
         dir_b: PathBuf,
 

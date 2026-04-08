@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide covers the production release flow for `ctd` `v0.6.1`.
+This guide covers the production release flow for `ctd` `v0.7.0`.
 
 ## Install a Release Binary
 
@@ -10,10 +10,10 @@ curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/sc
 
 The installer:
 
-- detects your platform
+- detects your platform (Linux x86_64, macOS ARM, Windows x86_64)
 - downloads the matching release archive
 - verifies the archive with `SHA256SUMS.txt`
-- installs `ctd` and `llms_txt_validator` into `~/.local/bin`
+- installs `ctd`, `ctd-mcp`, and `llms_txt_validator` into `~/.local/bin`
 
 ## Install From Source
 
@@ -61,13 +61,16 @@ ctd index ./docs --output ./output --project-name "My Docs"
 
 Expected outputs:
 
-- `llms.txt`
-- `llms-full.txt`
-- `INDEX.json`
-- `COMPASS.md`
-- `AGENTS.md`
-- `docs/`
-- `chunks/`
+- `llms.txt` — AI entry point (read this first)
+- `INDEX.json` — Machine-readable index with chunks and knowledge DAG
+- `NAVIGATION.md` — Human-readable navigation guide
+- `docs/` — Transformed documents with YAML frontmatter
+- `chunks/` — Semantic chunks with context prefix
+- `state.redb` — State database for incremental re-indexing
+
+Optional (with `--with-agents`):
+
+- `AGENTS.md` — Instructions file for AI coding agents
 
 ## Search the Resulting Index
 

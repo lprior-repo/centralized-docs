@@ -4,7 +4,7 @@ exclude = ["centralized-docs/fuzz"]
 resolver = "2"
 
 [workspace.package]
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 rust-version = "1.94"
 authors = ["centralized-docs Contributors"]
@@ -16,6 +16,7 @@ unsafe_code = "forbid"
 missing_docs = "allow"
 dead_code = "deny"
 unused_must_use = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
 
 [workspace.dependencies]
 # FP primitives (The Holy Trinity)
@@ -69,6 +70,8 @@ type_complexity = "allow"
 return_self_not_must_use = "allow"
 trivially_copy_pass_by_ref = "allow"
 map_unwrap_or = "allow"
+doc_markdown = "allow"
+items_after_statements = "allow"
 
 [profile.release]
 opt-level = 3

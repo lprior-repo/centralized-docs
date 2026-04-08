@@ -51,7 +51,7 @@ pub struct RelatedChunk {
 }
 
 /// Intermediate result from document indexing phase
-pub(crate) struct DocumentIndexResult {
+pub struct DocumentIndexResult {
     pub documents: Vec<IndexDocument>,
     pub keywords: std::collections::HashMap<String, Vec<String>>,
     pub document_tags: Vec<(String, Vec<String>, String)>,

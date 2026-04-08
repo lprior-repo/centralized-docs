@@ -22,6 +22,7 @@ pub enum Severity {
 /// Validation result
 #[derive(Debug)]
 pub struct ValidationResult {
+    #[allow(dead_code)]
     pub valid: bool,
     pub errors: Vec<ValidationError>,
 }
@@ -71,7 +72,7 @@ pub(crate) fn make_error(field: &str, message: &str, severity: Severity) -> Vali
     }
 }
 
-struct UrlValidation {
+pub(crate) struct UrlValidation {
     malformed: bool,
     errors: Vec<ValidationError>,
 }
