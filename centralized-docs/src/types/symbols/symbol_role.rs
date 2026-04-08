@@ -130,5 +130,9 @@ impl<'de> Deserialize<'de> for SymbolRole {
 }
 
 #[cfg(test)]
-#[path = "symbol_role_tests.rs"]
-mod tests;
+#[path = "symbol_role_tests_core.rs"]
+mod tests_core;
+
+#[cfg(test)]
+#[path = "symbol_role_tests_extras.rs"]
+mod tests_extras;

@@ -6,6 +6,9 @@ use rmcp::{tool, tool_handler, tool_router};
 use std::path::PathBuf;
 use tracing::instrument;
 
+#[path = "server_search_index.rs"]
+mod search_index;
+
 #[derive(Debug, Clone)]
 pub struct CtdMcpServer {
     pub index_dir: PathBuf,
@@ -122,7 +125,7 @@ impl CtdMcpServer {
         self.state
             .get_or_try_init(|| async {
                 let index_data = Self::load_index_data(&self.index_dir).await?;
-                let search_index = Self::ensure_search_index(&self.index_dir, &index_data)?;
+                let search_index = search_index::ensure_search_index(&self.index_dir, &index_data)?;
                 Ok(ServerState {
                     index_data,
                     search_index,
@@ -145,71 +148,6 @@ impl CtdMcpServer {
         serde_json::from_str(&content).map_err(|e| CtdMcpError::IndexCorrupted {
             reason: e.to_string(),
         })
-    }
-
-    fn ensure_search_index(
-        index_dir: &std::path::Path,
-        index_data: &IndexData,
-    ) -> Result<tantivy::Index, CtdMcpError> {
-        let search_index = match crate::search::open_existing_index(index_dir) {
-            Ok(Some(idx)) => idx,
-            Ok(None) => Self::build_new_index(index_dir, index_data)?,
-            Err(e) => {
-                return Err(CtdMcpError::SearchIndexError {
-                    reason: e.to_string(),
-                })
-            }
-        };
-
-        if !search_index
-            .reader()
-            .ok()
-            .is_some_and(|r| r.searcher().num_docs() > 0)
-        {
-            Self::populate_index(&search_index, index_data)?;
-        }
-        Ok(search_index)
-    }
-
-    fn build_new_index(
-        dir: &std::path::Path,
-        index_data: &IndexData,
-    ) -> Result<tantivy::Index, CtdMcpError> {
-        let index = crate::search::rebuild_index_from_json(dir).map_err(|e| {
-            CtdMcpError::SearchIndexError {
-                reason: e.to_string(),
-            }
-        })?;
-        Self::populate_index(&index, index_data)?;
-        Ok(index)
-    }
-
-    fn populate_index(index: &tantivy::Index, index_data: &IndexData) -> Result<(), CtdMcpError> {
-        let documents = index_data.extract_documents();
-        if documents.is_empty() {
-            return Ok(());
-        }
-        Self::write_documents_to_index(index, &documents)
-    }
-
-    fn write_documents_to_index(
-        index: &tantivy::Index,
-        documents: &[crate::index::IndexDocument],
-    ) -> Result<(), CtdMcpError> {
-        let mut writer = index
-            .writer(50_000_000)
-            .map_err(|e| CtdMcpError::SearchIndexError {
-                reason: e.to_string(),
-            })?;
-        crate::search::index_documents(&mut writer, documents).map_err(|e| {
-            CtdMcpError::SearchIndexError {
-                reason: e.to_string(),
-            }
-        })?;
-        writer.commit().map_err(|e| CtdMcpError::SearchIndexError {
-            reason: e.to_string(),
-        })?;
-        Ok(())
     }
 
     #[must_use]

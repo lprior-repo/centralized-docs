@@ -47,5 +47,9 @@ pub struct SymbolNode {
 }
 
 #[cfg(test)]
-#[path = "symbol_graph_tests.rs"]
-mod tests;
+#[path = "symbol_graph_tests_relationship.rs"]
+mod tests_relationship;
+
+#[cfg(test)]
+#[path = "symbol_graph_tests_node.rs"]
+mod tests_node;

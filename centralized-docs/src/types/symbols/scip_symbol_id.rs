@@ -202,5 +202,9 @@ impl<'de> Deserialize<'de> for ScipSymbolId {
 }
 
 #[cfg(test)]
-#[path = "scip_symbol_id_tests.rs"]
-mod tests;
+#[path = "scip_symbol_id_tests_validation.rs"]
+mod tests_validation;
+
+#[cfg(test)]
+#[path = "scip_symbol_id_tests_accessors.rs"]
+mod tests_accessors;
