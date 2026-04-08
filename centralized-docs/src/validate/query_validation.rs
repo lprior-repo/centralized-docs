@@ -53,6 +53,15 @@ pub fn validate_query(query: &str) -> Result<&str, ValidationError> {
 
     let trimmed = query.trim();
 
+    // Check for control characters (0x00-0x1F except tab/newline/carriage-return)
+    // These provide no search value and may cause unexpected behavior in backends
+    if trimmed
+        .chars()
+        .any(|c| c.is_control() && !matches!(c, '\t' | '\n' | '\r'))
+    {
+        return Err(ValidationError::ControlCharactersNotAllowed);
+    }
+
     if trimmed.is_empty() {
         return Err(ValidationError::EmptyQuery);
     }

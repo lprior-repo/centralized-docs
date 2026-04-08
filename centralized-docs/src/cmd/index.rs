@@ -81,6 +81,21 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
         anyhow::bail!("Source not found: {}", source.display());
     }
 
+    if source == output {
+        anyhow::bail!(
+            "Source and output directories must be different (both are: {})",
+            source.display()
+        );
+    }
+
+    if output.starts_with(source) {
+        tracing::warn!(
+            "Output directory ({}) is inside source directory ({}) — output files will be indexed on re-runs",
+            output.display(),
+            source.display()
+        );
+    }
+
     let _output_lock = acquire_output_lock(output)?;
 
     // Log graph configuration parameters

@@ -13,5 +13,6 @@ pub async fn run_mcp_serve(index_dir: &Path) -> Result<()> {
             index_dir.display()
         );
     }
+    tracing::info!("MCP server starting for {}", index_dir.display());
     doc_transformer::mcp::run_mcp_serve(index_dir).await
 }

@@ -16,6 +16,9 @@ pub enum ValidationError {
     #[error("Query contains null bytes which are not allowed")]
     NullBytesNotAllowed,
 
+    #[error("Query contains control characters which are not allowed")]
+    ControlCharactersNotAllowed,
+
     #[error("Limit must be positive (cannot return negative results), got {0}")]
     InvalidLimitNegative(i64),
 
