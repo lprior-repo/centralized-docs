@@ -1,7 +1,7 @@
 //! Domain types and error taxonomy for the scrape-reuse pipeline.
 
 use crate::state::bulk_load::BulkLoadError;
-use crate::state::{StateLoadError, UrlStateRaw};
+use crate::state::StateLoadError;
 
 /// Partition of scraped page indices into unchanged vs changed-or-new.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

@@ -79,6 +79,12 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "validation failed",
         "query parse error",
         "invalid query",
+        "invalid url",
+        "source not found",
+        "not found in",
+        "does not exist",
+        "regex queries not allowed",
+        "redos",
     ];
 
     let is_user_input = user_input_patterns
@@ -228,5 +234,35 @@ mod tests {
     fn test_map_error_to_exit_code_failed_initialize_tables() {
         let err = anyhow::anyhow!("failed to initialize tables: table already exists");
         assert_eq!(map_error_to_exit_code(&err), 2);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_invalid_url() {
+        let err = anyhow::anyhow!("Invalid URL format: not-a-url");
+        assert_eq!(map_error_to_exit_code(&err), 1);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_source_not_found() {
+        let err = anyhow::anyhow!("Source not found: /path/to/source");
+        assert_eq!(map_error_to_exit_code(&err), 1);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_not_found_in() {
+        let err = anyhow::anyhow!("INDEX.json not found in /path/to/dir");
+        assert_eq!(map_error_to_exit_code(&err), 1);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_does_not_exist() {
+        let err = anyhow::anyhow!("compaction failed: file does not exist");
+        assert_eq!(map_error_to_exit_code(&err), 1);
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_regex_not_allowed() {
+        let err = anyhow::anyhow!("Regex queries not allowed (potential ReDoS attack)");
+        assert_eq!(map_error_to_exit_code(&err), 1);
     }
 }

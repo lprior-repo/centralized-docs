@@ -244,10 +244,10 @@ pub fn exit_clap(e: clap::error::Error) -> ExitCode {
     eprintln!("{e}");
     match if is_help {
         0
-    } else if is_val && !e.to_string().to_lowercase().contains("limit must be") {
-        2
-    } else {
+    } else if is_val {
         1
+    } else {
+        2
     } {
         0 => ExitCode::SUCCESS,
         2 => ExitCode::from(2),

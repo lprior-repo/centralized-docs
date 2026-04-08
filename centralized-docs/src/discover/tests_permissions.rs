@@ -1,4 +1,3 @@
-#[allow(clippy::panic, clippy::unwrap_used, clippy::expect_used)]
 use super::*;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;

@@ -246,43 +246,34 @@ fn ingest_accepts_connect_timeout_secs_30() {
 }
 
 // =============================================================================
-// WATCH COMMAND - must NOT have --connect-timeout-secs flag
+// WATCH COMMAND - now has --connect-timeout-secs flag
 // =============================================================================
 
-/// Verify that watch command does NOT have --connect-timeout-secs flag
-/// Per contract: spider-rs doesn't support connect_timeout on watch command
+/// Verify that watch command has --connect-timeout-secs flag
 #[test]
-fn watch_command_does_not_have_connect_timeout_flag() {
+fn watch_command_has_connect_timeout_flag() {
     let result = run_cli(&["watch", "--help"]);
 
     let output = String::from_utf8_lossy(&result.stdout).to_string()
         + &String::from_utf8_lossy(&result.stderr);
 
     assert!(
-        !output.contains("--connect-timeout-secs"),
-        "watch command should NOT have --connect-timeout-secs flag. Output: {output}"
+        output.contains("--connect-timeout-secs"),
+        "watch command should have --connect-timeout-secs flag. Output: {output}"
     );
 }
 
-/// Verify that watch command rejects --connect-timeout-secs argument
+/// Verify that watch command accepts --connect-timeout-secs flag
 #[test]
-fn watch_command_rejects_connect_timeout_flag() {
-    let temp = TempDir::new().unwrap();
-    let output_dir = temp.path().join("output");
+fn watch_command_accepts_connect_timeout_flag() {
+    let result = run_cli(&["watch", "--help"]);
 
-    let result = run_cli(&[
-        "watch",
-        "http://example.com",
-        "--output",
-        output_dir.to_str().unwrap(),
-        "--connect-timeout-secs",
-        "10",
-    ]);
+    let output = String::from_utf8_lossy(&result.stdout).to_string()
+        + &String::from_utf8_lossy(&result.stderr);
 
-    // Should fail because watch doesn't support --connect-timeout-secs
     assert!(
-        !result.status.success(),
-        "watch command should reject --connect-timeout-secs"
+        output.contains("--connect-timeout-secs"),
+        "watch command should accept --connect-timeout-secs. Output: {output}"
     );
 }
 

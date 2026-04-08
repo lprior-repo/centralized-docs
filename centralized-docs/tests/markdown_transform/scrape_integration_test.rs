@@ -28,10 +28,10 @@ fn test_scrape_pipeline_simulation() {
         "scrape/mod.rs module must exist"
     );
 
-    // Verify filter.rs module exists
+    // Verify filtering.rs module exists
     assert!(
-        PathBuf::from("src/filter.rs").exists(),
-        "filter.rs module must exist"
+        PathBuf::from("src/scrape/filtering.rs").exists(),
+        "scrape/filtering.rs module must exist"
     );
 
     // Verify the binary has scrape command
@@ -53,7 +53,7 @@ fn test_scrape_pipeline_simulation() {
     );
 
     println!("✅ Scrape command exists and is properly configured");
-    println!("✅ All required modules (scrape.rs, filter.rs) exist");
+    println!("✅ All required modules (scrape/, filtering.rs) exist");
     println!("✅ CLI interface matches PLAN.md specification");
     println!();
     println!("Note: Actual network scraping test would require:");
@@ -75,8 +75,8 @@ fn test_scrape_config_validation() {
     // We can't directly test private structs, but we verify the module builds
     let mod_src =
         fs::read_to_string("src/scrape/mod.rs").expect("Should be able to read scrape/mod.rs");
-    let validation_src = fs::read_to_string("src/scrape/validation.rs")
-        .expect("Should be able to read scrape/validation.rs");
+    let validation_src = fs::read_to_string("src/scrape/validation/mod.rs")
+        .expect("Should be able to read scrape/validation/mod.rs");
 
     // Verify required structs are re-exported from mod.rs
     assert!(
@@ -92,31 +92,47 @@ fn test_scrape_config_validation() {
         "ScrapeResult must be re-exported from mod.rs"
     );
 
-    // Verify required structs exist in validation.rs (where they're defined)
+    // Verify required structs are re-exported from validation/mod.rs
     assert!(
-        validation_src.contains("struct ScrapeConfig"),
-        "ScrapeConfig struct must exist in validation.rs"
+        validation_src.contains("ScrapeConfig"),
+        "ScrapeConfig must be re-exported from validation/mod.rs"
     );
     assert!(
-        validation_src.contains("struct ScrapedPage"),
-        "ScrapedPage struct must exist in validation.rs"
+        validation_src.contains("ScrapedPage"),
+        "ScrapedPage must be re-exported from validation/mod.rs"
     );
     assert!(
-        validation_src.contains("struct ScrapeResult"),
-        "ScrapeResult struct must exist in validation.rs"
+        validation_src.contains("ScrapeResult"),
+        "ScrapeResult must be re-exported from validation/mod.rs"
+    );
+
+    // Verify structs are defined in validation/types.rs
+    let types_src = fs::read_to_string("src/scrape/validation/types.rs")
+        .expect("Should be able to read scrape/validation/types.rs");
+    assert!(
+        types_src.contains("struct ScrapeConfig"),
+        "ScrapeConfig struct must exist in validation/types.rs"
+    );
+    assert!(
+        types_src.contains("struct ScrapedPage"),
+        "ScrapedPage struct must exist in validation/types.rs"
+    );
+    assert!(
+        types_src.contains("struct ScrapeResult"),
+        "ScrapeResult struct must exist in validation/types.rs"
     );
 
     // Verify required fields exist
     assert!(
-        validation_src.contains("base_url"),
+        types_src.contains("base_url"),
         "ScrapeConfig needs base_url"
     );
     assert!(
-        validation_src.contains("delay_ms"),
+        types_src.contains("delay_ms"),
         "ScrapeConfig needs delay_ms"
     );
     assert!(
-        validation_src.contains("sitemap_strategy"),
+        types_src.contains("sitemap_strategy"),
         "ScrapeConfig needs sitemap_strategy"
     );
 
@@ -126,30 +142,34 @@ fn test_scrape_config_validation() {
 
 #[test]
 fn test_filter_functions_exist() {
-    // Verify filter.rs has the required filtering functions
+    // Verify filter module has the required filtering types
+    // FilterStrategy is defined in src/filter/types.rs
 
     println!("=== Testing Filter Functions ===");
 
-    let filter_src = fs::read_to_string("src/filter.rs").expect("Should be able to read filter.rs");
-
-    // Verify pruning function exists
-    assert!(
-        filter_src.contains("prune_content") || filter_src.contains("fn prune"),
-        "Pruning function must exist"
-    );
-
-    // Verify BM25 support exists
-    let filter_src_lower = filter_src.to_lowercase();
-    assert!(filter_src_lower.contains("bm25"), "BM25 support must exist");
+    let filter_types_src =
+        fs::read_to_string("src/filter/types.rs").expect("Should be able to read filter/types.rs");
 
     // Verify FilterStrategy enum exists
     assert!(
-        filter_src.contains("enum FilterStrategy") || filter_src.contains("FilterStrategy"),
-        "FilterStrategy type must exist"
+        filter_types_src.contains("enum FilterStrategy"),
+        "FilterStrategy enum must exist in filter/types.rs"
     );
 
-    println!("✅ Content filtering functions exist");
-    println!("✅ BM25 scoring implemented");
+    // Verify BM25 variant exists
+    assert!(
+        filter_types_src.contains("BM25"),
+        "BM25 variant must exist in FilterStrategy"
+    );
+
+    // Verify Pruning variant exists
+    assert!(
+        filter_types_src.contains("Pruning"),
+        "Pruning variant must exist in FilterStrategy"
+    );
+
+    println!("✅ FilterStrategy type exists");
+    println!("✅ BM25 variant defined");
     println!("✅ Filter strategy enum defined");
 }
 
