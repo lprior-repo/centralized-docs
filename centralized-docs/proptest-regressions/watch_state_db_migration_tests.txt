@@ -8,3 +8,4 @@ cc 26ec0be930fdb3ca926e3ec496cc41943138a9b801599fc062c2e5e0e944dbfc # shrinks to
 cc c028af9ac59dcb35674b699d1d4c1088aa0186f9a026d4c779a9594a52853b94 # shrinks to snapshot = Snapshot { target_url: "https://aaa.com", timestamp: 1970-01-01T00:00:00Z, pages: {} }
 cc 440849c591dfe55fd1d56b0634b9cbbe343647e49a8296793b2e076920c873b6 # shrinks to snapshot = Snapshot { target_url: "https://aaa.com", timestamp: 1970-01-01T00:00:00Z, pages: {} }
 cc ef515d58cd13fb0d8a151464476b02ea98c3e20401baa6ecb1333b9c6c43844c # shrinks to url = "0"
+cc 6e2b380fe64402906eed6ec899d96250d2fa6a683b06f543f4f6b31ba9187b71 # shrinks to url = "0"

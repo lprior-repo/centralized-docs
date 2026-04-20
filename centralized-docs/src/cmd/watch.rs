@@ -14,8 +14,8 @@ use crate::scrape::SitemapStrategy;
 use crate::state::commit::{StateChanges, StateDb};
 use crate::state::serialize_snapshot;
 use crate::watch::{
-    compute_plan, diff_directories, format_plan_json, format_plan_markdown, snapshot_from_scrape,
-    write_plan_reports, ChangePlan, Snapshot,
+    compute_plan, diff_directories, format_plan_json, format_plan_markdown, resolve_manifest_dir,
+    snapshot_from_scrape, write_plan_reports, ChangePlan, Snapshot,
 };
 
 /// Configuration for the watch command, grouping network and scrape parameters.
@@ -190,7 +190,8 @@ fn store_snapshot(state_db: &StateDb, url: &str, snapshot: &Snapshot) -> Result<
 }
 
 fn read_manifest(scrape_dir: &Path) -> Result<ScrapeResult> {
-    let manifest_path = scrape_dir.join("manifest.json");
+    let resolved = resolve_manifest_dir(scrape_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let manifest_path = resolved.join("manifest.json");
     let file = std::fs::File::open(&manifest_path)
         .map_err(|e| anyhow::anyhow!("Cannot read {}: {e}", manifest_path.display()))?;
     serde_json::from_reader(file)

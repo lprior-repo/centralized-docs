@@ -20,7 +20,10 @@
 mod diff;
 mod format;
 
-pub use diff::{compute_plan, diff_directories, snapshot_from_scrape};
+pub use diff::{
+    compute_plan, diff_directories, resolve_manifest_dir, snapshot_from_scrape,
+    ManifestResolveError,
+};
 pub use format::{format_plan_json, format_plan_markdown, write_plan_reports};
 
 use chrono::{DateTime, Utc};

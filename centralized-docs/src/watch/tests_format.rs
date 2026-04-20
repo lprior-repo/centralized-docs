@@ -41,7 +41,7 @@ fn make_snapshot(target: &str, pages: &[(&str, &str, &str)]) -> Snapshot {
 }
 
 #[test]
-fn test_markdown_report_format() {
+fn format_plan_markdown_contains_all_sections_when_changes_present() {
     let prev = make_snapshot(
         "https://example.com",
         &[("https://example.com/a", "Page A", "hello")],
@@ -66,7 +66,7 @@ fn test_markdown_report_format() {
 }
 
 #[test]
-fn test_json_report_format() {
+fn format_plan_json_roundtrips_to_valid_change_plan() {
     let prev = make_snapshot(
         "https://example.com",
         &[("https://example.com/a", "Page A", "hello")],
@@ -85,7 +85,7 @@ fn test_json_report_format() {
 }
 
 #[test]
-fn test_write_plan_reports_creates_files() {
+fn write_plan_reports_creates_json_and_markdown_files() {
     let prev = make_snapshot(
         "https://example.com",
         &[("https://example.com/a", "Page A", "hello")],

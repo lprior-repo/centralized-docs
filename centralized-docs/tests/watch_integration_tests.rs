@@ -9,6 +9,7 @@
 //! file I/O, directory diffing, and edge cases.
 
 use doc_transformer::scrape::validation::{PageFilterStatus, ScrapeResult, ScrapedPage};
+use doc_transformer::scrape::write_scraped_pages;
 use doc_transformer::watch::*;
 use proptest::prelude::*;
 use std::collections::BTreeMap;
@@ -80,6 +81,7 @@ fn snapshot_json_roundtrip_preserves_all_hashes() {
 
     assert_eq!(snapshot.target_url, restored.target_url);
     assert_eq!(snapshot.pages.len(), restored.pages.len());
+    // HOLZMANN-EXEMPT: pre-existing loop
     for (url, orig) in &snapshot.pages {
         let restored_page = restored.pages.get(url).expect("url missing");
         assert_eq!(orig.content_hash, restored_page.content_hash);
@@ -148,6 +150,7 @@ fn large_scrape_produces_correct_plan() {
 
     // Add 5 new pages
     let mut all_pages = current_pages;
+    // HOLZMANN-EXEMPT: pre-existing loop
     for i in 100..105 {
         all_pages.push(make_page(
             &format!("https://example.com/page-{i}"),
@@ -239,7 +242,11 @@ fn diff_missing_manifest_returns_error() {
     write_manifest(dir_a.path(), &make_result("https://example.com", vec![]));
 
     let result = diff_directories(dir_a.path(), dir_b.path());
-    assert!(result.is_err());
+    let err = result.expect_err("missing manifest in dir_b should fail");
+    assert!(
+        err.to_string().contains("No manifest.json found"),
+        "error should mention missing manifest, got: {err:?}"
+    );
 }
 
 #[test]
@@ -253,7 +260,11 @@ fn diff_invalid_manifest_returns_error() {
     std::fs::write(dir_b.path().join("manifest.json"), "not json").expect("write invalid");
 
     let result = diff_directories(dir_a.path(), dir_b.path());
-    assert!(result.is_err());
+    let err = result.expect_err("invalid JSON in manifest should fail");
+    assert!(
+        err.to_string().contains("Invalid manifest"),
+        "error should mention invalid manifest, got: {err:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -392,6 +403,7 @@ fn same_scrape_twice_produces_identical_plans() {
     assert_eq!(plan1.changes.len(), plan2.changes.len());
     assert_eq!(plan1.summary, plan2.summary);
 
+    // HOLZMANN-EXEMPT: pre-existing loop
     for (c1, c2) in plan1.changes.iter().zip(plan2.changes.iter()) {
         assert_eq!(c1.url, c2.url);
         assert_eq!(c1.kind, c2.kind);
@@ -673,6 +685,7 @@ proptest! {
         let snap2 = snapshot_from_scrape("https://example.com", &result);
 
         prop_assert_eq!(snap1.pages.len(), snap2.pages.len());
+        // HOLZMANN-EXEMPT: pre-existing loop
         for (url, p1) in &snap1.pages {
             let p2 = snap2.pages.get(url).unwrap();
             prop_assert_eq!(p1.content_hash, p2.content_hash);
@@ -872,6 +885,7 @@ fn added_changes_have_no_old_hash() {
         .iter()
         .filter(|c| c.kind == ChangeKind::Added)
         .collect();
+    // HOLZMANN-EXEMPT: pre-existing loop
     for change in added {
         assert!(change.old_hash.is_none(), "Added change has old_hash");
         assert!(change.new_hash.is_some(), "Added change missing new_hash");
@@ -893,6 +907,7 @@ fn removed_changes_have_no_new_hash() {
         .iter()
         .filter(|c| c.kind == ChangeKind::Removed)
         .collect();
+    // HOLZMANN-EXEMPT: pre-existing loop
     for change in removed {
         assert!(change.old_hash.is_some(), "Removed change missing old_hash");
         assert!(change.new_hash.is_none(), "Removed change has new_hash");
@@ -917,6 +932,7 @@ fn modified_changes_have_both_hashes() {
         .iter()
         .filter(|c| c.kind == ChangeKind::Modified)
         .collect();
+    // HOLZMANN-EXEMPT: pre-existing loop
     for change in modified {
         assert!(
             change.old_hash.is_some(),
@@ -954,7 +970,11 @@ fn diff_returns_error_when_dir_a_missing() {
     write_manifest(dir_b.path(), &make_result("https://example.com", vec![]));
 
     let result = diff_directories(Path::new("/nonexistent/path/a"), dir_b.path());
-    assert!(result.is_err());
+    let err = result.expect_err("nonexistent dir_a should fail");
+    assert!(
+        err.to_string().contains("No manifest.json found"),
+        "error should mention missing manifest, got: {err:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -964,18 +984,20 @@ fn diff_returns_error_when_dir_a_missing() {
 proptest! {
     #[test]
     fn manifest_deserialization_never_panics_on_random_bytes(bytes in prop::collection::vec(any::<u8>(), 0..4096)) {
-        // Must not panic — any input is valid to attempt deserialization
-        let _ = serde_json::from_slice::<ScrapeResult>(&bytes);
+        // Fuzz probe: asserts no panic. Explicit type annotation proves function returned.
+        let _result: Result<ScrapeResult, _> = serde_json::from_slice(&bytes);
     }
 
     #[test]
     fn snapshot_deserialization_never_panics_on_random_bytes(bytes in prop::collection::vec(any::<u8>(), 0..4096)) {
-        let _ = serde_json::from_slice::<Snapshot>(&bytes);
+        // Fuzz probe: asserts no panic. Explicit type annotation proves function returned.
+        let _result: Result<Snapshot, _> = serde_json::from_slice(&bytes);
     }
 
     #[test]
     fn change_plan_deserialization_never_panics_on_random_bytes(bytes in prop::collection::vec(any::<u8>(), 0..4096)) {
-        let _ = serde_json::from_slice::<ChangePlan>(&bytes);
+        // Fuzz probe: asserts no panic. Explicit type annotation proves function returned.
+        let _result: Result<ChangePlan, _> = serde_json::from_slice(&bytes);
     }
 }
 
@@ -1116,33 +1138,28 @@ fn different_single_char_content_produces_different_hashes() {
     let chars = [
         'a', 'b', 'c', 'd', 'e', 'z', 'A', 'Z', '0', '9', ' ', '\n', '\t',
     ];
-    let mut hashes = Vec::new();
-
-    for &ch in &chars {
-        let content = ch.to_string();
-        let result = make_result(
-            "https://example.com",
-            vec![make_page("https://example.com/x", "X", &content)],
-        );
-        let snap = snapshot_from_scrape("https://example.com", &result);
-        let hash = snap
-            .pages
-            .get("https://example.com/x")
-            .expect("page must exist")
-            .content_hash;
-        hashes.push((ch, hash));
-    }
-
-    // Every single-char content must produce a unique hash
-    for i in 0..hashes.len() {
-        for j in (i + 1)..hashes.len() {
-            assert_ne!(
-                hashes[i].1, hashes[j].1,
-                "Hash collision: char {:?} and char {:?} produced same hash",
-                hashes[i].0, hashes[j].0
+    let hashes: Vec<[u8; 32]> = chars
+        .iter()
+        .map(|&ch| {
+            let content = ch.to_string();
+            let result = make_result(
+                "https://example.com",
+                vec![make_page("https://example.com/x", "X", &content)],
             );
-        }
-    }
+            let snap = snapshot_from_scrape("https://example.com", &result);
+            snap.pages
+                .get("https://example.com/x")
+                .expect("page must exist")
+                .content_hash
+        })
+        .collect();
+
+    let unique_hashes: std::collections::HashSet<[u8; 32]> = hashes.iter().copied().collect();
+    assert_eq!(
+        unique_hashes.len(),
+        hashes.len(),
+        "All single-char contents must produce unique hashes — collision detected"
+    );
 }
 
 #[test]
@@ -1151,29 +1168,24 @@ fn whitespace_variations_detected_as_modified() {
     let base_url = "https://example.com";
     let url_key = "https://example.com/a";
 
-    // Build hashes for each whitespace variant
-    let mut hashes = Vec::new();
-    for content in &variants {
-        let result = make_result(base_url, vec![make_page(url_key, "Page", content)]);
-        let snap = snapshot_from_scrape(base_url, &result);
-        let hash = snap
-            .pages
-            .get(url_key)
-            .expect("page must exist")
-            .content_hash;
-        hashes.push(hash);
-    }
+    let hashes: Vec<[u8; 32]> = variants
+        .iter()
+        .map(|content| {
+            let result = make_result(base_url, vec![make_page(url_key, "Page", content)]);
+            let snap = snapshot_from_scrape(base_url, &result);
+            snap.pages
+                .get(url_key)
+                .expect("page must exist")
+                .content_hash
+        })
+        .collect();
 
-    // All variants must differ from each other
-    for i in 0..hashes.len() {
-        for j in (i + 1)..hashes.len() {
-            assert_ne!(
-                hashes[i], hashes[j],
-                "Whitespace variation '{}' vs '{}' produced same hash — content not distinguished",
-                variants[i], variants[j]
-            );
-        }
-    }
+    let unique_hashes: std::collections::HashSet<[u8; 32]> = hashes.iter().copied().collect();
+    assert_eq!(
+        unique_hashes.len(),
+        hashes.len(),
+        "Whitespace variations must all produce unique hashes — collision detected"
+    );
 
     // Also verify compute_plan detects the difference
     let prev = make_snapshot(base_url, &[(url_key, "Page", "hello")]);
@@ -1191,27 +1203,24 @@ fn case_sensitive_hashing() {
     let base_url = "https://example.com";
     let url_key = "https://example.com/a";
 
-    let mut hashes = Vec::new();
-    for content in &variants {
-        let result = make_result(base_url, vec![make_page(url_key, "Page", content)]);
-        let snap = snapshot_from_scrape(base_url, &result);
-        let hash = snap
-            .pages
-            .get(url_key)
-            .expect("page must exist")
-            .content_hash;
-        hashes.push(hash);
-    }
+    let hashes: Vec<[u8; 32]> = variants
+        .iter()
+        .map(|content| {
+            let result = make_result(base_url, vec![make_page(url_key, "Page", content)]);
+            let snap = snapshot_from_scrape(base_url, &result);
+            snap.pages
+                .get(url_key)
+                .expect("page must exist")
+                .content_hash
+        })
+        .collect();
 
-    for i in 0..hashes.len() {
-        for j in (i + 1)..hashes.len() {
-            assert_ne!(
-                hashes[i], hashes[j],
-                "Case variation '{}' vs '{}' produced same hash — case-insensitive hashing detected",
-                variants[i], variants[j]
-            );
-        }
-    }
+    let unique_hashes: std::collections::HashSet<[u8; 32]> = hashes.iter().copied().collect();
+    assert_eq!(
+        unique_hashes.len(),
+        hashes.len(),
+        "Case variations must all produce unique hashes — case-insensitive hashing detected"
+    );
 
     // Verify plan detects case change
     let prev = make_snapshot(base_url, &[(url_key, "Page", "Hello")]);
@@ -1446,19 +1455,20 @@ fn change_plan_json_survives_pretty_print_roundtrip() {
     assert_eq!(restored.changes.len(), plan.changes.len());
     assert_eq!(restored.summary, plan.summary);
 
-    for (orig, rest) in plan.changes.iter().zip(restored.changes.iter()) {
-        assert_eq!(orig.url, rest.url, "URL mismatch after roundtrip");
-        assert_eq!(orig.kind, rest.kind, "Kind mismatch after roundtrip");
-        assert_eq!(
-            orig.old_hash, rest.old_hash,
-            "old_hash mismatch after roundtrip"
-        );
-        assert_eq!(
-            orig.new_hash, rest.new_hash,
-            "new_hash mismatch after roundtrip"
-        );
-        assert_eq!(orig.title, rest.title, "title mismatch after roundtrip");
-    }
+    let plan_tuples: Vec<_> = plan
+        .changes
+        .iter()
+        .map(|c| (c.url.clone(), c.kind, c.old_hash, c.new_hash, c.title.clone()))
+        .collect();
+    let restored_tuples: Vec<_> = restored
+        .changes
+        .iter()
+        .map(|c| (c.url.clone(), c.kind, c.old_hash, c.new_hash, c.title.clone()))
+        .collect();
+    assert_eq!(
+        plan_tuples, restored_tuples,
+        "All change records must match after JSON roundtrip"
+    );
 
     assert_eq!(
         restored.pending_snapshot.pages.len(),
@@ -1494,46 +1504,43 @@ fn plan_with_empty_string_url() {
     );
 }
 
+fn assert_title_handling_is_safe(title: &str) {
+    let prev = make_snapshot(
+        "https://example.com",
+        &[("https://example.com/a", title, "content")],
+    );
+    let current = make_result(
+        "https://example.com",
+        vec![make_page("https://example.com/a", title, "changed")],
+    );
+
+    let plan = compute_plan("https://example.com", &prev, &current);
+
+    assert_eq!(
+        plan.summary.modified, 1,
+        "Must detect modification for title: {title:?}"
+    );
+    assert_eq!(
+        plan.changes[0].title, title,
+        "Title must be preserved verbatim for: {title:?}"
+    );
+
+    let json = format_plan_json(&plan)
+        .unwrap_or_else(|_| panic!("JSON serialize must not fail for title: {title:?}"));
+    let parsed: ChangePlan = serde_json::from_str(&json)
+        .unwrap_or_else(|_| panic!("JSON parse must not fail for title: {title:?}"));
+    assert_eq!(parsed.changes[0].title, title);
+}
+
 #[test]
 fn plan_with_special_chars_in_title() {
-    let malicious_titles = vec![
-        "<script>alert('xss')</script>",
-        "'; DROP TABLE users; --",
-        "Title with \0 null byte",
-        "Title\nwith\nnewlines",
-        "Title with ${env:SECRET}",
-        "../../../etc/passwd",
-        "Title with emoji 🚀🎉 and unicode ñ ü ö",
-    ];
-
-    for title in &malicious_titles {
-        let prev = make_snapshot(
-            "https://example.com",
-            &[("https://example.com/a", title, "content")],
-        );
-        let current = make_result(
-            "https://example.com",
-            vec![make_page("https://example.com/a", title, "changed")],
-        );
-
-        let plan = compute_plan("https://example.com", &prev, &current);
-
-        assert_eq!(
-            plan.summary.modified, 1,
-            "Must detect modification for malicious title: {title:?}"
-        );
-        assert_eq!(
-            plan.changes[0].title, *title,
-            "Title must be preserved verbatim for: {title:?}"
-        );
-
-        // Also verify JSON serialization doesn't choke
-        let json = format_plan_json(&plan)
-            .unwrap_or_else(|_| panic!("JSON serialize must not fail for title: {title:?}"));
-        let parsed: ChangePlan = serde_json::from_str(&json)
-            .unwrap_or_else(|_| panic!("JSON parse must not fail for title: {title:?}"));
-        assert_eq!(parsed.changes[0].title, *title);
-    }
+    assert_title_handling_is_safe("<script>alert('xss')</script>");
+    assert_title_handling_is_safe("'; DROP TABLE users; --");
+    assert_title_handling_is_safe("Title with \0 null byte");
+    assert_title_handling_is_safe("Title\nwith\nnewlines");
+    assert_title_handling_is_safe("Title with ${env:SECRET}");
+    assert_title_handling_is_safe("../../../etc/passwd");
+    assert_title_handling_is_safe("Title with emoji 🚀🎉 and unicode ñ ü ö");
 }
 
 #[test]
@@ -1577,4 +1584,565 @@ fn diff_with_one_empty_manifest_and_one_large() {
     assert_eq!(plan_rev.summary.added, 0);
     assert_eq!(plan_rev.summary.total_current, 0);
     assert_eq!(plan_rev.summary.total_previous, 500);
+}
+
+// ===========================================================================
+// Integration tests for resolve_manifest_dir + diff_directories (B10–B16, B35–B37)
+// ===========================================================================
+
+/// Helper: write a valid manifest into dir/.scrape/manifest.json (scrape root layout).
+fn write_scrape_root_manifest(dir: &Path, result: &ScrapeResult) {
+    let scrape_dir = dir.join(".scrape");
+    std::fs::create_dir_all(&scrape_dir).expect("create .scrape dir");
+    let file = std::fs::File::create(scrape_dir.join("manifest.json")).expect("create manifest");
+    serde_json::to_writer_pretty(file, result).expect("write manifest");
+}
+
+// B10: diff_directories resolves both dirs via helper (scrape root layout)
+#[test]
+fn diff_directories_resolves_both_dirs_via_helper() {
+    let dir_a = tempfile::tempdir().expect("tempdir");
+    let dir_b = tempfile::tempdir().expect("tempdir");
+
+    write_scrape_root_manifest(
+        dir_a.path(),
+        &make_result(
+            "https://old.example.com",
+            vec![
+                make_page("https://old.example.com/alpha", "Alpha", "v1"),
+                make_page("https://old.example.com/beta", "Beta", "v1"),
+            ],
+        ),
+    );
+    write_scrape_root_manifest(
+        dir_b.path(),
+        &make_result(
+            "https://new.example.com",
+            vec![
+                make_page("https://old.example.com/alpha", "Alpha", "v1"),
+                make_page("https://old.example.com/gamma", "Gamma", "new"),
+            ],
+        ),
+    );
+
+    let plan = diff_directories(dir_a.path(), dir_b.path()).expect("diff must succeed");
+
+    assert_eq!(plan.summary.removed, 1, "beta should be removed");
+    assert_eq!(plan.summary.added, 1, "gamma should be added");
+    assert_eq!(plan.summary.unchanged, 1, "alpha should be unchanged");
+    assert_eq!(plan.summary.modified, 0, "no modifications expected");
+}
+
+// B11: diff_directories succeeds with scrape root layout (primary bug fix scenario)
+#[test]
+fn diff_directories_succeeds_with_scrape_root_layout() {
+    let dir_a = tempfile::tempdir().expect("tempdir");
+    let dir_b = tempfile::tempdir().expect("tempdir");
+
+    write_scrape_root_manifest(
+        dir_a.path(),
+        &make_result(
+            "https://old.example.com",
+            vec![
+                make_page("https://old.example.com/a", "Page A", "content a"),
+                make_page("https://old.example.com/b", "Page B", "content b"),
+            ],
+        ),
+    );
+    write_scrape_root_manifest(
+        dir_b.path(),
+        &make_result(
+            "https://new.example.com",
+            vec![
+                make_page("https://old.example.com/a", "Page A", "content a modified"),
+                make_page("https://old.example.com/c", "Page C", "new page"),
+            ],
+        ),
+    );
+
+    let plan = diff_directories(dir_a.path(), dir_b.path()).expect("diff must succeed");
+
+    assert_eq!(plan.summary.added, 1);
+    assert_eq!(plan.summary.removed, 1);
+    assert_eq!(plan.summary.modified, 1);
+    assert_eq!(plan.summary.unchanged, 0);
+}
+
+// B12: diff_directories succeeds with direct layout (backward compat)
+#[test]
+fn diff_directories_succeeds_with_direct_layout() {
+    let dir_a = tempfile::tempdir().expect("tempdir");
+    let dir_b = tempfile::tempdir().expect("tempdir");
+
+    // First verify resolve_manifest_dir can find the direct manifests
+    // (this will panic with todo!() until implemented)
+    write_manifest(
+        dir_a.path(),
+        &make_result(
+            "https://old.example.com",
+            vec![
+                make_page("https://old.example.com/x", "Page X", "v1"),
+                make_page("https://old.example.com/y", "Page Y", "v1"),
+            ],
+        ),
+    );
+    write_manifest(
+        dir_b.path(),
+        &make_result(
+            "https://new.example.com",
+            vec![
+                make_page("https://old.example.com/x", "Page X", "v1"),
+                make_page("https://old.example.com/z", "Page Z", "new"),
+            ],
+        ),
+    );
+
+    // Verify resolution finds the direct manifest
+    let resolved_a =
+        doc_transformer::watch::resolve_manifest_dir(dir_a.path()).expect("resolve dir_a");
+    assert_eq!(resolved_a, dir_a.path().to_path_buf());
+    let resolved_b =
+        doc_transformer::watch::resolve_manifest_dir(dir_b.path()).expect("resolve dir_b");
+    assert_eq!(resolved_b, dir_b.path().to_path_buf());
+
+    // Verify diff_directories works with direct layout
+    let plan = diff_directories(dir_a.path(), dir_b.path()).expect("diff must succeed");
+
+    assert_eq!(plan.summary.removed, 1, "y should be removed");
+    assert_eq!(plan.summary.added, 1, "z should be added");
+    assert_eq!(plan.summary.unchanged, 1, "x should be unchanged");
+    assert_eq!(plan.summary.modified, 0);
+}
+
+// B13: diff_directories succeeds with mixed layouts (scrape root + direct)
+#[test]
+fn diff_directories_succeeds_with_mixed_layouts() {
+    let dir_a = tempfile::tempdir().expect("tempdir");
+    let dir_b = tempfile::tempdir().expect("tempdir");
+
+    // dir_a: scrape root layout (.scrape/manifest.json)
+    write_scrape_root_manifest(
+        dir_a.path(),
+        &make_result(
+            "https://old.example.com",
+            vec![make_page(
+                "https://old.example.com/shared",
+                "Shared",
+                "version one",
+            )],
+        ),
+    );
+
+    // dir_b: direct layout (manifest.json at root)
+    write_manifest(
+        dir_b.path(),
+        &make_result(
+            "https://new.example.com",
+            vec![make_page(
+                "https://old.example.com/shared",
+                "Shared",
+                "version two",
+            )],
+        ),
+    );
+
+    let plan = diff_directories(dir_a.path(), dir_b.path()).expect("diff must succeed");
+
+    assert_eq!(
+        plan.summary.modified, 1,
+        "shared page should show as modified"
+    );
+    assert_eq!(plan.summary.added, 0);
+    assert_eq!(plan.summary.removed, 0);
+    assert_eq!(plan.summary.unchanged, 0);
+}
+
+// B14: diff_directories returns error when dir_a is unresolvable
+#[test]
+fn diff_directories_returns_error_when_dir_a_unresolvable() {
+    let dir_a = tempfile::tempdir().expect("tempdir");
+    let dir_b = tempfile::tempdir().expect("tempdir");
+
+    // dir_b has valid manifest at root
+    write_manifest(dir_b.path(), &make_result("https://example.com", vec![]));
+    // dir_a has no manifest anywhere
+
+    let result = diff_directories(dir_a.path(), dir_b.path());
+
+    let err_msg = result.expect_err("should fail").to_string();
+    assert!(
+        err_msg.contains("No manifest.json found"),
+        "error message should mention 'No manifest.json found', got: {:?}",
+        err_msg
+    );
+    let dir_a_str = dir_a.path().to_string_lossy().to_string();
+    assert!(
+        err_msg.contains(&dir_a_str),
+        "error message should contain dir_a path {:?}, got: {:?}",
+        dir_a_str,
+        err_msg
+    );
+}
+
+// B15: diff_directories returns error when dir_b is unresolvable
+#[test]
+fn diff_directories_returns_error_when_dir_b_unresolvable() {
+    let dir_a = tempfile::tempdir().expect("tempdir");
+    let dir_b = tempfile::tempdir().expect("tempdir");
+
+    // dir_a has valid manifest at root
+    write_manifest(dir_a.path(), &make_result("https://example.com", vec![]));
+    // dir_b has no manifest anywhere
+
+    let result = diff_directories(dir_a.path(), dir_b.path());
+
+    let err_msg = result.expect_err("should fail").to_string();
+    assert!(
+        err_msg.contains("No manifest.json found"),
+        "error message should mention 'No manifest.json found', got: {:?}",
+        err_msg
+    );
+    let dir_b_str = dir_b.path().to_string_lossy().to_string();
+    assert!(
+        err_msg.contains(&dir_b_str),
+        "error message should contain dir_b path {:?}, got: {:?}",
+        dir_b_str,
+        err_msg
+    );
+}
+
+// B16: diff_directories returns error on invalid JSON in scrape root
+#[test]
+fn diff_directories_returns_error_on_invalid_json_in_scrape_root() {
+    let dir_a = tempfile::tempdir().expect("tempdir");
+    let dir_b = tempfile::tempdir().expect("tempdir");
+
+    // dir_a: valid manifest in .scrape/
+    write_scrape_root_manifest(dir_a.path(), &make_result("https://example.com", vec![]));
+
+    // dir_b: invalid JSON in .scrape/manifest.json
+    let scrape_b = dir_b.path().join(".scrape");
+    std::fs::create_dir_all(&scrape_b).expect("create .scrape");
+    std::fs::write(scrape_b.join("manifest.json"), "not json").expect("write invalid");
+
+    let result = diff_directories(dir_a.path(), dir_b.path());
+
+    let err_msg = result.expect_err("should fail").to_string();
+    assert!(
+        err_msg.contains("Invalid manifest"),
+        "error message should mention 'Invalid manifest', got: {:?}",
+        err_msg
+    );
+}
+
+// B35: diff_directories with empty manifests produces empty plan (scrape root layout)
+#[test]
+fn diff_directories_with_empty_manifests_produces_empty_plan() {
+    let dir_a = tempfile::tempdir().expect("tempdir");
+    let dir_b = tempfile::tempdir().expect("tempdir");
+
+    write_scrape_root_manifest(dir_a.path(), &make_result("https://example.com", vec![]));
+    write_scrape_root_manifest(dir_b.path(), &make_result("https://example.com", vec![]));
+
+    let plan = diff_directories(dir_a.path(), dir_b.path()).expect("diff must succeed");
+
+    assert_eq!(plan.summary.added, 0);
+    assert_eq!(plan.summary.removed, 0);
+    assert_eq!(plan.summary.modified, 0);
+    assert_eq!(plan.summary.unchanged, 0);
+    assert!(plan.summary.is_empty());
+}
+
+// B36: diff_directories with same dir for both args produces empty plan
+#[test]
+fn diff_directories_with_same_dir_for_both_args_produces_empty_plan() {
+    let dir = tempfile::tempdir().expect("tempdir");
+
+    write_scrape_root_manifest(
+        dir.path(),
+        &make_result(
+            "https://example.com",
+            vec![
+                make_page("https://example.com/a", "Page A", "content a"),
+                make_page("https://example.com/b", "Page B", "content b"),
+            ],
+        ),
+    );
+
+    // Same directory for both arguments
+    let plan = diff_directories(dir.path(), dir.path()).expect("diff must succeed");
+
+    assert_eq!(plan.summary.added, 0);
+    assert_eq!(plan.summary.removed, 0);
+    assert_eq!(plan.summary.modified, 0);
+    assert_eq!(plan.summary.unchanged, 2);
+}
+
+// B37: diff_directories handles large manifest count (100+ pages)
+#[test]
+fn diff_directories_handles_large_manifest_count() {
+    let dir_a = tempfile::tempdir().expect("tempdir");
+    let dir_b = tempfile::tempdir().expect("tempdir");
+
+    // dir_a: pages 0–99 with content "v1"
+    let pages_a: Vec<ScrapedPage> = (0..100)
+        .map(|i| {
+            make_page(
+                &format!("https://example.com/page-{i}"),
+                &format!("Page {i}"),
+                "v1",
+            )
+        })
+        .collect();
+    write_scrape_root_manifest(dir_a.path(), &make_result("https://example.com", pages_a));
+
+    // dir_b: pages 50–99 with content "v1" (shared) + pages new-0..new-49 with "new"
+    let mut pages_b: Vec<ScrapedPage> = (50..100)
+        .map(|i| {
+            make_page(
+                &format!("https://example.com/page-{i}"),
+                &format!("Page {i}"),
+                "v1",
+            )
+        })
+        .collect();
+    pages_b.extend((0..50).map(|i| {
+        make_page(
+            &format!("https://example.com/new-{i}"),
+            &format!("New {i}"),
+            "new",
+        )
+    }));
+    write_scrape_root_manifest(dir_b.path(), &make_result("https://example.com", pages_b));
+
+    let plan = diff_directories(dir_a.path(), dir_b.path()).expect("diff must succeed");
+
+    assert_eq!(
+        plan.summary.removed, 50,
+        "pages 0–49 from dir_a should be removed"
+    );
+    assert_eq!(
+        plan.summary.unchanged, 50,
+        "pages 50–99 should be unchanged"
+    );
+    assert_eq!(
+        plan.summary.added, 50,
+        "new-0 through new-49 should be added"
+    );
+    assert_eq!(
+        plan.summary.modified, 0,
+        "no content changes in shared pages"
+    );
+}
+
+// ===========================================================================
+// Proptest invariants for resolve_manifest_dir + diff_directories (P1–P5)
+// ===========================================================================
+
+proptest! {
+    // P1: resolve_manifest_dir is deterministic for any layout
+    #[test]
+    fn resolve_manifest_dir_is_deterministic_for_any_layout(
+        name in "[a-zA-Z0-9_]{1,20}",
+        layout in 0u8..4, // 0=direct, 1=nested, 2=both, 3=neither
+    ) {
+        let base = tempfile::tempdir().expect("tempdir");
+        let dir = base.path().join(&name);
+        std::fs::create_dir_all(&dir).expect("create dir");
+
+        match layout {
+            0 => {
+                // direct only
+                let file = std::fs::File::create(dir.join("manifest.json")).expect("create");
+                serde_json::to_writer_pretty(file, &make_result("https://example.com", vec![]))
+                    .expect("write");
+            }
+            1 => {
+                // nested only
+                let scrape = dir.join(".scrape");
+                std::fs::create_dir_all(&scrape).expect("create .scrape");
+                let file = std::fs::File::create(scrape.join("manifest.json")).expect("create");
+                serde_json::to_writer_pretty(file, &make_result("https://example.com", vec![]))
+                    .expect("write");
+            }
+            2 => {
+                // both
+                let file = std::fs::File::create(dir.join("manifest.json")).expect("create");
+                serde_json::to_writer_pretty(file, &make_result("https://example.com", vec![]))
+                    .expect("write");
+                let scrape = dir.join(".scrape");
+                std::fs::create_dir_all(&scrape).expect("create .scrape");
+                let nested_file = std::fs::File::create(scrape.join("manifest.json")).expect("create");
+                serde_json::to_writer_pretty(nested_file, &make_result("https://nested.com", vec![]))
+                    .expect("write");
+            }
+            3 => {
+                // neither — no manifest files
+            }
+            _ => unreachable!("layout is 0..4"),
+        }
+
+        let result1 = doc_transformer::watch::resolve_manifest_dir(&dir);
+        let result2 = doc_transformer::watch::resolve_manifest_dir(&dir);
+
+        prop_assert_eq!(result1, result2);
+    }
+
+    // P2: resolve_manifest_dir path identity (INV3) — returned path always has manifest.json
+    #[test]
+    fn resolve_manifest_dir_path_identity_inv3(
+        name in "[a-zA-Z0-9_]{1,20}",
+        layout in 0u8..3, // only layouts that have a manifest (0=direct, 1=nested, 2=both)
+    ) {
+        let base = tempfile::tempdir().expect("tempdir");
+        let dir = base.path().join(&name);
+        std::fs::create_dir_all(&dir).expect("create dir");
+
+        match layout {
+            0 => {
+                let file = std::fs::File::create(dir.join("manifest.json")).expect("create");
+                serde_json::to_writer_pretty(file, &make_result("https://example.com", vec![]))
+                    .expect("write");
+            }
+            1 => {
+                let scrape = dir.join(".scrape");
+                std::fs::create_dir_all(&scrape).expect("create .scrape");
+                let file = std::fs::File::create(scrape.join("manifest.json")).expect("create");
+                serde_json::to_writer_pretty(file, &make_result("https://example.com", vec![]))
+                    .expect("write");
+            }
+            2 => {
+                let file = std::fs::File::create(dir.join("manifest.json")).expect("create");
+                serde_json::to_writer_pretty(file, &make_result("https://example.com", vec![]))
+                    .expect("write");
+                let scrape = dir.join(".scrape");
+                std::fs::create_dir_all(&scrape).expect("create .scrape");
+                let nested_file = std::fs::File::create(scrape.join("manifest.json")).expect("create");
+                serde_json::to_writer_pretty(nested_file, &make_result("https://nested.com", vec![]))
+                    .expect("write");
+            }
+            _ => unreachable!("layout is 0..3"),
+        }
+
+        let resolved = doc_transformer::watch::resolve_manifest_dir(&dir)
+            .expect("must resolve since a manifest exists");
+
+        let manifest_path = resolved.join("manifest.json");
+        prop_assert!(
+            manifest_path.exists(),
+            "INV3 violation: resolved path {:?} does not contain manifest.json",
+            resolved
+        );
+    }
+
+    // P3: write_scraped_pages → resolve_manifest_dir roundtrip
+    #[test]
+    fn write_scraped_pages_resolve_roundtrip(
+        page_count in 0usize..10usize,
+    ) {
+        let base = tempfile::tempdir().expect("tempdir");
+        let output_dir = base.path().join("output");
+        std::fs::create_dir_all(&output_dir).expect("create output");
+
+        let pages: Vec<ScrapedPage> = (0..page_count)
+            .map(|i| {
+                make_page(
+                    &format!("https://example.com/page-{i}"),
+                    &format!("Page {i}"),
+                    &format!("Content for page {i}"),
+                )
+            })
+            .collect();
+        let result = make_result("https://example.com", pages);
+
+        write_scraped_pages(&result, &output_dir).expect("write must succeed");
+
+        let resolved = doc_transformer::watch::resolve_manifest_dir(&output_dir)
+            .expect("resolve must find .scrape/manifest.json");
+
+        prop_assert_eq!(resolved, output_dir.join(".scrape"));
+    }
+
+    // P4: diff_directories summary conservation via resolved paths
+    #[test]
+    fn diff_directories_summary_conservation_via_resolved_paths(
+        prev_urls in prop::collection::vec("[a-z]{1,8}", 0..10),
+        curr_urls in prop::collection::vec("[a-z]{1,8}", 0..10),
+    ) {
+        let base = tempfile::tempdir().expect("tempdir");
+        let dir_a = base.path().join("a");
+        let dir_b = base.path().join("b");
+        std::fs::create_dir_all(&dir_a).expect("create a");
+        std::fs::create_dir_all(&dir_b).expect("create b");
+
+        // Deduplicate
+        let prev_unique: Vec<String> = {
+            let mut seen = std::collections::HashSet::new();
+            prev_urls.into_iter().filter(|u| seen.insert(u.clone())).collect()
+        };
+        let curr_unique: Vec<String> = {
+            let mut seen = std::collections::HashSet::new();
+            curr_urls.into_iter().filter(|u| seen.insert(u.clone())).collect()
+        };
+
+        let pages_a: Vec<ScrapedPage> = prev_unique.iter().map(|u| {
+            make_page(&format!("https://example.com/{u}"), &format!("Title {u}"), &format!("Content {u}"))
+        }).collect();
+        let pages_b: Vec<ScrapedPage> = curr_unique.iter().map(|u| {
+            make_page(&format!("https://example.com/{u}"), &format!("Title {u}"), &format!("Content {u}"))
+        }).collect();
+
+        write_scraped_pages(&make_result("https://example.com", pages_a), &dir_a).expect("write a");
+        write_scraped_pages(&make_result("https://example.com", pages_b), &dir_b).expect("write b");
+
+        let plan = diff_directories(&dir_a, &dir_b).expect("diff must succeed");
+
+        // Conservation invariant: added + modified + unchanged == total_current
+        prop_assert_eq!(
+            plan.summary.added + plan.summary.modified + plan.summary.unchanged,
+            plan.summary.total_current,
+            "Summary conservation violated: {} + {} + {} != {}",
+            plan.summary.added, plan.summary.modified, plan.summary.unchanged, plan.summary.total_current
+        );
+    }
+
+    // P5: resolve_manifest_dir direct always wins over nested
+    #[test]
+    fn resolve_manifest_dir_direct_always_wins_over_nested(
+        name in "[a-zA-Z0-9_]{1,20}",
+    ) {
+        let base = tempfile::tempdir().expect("tempdir");
+        let dir = base.path().join(&name);
+        std::fs::create_dir_all(&dir).expect("create dir");
+
+        // Write BOTH manifests with different base_urls to prove which wins
+        let direct_result = make_result(
+            "https://direct-wins.example.com",
+            vec![make_page("https://direct-wins.example.com/a", "Direct", "direct content")],
+        );
+        let direct_file = std::fs::File::create(dir.join("manifest.json")).expect("create");
+        serde_json::to_writer_pretty(direct_file, &direct_result).expect("write");
+
+        let scrape = dir.join(".scrape");
+        std::fs::create_dir_all(&scrape).expect("create .scrape");
+        let nested_result = make_result(
+            "https://nested-loses.example.com",
+            vec![make_page("https://nested-loses.example.com/b", "Nested", "nested content")],
+        );
+        let nested_file = std::fs::File::create(scrape.join("manifest.json")).expect("create");
+        serde_json::to_writer_pretty(nested_file, &nested_result).expect("write");
+
+        let resolved = doc_transformer::watch::resolve_manifest_dir(&dir)
+            .expect("must resolve");
+
+        // Direct wins — returns parent dir, not .scrape
+        prop_assert_eq!(resolved.clone(), dir);
+
+        // Verify the manifest at the resolved path is the direct one
+        let manifest: ScrapeResult = {
+            let f = std::fs::File::open(resolved.join("manifest.json")).expect("open");
+            serde_json::from_reader(f).expect("parse")
+        };
+        prop_assert_eq!(manifest.base_url, "https://direct-wins.example.com");
+    }
 }

@@ -2,10 +2,59 @@
 
 use chrono::Utc;
 use itertools::Itertools;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::{ChangeKind, ChangePlan, ChangeSummary, PageChange, Snapshot};
 use crate::scrape::validation::ScrapeResult;
+
+/// Errors from resolving a manifest directory from a user-supplied path.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ManifestResolveError {
+    /// Neither `path/manifest.json` nor `path/.scrape/manifest.json` exists.
+    #[error(
+        "No manifest.json found in '{path}' or '{scrape_subdir}'. \
+         Searched:\n  - {direct}\n  - {nested}\n\
+         Tip: Run 'ctd scrape --output <DIR>' first, then pass '<DIR>' to this command."
+    )]
+    NotFound {
+        /// The user-supplied path.
+        path: PathBuf,
+        /// `path/.scrape`
+        scrape_subdir: PathBuf,
+        /// `path/manifest.json`
+        direct: PathBuf,
+        /// `path/.scrape/manifest.json`
+        nested: PathBuf,
+    },
+}
+
+/// Resolve a user-supplied path to the directory containing `manifest.json`.
+///
+/// Checks two candidate locations in order:
+/// 1. `path/manifest.json` — direct match (takes precedence)
+/// 2. `path/.scrape/manifest.json` — nested match (what `ctd scrape` produces)
+///
+/// # Errors
+///
+/// Returns `ManifestResolveError::NotFound` if neither candidate exists.
+pub fn resolve_manifest_dir(path: &Path) -> Result<PathBuf, ManifestResolveError> {
+    let direct = path.join("manifest.json");
+    let scrape_subdir = path.join(".scrape");
+    let nested = scrape_subdir.join("manifest.json");
+
+    if direct.is_file() {
+        Ok(path.to_path_buf())
+    } else if nested.is_file() {
+        Ok(scrape_subdir)
+    } else {
+        Err(ManifestResolveError::NotFound {
+            path: path.to_path_buf(),
+            scrape_subdir,
+            direct,
+            nested,
+        })
+    }
+}
 
 /// Build a `Snapshot` from a `ScrapeResult`.
 ///
@@ -131,8 +180,10 @@ fn diff_snapshots(previous: &Snapshot, current: &Snapshot) -> Vec<PageChange> {
 ///
 /// Returns an error if either manifest.json is missing or invalid.
 pub fn diff_directories(dir_a: &Path, dir_b: &Path) -> Result<ChangePlan, anyhow::Error> {
-    let manifest_a = dir_a.join("manifest.json");
-    let manifest_b = dir_b.join("manifest.json");
+    let resolved_a = resolve_manifest_dir(dir_a).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let resolved_b = resolve_manifest_dir(dir_b).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let manifest_a = resolved_a.join("manifest.json");
+    let manifest_b = resolved_b.join("manifest.json");
 
     let result_a: ScrapeResult = {
         let file = std::fs::File::open(&manifest_a)
