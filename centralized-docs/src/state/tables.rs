@@ -99,6 +99,10 @@ pub const fn source_path_chunks_table(
 // ---------------------------------------------------------------------------
 
 /// Validate that a hash key is exactly 32 bytes.
+///
+/// # Errors
+///
+/// Returns an error when `key` is not exactly 32 bytes.
 pub fn validate_hash_key(key: &[u8]) -> Result<(), StateError> {
     if key.len() != 32 {
         return Err(StateError::InvalidHashKeyLength { actual: key.len() });
@@ -107,6 +111,10 @@ pub fn validate_hash_key(key: &[u8]) -> Result<(), StateError> {
 }
 
 /// Validate that a source path is relative and normalized.
+///
+/// # Errors
+///
+/// Returns an error when `path` is empty, absolute, or contains parent traversal.
 pub fn validate_source_path(path: &str) -> Result<(), StateError> {
     if path.is_empty() {
         return Err(StateError::InvalidSourcePath {
@@ -127,6 +135,10 @@ pub fn validate_source_path(path: &str) -> Result<(), StateError> {
 }
 
 /// Validate that a URL key has a scheme (contains `"://"`).
+///
+/// # Errors
+///
+/// Returns an error when `url` is empty or lacks a URL scheme.
 pub fn validate_url_key(url: &str) -> Result<(), StateError> {
     if url.is_empty() {
         return Err(StateError::InvalidUrlKey {

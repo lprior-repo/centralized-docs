@@ -1,7 +1,6 @@
 //! Validation precondition tests (zero hash, empty keys, duplicates, references, payload sizes).
 
 use super::*;
-use crate::state::commit::MAX_VALUE_SIZE;
 
 #[test]
 fn commit_changes_rejects_zero_hash_key_in_analysis_outputs() {

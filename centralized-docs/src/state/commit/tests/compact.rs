@@ -1,7 +1,7 @@
 //! Compaction tests.
 
 use super::*;
-use crate::state::commit::{compact_state_db, should_suggest_compaction, MAX_VALUE_SIZE};
+use crate::state::commit::{compact_state_db, should_suggest_compaction};
 
 #[test]
 fn test_compact_on_empty_db_succeeds() {

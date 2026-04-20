@@ -177,7 +177,7 @@ pub(crate) fn validate_links_in_content(content: &str) -> Vec<ValidationError> {
     let url_validations: Vec<UrlValidation> = link_regex
         .captures_iter(content)
         .filter_map(|captures| captures.get(2).map(|m| m.as_str()))
-        .map(|url| validate_single_url(url))
+        .map(validate_single_url)
         .collect();
 
     let url_count = url_validations.len();

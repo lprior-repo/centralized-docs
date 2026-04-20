@@ -41,20 +41,20 @@ pub fn build_stored_hashes(
 // Pure helper: partition_for_reuse
 // ---------------------------------------------------------------------------
 
-/// Partition discovered files into (reusable_paths, needs_analysis_files)
-/// based on FileDiff classification.
+/// Partition discovered files into (`reusable_paths`, `needs_analysis_files`)
+/// based on `FileDiff` classification.
 ///
 /// Pure calculation: no I/O, no errors.
 ///
 /// # Arguments
 ///
 /// * `files` -- All discovered files in discovery order.
-/// * `diff` -- The computed FileDiff partition.
+/// * `diff` -- The computed `FileDiff` partition.
 ///
 /// # Returns
 ///
-/// * `reusable_paths` -- Set of source_paths that are Unchanged (sorted).
-/// * `needs_analysis` -- Vec of DiscoveryFile for Changed + New files
+/// * `reusable_paths` -- Set of `source_paths` that are Unchanged (sorted).
+/// * `needs_analysis` -- Vec of `DiscoveryFile` for Changed + New files
 ///   (preserving input order).
 ///
 /// # Invariants
@@ -82,15 +82,15 @@ pub fn partition_for_reuse<'a>(
 // ---------------------------------------------------------------------------
 
 /// Merge reused and freshly-analyzed analyses into a single vec in
-/// discovery order, then construct the final AnalyzeResult.
+/// discovery order, then construct the final `AnalyzeResult`.
 ///
 /// Pure calculation: no I/O, no errors.
 ///
 /// # Arguments
 ///
 /// * `files` -- Original discovered files (defines output order).
-/// * `reused_analyses` -- Analyses loaded from archive, keyed by source_path.
-/// * `fresh_analyses` -- Analyses computed fresh, keyed by source_path.
+/// * `reused_analyses` -- Analyses loaded from archive, keyed by `source_path`.
+/// * `fresh_analyses` -- Analyses computed fresh, keyed by `source_path`.
 /// * `failed_files` -- Files that failed both archive and fresh analysis.
 /// * `total_discovered` -- Total input file count.
 ///
@@ -98,7 +98,7 @@ pub fn partition_for_reuse<'a>(
 ///
 /// - POST-01: One Analysis per non-failed file.
 /// - POST-02: Output order matches input `files` order.
-/// - POST-05: total_discovered == original files.len().
+/// - POST-05: `total_discovered` == original `files.len()`.
 #[must_use]
 pub fn merge_analyses_in_order(
     files: &[DiscoveryFile],

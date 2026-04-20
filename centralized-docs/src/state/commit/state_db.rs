@@ -1,4 +1,4 @@
-//! StateDb — newtype wrapper over redb::Database.
+//! `StateDb` — newtype wrapper over `redb::Database`.
 //!
 //! Provides the two-transaction architecture:
 //! - Transaction 1 (read): bulk load all state into memory
@@ -97,7 +97,7 @@ impl StateDb {
             .map_err(|e| CommitError::ReadTransaction {
                 reason: e.to_string(),
             })?;
-        super::reads::create_read_session(read_txn, self)
+        Ok(super::reads::create_read_session(read_txn, self))
     }
 
     /// Commit all state changes in exactly one redb write transaction.

@@ -1,4 +1,4 @@
-//! Multimap operations for source_path -> chunk_hash reverse index.
+//! Multimap operations for `source_path` -> `chunk_hash` reverse index.
 //!
 //! Manages the `source_path_chunks` multimap table that tracks which chunk
 //! hashes belong to which source paths, enabling O(1) orphan cleanup.
@@ -91,7 +91,7 @@ pub(crate) fn delete_orphaned_chunks(
     Ok(())
 }
 
-/// Open the source_path_chunks multimap table within a write transaction.
+/// Open the `source_path_chunks` multimap table within a write transaction.
 fn open_multimap_for_write<'a>(
     write_tx: &'a WriteTransaction,
     table_name: &'static str,

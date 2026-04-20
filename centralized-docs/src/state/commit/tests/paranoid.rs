@@ -1,6 +1,6 @@
 //! Paranoid durability precondition tests.
 //!
-//! Validates that DurabilityConfig::Paranoid enforces extra safety checks:
+//! Validates that `DurabilityConfig::Paranoid` enforces extra safety checks:
 //! zero hash rejection, empty string rejection, duplicate detection,
 //! oversized payload rejection, missing reference detection, rollback
 //! on failure, and read session blocking.

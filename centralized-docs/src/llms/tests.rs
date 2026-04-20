@@ -1,6 +1,6 @@
 //! Integration tests for llms module.
 //!
-//! Tests generate_llms_txt, generate_agents_md, and LlmsConfig.
+//! Tests `generate_llms_txt`, `generate_agents_md`, and `LlmsConfig`.
 
 use std::sync::Arc;
 

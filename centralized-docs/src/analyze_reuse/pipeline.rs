@@ -23,13 +23,13 @@ use super::types::{AnalyzeReuseStats, ReuseAnalysisError};
 ///
 /// # Error handling
 ///
-/// BulkLoadError from `load_analyses` is propagated (fatal).
+/// `BulkLoadError` from `load_analyses` is propagated (fatal).
 /// Individual deserialization failures are non-fatal (file added to fallback).
 ///
 /// # Arguments
 ///
 /// * `reusable_paths` -- Unchanged file paths to load from archive.
-/// * `file_states` -- Loaded file state entries (provides analysis_hash).
+/// * `file_states` -- Loaded file state entries (provides `analysis_hash`).
 /// * `session` -- Shared read session for archive access.
 ///
 /// # Returns
@@ -83,7 +83,7 @@ pub fn load_archived_analyses(
                 Ok(analysis) => {
                     successful_analyses.push(analysis);
                 }
-                Err(_) => {
+                Err(()) => {
                     // Deserialization failed or empty analyses vec — fallback
                     fallback_paths.insert(path.to_string());
                 }

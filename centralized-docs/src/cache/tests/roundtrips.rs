@@ -1,6 +1,5 @@
 use super::*;
 use serde::{Deserialize, Serialize};
-use tempfile::TempDir;
 
 #[test]
 fn test_snapshot_roundtrip() -> Result<()> {

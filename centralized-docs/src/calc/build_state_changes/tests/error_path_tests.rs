@@ -185,7 +185,7 @@ fn build_changes_returns_duplicate_when_path_in_changed_and_deleted() {
     };
     match build_file_state_changes(&diff, &make_pipeline_outputs_for(&[dup])) {
         Err(BatchBuildError::DuplicateSourcePath { path: p }) => {
-            assert_eq!(p, "docs/contradiction.md")
+            assert_eq!(p, "docs/contradiction.md");
         }
         other => panic!("expected DuplicateSourcePath, got {other:?}"),
     }
@@ -202,7 +202,7 @@ fn build_changes_returns_duplicate_when_path_in_new_and_deleted() {
     };
     match build_file_state_changes(&diff, &make_pipeline_outputs_for(&[dup])) {
         Err(BatchBuildError::DuplicateSourcePath { path: p }) => {
-            assert_eq!(p, "docs/impossible.md")
+            assert_eq!(p, "docs/impossible.md");
         }
         other => panic!("expected DuplicateSourcePath, got {other:?}"),
     }

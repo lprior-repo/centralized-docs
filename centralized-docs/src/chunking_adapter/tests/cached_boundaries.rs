@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 
 use super::*;
-use crate::cache::{CacheType, DocCache};
+use crate::cache::DocCache;
 
 #[test]
 fn write_chunk_file_omits_heading_field_when_heading_is_none() {

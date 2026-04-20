@@ -1,4 +1,4 @@
-//! Main build_file_state_changes function and internal helpers.
+//! Main `build_file_state_changes` function and internal helpers.
 
 use std::collections::HashSet;
 

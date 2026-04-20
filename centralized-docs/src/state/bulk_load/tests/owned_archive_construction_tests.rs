@@ -1,7 +1,8 @@
-//! OwnedArchive construction and access tests.
+//! `OwnedArchive` construction and access tests.
 
 use super::*;
 use crate::persisted::PersistedAnalyzeResult;
+use crate::persisted::PersistedTransformResult;
 
 // =======================================================================
 // Construction failure tests
@@ -51,7 +52,6 @@ fn owned_archive_try_from_bytes_returns_corrupt_payload_for_empty_bytes() {
 fn owned_archive_try_from_bytes_returns_corrupt_payload_for_truncated_rkyv() {
     let truncated: Box<[u8]> = vec![0u8].into_boxed_slice();
     let key: [u8; 32] = [0xFF; 32];
-    use crate::persisted::PersistedTransformResult;
     let result = OwnedArchive::<PersistedTransformResult>::try_from_bytes(
         "transform_outputs",
         &key,

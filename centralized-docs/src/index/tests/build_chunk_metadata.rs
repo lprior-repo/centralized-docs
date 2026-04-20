@@ -1,4 +1,4 @@
-//! Tests for build_chunk_metadata.
+//! Tests for `build_chunk_metadata`.
 
 use super::*;
 use crate::graph::{EdgeType, GraphEdge, GraphNode, KnowledgeDAG, NodeType};

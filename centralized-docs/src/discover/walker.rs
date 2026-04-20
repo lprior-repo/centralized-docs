@@ -99,17 +99,15 @@ pub(super) fn discover_files_with_config(
             }
 
             // Check for broken symlinks before file type check
-            if entry.file_type().is_symlink() {
-                if std::fs::metadata(path).is_err() {
-                    let symlink_name = path.file_name().map_or_else(
-                        || "unknown".to_string(),
-                        |n| n.to_string_lossy().to_string(),
-                    );
-                    eprintln!(
-                        "Warning: Skipping broken symlink '{symlink_name}' (target does not exist)"
-                    );
-                    return DiscoveryEvent::SkippedBrokenSymlink;
-                }
+            if entry.file_type().is_symlink() && std::fs::metadata(path).is_err() {
+                let symlink_name = path.file_name().map_or_else(
+                    || "unknown".to_string(),
+                    |n| n.to_string_lossy().to_string(),
+                );
+                eprintln!(
+                    "Warning: Skipping broken symlink '{symlink_name}' (target does not exist)"
+                );
+                return DiscoveryEvent::SkippedBrokenSymlink;
             }
 
             if path.is_file() {

@@ -1,4 +1,4 @@
-//! Basic StateDb::open and begin_read tests.
+//! Basic `StateDb::open` and `begin_read` tests.
 
 use super::*;
 use crate::state::{file_state_table, metadata_table, source_path_chunks_table};

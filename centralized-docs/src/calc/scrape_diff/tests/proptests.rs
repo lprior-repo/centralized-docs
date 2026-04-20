@@ -32,9 +32,9 @@ proptest! {
         let markdown = format!("content-{markdown_seed}");
         let hash = hash_content(markdown.as_bytes());
         let stored: HashMap<String, UrlStateRaw> = [make_stored("https://match.com/p", hash), make_stored("https://nomatch.com/p", [0xFF; 32])].into_iter().collect();
-        let result_match = classify_scrape_diff(&stored, &vec![make_scraped_page("https://match.com/p", &markdown)]);
+        let result_match = classify_scrape_diff(&stored, &[make_scraped_page("https://match.com/p", &markdown)]);
         prop_assert!(result_match.unchanged.contains(&"https://match.com/p".to_string()));
-        let result_nomatch = classify_scrape_diff(&stored, &vec![make_scraped_page("https://nomatch.com/p", &markdown)]);
+        let result_nomatch = classify_scrape_diff(&stored, &[make_scraped_page("https://nomatch.com/p", &markdown)]);
         prop_assert!(result_nomatch.changed.contains(&"https://nomatch.com/p".to_string()));
     }
 

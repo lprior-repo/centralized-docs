@@ -365,7 +365,7 @@ fn test_document_with_duplicate_document_ids() {
         "title: Test",
     ];
 
-    let output = std::process::Command::new(ctd_bin()).args(&args2).output();
+    let output = std::process::Command::new(ctd_bin()).args(args2).output();
 
     match output {
         Ok(out) => {

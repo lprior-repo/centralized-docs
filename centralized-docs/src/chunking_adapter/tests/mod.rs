@@ -1,4 +1,4 @@
-//! Test modules for chunking_adapter.
+//! Test modules for `chunking_adapter`.
 
 use std::collections::HashMap;
 

@@ -1,4 +1,4 @@
-//! B30-B38: Pure function tests (hash_payload, serialize_and_hash, build_file_state_raw).
+//! B30-B38: Pure function tests (`hash_payload`, `serialize_and_hash`, `build_file_state_raw`).
 
 use super::*;
 

@@ -219,31 +219,10 @@ fn test_feature_config_with_javascript() {
         .unwrap();
 }
 
-#[cfg(feature = "javascript")]
-#[test]
-fn test_feature_config_with_javascript() {
-    JavascriptConfig::smart()
-        .map(|js_config| {
-            let config = FeatureConfig::new().with_javascript(js_config);
-            assert!(!config.is_empty());
-            assert!(config.javascript.is_some());
-        })
-        .unwrap();
-}
-
 #[test]
 fn test_cache_ttl_default() {
     let ttl = CacheTtl::default();
     assert_eq!(ttl.seconds(), 300);
-}
-
-#[test]
-fn test_regex_pattern_as_str() {
-    RegexPattern::new(r"\d+".to_string())
-        .map(|pattern| {
-            assert_eq!(pattern.as_str(), r"\d+");
-        })
-        .unwrap();
 }
 
 #[test]

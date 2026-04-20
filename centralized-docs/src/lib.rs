@@ -1,6 +1,7 @@
 #![allow(clippy::pedantic)]
 #![allow(clippy::nursery)]
 #![allow(clippy::complexity)]
+#![allow(clippy::doc_markdown)]
 //! `ctd` — AI-Optimized Documentation Transformation Library
 //!
 //! Transforms raw documentation (local markdown files or live websites) into

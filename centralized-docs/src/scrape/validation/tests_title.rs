@@ -2,7 +2,6 @@
 
 #![allow(clippy::unwrap_used)]
 
-use super::*;
 use crate::scrape::validation::compile_safe_regex;
 use crate::scrape::validation::extract_title;
 

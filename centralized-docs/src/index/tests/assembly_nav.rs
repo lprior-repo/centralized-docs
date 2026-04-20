@@ -5,7 +5,7 @@ use std::fs;
 
 use super::*;
 use crate::graph::KnowledgeDAG;
-use crate::index::index_assembly::{assemble_index_json, compute_graph_analytics, GraphAnalytics};
+use crate::index::index_assembly::{assemble_index_json, GraphAnalytics};
 
 #[test]
 fn test_assemble_index_json_structure() {

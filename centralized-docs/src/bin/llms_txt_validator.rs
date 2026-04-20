@@ -26,10 +26,7 @@ mod checks;
 
 pub(crate) use checks::{validate_index_json, validate_llms_txt};
 #[cfg(test)]
-pub(crate) use types::{
-    make_error, validate_links_in_content, validation_result, Severity, ValidationError,
-    ValidationResult,
-};
+pub(crate) use types::{validate_links_in_content, validation_result, Severity, ValidationResult};
 #[cfg(not(test))]
 pub(crate) use types::{Severity, ValidationResult};
 

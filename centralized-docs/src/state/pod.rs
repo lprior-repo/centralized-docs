@@ -218,11 +218,19 @@ pub(crate) fn read_array<const N: usize>(src: &[u8], offset: usize) -> Result<[u
 // ---------------------------------------------------------------------------
 
 /// Read and validate a `FileStateRaw` from raw redb bytes.
+///
+/// # Errors
+///
+/// Returns an error when the byte slice cannot be decoded into a valid `FileStateRaw`.
 pub fn read_file_state_raw(bytes: &[u8]) -> Result<FileStateRaw, StateError> {
     FileStateRaw::from_bytes(bytes)
 }
 
 /// Read and validate a `UrlStateRaw` from raw redb bytes.
+///
+/// # Errors
+///
+/// Returns an error when the byte slice cannot be decoded into a valid `UrlStateRaw`.
 pub fn read_url_state_raw(bytes: &[u8]) -> Result<UrlStateRaw, StateError> {
     UrlStateRaw::from_bytes(bytes)
 }

@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use super::analyzer::{analyze_files, analyze_files_cached};
-use super::category::{analyze_single_file, detect_category, generate_untitled_id};
+use super::analyzer::analyze_files;
+use super::category::{analyze_single_file, generate_untitled_id};
 use super::types::*;
-use crate::cache::DocCache;
 use crate::discover::DiscoveryFile;
 
 #[test]

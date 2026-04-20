@@ -1,4 +1,4 @@
-//! Builder, durability, in-memory database, and db_path accessor tests.
+//! Builder, durability, in-memory database, and `db_path` accessor tests.
 
 use super::*;
 use crate::state::DurabilityConfig;

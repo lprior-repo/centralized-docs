@@ -1,5 +1,4 @@
 use super::*;
-use proptest::prelude::*;
 
 // P1: Reference integrity for arbitrary valid inputs
 proptest! {

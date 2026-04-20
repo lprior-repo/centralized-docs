@@ -1,4 +1,6 @@
-//! DocCache: thread-safe redb cache (Actions layer).
+//! `DocCache`: thread-safe redb cache (Actions layer).
+
+#![allow(clippy::wildcard_imports)]
 
 use super::config::CacheConfig;
 use super::types::*;

@@ -2,7 +2,7 @@
 
 use pulldown_cmark::{CowStr, Event, Options, Parser, Tag, TagEnd};
 
-/// Parse markdown using pulldown-cmark with full CommonMark + GFM support
+/// Parse markdown using pulldown-cmark with full `CommonMark` + GFM support.
 pub(crate) fn parse_markdown(content: &str) -> Vec<Event<'_>> {
     let options = Options::all();
     let parser = Parser::new_ext(content, options);

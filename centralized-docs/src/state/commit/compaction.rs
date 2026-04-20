@@ -8,7 +8,13 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-use super::{super::DurabilityConfig, CommitError, StateDb};
+use super::{
+    super::{
+        analysis_outputs_table, chunk_outputs_table, file_state_table, scrape_outputs_table,
+        snapshots_table, transform_outputs_table, url_state_table, DurabilityConfig,
+    },
+    CommitError, StateDb,
+};
 use redb::{Database, ReadableTable, TableDefinition};
 use std::path::Path;
 
@@ -31,9 +37,11 @@ pub fn should_suggest_compaction(file_size: u64, logical_data_size: u64) -> bool
     if logical_data_size == 0 || file_size == 0 {
         return false;
     }
-    // Fix 1: Use f64 directly instead of u32 truncation
-    let ratio = (file_size as f64) / (logical_data_size.max(1) as f64);
-    ratio > COMPACTION_THRESHOLD_RATIO
+    let threshold_multiplier = 10_u64;
+    file_size
+        > logical_data_size
+            .max(1)
+            .saturating_mul(threshold_multiplier)
 }
 
 // ---------------------------------------------------------------------------
@@ -118,11 +126,6 @@ pub fn log_compaction_suggestion(db: &Database, db_path: Option<&Path>) {
 
     let Ok(read_tx) = db.begin_read() else {
         return;
-    };
-
-    use super::super::{
-        analysis_outputs_table, chunk_outputs_table, file_state_table, scrape_outputs_table,
-        snapshots_table, transform_outputs_table, url_state_table,
     };
 
     let tables: &[TableDefinition<&[u8], &[u8]>] = &[

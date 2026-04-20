@@ -1,4 +1,4 @@
-//! Multimap (source_path_chunks) tests.
+//! Multimap (`source_path_chunks`) tests.
 
 use super::*;
 
@@ -178,11 +178,11 @@ fn shared_chunk_hash_survives_partial_delete() {
     let (state_db, _temp_dir) = create_temp_state_db();
     let shared_hash = [0xAAu8; 32];
     let state_a = make_file_state_raw([0u8; 32], [0u8; 32], shared_hash);
-    let state_b = make_file_state_raw([0u8; 32], [0u8; 32], shared_hash);
+    let file_state_b = make_file_state_raw([0u8; 32], [0u8; 32], shared_hash);
     let mut setup = make_minimal_valid_state_changes();
     setup.updated_files = vec![
         ("file_a.rs".to_string(), state_a),
-        ("file_b.rs".to_string(), state_b),
+        ("file_b.rs".to_string(), file_state_b),
     ];
     setup.new_chunks = vec![(shared_hash, vec![42])];
     state_db.commit_changes(setup).expect("setup");

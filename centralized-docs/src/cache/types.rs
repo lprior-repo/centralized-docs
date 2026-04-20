@@ -1,4 +1,4 @@
-//! Cache domain types: ContentHash newtype, table definitions, CacheType selector, hash functions.
+//! Cache domain types: `ContentHash` newtype, table definitions, `CacheType` selector, hash functions.
 
 use crate::errors::CacheError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};

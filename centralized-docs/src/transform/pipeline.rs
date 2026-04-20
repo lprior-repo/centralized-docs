@@ -1,4 +1,4 @@
-//! Transform pipeline entry points: transform_all, transform_file, transform_to_content.
+//! Transform pipeline entry points: `transform_all`, `transform_file`, `transform_to_content`.
 
 use super::ast_context::{
     content_has_see_also, ensure_h1_events, events_have_blockquote_context, generate_tags,

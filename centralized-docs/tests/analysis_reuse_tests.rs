@@ -1726,7 +1726,7 @@ fn analyze_with_reuse_preserves_order_with_50_files() {
         let size = content.len() as u64;
         discovered.push(DiscoveryFile {
             source_path: name.to_string(),
-            size_bytes: size as u64,
+            size_bytes: size,
         });
 
         // Even-indexed files: unchanged (stored hashes match) → reused from archive)

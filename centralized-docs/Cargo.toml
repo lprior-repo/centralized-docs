@@ -85,6 +85,7 @@ pulldown-cmark-to-cmark = "22.0.0"
 fs2 = "0.4"
 ordered-float = "5.1.0"
 rayon = "1.11.0"
+fastembed = { version = "5.13.2", optional = true, default-features = false, features = ["ort-download-binaries-rustls-tls", "hf-hub-rustls-tls"] }
 
 # High-performance ACID key-value cache (idempotency)
 redb = "2"
@@ -190,7 +191,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
 
 [features]
 console = []
-localembed = []
+localembed = ["dep:fastembed"]
 
 # Tier 1: Core - always enabled (default)
 default = ["sitemap", "sync"]

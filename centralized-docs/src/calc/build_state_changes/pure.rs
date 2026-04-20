@@ -1,4 +1,4 @@
-//! Pure functions: hashing, serialization, and FileStateRaw construction.
+//! Pure functions: hashing, serialization, and `FileStateRaw` construction.
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};

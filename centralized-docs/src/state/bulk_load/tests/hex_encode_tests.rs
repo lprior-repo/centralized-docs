@@ -1,4 +1,4 @@
-//! hex_encode pure function tests.
+//! `hex_encode` pure function tests.
 
 use super::*;
 

@@ -9,7 +9,7 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-use super::{super::snapshots_table, validation::hash_to_hex, CommitError};
+use super::{super::snapshots_table, validation::hash_to_hex};
 use std::sync::atomic::Ordering;
 
 // ---------------------------------------------------------------------------
@@ -147,13 +147,13 @@ impl StateReadSession<'_> {
 
 /// Helper: create a `StateReadSession` from a read transaction and a reference to the parent `StateDb`.
 /// Called by [`super::StateDb::begin_read`].
-pub(crate) fn create_read_session<'db>(
+pub(crate) fn create_read_session(
     read_txn: redb::ReadTransaction,
-    state_db: &'db super::StateDb,
-) -> Result<StateReadSession<'db>, CommitError> {
+    state_db: &super::StateDb,
+) -> StateReadSession<'_> {
     // Fix 2: Use Acquire ordering for increment (pairs with Release on decrement + Acquire on load)
     state_db
         .active_read_sessions
         .fetch_add(1, Ordering::Acquire);
-    Ok(StateReadSession { read_txn, state_db })
+    StateReadSession { read_txn, state_db }
 }

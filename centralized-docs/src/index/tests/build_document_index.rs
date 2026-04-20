@@ -1,4 +1,4 @@
-//! Tests for build_document_index.
+//! Tests for `build_document_index`.
 
 use std::collections::HashMap;
 

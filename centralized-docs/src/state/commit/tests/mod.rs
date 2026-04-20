@@ -22,7 +22,7 @@ use crate::state::{
     snapshots_table, source_path_chunks_table, transform_outputs_table, url_state_table,
     FileStateRaw, UrlStateRaw,
 };
-use redb::{Database, ReadableTable, TableDefinition};
+use redb::{Database, TableDefinition};
 use tempfile::TempDir;
 
 use super::{CommitError, StateChanges, StateDb, StateDbBuilder};
@@ -88,7 +88,6 @@ pub(super) fn read_string_table(
 }
 
 pub(super) fn read_multimap_entries(db: &Database, source_path: &str) -> Vec<[u8; 32]> {
-    use redb::ReadableMultimapTable;
     let read_tx = db.begin_read().unwrap();
     let table = read_tx
         .open_multimap_table(source_path_chunks_table())

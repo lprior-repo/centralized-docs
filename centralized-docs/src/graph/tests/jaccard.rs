@@ -9,8 +9,8 @@ proptest! {
         tags1 in prop::collection::vec(".*", 0..20),
         tags2 in prop::collection::vec(".*", 0..20)
     ) {
-        let vec1: Vec<String> = tags1.into_iter().map(|s| s.clone()).collect();
-        let vec2: Vec<String> = tags2.into_iter().map(|s| s.clone()).collect();
+        let vec1: Vec<String> = tags1;
+        let vec2: Vec<String> = tags2;
 
         let result1 = jaccard_similarity(&vec1, &vec2);
         let result2 = jaccard_similarity(&vec2, &vec1);
@@ -23,7 +23,7 @@ proptest! {
 proptest! {
     #[test]
     fn prop_jaccard_reflexivity(tags in prop::collection::vec(".*", 0..20)) {
-        let vec: Vec<String> = tags.into_iter().map(|s| s.clone()).collect();
+        let vec: Vec<String> = tags;
         let result = jaccard_similarity(&vec, &vec);
 
         prop_assert_eq!(result, 1.0);
@@ -37,8 +37,8 @@ proptest! {
         tags1 in prop::collection::vec(".*", 0..20),
         tags2 in prop::collection::vec(".*", 0..20)
     ) {
-        let vec1: Vec<String> = tags1.into_iter().map(|s| s.clone()).collect();
-        let vec2: Vec<String> = tags2.into_iter().map(|s| s.clone()).collect();
+        let vec1: Vec<String> = tags1;
+        let vec2: Vec<String> = tags2;
 
         let result = jaccard_similarity(&vec1, &vec2);
 

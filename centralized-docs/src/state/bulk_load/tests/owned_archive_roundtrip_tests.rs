@@ -1,4 +1,4 @@
-//! OwnedArchive roundtrip tests for all persisted types.
+//! `OwnedArchive` roundtrip tests for all persisted types.
 
 use super::*;
 

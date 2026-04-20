@@ -5,14 +5,13 @@ use tracing::instrument;
 
 use super::{Embedding, EmbeddingProvider, EmbeddingProviderError};
 
-#[cfg(feature = "localembed")]
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 
-/// Local text embedding provider using FastEmbed.
+/// Local text embedding provider using `FastEmbed`.
 /// Runs embedding models (like BGE-small) completely locally.
 pub struct LocalFastEmbedProvider {
     model_name: String,
-    model: std::sync::Arc<std::sync::Mutex<TextEmbedding>>,
+    model: std::sync::Arc<tokio::sync::Mutex<TextEmbedding>>,
     dim: usize,
 }
 
@@ -21,7 +20,7 @@ impl std::fmt::Debug for LocalFastEmbedProvider {
         f.debug_struct("LocalFastEmbedProvider")
             .field("model_name", &self.model_name)
             .field("dim", &self.dim)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -36,7 +35,7 @@ impl Clone for LocalFastEmbedProvider {
 }
 
 impl LocalFastEmbedProvider {
-    /// Create a new local FastEmbed provider.
+    /// Create a new local `FastEmbed` provider.
     ///
     /// # Errors
     ///
@@ -52,7 +51,7 @@ impl LocalFastEmbedProvider {
 
         Ok(Self {
             model_name: "bge-small-en-v1.5".to_string(),
-            model: std::sync::Arc::new(std::sync::Mutex::new(model)),
+            model: std::sync::Arc::new(tokio::sync::Mutex::new(model)),
             dim: 384,
         })
     }
@@ -78,27 +77,34 @@ impl EmbeddingProvider for LocalFastEmbedProvider {
             return Err(EmbeddingProviderError::EmptyInput);
         }
 
-        let mut model_guard = self.model.lock().await;
+        let model = self.model.clone();
+        let model_name = self.model_name.clone();
+        let texts_vec: Vec<String> = texts.iter().map(|text| (*text).to_string()).collect();
+        let requested_texts = texts_vec.clone();
 
-        let texts_vec: Vec<String> = texts.iter().map(|&s| s.to_string()).collect();
-        let fastembed_result =
-            model_guard
-                .embed(texts_vec, None)
-                .map_err(|e| EmbeddingProviderError::ApiError {
-                    message: format!("FastEmbed inference failed: {e}"),
-                    status_code: None,
-                })?;
+        let fastembed_result = tokio::task::spawn_blocking(move || {
+            let mut model_guard = model.blocking_lock();
+            model_guard.embed(texts_vec, None)
+        })
+        .await
+        .map_err(|err| EmbeddingProviderError::ApiError {
+            message: format!("FastEmbed task failed: {err}"),
+            status_code: None,
+        })?
+        .map_err(|err| EmbeddingProviderError::ApiError {
+            message: format!("FastEmbed inference failed: {err}"),
+            status_code: None,
+        })?;
 
-        let mut embeddings = Vec::with_capacity(fastembed_result.len());
-        for (i, vec) in fastembed_result.into_iter().enumerate() {
-            embeddings.push(Embedding {
-                vector: vec,
-                text: Some(texts[i].to_string()),
-                model: self.model_name.clone(),
-            });
-        }
-
-        Ok(embeddings)
+        Ok(fastembed_result
+            .into_iter()
+            .zip(requested_texts)
+            .map(|(vector, text)| Embedding {
+                vector,
+                text: Some(text),
+                model: model_name.clone(),
+            })
+            .collect())
     }
 
     fn estimate_tokens(&self, text: &str) -> usize {

@@ -1,4 +1,4 @@
-//! Shared test helpers for bulk_load tests.
+//! Shared test helpers for `bulk_load` tests.
 
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]

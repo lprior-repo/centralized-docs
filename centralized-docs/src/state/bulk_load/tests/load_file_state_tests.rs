@@ -1,4 +1,4 @@
-//! Tests for StateReadSession::load_file_states.
+//! Tests for `StateReadSession::load_file_states`.
 
 use super::*;
 

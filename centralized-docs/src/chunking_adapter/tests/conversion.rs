@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 
-use super::*;
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
 use crate::chunking_adapter::types::{

@@ -1,4 +1,4 @@
-//! KnowledgeDAG: directed acyclic graph for knowledge representation using petgraph.
+//! `KnowledgeDAG`: directed acyclic graph for knowledge representation using petgraph.
 
 use super::{EdgeType, GraphEdge, GraphNode, NodeType};
 use itertools::Itertools;

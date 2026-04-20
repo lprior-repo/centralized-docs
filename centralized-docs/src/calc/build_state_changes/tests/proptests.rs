@@ -1,4 +1,4 @@
-//! Proptests for build_state_changes.
+//! Proptests for `build_state_changes`.
 
 use super::*;
 use proptest::prelude::*;

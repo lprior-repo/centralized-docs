@@ -1,4 +1,4 @@
-//! Shared test helpers for build_state_changes tests.
+//! Shared test helpers for `build_state_changes` tests.
 
 use super::*;
 use std::collections::HashMap;

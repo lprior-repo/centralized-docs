@@ -1,4 +1,4 @@
-//! Tests for StateReadSession::load_url_states.
+//! Tests for `StateReadSession::load_url_states`.
 
 use super::*;
 
