@@ -91,3 +91,7 @@ restate_docs/
 .scrape/
 .cache/
 .tantivy_index/
+
+# Generated index output (ctd index/ingest output)
+INDEX.json
+chunks/
