@@ -12,6 +12,12 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
     let error_string = err.to_string();
     let error_string_lower = error_string.to_lowercase();
 
+    // User abort patterns (must check FIRST before pipeline errors)
+    // These are expected control flow — user chose to cancel — exit code 1
+    if error_string_lower.contains("apply aborted") {
+        return 1;
+    }
+
     // Pipeline error patterns (must check BEFORE user input patterns)
     // These are network/infrastructure errors that should exit with 2
     let pipeline_error_patterns = [
@@ -111,6 +117,8 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+    use proptest::proptest;
 
     #[test]
     fn test_map_error_to_exit_code_pipeline_network() {
@@ -265,5 +273,81 @@ mod tests {
     fn test_map_error_to_exit_code_regex_not_allowed() {
         let err = anyhow::anyhow!("Regex queries not allowed (potential ReDoS attack)");
         assert_eq!(map_error_to_exit_code(&err), 1);
+    }
+
+    // =============================================================================
+    // Apply-abort exit-code tests (B1 - from contract)
+    // The "Apply aborted by user" error MUST return exit code 1 (user abort),
+    // NOT exit code 2 (pipeline error). This is the secondary bug in the contract.
+    // =============================================================================
+
+    #[test]
+    fn test_map_error_to_exit_code_apply_aborted_returns_1() {
+        // Contract requirement U3 / B1: "Apply aborted by user" must be exit code 1
+        let err = anyhow::anyhow!("Apply aborted by user");
+        let code = map_error_to_exit_code(&err);
+        assert_eq!(
+            code, 1,
+            "Apply aborted by user must return exit code 1 (user abort), got {code}"
+        );
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_apply_aborted_lowercase_returns_1() {
+        let err = anyhow::anyhow!("apply aborted by user");
+        let code = map_error_to_exit_code(&err);
+        assert_eq!(
+            code, 1,
+            "apply aborted by user (lowercase) must return exit code 1, got {code}"
+        );
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_apply_aborted_uppercase_returns_1() {
+        let err = anyhow::anyhow!("APPLY ABORTED BY USER");
+        let code = map_error_to_exit_code(&err);
+        assert_eq!(
+            code, 1,
+            "APPLY ABORTED BY USER (uppercase) must return exit code 1, got {code}"
+        );
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_apply_aborted_mixed_case_returns_1() {
+        let err = anyhow::anyhow!("Apply Aborted By User");
+        let code = map_error_to_exit_code(&err);
+        assert_eq!(
+            code, 1,
+            "Apply Aborted By User (mixed case) must return exit code 1, got {code}"
+        );
+    }
+
+    #[test]
+    fn test_map_error_to_exit_code_apply_aborted_with_context_returns_1() {
+        // Error message may contain "apply aborted" as a substring in a longer message
+        let err = anyhow::anyhow!("Failed to commit: Apply aborted by user at confirmation prompt");
+        let code = map_error_to_exit_code(&err);
+        assert_eq!(
+            code, 1,
+            "Error containing 'Apply aborted' must return exit code 1, got {code}"
+        );
+    }
+
+    // =============================================================================
+    // Proptest: apply abort pattern matching is case-insensitive (Invariant 4)
+    // =============================================================================
+
+    proptest! {
+        #[test]
+        fn apply_abort_pattern_matching_case_insensitive(
+            prefix in "[!-~]{0,20}",
+            suffix in "[!-~]{0,20}",
+        ) {
+            // Build test string with "apply aborted" somewhere in the middle
+            let variant = format!("{}Apply aborted by user{}", prefix, suffix);
+            let err = anyhow::anyhow!("{}", variant);
+            let code = map_error_to_exit_code(&err);
+            prop_assert_eq!(code, 1);
+        }
     }
 }
