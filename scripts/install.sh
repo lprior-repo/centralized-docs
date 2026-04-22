@@ -9,7 +9,7 @@ TMP_DIR="$(mktemp -d)"
 
 cleanup() {
 	rm -f "$TMP_ARCHIVE"
-	rm -f "$TMP_DIR/ctd" "$TMP_DIR/ctd.exe" "$TMP_DIR/ctd-mcp" "$TMP_DIR/ctd-mcp.exe" "$TMP_DIR/llms_txt_validator" "$TMP_DIR/llms_txt_validator.exe" "$TMP_DIR/README.md" "$TMP_DIR/LICENSE"
+	rm -f "$TMP_DIR/ctd" "$TMP_DIR/ctd-mcp" "$TMP_DIR/llms_txt_validator" "$TMP_DIR/README.md" "$TMP_DIR/LICENSE"
 	rmdir "$TMP_DIR" 2>/dev/null || true
 }
 
@@ -38,7 +38,6 @@ detect_platform() {
 	case "$os" in
 	Linux) os="linux" ;;
 	Darwin) os="macos" ;;
-	MINGW* | MSYS* | CYGWIN*) os="windows" ;;
 	*) fail "unsupported operating system: $os" ;;
 	esac
 
@@ -70,7 +69,6 @@ asset_name_for() {
 	case "$os-$arch" in
 	linux-x86_64) printf 'ctd-%s-linux-x86_64.tar.gz\n' "$version" ;;
 	macos-aarch64) printf 'ctd-%s-macos-aarch64.tar.gz\n' "$version" ;;
-	windows-x86_64) printf 'ctd-%s-windows-x86_64.zip\n' "$version" ;;
 	*) printf '\n' ;;
 	esac
 }
@@ -111,6 +109,7 @@ install_binary() {
 
 need_cmd curl
 need_cmd install
+need_cmd tar
 
 read -r OS ARCH <<EOF
 $(detect_platform)
@@ -118,12 +117,6 @@ EOF
 
 RESOLVED_VERSION="$(resolve_version)"
 ASSET_NAME="$(asset_name_for "$OS" "$ARCH" "$RESOLVED_VERSION")"
-
-if [ "$OS" = "windows" ]; then
-	need_cmd unzip
-else
-	need_cmd tar
-fi
 
 if [ -z "$ASSET_NAME" ]; then
 	fail "no prebuilt release is available for $OS/$ARCH. Build from source with: cargo install --path centralized-docs"
@@ -135,28 +128,14 @@ say "Installing ctd $RESOLVED_VERSION for $OS/$ARCH"
 mkdir -p "$INSTALL_DIR"
 curl -fsSL "$ASSET_URL" -o "$TMP_ARCHIVE"
 verify_checksum "$ASSET_NAME" "$RESOLVED_VERSION"
-if [ "$OS" = "windows" ]; then
-	unzip -o "$TMP_ARCHIVE" -d "$TMP_DIR" >/dev/null
-else
-	tar -xzf "$TMP_ARCHIVE" -C "$TMP_DIR"
-fi
+tar -xzf "$TMP_ARCHIVE" -C "$TMP_DIR"
 
-if [ "$OS" = "windows" ]; then
-	install_binary "$TMP_DIR/ctd.exe" "$INSTALL_DIR/ctd.exe"
-	if [ -f "$TMP_DIR/ctd-mcp.exe" ]; then
-		install_binary "$TMP_DIR/ctd-mcp.exe" "$INSTALL_DIR/ctd-mcp.exe"
-	fi
-	if [ -f "$TMP_DIR/llms_txt_validator.exe" ]; then
-		install_binary "$TMP_DIR/llms_txt_validator.exe" "$INSTALL_DIR/llms_txt_validator.exe"
-	fi
-else
-	install_binary "$TMP_DIR/ctd" "$INSTALL_DIR/ctd"
-	if [ -f "$TMP_DIR/ctd-mcp" ]; then
-		install_binary "$TMP_DIR/ctd-mcp" "$INSTALL_DIR/ctd-mcp"
-	fi
-	if [ -f "$TMP_DIR/llms_txt_validator" ]; then
-		install_binary "$TMP_DIR/llms_txt_validator" "$INSTALL_DIR/llms_txt_validator"
-	fi
+install_binary "$TMP_DIR/ctd" "$INSTALL_DIR/ctd"
+if [ -f "$TMP_DIR/ctd-mcp" ]; then
+	install_binary "$TMP_DIR/ctd-mcp" "$INSTALL_DIR/ctd-mcp"
+fi
+if [ -f "$TMP_DIR/llms_txt_validator" ]; then
+	install_binary "$TMP_DIR/llms_txt_validator" "$INSTALL_DIR/llms_txt_validator"
 fi
 
 say "Installed to $INSTALL_DIR"

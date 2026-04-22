@@ -30,7 +30,7 @@ You simply point your AI at the `llms.txt`, and it can intelligently traverse th
 
 ### 1. Installation
 
-**Release binary (Linux x86_64, macOS Apple Silicon, Windows x86_64):**
+**Release binary (Linux x86_64, macOS Apple Silicon):**
 ```bash
 curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/scripts/install.sh | bash
 ```

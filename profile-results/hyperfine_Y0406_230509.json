@@ -1,0 +1,54 @@
+{
+  "results": [
+    {
+      "command": "/home/lewis/src/centralized-docs/target/profiling/ctd scrape http://localhost:8081/ --output /tmp/ctd-hyperfine-1 --concurrency 64",
+      "mean": 64.86858597710666,
+      "stddev": 7.434286794330799,
+      "median": 61.36488720444,
+      "user": 817.4279150533333,
+      "system": 77.90136548666665,
+      "min": 59.833558959440005,
+      "max": 73.40731176743999,
+      "times": [
+        73.40731176743999,
+        61.36488720444,
+        59.833558959440005
+      ],
+      "memory_usage_byte": [
+        8675147776,
+        8675147776,
+        8679337984
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "command": "/home/lewis/src/centralized-docs/target/profiling/ctd scrape http://localhost:8081/ --output /tmp/ctd-hyperfine-2 --concurrency 64",
+      "mean": 66.45169726044,
+      "stddev": 15.817014520875757,
+      "median": 57.82384249244,
+      "user": 866.4128830533333,
+      "system": 35.01412115333333,
+      "min": 56.82474806044,
+      "max": 84.70650122843999,
+      "times": [
+        84.70650122843999,
+        56.82474806044,
+        57.82384249244
+      ],
+      "memory_usage_byte": [
+        8683618304,
+        8690720768,
+        8690720768
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

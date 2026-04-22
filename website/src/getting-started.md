@@ -10,7 +10,7 @@ curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/sc
 
 The installer:
 
-- detects your platform (Linux x86_64, macOS ARM, Windows x86_64)
+- detects your platform (Linux x86_64, macOS ARM)
 - downloads the matching release archive
 - verifies the archive with `SHA256SUMS.txt`
 - installs `ctd`, `ctd-mcp`, and `llms_txt_validator` into `~/.local/bin`
