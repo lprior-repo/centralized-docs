@@ -5,11 +5,23 @@
 use crate::cli::{Commands, McpCommand};
 use std::process::ExitCode;
 
+/// Context for JSON error formatting.
+/// Distinguishes search query from watch/diff command since JSON error schema differs.
+#[derive(Debug, Clone)]
+pub enum CommandContext {
+    /// Search command: error JSON uses `"query": "..."` field
+    Search(String),
+    /// Watch command: error JSON uses `"command": "watch"` field
+    Watch(String),
+    /// Diff command: error JSON uses `"command": "diff"` field
+    Diff(String),
+}
+
 /// Dispatch a parsed CLI command to its handler.
 ///
-/// Returns `(result, search_context)` where `search_context` is `Some((json_mode, query))`
-/// for the Search command (used for JSON error formatting).
-pub async fn dispatch(command: Commands) -> (anyhow::Result<()>, Option<(bool, String)>) {
+/// Returns `(result, context)` where `context` is `Some((json_mode, CommandContext))`
+/// for commands that support JSON error formatting (Search, Watch, Diff).
+pub async fn dispatch(command: Commands) -> (anyhow::Result<()>, Option<(bool, CommandContext)>) {
     match command {
         Commands::Search {
             query,
@@ -19,7 +31,7 @@ pub async fn dispatch(command: Commands) -> (anyhow::Result<()>, Option<(bool, S
             json,
         } => (
             crate::cmd::search::run_search(&query, &index_dir, limit, !no_color, json),
-            Some((json, query.clone())),
+            Some((json, CommandContext::Search(query.clone()))),
         ),
         Commands::Mcp { command } => match command {
             McpCommand::Serve { index_dir } => {
@@ -167,7 +179,7 @@ pub async fn dispatch(command: Commands) -> (anyhow::Result<()>, Option<(bool, S
                     &config,
                 )
                 .await,
-                None,
+                Some((json, CommandContext::Watch(url))),
             )
         }
         Commands::Apply {
@@ -199,7 +211,7 @@ pub async fn dispatch(command: Commands) -> (anyhow::Result<()>, Option<(bool, S
             };
             (
                 crate::cmd::watch::run_diff(&dir_a, &dir_b, output.as_deref(), fmt),
-                None,
+                Some((json, CommandContext::Diff(dir_a.to_string_lossy().into_owned()))),
             )
         }
         Commands::Compact { path } => (crate::cmd::compact::run_compact(&path), None),
@@ -207,19 +219,34 @@ pub async fn dispatch(command: Commands) -> (anyhow::Result<()>, Option<(bool, S
 }
 
 /// Handle an error from command execution, returning the appropriate exit code.
-pub fn handle_error(err: anyhow::Error, search_context: Option<(bool, String)>) -> ExitCode {
-    if let Some((json_mode, search_query)) = search_context {
+pub fn handle_error(err: anyhow::Error, context: Option<(bool, CommandContext)>) -> ExitCode {
+    if let Some((json_mode, ctx)) = context {
         if json_mode {
             let msg = err.to_string();
             if msg.starts_with(crate::cmd::search::SEARCH_JSON_ALREADY_EMITTED_PREFIX) {
                 return ExitCode::SUCCESS;
             }
-            let json = serde_json::json!({"status": "error", "query": search_query, "error": msg});
+            let code = crate::sys::error::map_error_to_exit_code(&err);
+            let json = match ctx {
+                CommandContext::Search(query) => {
+                    serde_json::json!({"status": "error", "query": query, "error": msg})
+                }
+                CommandContext::Watch(_) => {
+                    serde_json::json!({"status": "error", "command": "watch", "error": msg})
+                }
+                CommandContext::Diff(_) => {
+                    serde_json::json!({"status": "error", "command": "diff", "error": msg})
+                }
+            };
             match serde_json::to_string_pretty(&json) {
                 Ok(s) => println!("{s}"),
                 Err(_) => eprintln!("Error: {err}"),
             }
-            return ExitCode::FAILURE;
+            return match code {
+                0 => ExitCode::SUCCESS,
+                2 => ExitCode::from(2),
+                _ => ExitCode::FAILURE,
+            };
         }
     }
     let code = crate::sys::error::map_error_to_exit_code(&err);

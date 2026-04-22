@@ -85,6 +85,7 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "does not exist",
         "regex queries not allowed",
         "redos",
+        "manifest.json",
     ];
 
     let is_user_input = user_input_patterns
