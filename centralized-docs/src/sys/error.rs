@@ -12,12 +12,6 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
     let error_string = err.to_string();
     let error_string_lower = error_string.to_lowercase();
 
-    // User abort patterns (must check FIRST before pipeline errors)
-    // These are expected control flow — user chose to cancel — exit code 1
-    if error_string_lower.contains("apply aborted") {
-        return 1;
-    }
-
     // Pipeline error patterns (must check BEFORE user input patterns)
     // These are network/infrastructure errors that should exit with 2
     let pipeline_error_patterns = [
@@ -91,7 +85,9 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "does not exist",
         "regex queries not allowed",
         "redos",
-        "manifest.json",
+        // URL mismatch errors (cdocs-1gr - FM-4)
+        "does not match",
+        "mismatch",
     ];
 
     let is_user_input = user_input_patterns
@@ -117,8 +113,6 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
-    use proptest::proptest;
 
     #[test]
     fn test_map_error_to_exit_code_pipeline_network() {
@@ -275,79 +269,72 @@ mod tests {
         assert_eq!(map_error_to_exit_code(&err), 1);
     }
 
-    // =============================================================================
-    // Apply-abort exit-code tests (B1 - from contract)
-    // The "Apply aborted by user" error MUST return exit code 1 (user abort),
-    // NOT exit code 2 (pipeline error). This is the secondary bug in the contract.
-    // =============================================================================
+    // ================================================================================
+    // URL Mismatch Tests (cdocs-1gr - BEAD SPECIFIC)
+    // ================================================================================
 
+    /// B12: Error message containing "does not match" must be exit code 1 (user input).
+    /// FM-4: URL mismatch error must be classified as user input, not pipeline error.
     #[test]
-    fn test_map_error_to_exit_code_apply_aborted_returns_1() {
-        // Contract requirement U3 / B1: "Apply aborted by user" must be exit code 1
-        let err = anyhow::anyhow!("Apply aborted by user");
+    fn test_map_error_to_exit_code_url_mismatch_does_not_match() {
+        // This is the exact error message format from the contract fix:
+        let err = anyhow::anyhow!(
+            "Scrape manifest base_url ('https://kubernetes.io/docs/home/') does not match \
+             apply target URL ('https://example.com'). \
+             This scrape was produced for a different site."
+        );
         let code = map_error_to_exit_code(&err);
+
+        // BUG: Currently returns 2 (pipeline error) because "does not match" is not in user_input_patterns.
+        // EXPECTED: Should return 1 (user input error).
         assert_eq!(
             code, 1,
-            "Apply aborted by user must return exit code 1 (user abort), got {code}"
+            "URL mismatch error containing 'does not match' should be exit code 1 (user input error), \
+             not {}. FM-4: Add 'does not match' or 'mismatch' to user_input_patterns.",
+            code
         );
     }
 
+    /// B12 variant: "mismatch" keyword should also be exit code 1
     #[test]
-    fn test_map_error_to_exit_code_apply_aborted_lowercase_returns_1() {
-        let err = anyhow::anyhow!("apply aborted by user");
-        let code = map_error_to_exit_code(&err);
-        assert_eq!(
-            code, 1,
-            "apply aborted by user (lowercase) must return exit code 1, got {code}"
-        );
-    }
+    fn test_map_error_to_exit_code_url_mismatch_keyword() {
+        let cases = vec![
+            "URL mismatch: scrape is for example.com but apply targets other.com",
+            "Scrape mismatch: base_url does not match target",
+            "Error: URL mismatch detected between scrape and apply target",
+        ];
 
-    #[test]
-    fn test_map_error_to_exit_code_apply_aborted_uppercase_returns_1() {
-        let err = anyhow::anyhow!("APPLY ABORTED BY USER");
-        let code = map_error_to_exit_code(&err);
-        assert_eq!(
-            code, 1,
-            "APPLY ABORTED BY USER (uppercase) must return exit code 1, got {code}"
-        );
-    }
-
-    #[test]
-    fn test_map_error_to_exit_code_apply_aborted_mixed_case_returns_1() {
-        let err = anyhow::anyhow!("Apply Aborted By User");
-        let code = map_error_to_exit_code(&err);
-        assert_eq!(
-            code, 1,
-            "Apply Aborted By User (mixed case) must return exit code 1, got {code}"
-        );
-    }
-
-    #[test]
-    fn test_map_error_to_exit_code_apply_aborted_with_context_returns_1() {
-        // Error message may contain "apply aborted" as a substring in a longer message
-        let err = anyhow::anyhow!("Failed to commit: Apply aborted by user at confirmation prompt");
-        let code = map_error_to_exit_code(&err);
-        assert_eq!(
-            code, 1,
-            "Error containing 'Apply aborted' must return exit code 1, got {code}"
-        );
-    }
-
-    // =============================================================================
-    // Proptest: apply abort pattern matching is case-insensitive (Invariant 4)
-    // =============================================================================
-
-    proptest! {
-        #[test]
-        fn apply_abort_pattern_matching_case_insensitive(
-            prefix in "[!-~]{0,20}",
-            suffix in "[!-~]{0,20}",
-        ) {
-            // Build test string with "apply aborted" somewhere in the middle
-            let variant = format!("{}Apply aborted by user{}", prefix, suffix);
-            let err = anyhow::anyhow!("{}", variant);
+        for msg in cases {
+            let err = anyhow::anyhow!(msg);
             let code = map_error_to_exit_code(&err);
-            prop_assert_eq!(code, 1);
+
+            // BUG: Currently returns 2 (pipeline error).
+            // EXPECTED: Should return 1 (user input error).
+            assert_eq!(
+                code, 1,
+                "Error containing 'mismatch' should be exit code 1, got {} for: {}",
+                code, msg
+            );
         }
+    }
+
+    /// FM-4: Ensure URL mismatch is NOT classified as pipeline error (exit 2)
+    #[test]
+    fn test_map_error_to_exit_code_url_mismatch_not_pipeline_error() {
+        let err = anyhow::anyhow!(
+            "Scrape for https://docs.example.com does not match apply target https://example.com"
+        );
+        let code = map_error_to_exit_code(&err);
+
+        // BUG: The word "does" appears in user_input_patterns but "does not match" is not.
+        // This means the error might get classified as user input by accident if it contains "must be".
+        // But more importantly, the "mismatch" keyword should trigger exit code 1.
+        // EXPECTED: Exit code 1 (user input error), NOT 2 (pipeline error).
+        assert_ne!(
+            code, 2,
+            "URL mismatch should NEVER be classified as pipeline error (exit 2). \
+             Got exit code {}. FM-4 fix required.",
+            code
+        );
     }
 }

@@ -27,7 +27,7 @@
 //! - B16: Path prefix is not sufficient match
 
 use doc_transformer::scrape::validation::{PageFilterStatus, ScrapeResult, ScrapedPage};
-use doc_transformer::watch::snapshot_from_scrape;
+use doc_transformer::watch::{snapshot_from_scrape, Snapshot};
 use proptest::prelude::*;
 use std::path::Path;
 use std::process::Command;

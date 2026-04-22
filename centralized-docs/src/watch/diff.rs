@@ -59,8 +59,13 @@ pub fn resolve_manifest_dir(path: &Path) -> Result<PathBuf, ManifestResolveError
 /// Build a `Snapshot` from a `ScrapeResult`.
 ///
 /// Pure calculation — hashes each page's markdown content.
+///
+/// ## Invariant (INV-3)
+/// `snapshot.target_url` always equals `result.base_url`, never the `target_url` argument.
+/// This ensures URL identity is preserved — the snapshot is always associated with
+/// the URL that was actually scraped, not an arbitrary apply target.
 #[must_use]
-pub fn snapshot_from_scrape(target_url: &str, result: &ScrapeResult) -> Snapshot {
+pub fn snapshot_from_scrape(_target_url: &str, result: &ScrapeResult) -> Snapshot {
     let pages = result
         .pages
         .iter()
@@ -75,8 +80,10 @@ pub fn snapshot_from_scrape(target_url: &str, result: &ScrapeResult) -> Snapshot
         })
         .collect();
 
+    // INV-3: snapshot.target_url MUST be result.base_url, not target_url arg.
+    // The target_url arg is kept for API compatibility but is ignored.
     Snapshot {
-        target_url: target_url.to_string(),
+        target_url: result.base_url.clone(),
         timestamp: Utc::now(),
         pages,
     }

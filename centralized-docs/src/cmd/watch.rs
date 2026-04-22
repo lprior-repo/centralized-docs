@@ -58,9 +58,8 @@ pub async fn run_watch(
     filter: Option<&str>,
     config: &WatchConfig,
 ) -> Result<()> {
-    // watch opens DB for reading only — no confirmation prompt needed.
-    // The path-based load_snapshot handles non-existent DB gracefully.
-    let previous = load_snapshot(cache_path, url)?;
+    let state_db = open_state_db(cache_path)?;
+    let previous = load_snapshot(&state_db, url)?;
     print_watch_header(url, &previous);
 
     let scrape_config = build_scrape_config(url, filter, config);
@@ -90,13 +89,25 @@ pub async fn run_apply(
     scrape_dir: &Path,
     confirm_mode: ConfirmMode,
 ) -> Result<()> {
-    // DEFERRING database open until AFTER confirmation per INV3.
-    // load_snapshot works with paths and only opens if the DB exists.
-    let previous = load_snapshot(cache_path, url)?;
+    let state_db = open_state_db(cache_path)?;
     let scrape_result = read_manifest(scrape_dir)?;
 
-    let plan = compute_plan(url, &previous, &scrape_result);
-    print_apply_summary(url, &plan);
+    // Validate URL identity before any state mutation (UR-2, EDR-1, INV-1)
+    // The scrape manifest's base_url must match the apply target URL
+    if scrape_result.base_url != url {
+        anyhow::bail!(
+            "Scrape manifest base_url ('{}') does not match apply target URL ('{}'). \
+             This scrape was produced for a different site. Pass the correct target URL or use a scrape directory that matches '{}'.",
+            scrape_result.base_url,
+            url,
+            scrape_result.base_url
+        );
+    }
+
+    let previous = load_snapshot(&state_db, &scrape_result.base_url)?;
+
+    let plan = compute_plan(&scrape_result.base_url, &previous, &scrape_result);
+    print_apply_summary(&scrape_result.base_url, &plan);
 
     if plan.summary.is_empty() {
         tracing::info!("No changes...");
@@ -107,11 +118,9 @@ pub async fn run_apply(
         prompt_confirmation()?;
     }
 
-    let new_snapshot = snapshot_from_scrape(url, &scrape_result);
-    // Only open the database AFTER confirmation is obtained (INV3).
-    // This ensures no DB file is created if user declines.
-    let state_db = open_state_db(cache_path)?;
-    store_snapshot(&state_db, url, &new_snapshot)?;
+    // snapshot_from_scrape uses result.base_url for snapshot.target_url (INV-3)
+    let new_snapshot = snapshot_from_scrape(&scrape_result.base_url, &scrape_result);
+    store_snapshot(&state_db, &scrape_result.base_url, &new_snapshot)?;
 
     tracing::info!(
         pages = new_snapshot.pages.len(),
@@ -144,24 +153,7 @@ fn open_state_db(state_db_path: &Path) -> Result<StateDb> {
     StateDb::open(state_db_path).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
-/// Load snapshot from database, returning empty snapshot if DB doesn't exist.
-/// This function does NOT create the database file — it only reads if the file exists.
-fn load_snapshot(cache_path: &Path, url: &str) -> Result<Snapshot> {
-    if !cache_path.exists() {
-        // No DB file exists yet — return empty snapshot without creating any file
-        return Ok(Snapshot {
-            target_url: url.to_string(),
-            timestamp: chrono::Utc::now(),
-            pages: std::collections::BTreeMap::new(),
-        });
-    }
-
-    let state_db = open_state_db(cache_path)?;
-    load_snapshot_from_db(&state_db, url)
-}
-
-/// Internal helper: load snapshot from an already-open StateDb.
-fn load_snapshot_from_db(state_db: &StateDb, url: &str) -> Result<Snapshot> {
+fn load_snapshot(state_db: &StateDb, url: &str) -> Result<Snapshot> {
     let url_key = url_hash(url);
     let key_bytes: [u8; 32] = url_key.as_bytes().try_into().map_err(|_| {
         anyhow::anyhow!(
