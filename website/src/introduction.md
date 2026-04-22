@@ -20,6 +20,8 @@ You simply point your AI at the `llms.txt`, and it can intelligently traverse th
 - **Knowledge Graphs (DAG):** Detects and maps relationships between documents, making it easy for an agent to traverse related concepts systematically.
 - **llms.txt Generation:** Automatically builds `llms.txt` files, acting as a `robots.txt` equivalent for AI agents.
 - **Semantic Indexing:** Fast, full-text search optimized for AI using BM25, allowing agents to query exactly what they need.
+- **MCP Server:** Built-in Model Context Protocol server for native AI agent integration (Claude Desktop, Claude Code, etc.).
+- **Incremental Indexing:** State database tracks file changes, only re-processing what changed on re-index.
 
 ## Core Philosophy
 

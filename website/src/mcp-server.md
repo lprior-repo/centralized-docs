@@ -177,7 +177,6 @@ Get related concepts from the knowledge graph for a given chunk or document ID.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | string | Yes | Chunk or document ID |
-| `limit` | integer | No | Maximum related concepts to return |
 
 **Schema:**
 

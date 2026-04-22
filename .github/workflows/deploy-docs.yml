@@ -21,8 +21,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      MDBOOK_VERSION: 0.14.1
     steps:
       - uses: actions/checkout@v4
       
