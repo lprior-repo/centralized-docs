@@ -7,103 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.1] - 2026-04-21
 
+### Added
+
+- Windows x86_64 install support (MSYS2/Git Bash/WSL)
+
 ### Fixed
 
-- Restored all-features workspace feature gates for correct compilation
-- Hardened MCP server and scrape release checks
-
-### Changed
-
-- Added Windows x86_64 platform support to install script (MSYS2/Git Bash/WSL)
-- Added `.qa-*` and `.memsearch/` to `.gitignore`
-- Removed stale pre-built `website/book/` from repository (now built by CI)
-- Added CHANGELOG.md
+- Workspace compilation with all features enabled
+- MCP server and scrape release-mode checks
 
 ## [0.7.0] - 2026-04-20
 
-### Added — redb State Database
+### Added
 
-- `StateDb` newtype wrapper over `redb::Database` with builder pattern
-- 9 redb table definitions: file state, URL state, multimap (source_path → chunk_ids), snapshots, documents, scrape outputs, transforms, analysis, chunks, metadata
-- `rkyv` zero-copy deserialization for fixed-size `FileStateRaw` (200 bytes) and `UrlStateRaw` (120 bytes)
-- `bytemuck`-derived POD types for direct byte casts from redb storage
-- Builder durability tuning: file-backed, in-memory, and paranoid modes
-- Bulk load operations for idempotent state initialization across multiple calls
-- Snapshot APIs on `StateReadSession` and `StateDb` for watch/apply workflow
-- `StateReadSession` wrapping redb read transactions with owned archived bytes
-- Batch builder for URL-state and scrape-output commit batches
-- Compact state DB via `ctd compact` CLI command with churn-recovery tests
-- State commit at shutdown — single redb write transaction for all changes
-
-### Added — Idempotent Operations
-
-- Cache open idempotency verified across 100+ open/close cycles
-- State table initialization idempotent on repeated calls
-- Bulk load idempotency for both file-state and URL-state
-- Analysis reuse for unchanged files during re-indexing
-- Transform artifact capture with source-path reuse
-
-### Added — Watch/Apply/Diff Workflow
-
-- Terraform-style `watch`/`apply`/`diff` commands for index lifecycle
-- Snapshot persistence migrated from DocCache to StateDb
-- `--connect-timeout-secs` flag on watch command
-- Change plan output in both Markdown and JSON formats
-- Load archived scrape outputs for unchanged pages (skip re-scrape)
-
-### Added — MCP Server
-
-- `ctd-mcp` binary with `rmcp` v1.3 stdio transport
-- Three tools: `search_docs`, `read_chunk`, `get_related_concepts`
-- `CtdMcpError` enum with structured error handling
-- Client config guides for Claude Desktop, Claude Code, VS Code, and Cursor
-
-### Added — Search & Indexing
-
-- BM25 search with configurable HNSW parameters (`--hnsw-m`, `--hnsw-ef-construction`)
-- `llms.txt` / `llms-full.txt` parser and validator binary
-- Contextual chunking with prefix context windows (~50-100 tokens)
-- Knowledge graph (DAG) with Parent, Sequential, and Related edges
-- `--with-agents` flag to generate `AGENTS.md` for AI agent integration
-- `--max-document-bytes` flag to skip oversized documents
-- Category auto-detection with configurable overrides (`--category-config`)
-- `--max-related-chunks` and `--max-chunk-keywords` tuning flags
-
-### Added — Scrape & Networking
-
-- Shared state session with graceful shutdown commit
-- Connect timeout enforcement via TCP pre-check
-- Tracing instrumentation across all async functions and MCP tools
-
-### Added — CLI
-
-- `ctd` main binary with 10 subcommands (search, scrape, ingest-git, index, ingest, watch, apply, diff, compact, mcp serve)
-- `ctd-mcp` dedicated MCP server binary
-- `llms_txt_validator` validation helper binary
-- Exhaustive CLI permutation test suite (608 tests, 100% pass rate)
-
-### Added — Distribution & Docs
-
-- Website documentation (mdBook) deployed to GitHub Pages
-- Install scripts for Unix (`install.sh`) and Homebrew (`install-brew.sh`)
-- GitHub Actions CI for multi-platform releases (Linux x86_64, macOS aarch64, Windows x86_64)
-- SHA256 checksum verification in install script
-
-### Changed
-
-- Full clippy cleanup with functional Rust lint gates (zero-unwrap, no-panic, no-indexing)
-- CLI ergonomics improvements across all commands
-- Pod crate split with newtypes and debug assertions
-- Replaced LRU backend with blessed LRU for bounded in-memory cache
-- All `println!`/`dbg!` replaced with structured `tracing` spans
-- Architectural drift correction across codebase (300-line file enforcement)
-
-### Fixed
-
-- Exit non-zero on corrupt state database with proper error code mapping
-- Proptest regex excludes Unicode whitespace (NBSP, NEL) for portability
-- 42 test inquisition findings resolved (10 LETHAL, 20 MAJOR, 12 MINOR)
-- 6 QA bugs: exit codes, stale tests, clippy, unused imports
+- **redb state database** — persistent index state across runs. Tracks file changes, URL states, and scrape history in an ACID database. Re-indexing only processes changed files.
+- **Idempotent re-indexing** — running `ctd index` or `ctd ingest` multiple times produces the same output. Unchanged files are skipped using state snapshots.
+- **`ctd compact`** — reclaim disk space from the state database after heavy indexing.
+- **Terraform-style `watch`/`apply`/`diff`** — plan changes before committing them. `watch` shows what would change, `apply` executes the plan, `diff` compares two scrape directories.
+- **MCP server (`ctd-mcp`)** — three tools (`search_docs`, `read_chunk`, `get_related_concepts`) for Claude Desktop, Claude Code, VS Code, and Cursor. Uses stdio transport, no server to manage.
+- **BM25 search with HNSW tuning** — configurable via `--hnsw-m` and `--hnsw-ef-construction` for speed/accuracy tradeoffs.
+- **`llms.txt` parser and validator** — parse `llms.txt` and `llms-full.txt` files. Validate structure with the `llms_txt_validator` binary.
+- **Contextual chunking** — each chunk includes prefix context from the previous chunk (~50-100 tokens), giving LLMs continuity.
+- **Knowledge graph** — DAG with Parent, Sequential, and Related edges between documents and chunks.
+- **`--with-agents`** — generates an `AGENTS.md` file so AI agents can navigate your index without guessing.
+- **`--category-config`** — override auto-detected document categories with a config file.
+- **`--max-document-bytes`** — skip oversized documents during indexing.
+- **Connect timeout** — `--connect-timeout-secs` flag on `watch` for unreliable networks.
+- **Structured logging** — all output uses `tracing` spans instead of raw prints.
+- **Multi-platform releases** — GitHub Actions CI builds for Linux x86_64, macOS aarch64, and Windows x86_64 with SHA256 verification.
 
 [0.7.1]: https://github.com/lprior-repo/centralized-docs/releases/tag/v0.7.1
 [0.7.0]: https://github.com/lprior-repo/centralized-docs/releases/tag/v0.7.0
