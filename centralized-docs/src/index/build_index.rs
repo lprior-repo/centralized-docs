@@ -9,6 +9,7 @@ use crate::analyze::Analysis;
 use crate::assign::IdMapping;
 use crate::chunking_adapter::{Chunk, ChunksResult};
 use crate::graph::KnowledgeDAG;
+use crate::types::bounded_chunk_name;
 use crate::types::is_stopword;
 use anyhow::Result;
 use itertools::Itertools;
@@ -202,9 +203,11 @@ pub fn build_chunk_metadata(chunks: &[Chunk], dag: &KnowledgeDAG) -> Result<Vec<
                 next_chunk_id: chunk.next_chunk_id.clone(),
                 section_index: chunk.chunk_index,
                 path: format!(
-                    "chunks/{}-{}.md",
-                    chunk.chunk_id.replace(['/', '#'], "-"),
-                    chunk.chunk_level.as_str()
+                    "chunks/{}",
+                    bounded_chunk_name(
+                        &chunk.chunk_id.replace(['/', '#'], "-"),
+                        chunk.chunk_level.as_str()
+                    )
                 ),
                 related_chunks,
                 chunk_level: chunk.chunk_level,

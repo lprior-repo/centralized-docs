@@ -4,6 +4,7 @@ use super::error::ChunkReuseError;
 use super::types::{escape_frontmatter, Chunk};
 use crate::analyze::Analysis;
 use crate::cache::{composite_hash, CacheType, ContentHash, DocCache};
+use crate::types::bounded_chunk_name;
 use anyhow::Result;
 use std::fmt::Write;
 use std::fs;
@@ -84,11 +85,7 @@ pub fn write_chunk_file(chunk: &Chunk, chunks_dir: &Path) -> Result<()> {
         contextual_chunker::ChunkLevel::Detailed => "detailed",
     };
 
-    let chunk_filename = format!(
-        "{}-{}.md",
-        chunk.chunk_id.replace(['/', '#'], "-"),
-        level_suffix
-    );
+    let chunk_filename = bounded_chunk_name(&chunk.chunk_id.replace(['/', '#'], "-"), level_suffix);
     let chunk_file = chunks_dir.join(&chunk_filename);
 
     let mut frontmatter = format!(

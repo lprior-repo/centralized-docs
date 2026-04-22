@@ -1,6 +1,7 @@
 //! File path and URL slug newtypes.
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::borrow::Borrow;
 use std::fmt;
 use std::ops::Deref;
@@ -203,4 +204,70 @@ pub enum SlugError {
     TooLong(usize),
     #[error("Slug contains invalid characters (only alphanumeric, hyphen, underscore allowed)")]
     InvalidCharacters,
+}
+
+// ---------------------------------------------------------------------------
+// Bounded Filename Derivation
+// ---------------------------------------------------------------------------
+
+/// Derive a bounded filename from a stem, ensuring the result fits within
+/// the 187-byte document filename budget.
+///
+/// Format: `{truncated_stem[:172]}-{hash8}.md` when truncation is needed.
+/// When the stem is ≤ 172 bytes, returns `stem.to_string() + ".md"` directly.
+///
+/// The hash is computed from the FULL original stem (before truncation)
+/// to guarantee collision resistance: two distinct stems produce distinct
+/// hashes with overwhelming probability.
+#[must_use]
+pub fn bounded_name(stem: &str) -> String {
+    const MAX_STEM_LEN: usize = 172;
+    const HASH_SUFFIX_LEN: usize = 8;
+
+    if stem.len() > MAX_STEM_LEN {
+        // Compute SHA-256 of the full original stem for deterministic collision resistance
+        let mut hasher = Sha256::new();
+        hasher.update(stem.as_bytes());
+        let hash_full = format!("{:x}", hasher.finalize());
+        let hash_suffix = &hash_full[..HASH_SUFFIX_LEN];
+
+        // Truncate stem and append hash suffix + extension
+        // Result: truncated_stem (172) + '-' (1) + hash (8) + '.md' (3) = 184 bytes
+        format!("{}-{}{}", &stem[..MAX_STEM_LEN], hash_suffix, ".md")
+    } else {
+        // No truncation needed; use natural name
+        format!("{stem}.md")
+    }
+}
+
+/// Derive a bounded chunk filename from a chunk stem and level suffix,
+/// ensuring the result fits within the 200-byte chunk filename budget.
+///
+/// Format: `{truncated_stem[:172]}-{hash8}-{level}.md` when truncation is needed.
+/// When the stem is ≤ 172 bytes, returns `stem.to_string() + "-{level}.md"` directly.
+///
+/// The hash is computed from the FULL original stem (before truncation)
+/// to guarantee collision resistance.
+#[must_use]
+pub fn bounded_chunk_name(stem: &str, level: &str) -> String {
+    const MAX_CHUNK_STEM_LEN: usize = 172;
+    const HASH_SUFFIX_LEN: usize = 8;
+
+    if stem.len() > MAX_CHUNK_STEM_LEN {
+        let mut hasher = Sha256::new();
+        hasher.update(stem.as_bytes());
+        let hash_full = format!("{:x}", hasher.finalize());
+        let hash_suffix = &hash_full[..HASH_SUFFIX_LEN];
+
+        // Result: truncated_stem (172) + '-' (1) + hash (8) + '-' (1) + level + '.md' (3)
+        // Max: 172 + 1 + 8 + 1 + 8 + 3 = 193 bytes (for level "standard")
+        format!(
+            "{}-{}-{}.md",
+            &stem[..MAX_CHUNK_STEM_LEN],
+            hash_suffix,
+            level
+        )
+    } else {
+        format!("{stem}-{level}.md")
+    }
 }

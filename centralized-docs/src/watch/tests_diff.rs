@@ -54,7 +54,10 @@ fn snapshot_from_scrape_produces_identical_hashes_for_same_input() {
     let snap1 = snapshot_from_scrape("https://example.com", &result);
     let snap2 = snapshot_from_scrape("https://example.com", &result);
 
-    assert_eq!(snap1.pages, snap2.pages, "same scrape must produce identical page hashes");
+    assert_eq!(
+        snap1.pages, snap2.pages,
+        "same scrape must produce identical page hashes"
+    );
 }
 
 #[test]
@@ -228,7 +231,10 @@ fn snapshot_serialization_roundtrip_preserves_all_page_data() {
     let restored: Snapshot = serde_json::from_str(&json).expect("deserialize");
 
     assert_eq!(snapshot.target_url, restored.target_url);
-    assert_eq!(snapshot.pages, restored.pages, "all page hashes must survive JSON roundtrip");
+    assert_eq!(
+        snapshot.pages, restored.pages,
+        "all page hashes must survive JSON roundtrip"
+    );
 }
 
 // ===========================================================================

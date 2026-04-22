@@ -1,4 +1,5 @@
 use crate::analyze::Analysis;
+use crate::types::bounded_name;
 use crate::types::Slug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -42,7 +43,8 @@ pub fn assign_ids(analyses: Vec<Analysis>) -> (Vec<Analysis>, HashMap<String, Id
             };
 
             let doc_id = format!("{}/{}/{}", analysis.category, subcategory, final_slug);
-            let new_filename = format!("{}-{}-{}.md", analysis.category, subcategory, final_slug);
+            let natural_filename = format!("{}-{}-{}", analysis.category, subcategory, final_slug);
+            let new_filename = bounded_name(&natural_filename);
 
             Some((
                 analysis.source_path.clone(),

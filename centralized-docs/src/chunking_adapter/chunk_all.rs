@@ -6,6 +6,7 @@ use super::types::{
 };
 use crate::analyze::Analysis;
 use crate::assign::IdMapping;
+use crate::types::bounded_chunk_name;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::fs;
@@ -81,10 +82,9 @@ pub fn chunk_all(
             contextual_chunker::ChunkLevel::Detailed => "detailed",
         };
 
-        let chunk_filename = format!(
-            "{}-{}.md",
-            chunk.chunk_id.replace(['/', '#'], "-"),
-            level_suffix
+        let chunk_filename = bounded_chunk_name(
+            &chunk.chunk_id.replace(['/', '#'], "-"),
+            level_suffix,
         );
         let chunk_file = chunks_dir.join(&chunk_filename);
 

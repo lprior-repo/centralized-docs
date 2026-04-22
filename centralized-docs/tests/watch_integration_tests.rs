@@ -1458,12 +1458,28 @@ fn change_plan_json_survives_pretty_print_roundtrip() {
     let plan_tuples: Vec<_> = plan
         .changes
         .iter()
-        .map(|c| (c.url.clone(), c.kind, c.old_hash, c.new_hash, c.title.clone()))
+        .map(|c| {
+            (
+                c.url.clone(),
+                c.kind,
+                c.old_hash,
+                c.new_hash,
+                c.title.clone(),
+            )
+        })
         .collect();
     let restored_tuples: Vec<_> = restored
         .changes
         .iter()
-        .map(|c| (c.url.clone(), c.kind, c.old_hash, c.new_hash, c.title.clone()))
+        .map(|c| {
+            (
+                c.url.clone(),
+                c.kind,
+                c.old_hash,
+                c.new_hash,
+                c.title.clone(),
+            )
+        })
         .collect();
     assert_eq!(
         plan_tuples, restored_tuples,

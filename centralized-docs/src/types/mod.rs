@@ -15,7 +15,7 @@ pub use config_types::{ConfigError, HnswEfConstruction, HnswM, MaxRelatedChunks}
 pub use content_types::{Keyword, KeywordError, Tag, TagError};
 pub use identifiers::{ChunkId, ChunkIdError, DocumentId, DocumentIdError};
 pub use naming_types::{Category, CategoryError, ProjectName, ProjectNameError, Title, TitleError};
-pub use path_types::{FilePath, FilePathError, Slug, SlugError};
+pub use path_types::{bounded_chunk_name, bounded_name, FilePath, FilePathError, Slug, SlugError};
 
 /// Stopwords to filter out from tags and keywords.
 ///

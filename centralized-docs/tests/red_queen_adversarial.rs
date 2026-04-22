@@ -132,8 +132,11 @@ fn rq_manifest_json_is_symlink_to_directory() {
 fn rq_manifest_json_is_broken_symlink() {
     let dir = temp_dir();
     // Symlink pointing to a non-existent target
-    std::os::unix::fs::symlink("/nonexistent/path/manifest.json", dir.path().join("manifest.json"))
-        .expect("create broken symlink");
+    std::os::unix::fs::symlink(
+        "/nonexistent/path/manifest.json",
+        dir.path().join("manifest.json"),
+    )
+    .expect("create broken symlink");
 
     let result = resolve_manifest_dir(dir.path());
 
@@ -559,7 +562,11 @@ fn rq_not_found_error_display_is_informative() {
     assert!(!msg.is_empty(), "error Display must not be empty");
     assert!(msg.contains("manifest.json"), "must mention manifest.json");
     assert!(msg.contains(".scrape"), "must mention .scrape");
-    assert!(msg.len() > 50, "error should be descriptive, got {} chars", msg.len());
+    assert!(
+        msg.len() > 50,
+        "error should be descriptive, got {} chars",
+        msg.len()
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -688,14 +695,20 @@ fn rq_unreadable_directory_returns_not_found() {
     write_manifest(&restricted);
 
     // Remove read permission
-    std::fs::set_permissions(&restricted, std::os::unix::fs::PermissionsExt::from_mode(0o000))
-        .expect("chmod 000");
+    std::fs::set_permissions(
+        &restricted,
+        std::os::unix::fs::PermissionsExt::from_mode(0o000),
+    )
+    .expect("chmod 000");
 
     let result = resolve_manifest_dir(&restricted);
 
     // Restore permissions for cleanup
-    std::fs::set_permissions(&restricted, std::os::unix::fs::PermissionsExt::from_mode(0o755))
-        .ok();
+    std::fs::set_permissions(
+        &restricted,
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )
+    .ok();
 
     // On most Linux systems, root can still read. For non-root:
     // exists() returns false → NotFound. This is expected behavior.
@@ -755,7 +768,11 @@ fn rq_manifest_moved_direct_to_nested() {
     .expect("move manifest");
 
     let result2 = resolve_manifest_dir(dir.path());
-    assert_eq!(result2, Ok(scrape), "RQ-RACE-2: should now resolve to .scrape");
+    assert_eq!(
+        result2,
+        Ok(scrape),
+        "RQ-RACE-2: should now resolve to .scrape"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -868,10 +885,7 @@ fn rq_manifest_json_is_a_fifo() {
     // Verify it's a FIFO
     let metadata = std::fs::symlink_metadata(&fifo_path).expect("metadata");
     use std::os::unix::fs::FileTypeExt;
-    assert!(
-        metadata.file_type().is_fifo(),
-        "should be a FIFO"
-    );
+    assert!(metadata.file_type().is_fifo(), "should be a FIFO");
 
     let result = resolve_manifest_dir(dir.path());
 
@@ -932,8 +946,7 @@ fn rq_nested_manifest_json_is_symlink_to_directory() {
     std::fs::create_dir_all(&real_dir).expect("create real dir");
 
     // .scrape/manifest.json → actual_dir (directory)
-    std::os::unix::fs::symlink(&real_dir, scrape.join("manifest.json"))
-        .expect("create symlink");
+    std::os::unix::fs::symlink(&real_dir, scrape.join("manifest.json")).expect("create symlink");
 
     let result = resolve_manifest_dir(dir.path());
 
@@ -1129,7 +1142,11 @@ fn rq_fallback_to_nested_after_direct_removed() {
 
     // Now nested should win
     let result2 = resolve_manifest_dir(dir.path());
-    assert_eq!(result2, Ok(scrape.clone()), "RQ-GEN2-PREC-4: should fall back to nested");
+    assert_eq!(
+        result2,
+        Ok(scrape.clone()),
+        "RQ-GEN2-PREC-4: should fall back to nested"
+    );
 
     // Remove nested too → NotFound
     std::fs::remove_file(scrape.join("manifest.json")).expect("remove nested");
@@ -1154,7 +1171,11 @@ fn rq_scrape_dir_appears_between_calls() {
     write_manifest(&scrape);
 
     let result2 = resolve_manifest_dir(dir.path());
-    assert_eq!(result2, Ok(scrape), "RQ-GEN2-RACE-3: should now find nested manifest");
+    assert_eq!(
+        result2,
+        Ok(scrape),
+        "RQ-GEN2-RACE-3: should now find nested manifest"
+    );
 }
 
 /// RQ-GEN2-DIFF-3: diff_directories with dir_a containing directory-named manifest.json.
@@ -1395,8 +1416,11 @@ fn rq_manifest_case_sensitivity() {
         "error_count": 0,
         "errors": []
     });
-    std::fs::write(dir.path().join("Manifest.json"), manifest_content.to_string())
-        .expect("write Manifest.json");
+    std::fs::write(
+        dir.path().join("Manifest.json"),
+        manifest_content.to_string(),
+    )
+    .expect("write Manifest.json");
 
     let result = resolve_manifest_dir(dir.path());
 
