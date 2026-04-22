@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide covers the production release flow for `ctd` `v0.7.0`.
+This guide covers the production release flow for `ctd` `v0.7.1`.
 
 ## Install a Release Binary
 
