@@ -1,5 +1,6 @@
 use crate::cli::config::IndexConfig;
 use crate::cmd::index::run_index;
+use crate::discover;
 use crate::sys::utils::extract_last_path_segment;
 use anyhow::Result;
 
@@ -66,19 +67,14 @@ pub fn run_ingest_git(
         println!("  ✓ Clone successful\n");
     }
 
-    let markdown_files: Vec<_> = walkdir::WalkDir::new(&temp_dir)
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file())
-        .filter_map(|entry| {
-            entry.path().extension().and_then(|ext| {
-                ext.eq_ignore_ascii_case("md")
-                    .then(|| entry.path().to_path_buf())
-            })
-        })
-        .collect();
+    // Discover files using the same mechanism as run_index to get the post-filter count
+    // This uses discover::discover_files which applies the path_filter internally
+    let (discovered_files, _manifest) = discover::discover_files(&temp_dir, filter.as_deref())?;
 
-    println!("[DISCOVER] Found {} markdown files\n", markdown_files.len());
+    println!(
+        "[DISCOVER] Found {} markdown files\n",
+        discovered_files.len()
+    );
 
     let index_config = IndexConfig {
         generate_llms: true,
@@ -102,7 +98,7 @@ pub fn run_ingest_git(
     println!("{}", "=".repeat(70));
     println!("Source:     {repo_url}");
     println!("Output:     {}", output.display());
-    println!("Documents:  {}", markdown_files.len());
+    println!("Documents:  {}", discovered_files.len());
     println!("Entry:      llms.txt (AI should read this first)");
     println!("{}\n", "=".repeat(70));
 
