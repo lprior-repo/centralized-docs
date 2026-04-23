@@ -579,9 +579,10 @@ fn scenario2_chunk_filename_budget() {
                 filename
             );
 
-            // And: if long, contains hash suffix (8 hex chars before .md)
+            // And: if long, contains hash suffix (8 hex chars before level suffix and .md)
+            // Chunk format is: {stem}-{hash8}-{level}.md where level is like "detailed"
             if filename.len() >= 180 {
-                let has_hash_suffix = regex::Regex::new(r"-[[:xdigit:]]{8}\.md$").unwrap();
+                let has_hash_suffix = regex::Regex::new(r"-[[:xdigit:]]{8}-[a-z]+\.md$").unwrap();
                 assert!(
                     has_hash_suffix.is_match(&filename),
                     "long chunk_filename '{}' must have hash suffix",
