@@ -12,8 +12,6 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
     let error_string = err.to_string();
     let error_string_lower = error_string.to_lowercase();
 
-    // Pipeline error patterns (must check BEFORE user input patterns)
-    // These are network/infrastructure errors that should exit with 2
     let pipeline_error_patterns = [
         "url protocol",
         "class=net",
@@ -29,7 +27,6 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "git clone failed",
         "no pages extracted",
         "failed to scrape",
-        // Database corruption errors
         "i/o error",
         "invalid data",
         "corrupt",
@@ -47,9 +44,6 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         return 2;
     }
 
-    // User input error patterns (explicit matches - high precision)
-    // These are errors where the user provided invalid input
-    // Network/infrastructure errors have been REMOVED from here
     let user_input_patterns = [
         "must be",
         "cannot be",
@@ -85,7 +79,6 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         "does not exist",
         "regex queries not allowed",
         "redos",
-        // URL mismatch errors (cdocs-1gr - FM-4)
         "does not match",
         "mismatch",
         // User abort patterns
@@ -99,18 +92,13 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         .any(|pattern| error_string_lower.contains(pattern));
 
     if is_user_input {
-        // User input error -> exit 1
         return 1;
     }
 
-    // "no results found" is a user input error — exit 1 so pipelines can detect it
     if error_string_lower.contains("no results found") {
         return 1;
     }
 
-    // Pipeline error -> exit 2
-    // These include: IO errors, transform failures, network errors, corrupt data
-    // Anything that isn't a user input error is a pipeline error
     2
 }
 

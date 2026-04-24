@@ -4,7 +4,6 @@
 //! chunk → validate → index pipeline. The state-diff step (STEP 1.5) opens the
 //! persistent `StateDb`, bulk-loads file state, and classifies discovered files
 //! into unchanged/changed/new/deleted buckets for informational output.
-
 use crate::cli::config::IndexConfig;
 use crate::diff::{compute_file_diff, StoredHashes};
 use crate::state::bulk_load::StateReadSession;
@@ -297,10 +296,7 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Tests (cfg(test)) — extracted to index_tests.rs for file-length compliance.
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 #[path = "index_tests.rs"]
 mod tests;

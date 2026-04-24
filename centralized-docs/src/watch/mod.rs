@@ -210,3 +210,5 @@ impl ChangeSummary {
 mod tests_diff;
 #[cfg(test)]
 mod tests_format;
+#[cfg(test)]
+mod tests_resolve_manifest;
