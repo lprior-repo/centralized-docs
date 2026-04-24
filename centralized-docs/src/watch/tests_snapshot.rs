@@ -1,9 +1,9 @@
-//! Tests for snapshot computation and change-plan detection.
+//! Tests for snapshot construction and change-plan computation.
 
 use super::*;
 use crate::scrape::validation::{ScrapeResult, ScrapedPage};
 
-pub(crate) fn make_page(url: &str, title: &str, content: &str) -> ScrapedPage {
+fn make_page(url: &str, title: &str, content: &str) -> ScrapedPage {
     ScrapedPage {
         url: url.to_string(),
         markdown: content.to_string(),
@@ -18,7 +18,7 @@ pub(crate) fn make_page(url: &str, title: &str, content: &str) -> ScrapedPage {
     }
 }
 
-pub(crate) fn make_result(base: &str, pages: Vec<ScrapedPage>) -> ScrapeResult {
+fn make_result(base: &str, pages: Vec<ScrapedPage>) -> ScrapeResult {
     ScrapeResult {
         total_urls: pages.len(),
         success_count: pages.len(),
@@ -29,7 +29,7 @@ pub(crate) fn make_result(base: &str, pages: Vec<ScrapedPage>) -> ScrapeResult {
     }
 }
 
-pub(crate) fn make_snapshot(target: &str, pages: &[(&str, &str, &str)]) -> Snapshot {
+fn make_snapshot(target: &str, pages: &[(&str, &str, &str)]) -> Snapshot {
     let result = make_result(
         target,
         pages

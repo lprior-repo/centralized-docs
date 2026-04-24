@@ -207,7 +207,9 @@ impl ChangeSummary {
 }
 
 #[cfg(test)]
-mod tests_diff;
+mod tests_manifest;
+#[cfg(test)]
+mod tests_snapshot;
 #[cfg(test)]
 mod tests_format;
 #[cfg(test)]

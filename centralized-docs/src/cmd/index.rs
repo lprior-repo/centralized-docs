@@ -1,9 +1,8 @@
 //! Run the index command (main pipeline).
 //!
 //! Implements the full discovery → state diff → analyze → assign → transform →
-//! chunk → validate → index pipeline. The state-diff step (STEP 1.5) opens the
-//! persistent `StateDb`, bulk-loads file state, and classifies discovered files
-//! into unchanged/changed/new/deleted buckets for informational output.
+//! chunk → validate → index pipeline.
+
 use crate::cli::config::IndexConfig;
 use crate::diff::{compute_file_diff, StoredHashes};
 use crate::state::bulk_load::StateReadSession;
@@ -16,22 +15,10 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-// ---------------------------------------------------------------------------
-// Pure Calculation: file_states_to_stored_hashes
-// ---------------------------------------------------------------------------
-
-/// Convert loaded file-state rows to the `StoredHashes` format expected by
-/// `compute_file_diff`.
+/// Convert loaded file-state rows to `StoredHashes` for `compute_file_diff`.
 ///
-/// Projects `content_hash` and `config_hash` from each `FileStateRaw`.
-/// The resulting map has exactly the same keys as the input map.
-///
-/// # Invariants
-///
-/// - INV-4: `StoredHashes.content_hash` == `FileStateRaw.content_hash` (bitwise identical)
-/// - INV-4: `StoredHashes.config_hash` == `FileStateRaw.config_hash` (bitwise identical)
-/// - Output map `len()` == input map `len()`
-/// - Output map keys == input map keys (byte-identical `String`s)
+/// INV-4: `StoredHashes.content_hash` == `FileStateRaw.content_hash` (bitwise identical)
+/// INV-4: `StoredHashes.config_hash` == `FileStateRaw.config_hash` (bitwise identical)
 #[must_use]
 pub fn file_states_to_stored_hashes(
     file_states: &HashMap<String, FileStateRaw>,

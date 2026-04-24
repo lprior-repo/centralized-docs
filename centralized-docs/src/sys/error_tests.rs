@@ -1,3 +1,5 @@
+//! Tests for error-to-exit-code mapping.
+
 use super::*;
 
 #[test]
