@@ -17,7 +17,6 @@
 //! - File system edge cases (deeply nested, special characters)
 
 // Test setup intentionally ignores some Results
-#![allow(unused_must_use)]
 
 // Use common test fixtures
 use crate::common::*;

@@ -12,9 +12,9 @@ pub enum CommandContext {
     /// Search command: error JSON uses `"query": "..."` field
     Search(String),
     /// Watch command: error JSON uses `"command": "watch"` field
-    Watch(String),
+    Watch(()),
     /// Diff command: error JSON uses `"command": "diff"` field
-    Diff(String),
+    Diff(()),
 }
 
 /// Dispatch a parsed CLI command to its handler.

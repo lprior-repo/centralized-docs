@@ -8,8 +8,6 @@
 //! Verifies that validation runs BEFORE artifact writing,
 //! ensuring no partial artifacts remain on validation failure.
 
-#![allow(unused_must_use)]
-
 use doc_transformer::{analyze, assign, chunk, discover, index, llms, transform, validate};
 use std::fs;
 use tempfile::TempDir;

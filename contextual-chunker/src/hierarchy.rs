@@ -14,7 +14,7 @@ pub(crate) fn heading_key(chunk: &Chunk) -> String {
     chunk
         .heading
         .clone()
-        .map_or_else(|| "intro".to_string(), std::convert::identity)
+        .unwrap_or_else(|| "intro".to_string())
 }
 
 /// Group chunk indices by their heading key.
