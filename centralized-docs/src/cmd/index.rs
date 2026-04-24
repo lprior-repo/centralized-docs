@@ -5,6 +5,7 @@
 
 use crate::cli::config::IndexConfig;
 use crate::diff::{compute_file_diff, StoredHashes};
+use crate::discover::DiscoveryFile;
 use crate::state::bulk_load::StateReadSession;
 use crate::state::commit::StateDb;
 use crate::state::FileStateRaw;
@@ -117,32 +118,8 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
 
     // STEP 1.5: STATE + DIFF
     {
-        let state_db_path = output.join("state.redb");
-        let state_db = StateDb::open(&state_db_path)
-            .map_err(|e| anyhow::anyhow!("failed to open state database: {e}"))?;
-        let session = StateReadSession::new(state_db.database())
-            .map_err(|e| anyhow::anyhow!("failed to begin state read session: {e}"))?;
-        let file_states = session
-            .load_file_states()
-            .map_err(|e| anyhow::anyhow!("failed to load file states: {e}"))?;
-        let stored_hashes = file_states_to_stored_hashes(&file_states);
-
         let source_dir = PathBuf::from(&discover_manifest.source_dir);
-        let file_diff = compute_file_diff(
-            &files,
-            &source_dir,
-            config.category_config.as_deref(),
-            &stored_hashes,
-        )
-        .map_err(|e| anyhow::anyhow!("failed to compute file diff: {e}"))?;
-
-        println!(
-            "[DIFF] Unchanged: {}  Changed: {}  New: {}  Deleted: {}",
-            file_diff.unchanged.len(),
-            file_diff.changed.len(),
-            file_diff.new.len(),
-            file_diff.deleted.len(),
-        );
+        run_state_diff(output, &files, &source_dir, config.category_config.as_deref())?;
     }
 
     // STEP 2: ANALYZE
@@ -215,7 +192,7 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
         validation_result.total_warnings
     );
 
-    // Bail early if validation fails - no artifacts written yet
+    // Bail early if validation fails
     if validation_result.total_errors > 0 {
         let error_details = validation_result
             .failed_files
@@ -223,9 +200,8 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
             .map(|f| format!("{}: {:?}", f.file_path, f.errors))
             .collect::<Vec<_>>()
             .join("\n  ");
-
         println!(
-            "Validation failed: {} errors found across {} files.\nDetails:\n  {}",
+            "Validation failed: {} errors across {} files.\nDetails:\n  {}",
             validation_result.total_errors, validation_result.files_checked, error_details
         );
     }
@@ -233,15 +209,9 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
     // STEP 7: INDEX + GRAPH
     println!("[STEP 7] INDEX + GRAPH");
     index::build_and_write_index(
-        &analyses,
-        &link_map,
-        &chunks_result,
-        output,
-        &config.project_name,
-        Some(config.max_related_chunks),
-        Some(config.hnsw_m),
-        Some(config.hnsw_ef_construction),
-        Some(config.max_chunk_keywords),
+        &analyses, &link_map, &chunks_result, output, &config.project_name,
+        Some(config.max_related_chunks), Some(config.hnsw_m),
+        Some(config.hnsw_ef_construction), Some(config.max_chunk_keywords),
     )?;
     index::build_and_write_navigation(&analyses, &link_map, output)?;
     println!("  Created INDEX.json and NAVIGATION.md\n");
@@ -263,7 +233,6 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
         }
     }
 
-    // FINAL SUMMARY
     println!("{}", "=".repeat(70));
     println!("COMPLETE");
     println!("{}", "=".repeat(70));
@@ -271,15 +240,39 @@ pub fn run_index(source: &Path, output: &Path, config: &IndexConfig) -> Result<(
     println!("Output:     {}", output.display());
     println!("Documents:  {}", analyses.len());
     println!("Chunks:     {}", chunks_result.total_chunks);
-    println!(
-        "Validation: {}/{} passed",
-        validation_result.files_passed, validation_result.files_checked
-    );
-    if config.generate_llms {
-        println!("Entry:      llms.txt (AI should read this first)");
-    }
+    println!("Validation: {}/{} passed", validation_result.files_passed, validation_result.files_checked);
+    if config.generate_llms { println!("Entry:      llms.txt (AI should read this first)"); }
     println!("{}\n", "=".repeat(70));
 
+    Ok(())
+}
+
+fn run_state_diff(
+    output: &Path,
+    files: &[DiscoveryFile],
+    source_dir: &Path,
+    category_config: Option<&Path>,
+) -> Result<()> {
+    let state_db_path = output.join("state.redb");
+    let state_db = StateDb::open(&state_db_path)
+        .map_err(|e| anyhow::anyhow!("failed to open state database: {e}"))?;
+    let session = StateReadSession::new(state_db.database())
+        .map_err(|e| anyhow::anyhow!("failed to begin state read session: {e}"))?;
+    let file_states = session
+        .load_file_states()
+        .map_err(|e| anyhow::anyhow!("failed to load file states: {e}"))?;
+    let stored_hashes = file_states_to_stored_hashes(&file_states);
+
+    let file_diff = compute_file_diff(files, source_dir, category_config, &stored_hashes)
+        .map_err(|e| anyhow::anyhow!("failed to compute file diff: {e}"))?;
+
+    println!(
+        "[DIFF] Unchanged: {}  Changed: {}  New: {}  Deleted: {}",
+        file_diff.unchanged.len(),
+        file_diff.changed.len(),
+        file_diff.new.len(),
+        file_diff.deleted.len(),
+    );
     Ok(())
 }
 
