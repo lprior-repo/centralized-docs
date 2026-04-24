@@ -95,3 +95,11 @@ restate_docs/
 # Generated index output (ctd index/ingest output)
 INDEX.json
 chunks/
+
+# Benchmark compiled binaries
+benchmarks/bench_fast
+benchmarks/compare
+benchmarks/compare2
+benchmarks/compare3
+benchmarks/test_fast
+benchmarks/test_perf
