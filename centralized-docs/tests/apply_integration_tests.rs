@@ -91,6 +91,9 @@ fn run_ctd_apply_with_input(
         scrape_dir.to_str().unwrap(),
     ]);
 
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+
     if input.is_empty() {
         cmd.stdin(Stdio::null());
     } else {

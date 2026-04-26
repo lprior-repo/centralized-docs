@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-04-26
+
+### Fixed
+
+- **INV3 violation**: `apply` command no longer creates state database before user confirmation. Rejecting apply now produces no side effects.
+- **Exit code**: User abort during apply now correctly returns exit code 1 instead of 2
+- **Test harness**: Fixed stderr capture in apply integration tests
+
 ## [0.7.1] - 2026-04-21
 
 ### Added
@@ -36,5 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Structured logging** — all output uses `tracing` spans instead of raw prints.
 - **Multi-platform releases** — GitHub Actions CI builds for Linux x86_64, macOS aarch64, and Windows x86_64 with SHA256 verification.
 
+[0.7.2]: https://github.com/lprior-repo/centralized-docs/releases/tag/v0.7.2
 [0.7.1]: https://github.com/lprior-repo/centralized-docs/releases/tag/v0.7.1
 [0.7.0]: https://github.com/lprior-repo/centralized-docs/releases/tag/v0.7.0
