@@ -29,9 +29,14 @@
 
 ## AI Warning
 
-**I wouldn't recommend running this in production.** This is a personal tool I built for my own workflow. It works for me—I've tested it heavily with adversarial testing and functional Rust principles. But I'm one person with one use case.
+**I wouldn't recommend running this in production.** I haven't read every line of this code. But I've put hundreds of hours into quality control:
 
-Why Rust? Because I'm writing AI-assisted code, and the compiler is my quality control. Rust catches use-after-free, data races, and type mismatches that would slip through in other languages.
+- **Adversarial testing** — I've probed this code from every angle I could think of
+- **Functional Rust principles** — Data-Calc-Actions layering, zero unwraps, zero panics
+- **Multiple review rounds** — Both AI and human reviews
+- **Rust as quality control** — The compiler catches entire categories of bugs that slip through in other languages
+
+I built this like I would for production. I'm just being honest that I haven't personally read every line—because I used the compiler, types, tests, and reviews as my quality control layers.
 
 Consider this a prototype or reference implementation. Fork it, modify it, make it yours.
 
