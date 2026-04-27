@@ -1,5 +1,13 @@
 # Centralized Docs (`ctd`)
 
+## Links
+
+- **Documentation:** https://lprior-repo.github.io/centralized-docs/
+- **GitHub:** https://github.com/lprior-repo/centralized-docs
+- **Releases:** https://github.com/lprior-repo/centralized-docs/releases
+
+---
+
 ## About This Project
 
 **AI-Augmented Software — Human-Crafted**
@@ -98,12 +106,6 @@ ctd apply https://docs.example.com --scrape-dir ./new-scrape --yes
 ├── chunks/            # Semantic chunks with context prefix
 └── state.redb         # State database for incremental re-indexing
 ```
-
-## Links
-
-- **Documentation:** https://lprior-repo.github.io/centralized-docs/
-- **GitHub:** https://github.com/lprior-repo/centralized-docs
-- **Releases:** https://github.com/lprior-repo/centralized-docs/releases
 
 ## License
 
