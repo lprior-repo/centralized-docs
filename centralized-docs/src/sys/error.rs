@@ -88,6 +88,10 @@ pub fn map_error_to_exit_code(err: &anyhow::Error) -> i32 {
         // URL mismatch errors (cdocs-1gr - FM-4)
         "does not match",
         "mismatch",
+        // User abort patterns
+        "apply aborted",
+        "user aborted",
+        "aborted by user",
     ];
 
     let is_user_input = user_input_patterns

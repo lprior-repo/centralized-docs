@@ -89,7 +89,6 @@ pub async fn run_apply(
     scrape_dir: &Path,
     confirm_mode: ConfirmMode,
 ) -> Result<()> {
-    let state_db = open_state_db(cache_path)?;
     let scrape_result = read_manifest(scrape_dir)?;
 
     // Validate URL identity before any state mutation (UR-2, EDR-1, INV-1)
@@ -104,9 +103,13 @@ pub async fn run_apply(
         );
     }
 
-    let previous = load_snapshot(&state_db, &scrape_result.base_url)?;
-
-    let plan = compute_plan(&scrape_result.base_url, &previous, &scrape_result);
+    // Compute plan with empty snapshot to show user what would be added (side-effect free preview)
+    let empty_previous = Snapshot {
+        target_url: scrape_result.base_url.clone(),
+        timestamp: chrono::Utc::now(),
+        pages: std::collections::BTreeMap::new(),
+    };
+    let plan = compute_plan(&scrape_result.base_url, &empty_previous, &scrape_result);
     print_apply_summary(&scrape_result.base_url, &plan);
 
     if plan.summary.is_empty() {
@@ -118,8 +121,26 @@ pub async fn run_apply(
         prompt_confirmation()?;
     }
 
+    // Only after confirmation: load actual previous snapshot and compute accurate plan
+    let previous = if cache_path.exists() {
+        let state_db = open_state_db(cache_path)?;
+        load_snapshot(&state_db, &scrape_result.base_url)?
+    } else {
+        Snapshot {
+            target_url: scrape_result.base_url.clone(),
+            timestamp: chrono::Utc::now(),
+            pages: std::collections::BTreeMap::new(),
+        }
+    };
+
+    // Recompute plan with actual previous snapshot for accurate diff
+    let _plan = compute_plan(&scrape_result.base_url, &previous, &scrape_result);
+
     // snapshot_from_scrape uses result.base_url for snapshot.target_url (INV-3)
     let new_snapshot = snapshot_from_scrape(&scrape_result.base_url, &scrape_result);
+
+    // Open DB and store snapshot (side effect only after confirmation)
+    let state_db = open_state_db(cache_path)?;
     store_snapshot(&state_db, &scrape_result.base_url, &new_snapshot)?;
 
     tracing::info!(
@@ -235,7 +256,7 @@ fn prompt_confirmation() -> Result<()> {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     if !input.trim().eq_ignore_ascii_case("y") {
-        tracing::info!("Apply aborted by user");
+        eprintln!("Apply aborted by user");
         anyhow::bail!("Apply aborted by user");
     }
     Ok(())

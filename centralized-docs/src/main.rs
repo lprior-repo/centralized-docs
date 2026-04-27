@@ -1,4 +1,4 @@
-//! `ctd` v0.7.0 — AI-Optimized Documentation Indexer
+//! `ctd` v0.7.2 — AI-Optimized Documentation Indexer
 #![allow(clippy::all)]
 #![cfg_attr(
     not(test),

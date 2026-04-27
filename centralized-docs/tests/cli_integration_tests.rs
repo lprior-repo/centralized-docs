@@ -1808,7 +1808,7 @@ fn test_validator_version_flags_both_succeed() {
     let long_output = String::from_utf8_lossy(&long.stderr);
 
     assert!(
-        short_output.contains("llms_txt_validator v0.7.0"),
+        short_output.contains("llms_txt_validator v0.7.2"),
         "short version output should include version. Output: {short_output}"
     );
     assert_eq!(

@@ -4,7 +4,7 @@ The `ctd` CLI provides tools to scrape, index, and search documentation.
 
 ## Version
 
-- Production release: `v0.7.1`
+- Production release: `v0.7.2`
 - Primary binary: `ctd`
 - MCP server: `ctd mcp serve` (built into `ctd`, also available as `ctd-mcp`)
 - Helper binary: `llms_txt_validator`
