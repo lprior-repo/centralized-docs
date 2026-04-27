@@ -13,24 +13,7 @@
 
 ---
 
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `ctd ingest <URL>` | Scrape and index a documentation site in one step |
-| `ctd scrape <URL>` | Scrape a site to local markdown files |
-| `ctd index <PATH>` | Index local markdown files |
-| `ctd search <QUERY>` | Search the index using BM25 |
-| `ctd watch <URL>` | Preview changes (Terraform-style plan) |
-| `ctd apply <URL>` | Commit changes (Terraform-style apply) |
-| `ctd diff <DIR_A> <DIR_B>` | Compare two scrape directories |
-| `ctd compact <STATE_DB>` | Reclaim disk space from state database |
-| `ctd mcp serve <DIR>` | Start MCP server for AI agent integration |
-| `ctd ingest-git <REPO_URL>` | Clone and index Git-hosted documentation |
-
----
-
-## What It Does
+## What It Is
 
 `ctd` transforms raw documentation into AI-optimized, searchable knowledge structures:
 
@@ -44,21 +27,35 @@
 
 ---
 
-## Origin Story
+## AI Warning
 
-I got tired of AI agents hallucinating from documentation.
+**I wouldn't recommend running this in production.** This is a personal tool I built for my own workflow. It works for me—I've tested it heavily with adversarial testing and functional Rust principles. But I'm one person with one use case.
 
-The standard workflow sucks:
+Why Rust? Because I'm writing AI-assisted code, and the compiler is my quality control. Rust catches use-after-free, data races, and type mismatches that would slip through in other languages.
 
-- Blindly copy/pasting massive chunks of docs into prompts
-- Manually curating "skills" or context files for every library
-- Watching AI agents lose context in unstructured documentation
-
-So I built `ctd`. Point an AI at the `llms.txt`, and it intelligently traverses the knowledge graph and searches the index rather than blindly reading everything.
+Consider this a prototype or reference implementation. Fork it, modify it, make it yours.
 
 ---
 
-## Installation
+## Quick Start
+
+```bash
+# Install
+curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/scripts/install.sh | bash
+
+# Scrape + Index
+ctd ingest https://kubernetes.io/docs/home/ --output ./k8s-docs
+
+# Search
+ctd search "authentication" --index-dir ./k8s-docs --json --limit 5
+
+# MCP Server
+ctd mcp serve ./k8s-docs
+```
+
+---
+
+## How to Install
 
 ### Release Binary (Linux x86_64, macOS Apple Silicon)
 
@@ -81,39 +78,34 @@ ctd --help
 
 ---
 
-## Quick Start
+## Commands
 
-### Scrape + Index a Documentation Site
+| Command | Description |
+|---------|-------------|
+| `ctd ingest <URL>` | Scrape and index a documentation site in one step |
+| `ctd scrape <URL>` | Scrape a site to local markdown files |
+| `ctd index <PATH>` | Index local markdown files |
+| `ctd search <QUERY>` | Search the index using BM25 |
+| `ctd watch <URL>` | Preview changes (Terraform-style plan) |
+| `ctd apply <URL>` | Commit changes (Terraform-style apply) |
+| `ctd diff <DIR_A> <DIR_B>` | Compare two scrape directories |
+| `ctd compact <STATE_DB>` | Reclaim disk space from state database |
+| `ctd mcp serve <DIR>` | Start MCP server for AI agent integration |
+| `ctd ingest-git <REPO_URL>` | Clone and index Git-hosted documentation |
 
-```bash
-ctd ingest https://kubernetes.io/docs/home/ --output ./k8s-docs
-```
+---
 
-### Index Local Markdown Files
+## Origin Story
 
-```bash
-ctd index ./docs --output ./output --project-name "My Project" --with-agents
-```
+I got tired of AI agents hallucinating from documentation.
 
-### Search
+The standard workflow sucks:
 
-```bash
-ctd search "authentication" --index-dir ./output --json --limit 5
-```
+- Blindly copy/pasting massive chunks of docs into prompts
+- Manually curating "skills" or context files for every library
+- Watching AI agents lose context in unstructured documentation
 
-### MCP Server for AI Agents
-
-```bash
-ctd mcp serve ./output
-```
-
-### Monitor Documentation Changes
-
-```bash
-ctd watch https://docs.example.com --output ./changes
-ctd diff ./old-scrape ./new-scrape --json
-ctd apply https://docs.example.com --scrape-dir ./new-scrape --yes
-```
+So I built `ctd`. Point an AI at the `llms.txt`, and it intelligently traverses the knowledge graph and searches the index rather than blindly reading everything.
 
 ---
 
@@ -129,31 +121,6 @@ ctd apply https://docs.example.com --scrape-dir ./new-scrape --yes
 ├── chunks/            # Semantic chunks with context prefix
 └── state.redb         # State database for incremental re-indexing
 ```
-
----
-
-## Core Features
-
-| Feature | Description |
-|---------|-------------|
-| **Contextual Chunking** | Each chunk includes ~50-100 tokens of surrounding context |
-| **Knowledge Graph** | DAG with Parent, Sequential, Related edges |
-| **llms.txt** | `robots.txt` equivalent for AI agents |
-| **BM25 Search** | Full-text search optimized for AI queries |
-| **MCP Server** | Native Model Context Protocol for Claude, Cursor, VS Code |
-| **Idempotent Ops** | Running multiple times produces identical output |
-| **Incremental Indexing** | State database tracks changes, only re-processes delta |
-| **Watch/Apply/Diff** | Terraform-style workflow for documentation changes |
-
----
-
-## Disclaimer
-
-**I wouldn't recommend running this in production.** This is a personal tool I built for my own workflow. It works for me—I've tested it heavily with adversarial testing and functional Rust principles. But I'm one person with one use case.
-
-Why Rust? Because I'm writing AI-assisted code, and the compiler is my quality control. Rust catches use-after-free, data races, and type mismatches that would slip through in other languages.
-
-Consider this a prototype or reference implementation. Fork it, modify it, make it yours.
 
 ---
 
