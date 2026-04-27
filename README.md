@@ -1,34 +1,34 @@
 # Centralized Docs (`ctd`)
 
-A pure Rust CLI tool that transforms raw markdown documentation into AI-optimized, searchable structures.
+## About This Project
 
-## Introduction & Features
+**AI-Augmented Software — Human-Crafted**
 
-Centralized Docs (`ctd`) is a pure Rust CLI tool that transforms raw documentation and static sites into AI-optimized, searchable knowledge structures.
+This is AI-written code, but it's not "AI slop." I wrote this with heavy adversarial testing, functional Rust principles, and a commitment to craft. Every function has been questioned, every edge case probed.
 
-**The Origin Problem**
+**Why Rust?** Because I'm writing AI-assisted code, and the compiler is my quality control. The Rust compiler catches entire categories of bugs that would slip through in other languages—use-after-free, data races, type mismatches. It's the only language where I trust AI-generated code to not surprise me catastrophically.
 
-This project stemmed from the frustration of trying to get AI agents to understand modern software libraries. The standard workflows suck:
+**I wouldn't recommend running this in production.** This is a personal tool I built for my own workflow. It works for me, and I've tested it heavily—but I'm one person with one use case. Your mileage may vary significantly. Review the code, understand what it does, and adapt it to your needs.
 
-- Blindly copy/pasting massive chunks of documentation into prompts.
-- Wasting time manually curating custom "skills" or context files for every new library.
-- Watching AI agents hallucinate because they downloaded a massive, unstructured documentation site and lost the context in the noise.
+If you're looking for a production-grade documentation pipeline, consider this a prototype or reference implementation. Fork it, modify it, make it yours.
 
-You simply point your AI at the `llms.txt`, and it can intelligently traverse the DAG and search the index rather than blindly reading everything.
+## What This Is
 
-## Core Features
+`ctd` is a pure Rust CLI tool that transforms raw documentation and static sites into AI-optimized, searchable knowledge structures.
 
-- **Scrape Static Sites** — Point the CLI at a documentation URL, and it will crawl the site, extract the content, and convert it to clean markdown.
-- **Contextual Chunking** — Each chunk carries surrounding context, solving the typical "lost in the middle" problem when AI reads isolated pieces of text.
-- **Knowledge Graphs (DAG)** — Detects and maps relationships between documents, making it easy for an agent to traverse related concepts systematically.
-- **llms.txt Generation** — Automatically builds `llms.txt` files, acting as a `robots.txt` equivalent for AI agents.
-- **Semantic Indexing** — Fast, full-text search optimized for AI using BM25, allowing agents to query exactly what they need.
-- **MCP Server** — Built-in Model Context Protocol server for native AI agent integration (Claude Desktop, Claude Code, etc.).
-- **Incremental Indexing** — State database tracks file changes, only re-processing what changed on re-index.
+**The Problem I Solved:**
+
+Getting AI agents to understand software libraries sucks:
+
+- Blindly copy/pasting massive documentation chunks into prompts.
+- Manually curating custom "skills" or context files for every library.
+- Watching AI agents hallucinate from unstructured documentation downloads.
+
+`ctd` creates an `llms.txt` entry point and a knowledge graph (DAG) so AI agents can intelligently traverse documentation rather than blindly reading everything.
 
 ## Quick Start
 
-### 1. Installation
+### Installation
 
 **Release binary (Linux x86_64, macOS Apple Silicon):**
 ```bash
@@ -40,39 +40,51 @@ curl -sSL https://raw.githubusercontent.com/lprior-repo/centralized-docs/main/sc
 cargo install --path centralized-docs
 ```
 
-### 2. Scrape + Index a Documentation Site
+### Index a Documentation Site
 
 ```bash
 ctd ingest https://kubernetes.io/docs/home/ --output ./k8s-docs
 ```
 
-### 3. Index Local Markdown Files
+### Index Local Markdown Files
 
 ```bash
 ctd index ./docs --output ./output --project-name "My Project" --with-agents
 ```
 
-### 4. Search the Index
+### Search the Index
 
 ```bash
 ctd search "authentication" --index-dir ./output --json --limit 5
 ```
 
-### 5. Start the MCP Server for AI Agents
+### Start the MCP Server for AI Agents
 
 ```bash
 ctd mcp serve ./output
 ```
 
-Connect your AI client to the running server. See [MCP Server docs](website/src/mcp-server.md) for full configuration.
+Connect your AI client to the running server. See [MCP Server docs](https://lprior-repo.github.io/centralized-docs/mcp-server.html) for full configuration.
 
-### 6. Monitor Documentation Changes
+### Monitor Documentation Changes
 
 ```bash
 ctd watch https://docs.example.com --output ./changes
 ctd diff ./old-scrape ./new-scrape --json
 ctd apply https://docs.example.com --scrape-dir ./new-scrape --yes
 ```
+
+## Core Features
+
+- **Scrape Static Sites** — Crawl a documentation URL, extract content, convert to clean markdown.
+- **Contextual Chunking** — Each chunk carries surrounding context (~50-100 tokens), solving "lost in the middle" problems.
+- **Knowledge Graphs (DAG)** — Maps Parent, Sequential, and Related edges between documents.
+- **llms.txt Generation** — `robots.txt` equivalent for AI agents.
+- **Semantic Indexing** — BM25 full-text search optimized for AI queries.
+- **MCP Server** — Native Model Context Protocol integration for Claude, Cursor, VS Code.
+- **Idempotent Operations** — Running `ctd index` multiple times produces identical output. Unchanged files are skipped.
+- **Incremental Indexing** — State database tracks changes, only re-processes what changed.
+- **Watch/Apply/Diff** — Terraform-style workflow for monitoring documentation changes.
 
 ## Output Structure
 
@@ -81,12 +93,18 @@ ctd apply https://docs.example.com --scrape-dir ./new-scrape --yes
 ├── llms.txt           # AI entry point (read this first)
 ├── INDEX.json         # Machine-readable index + knowledge DAG
 ├── NAVIGATION.md      # Human-readable navigation
-├── AGENTS.md          # Instructions for AI coding agents (with --with-agents)
+├── AGENTS.md          # AI agent instructions (with --with-agents)
 ├── docs/              # Transformed documents with YAML frontmatter
 ├── chunks/            # Semantic chunks with context prefix
 └── state.redb         # State database for incremental re-indexing
 ```
 
-## Documentation Site
+## Links
 
-The published docs site lives at `https://lprior-repo.github.io/centralized-docs/`.
+- **Documentation:** https://lprior-repo.github.io/centralized-docs/
+- **GitHub:** https://github.com/lprior-repo/centralized-docs
+- **Releases:** https://github.com/lprior-repo/centralized-docs/releases
+
+## License
+
+MIT
